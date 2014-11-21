@@ -176,19 +176,7 @@ mt76_txq_get_qid(struct ieee80211_txq *txq)
 	if (!txq->sta)
 		return MT_TXQ_BE;
 
-	switch (txq->tid) {
-	case 0:
-	case 3:
-		return MT_TXQ_BE;
-	case 1:
-	case 2:
-		return MT_TXQ_BK;
-	case 4:
-	case 5:
-		return MT_TXQ_VI;
-	default:
-		return MT_TXQ_VO;
-	}
+	return txq->ac;
 }
 
 static int
