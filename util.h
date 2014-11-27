@@ -64,10 +64,10 @@
 	BUILD_BUG_ON(!(__mask) || !is_valid_mask(__mask))
 
 #define MT76_SET(_mask, _val) \
-	({ FIELD_CHECK(_mask); ((_val) << compile_ffs32(_mask)) & _mask; })
+	({ FIELD_CHECK(_mask); (((u32) (_val)) << compile_ffs32(_mask)) & _mask; })
 
 #define MT76_GET(_mask, _val) \
-	({ FIELD_CHECK(_mask); ((_val) & _mask) >> compile_ffs32(_mask); })
+	({ FIELD_CHECK(_mask); (u32) (((_val) & _mask) >> compile_ffs32(_mask)); })
 
 #define MT76_INCR(_var, _size) \
 	_var = (((_var) + 1) % _size)
