@@ -51,7 +51,8 @@ static int mt76_get_of_eeprom(struct mt76_dev *dev, int len)
 	const char *part;
 	phandle phandle;
 	int offset = 0;
-	int size, retlen;
+	int size;
+	size_t retlen;
 
 	if (!np)
 		return -ENOENT;
