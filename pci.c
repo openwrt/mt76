@@ -20,6 +20,7 @@
 
 static const struct pci_device_id mt76pci_device_table[] = {
 	{ PCI_DEVICE(0x14c3, 0x7662) },
+	{ },
 };
 
 u32 mt76_rr(struct mt76_dev *dev, u32 offset)
