@@ -490,7 +490,7 @@ int mt76_mac_wcid_set_key(struct mt76_dev *dev, u8 idx,
 		mt76_rmw_field(dev, MT_WCID_ATTR(idx), MT_WCID_ATTR_PAIRWISE,
 			       !!(key->flags & IEEE80211_KEY_FLAG_PAIRWISE));
 		iv_data[3] = key->keyidx << 6;
-		if (cipher >= WLAN_CIPHER_SUITE_TKIP)
+		if (cipher >= MT_CIPHER_TKIP)
 			iv_data[3] |= 0x20;
 	}
 
