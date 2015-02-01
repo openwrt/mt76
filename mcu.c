@@ -251,10 +251,13 @@ mt76pci_load_firmware(struct mt76_dev *dev)
 
 	if (!i) {
 		printk("Firmware failed to start\n");
+		release_firmware(fw);
 		return -ETIMEDOUT;
 	}
 
 	printk("Firmware running!\n");
+
+	release_firmware(fw);
 
 	return ret;
 
