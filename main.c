@@ -198,15 +198,16 @@ mt76_wcid_alloc(struct mt76_dev *dev)
 		if (!idx)
 			continue;
 
-		if (idx > 247)
-			return -1;
-
 		idx--;
 		dev->wcid_mask[i] |= BIT(idx);
-		return i * BITS_PER_LONG + idx;
+		break;
 	}
 
-	return -1;
+	idx = i * BITS_PER_LONG + idx;
+	if (idx > 247)
+		return -1;
+
+	return idx;
 }
 
 static int
