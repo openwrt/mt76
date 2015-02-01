@@ -117,18 +117,6 @@ out:
 	return ret;
 }
 
-static const char *
-get_string(const char *data, int len)
-{
-	static char buf[17];
-
-	BUG_ON(len >= sizeof(buf));
-	memcpy(buf, data, len);
-	buf[len] = 0;
-
-	return buf;
-}
-
 static void
 write_data(struct mt76_dev *dev, u32 offset, __le32 *data, int len)
 {
@@ -173,7 +161,7 @@ mt76pci_load_rom_patch(struct mt76_dev *dev)
 	}
 
 	hdr = (struct mt76_patch_header *) fw->data;
-	printk("ROM patch build: %s\n", get_string(hdr->build_time, 15));
+	printk("ROM patch build: %15s\n", hdr->build_time);
 
 	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, MT_MCU_ROM_PATCH_OFFSET);
 
@@ -229,7 +217,7 @@ mt76pci_load_firmware(struct mt76_dev *dev)
 
 	val = le16_to_cpu(hdr->build_ver);
 	printk("Build: %x\n", val);
-	printk("Build Time: %16s\n", get_string(hdr->build_time, 16));
+	printk("Build Time: %16s\n", hdr->build_time);
 
 	cur = (__le32 *) (fw->data + sizeof(*hdr));
 	len = le32_to_cpu(hdr->ilm_len);
