@@ -425,8 +425,9 @@
 #define MT_TX_AGG_CNT_BASE0		0x1720
 #define MT_TX_AGG_CNT_BASE1		0x174c
 
-#define MT_TX_AGG_CNT(_id)		(((_id) > 7 ? MT_TX_AGG_CNT_BASE1 : \
-					  MT_TX_AGG_CNT_BASE0) + ((_id) << 2))
+#define MT_TX_AGG_CNT(_id)		((_id) < 8 ?			\
+					 MT_TX_AGG_CNT_BASE0 + ((_id) << 2) : \
+					 MT_TX_AGG_CNT_BASE1 + ((_id - 8) << 2))
 
 #define MT_TX_STAT_FIFO_EXT		0x1798
 #define MT_TX_STAT_FIFO_EXT_RETRY	GENMASK(7, 0)
