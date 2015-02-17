@@ -58,7 +58,7 @@ struct mt76_queue_entry {
 };
 
 enum {
-	MT76_STATE_INITAILIZED,
+	MT76_STATE_INITIALIZED,
 	MT76_STATE_RUNNING,
 	MT76_SCANNING,
 };

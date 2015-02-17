@@ -507,7 +507,7 @@ int mt76_init_hardware(struct mt76_dev *dev)
 	if (ret)
 		return ret;
 
-	set_bit(MT76_STATE_INITAILIZED, &dev->state);
+	set_bit(MT76_STATE_INITIALIZED, &dev->state);
 	ret = mt76_mac_start(dev);
 	if (ret)
 		return ret;
