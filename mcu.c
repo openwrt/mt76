@@ -161,7 +161,7 @@ mt76pci_load_rom_patch(struct mt76_dev *dev)
 	}
 
 	hdr = (struct mt76_patch_header *) fw->data;
-	printk("ROM patch build: %15s\n", hdr->build_time);
+	printk("ROM patch build: %.15s\n", hdr->build_time);
 
 	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, MT_MCU_ROM_PATCH_OFFSET);
 
@@ -217,7 +217,7 @@ mt76pci_load_firmware(struct mt76_dev *dev)
 
 	val = le16_to_cpu(hdr->build_ver);
 	printk("Build: %x\n", val);
-	printk("Build Time: %16s\n", hdr->build_time);
+	printk("Build Time: %.16s\n", hdr->build_time);
 
 	cur = (__le32 *) (fw->data + sizeof(*hdr));
 	len = le32_to_cpu(hdr->ilm_len);
