@@ -349,7 +349,7 @@ mt76_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif, u16 queue,
 }
 
 static void
-mt76_sw_scan(struct ieee80211_hw *hw)
+mt76_sw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif, const u8 *mac)
 {
 	struct mt76_dev *dev = hw->priv;
 
@@ -358,7 +358,7 @@ mt76_sw_scan(struct ieee80211_hw *hw)
 }
 
 static void
-mt76_sw_scan_complete(struct ieee80211_hw *hw)
+mt76_sw_scan_complete(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
 	struct mt76_dev *dev = hw->priv;
 
