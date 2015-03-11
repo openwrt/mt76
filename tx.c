@@ -201,7 +201,8 @@ mt76_txq_send_burst(struct mt76_dev *dev, struct mt76_queue *hwq,
 		wcid = &mvif->group_wcid;
 	}
 
-	if (ieee80211_tx_dequeue(dev->hw, txq, &skb)) {
+	skb = ieee80211_tx_dequeue(dev->hw, txq);
+	if (IS_ERR_OR_NULL(skb)) {
 		*empty = true;
 		return 0;
 	}
@@ -226,7 +227,8 @@ mt76_txq_send_burst(struct mt76_dev *dev, struct mt76_queue *hwq,
 		if (probe)
 			break;
 
-		if (ieee80211_tx_dequeue(dev->hw, txq, &skb)) {
+		skb = ieee80211_tx_dequeue(dev->hw, txq);
+		if (IS_ERR_OR_NULL(skb)) {
 			*empty = true;
 			break;
 		}
