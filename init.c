@@ -278,8 +278,9 @@ int mt76_mac_start(struct mt76_dev *dev)
 
 	mt76_set(dev, MT_WPDMA_GLO_CFG,
 		 MT_WPDMA_GLO_CFG_TX_DMA_EN |
-		 MT_WPDMA_GLO_CFG_RX_DMA_EN |
-		 MT_WPDMA_GLO_CFG_TX_WRITEBACK_DONE);
+		 MT_WPDMA_GLO_CFG_RX_DMA_EN);
+
+	mt76_clear(dev, MT_WPDMA_GLO_CFG, MT_WPDMA_GLO_CFG_TX_WRITEBACK_DONE);
 
 	mt76_wr(dev, MT_RX_FILTR_CFG, dev->rxfilter);
 
