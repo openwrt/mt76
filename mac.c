@@ -201,7 +201,7 @@ void mt76_mac_write_txwi(struct mt76_dev *dev, struct mt76_txwi *txwi,
 	if ((info->flags & IEEE80211_TX_CTL_AMPDU) && sta) {
 		u8 ba_size = IEEE80211_MIN_AMPDU_BUF;
 		ba_size <<= sta->ht_cap.ampdu_factor;
-		ba_size = min_t(int, 63, ba_size);
+		ba_size = min_t(int, 63, ba_size - 1);
 		if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE)
 			ba_size = 0;
 		txwi->ack_ctl |= MT76_SET(MT_TXWI_ACK_CTL_BA_WINDOW, ba_size);
