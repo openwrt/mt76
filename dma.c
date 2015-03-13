@@ -169,7 +169,6 @@ mt76_dma_rx_fill(struct mt76_dev *dev, struct mt76_queue *q)
 			break;
 
 		addr = dma_map_single(dev->dev, buf, len, DMA_FROM_DEVICE);
-
 		if (dma_mapping_error(dev->dev, addr)) {
 			kfree(buf);
 			break;
@@ -360,6 +359,7 @@ mt76_rx_get_buf(struct mt76_dev *dev, struct mt76_queue *q, int idx, int *len)
 	struct mt76_queue_entry *e;
 	dma_addr_t buf_addr;
 	void *buf;
+	int buf_len = SKB_WITH_OVERHEAD(q->buf_size);
 
 	e = &q->entry[idx];
 	buf = e->buf;
@@ -368,7 +368,7 @@ mt76_rx_get_buf(struct mt76_dev *dev, struct mt76_queue *q, int idx, int *len)
 		u32 ctl = ACCESS_ONCE(q->desc[idx].ctrl);
 		*len = MT76_GET(MT_DMA_CTL_SD_LEN0, ctl);
 	}
-	dma_unmap_single(dev->dev, buf_addr, q->buf_size, DMA_FROM_DEVICE);
+	dma_unmap_single(dev->dev, buf_addr, buf_len, DMA_FROM_DEVICE);
 	e->buf = NULL;
 
 	return buf;
