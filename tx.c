@@ -62,10 +62,14 @@ void mt76_tx_complete(struct mt76_dev *dev, struct sk_buff *skb)
 	struct mt76_queue *q;
 	int qid = skb_get_queue_mapping(skb);
 
-	ieee80211_tx_info_clear_status(info);
-	info->status.rates[0].idx = -1;
-	info->flags |= IEEE80211_TX_STAT_ACK;
-	ieee80211_tx_status(dev->hw, skb);
+	if (info->control.flags & IEEE80211_TX_CTL_AMPDU) {
+		ieee80211_free_txskb(dev->hw, skb);
+	} else {
+		ieee80211_tx_info_clear_status(info);
+		info->status.rates[0].idx = -1;
+		info->flags |= IEEE80211_TX_STAT_ACK;
+		ieee80211_tx_status(dev->hw, skb);
+	}
 
 	q = &dev->q_tx[qid];
 	if (q->queued < q->ndesc - 8)
