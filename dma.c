@@ -303,7 +303,6 @@ mt76_tx_cleanup_entry(struct mt76_dev *dev, struct mt76_queue *q, int idx,
 	e->schedule = false;
 
 	if (txwi) {
-		skb_orphan(skb);
 		mt76_mac_queue_txdone(dev, skb, &txwi->txwi);
 		mt76_put_txwi(dev, txwi);
 
