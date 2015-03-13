@@ -211,6 +211,9 @@ struct mt76_vif {
 struct mt76_sta {
 	struct mt76_wcid wcid;
 	u16 agg_ssn[IEEE80211_NUM_TIDS];
+
+	u32 status;
+	int n_frames;
 };
 
 struct mt76_txq {

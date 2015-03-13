@@ -344,25 +344,50 @@ mt76_mac_fill_tx_status(struct mt76_dev *dev, struct ieee80211_tx_info *info,
 }
 
 static void
-mt76_send_tx_status(struct mt76_dev *dev, struct mt76_tx_status *stat)
+mt76_send_tx_status(struct mt76_dev *dev, struct mt76_tx_status *stat, u32 *data)
 {
 	struct ieee80211_tx_info info = {};
 	struct ieee80211_sta *sta = NULL;
 	struct mt76_wcid *wcid = NULL;
-	void *msta;
+	struct mt76_sta *msta = NULL;
+	u32 data_val = stat->wcid | BIT(31);
+	u32 stat_val = stat->rate | BIT(31);
+	stat_val |= ((u32) stat->retry) << 16;
 
 	rcu_read_lock();
 	if (stat->wcid < ARRAY_SIZE(dev->wcid))
 		wcid = rcu_dereference(dev->wcid[stat->wcid]);
 
 	if (wcid) {
-		msta = container_of(wcid, struct mt76_sta, wcid);
-		sta = container_of(msta, struct ieee80211_sta,
+		void *priv;
+
+		priv = msta = container_of(wcid, struct mt76_sta, wcid);
+		sta = container_of(priv, struct ieee80211_sta,
 				   drv_priv);
 	}
 
-	mt76_mac_fill_tx_status(dev, &info, stat);
+	if (msta && stat->aggr && stat->success) {
+		if (stat_val == msta->status && *data == data_val &&
+		    msta->n_frames++ < 32)
+			goto out;
+
+		mt76_mac_fill_tx_status(dev, &info, stat);
+		info.status.ampdu_len = msta->n_frames;
+		info.status.ampdu_ack_len = stat->success ? msta->n_frames : 0;
+		msta->status = stat_val;
+	} else {
+		mt76_mac_fill_tx_status(dev, &info, stat);
+		if (msta)
+			msta->status = 0;
+	}
+
+	*data = data_val;
+	if (msta)
+		msta->n_frames = 0;
+
 	ieee80211_tx_status_noskb(dev->hw, sta, &info);
+
+out:
 	rcu_read_unlock();
 }
 
@@ -370,6 +395,7 @@ void mt76_mac_poll_tx_status(struct mt76_dev *dev, bool irq)
 {
 	struct mt76_tx_status stat = {};
 	unsigned long flags;
+	u32 data = 0;
 
 	if (!test_bit(MT76_STATE_RUNNING, &dev->state))
 		return;
@@ -400,7 +426,7 @@ void mt76_mac_poll_tx_status(struct mt76_dev *dev, bool irq)
 		trace_mac_txstat_fetch(dev, &stat);
 
 		if (!irq) {
-			mt76_send_tx_status(dev, &stat);
+			mt76_send_tx_status(dev, &stat, &data);
 			continue;
 		}
 
@@ -426,9 +452,10 @@ void mt76_mac_queue_txdone(struct mt76_dev *dev, struct sk_buff *skb,
 void mt76_mac_process_tx_status_fifo(struct mt76_dev *dev)
 {
 	struct mt76_tx_status stat;
+	u32 data = 0;
 
 	while (kfifo_get(&dev->txstatus_fifo, &stat))
-		mt76_send_tx_status(dev, &stat);
+		mt76_send_tx_status(dev, &stat, &data);
 }
 
 static enum mt76_cipher_type
