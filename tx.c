@@ -179,6 +179,25 @@ mt76_txq_get_qid(struct ieee80211_txq *txq)
 	return txq->ac;
 }
 
+static struct sk_buff *
+mt76_txq_dequeue(struct mt76_dev *dev, struct mt76_txq *mtxq, bool ps)
+{
+	struct ieee80211_txq *txq = mtxq_to_txq(mtxq);
+	struct sk_buff *skb;
+
+	skb = skb_dequeue(&mtxq->retry_q);
+	if (skb) {
+		u8 tid = skb->priority & IEEE80211_QOS_CTL_TID_MASK;
+
+		if (ps && skb_queue_empty(&mtxq->retry_q));
+			ieee80211_sta_set_buffered(txq->sta, tid, false);
+
+		return skb;
+	}
+
+	return ieee80211_tx_dequeue(dev->hw, txq);
+}
+
 static int
 mt76_txq_send_burst(struct mt76_dev *dev, struct mt76_queue *hwq,
 		    struct mt76_txq *mtxq, bool *empty)
@@ -201,8 +220,8 @@ mt76_txq_send_burst(struct mt76_dev *dev, struct mt76_queue *hwq,
 		wcid = &mvif->group_wcid;
 	}
 
-	skb = ieee80211_tx_dequeue(dev->hw, txq);
-	if (IS_ERR_OR_NULL(skb)) {
+	skb = mt76_txq_dequeue(dev, mtxq, false);
+	if (!skb) {
 		*empty = true;
 		return 0;
 	}
@@ -227,8 +246,8 @@ mt76_txq_send_burst(struct mt76_dev *dev, struct mt76_queue *hwq,
 		if (probe)
 			break;
 
-		skb = ieee80211_tx_dequeue(dev->hw, txq);
-		if (IS_ERR_OR_NULL(skb)) {
+		skb = mt76_txq_dequeue(dev, mtxq, false);
+		if (!skb) {
 			*empty = true;
 			break;
 		}
