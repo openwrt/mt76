@@ -20,12 +20,6 @@ struct mt76_txwi_cache {
 	struct list_head list;
 };
 
-enum mt76_dma_dequeue {
-	DMA_DEQUEUE_FLUSH,
-	DMA_DEQUEUE_DDONE,
-	DMA_DEQUEUE_IDX,
-};
-
 static inline int
 mt76_rx_buf_offset(struct mt76_dev *dev)
 {
@@ -266,29 +260,14 @@ free:
 }
 
 static int
-mt76_dma_dequeue(struct mt76_dev *dev, struct mt76_queue *q, enum mt76_dma_dequeue type)
+mt76_dma_dequeue(struct mt76_dev *dev, struct mt76_queue *q, bool flush)
 {
 	int ret = -1;
-	u16 idx;
-	bool skip;
 
 	if (!q->queued)
 		return -1;
 
-	switch (type) {
-	case DMA_DEQUEUE_DDONE:
-		skip = !(q->desc[q->tail].ctrl & cpu_to_le32(MT_DMA_CTL_DMA_DONE));
-		break;
-	case DMA_DEQUEUE_IDX:
-		idx = ioread32(&q->regs->dma_idx);
-		skip = (q->tail == idx);
-		break;
-	case DMA_DEQUEUE_FLUSH:
-		skip = false;
-		break;
-	}
-
-	if (skip)
+	if (!flush && !(q->desc[q->tail].ctrl & cpu_to_le32(MT_DMA_CTL_DMA_DONE)))
 		return -1;
 
 	ret = q->tail;
@@ -335,18 +314,24 @@ mt76_tx_cleanup_entry(struct mt76_dev *dev, struct mt76_queue *q, int idx,
 static void
 mt76_tx_cleanup_queue(struct mt76_dev *dev, struct mt76_queue *q, bool flush)
 {
-	enum mt76_dma_dequeue type = flush ? DMA_DEQUEUE_FLUSH : DMA_DEQUEUE_IDX;
-	int idx;
+	int idx, last;
 
 	spin_lock_bh(&q->lock);
 
-	do {
-		idx = mt76_dma_dequeue(dev, q, type);
-		if (idx < 0)
-			break;
+	idx = q->tail;
+	if (flush)
+		last = -1;
+	else
+		last = ioread32(&q->regs->dma_idx);
 
-		mt76_tx_cleanup_entry(dev, q, idx, flush);
-	} while (1);
+	while (q->queued && q->tail != last) {
+		mt76_tx_cleanup_entry(dev, q, q->tail, flush);
+		q->tail = (q->tail + 1) % q->ndesc;
+		q->queued--;
+
+		if (q->tail == last)
+		    last = ioread32(&q->regs->dma_idx);
+	}
 
 	spin_unlock_bh(&q->lock);
 }
@@ -381,7 +366,7 @@ mt76_rx_cleanup(struct mt76_dev *dev, struct mt76_queue *q)
 	spin_lock_bh(&q->lock);
 
 	do {
-		idx = mt76_dma_dequeue(dev, q, DMA_DEQUEUE_FLUSH);
+		idx = mt76_dma_dequeue(dev, q, true);
 		if (idx < 0)
 			break;
 
@@ -449,7 +434,7 @@ mt76_process_rx_queue(struct mt76_dev *dev, struct mt76_queue *q, int budget)
 	int done = 0;
 
 	while (done < budget) {
-		idx = mt76_dma_dequeue(dev, q, DMA_DEQUEUE_DDONE);
+		idx = mt76_dma_dequeue(dev, q, false);
 		if (idx < 0)
 			break;
 
