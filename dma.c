@@ -272,10 +272,8 @@ mt76_dma_dequeue(struct mt76_dev *dev, struct mt76_queue *q, enum mt76_dma_deque
 	u16 idx;
 	bool skip;
 
-	spin_lock_bh(&q->lock);
-
 	if (!q->queued)
-		goto out;
+		return -1;
 
 	switch (type) {
 	case DMA_DEQUEUE_DDONE:
@@ -291,14 +289,12 @@ mt76_dma_dequeue(struct mt76_dev *dev, struct mt76_queue *q, enum mt76_dma_deque
 	}
 
 	if (skip)
-		goto out;
+		return -1;
 
 	ret = q->tail;
 	q->tail = (q->tail + 1) % q->ndesc;
 	q->queued--;
 
-out:
-	spin_unlock_bh(&q->lock);
 	return ret;
 }
 
@@ -327,11 +323,9 @@ mt76_tx_cleanup_entry(struct mt76_dev *dev, struct mt76_queue *q, int idx,
 		mt76_put_txwi(dev, txwi);
 
 		if (schedule) {
-			spin_lock_bh(&q->lock);
 			q->swq_queued--;
 			if (!flush)
 				mt76_txq_schedule(dev, q);
-			spin_unlock_bh(&q->lock);
 		}
 	} else {
 		dev_kfree_skb_any(skb);
@@ -344,6 +338,8 @@ mt76_tx_cleanup_queue(struct mt76_dev *dev, struct mt76_queue *q, bool flush)
 	enum mt76_dma_dequeue type = flush ? DMA_DEQUEUE_FLUSH : DMA_DEQUEUE_IDX;
 	int idx;
 
+	spin_lock_bh(&q->lock);
+
 	do {
 		idx = mt76_dma_dequeue(dev, q, type);
 		if (idx < 0)
@@ -351,6 +347,8 @@ mt76_tx_cleanup_queue(struct mt76_dev *dev, struct mt76_queue *q, bool flush)
 
 		mt76_tx_cleanup_entry(dev, q, idx, flush);
 	} while (1);
+
+	spin_unlock_bh(&q->lock);
 }
 
 static void *
@@ -380,6 +378,8 @@ mt76_rx_cleanup(struct mt76_dev *dev, struct mt76_queue *q)
 	void *buf;
 	int idx;
 
+	spin_lock_bh(&q->lock);
+
 	do {
 		idx = mt76_dma_dequeue(dev, q, DMA_DEQUEUE_FLUSH);
 		if (idx < 0)
@@ -388,6 +388,8 @@ mt76_rx_cleanup(struct mt76_dev *dev, struct mt76_queue *q)
 		buf = mt76_rx_get_buf(dev, q, idx, NULL);
 		kfree(buf);
 	} while (1);
+
+	spin_unlock_bh(&q->lock);
 }
 
 static int
