@@ -62,7 +62,7 @@ void mt76_tx_complete(struct mt76_dev *dev, struct sk_buff *skb)
 	struct mt76_queue *q;
 	int qid = skb_get_queue_mapping(skb);
 
-	if (info->control.flags & IEEE80211_TX_CTL_AMPDU) {
+	if (info->flags & IEEE80211_TX_CTL_AMPDU) {
 		ieee80211_free_txskb(dev->hw, skb);
 	} else {
 		ieee80211_tx_info_clear_status(info);
