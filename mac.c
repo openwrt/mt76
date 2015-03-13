@@ -376,15 +376,18 @@ void mt76_mac_poll_tx_status(struct mt76_dev *dev, bool irq)
 
 	trace_mac_txstat_poll(dev);
 
-	spin_lock_irqsave(&dev->irq_lock, flags);
 	while (!irq || !kfifo_is_full(&dev->txstatus_fifo)) {
 		u32 stat1, stat2;
 
+		spin_lock_irqsave(&dev->irq_lock, flags);
 		stat1 = mt76_rr(dev, MT_TX_STAT_FIFO);
-		if (!(stat1 & MT_TX_STAT_FIFO_VALID))
+		if (!(stat1 & MT_TX_STAT_FIFO_VALID)) {
+			spin_unlock_irqrestore(&dev->irq_lock, flags);
 			break;
+		}
 
 		stat2 = mt76_rr(dev, MT_TX_STAT_FIFO_EXT);
+		spin_unlock_irqrestore(&dev->irq_lock, flags);
 
 		stat.valid = 1;
 		stat.success = !!(stat1 & MT_TX_STAT_FIFO_SUCCESS);
@@ -403,7 +406,6 @@ void mt76_mac_poll_tx_status(struct mt76_dev *dev, bool irq)
 
 		kfifo_put(&dev->txstatus_fifo, stat);
 	}
-	spin_unlock_irqrestore(&dev->irq_lock, flags);
 }
 
 void mt76_mac_queue_txdone(struct mt76_dev *dev, struct sk_buff *skb,
