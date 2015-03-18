@@ -452,6 +452,7 @@ void mt76_txq_remove(struct mt76_dev *dev, struct ieee80211_txq *txq)
 {
 	struct mt76_txq *mtxq;
 	struct mt76_queue *hwq;
+	struct sk_buff *skb;
 
 	if (!txq)
 		return;
@@ -462,5 +463,9 @@ void mt76_txq_remove(struct mt76_dev *dev, struct ieee80211_txq *txq)
 	spin_lock_bh(&hwq->lock);
 	if (!list_empty(&mtxq->list))
 		list_del(&mtxq->list);
+
+	while ((skb = skb_dequeue(&mtxq->retry_q)) != NULL)
+		ieee80211_free_txskb(dev->hw, skb);
+
 	spin_unlock_bh(&hwq->lock);
 }
