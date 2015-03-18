@@ -210,7 +210,6 @@ struct mt76_vif {
 
 struct mt76_sta {
 	struct mt76_wcid wcid;
-	u16 agg_ssn[IEEE80211_NUM_TIDS];
 
 	u32 status;
 	int n_frames;
@@ -222,6 +221,9 @@ struct mt76_txq {
 	struct mt76_queue *hwq;
 
 	struct sk_buff_head retry_q;
+
+	u16 agg_ssn;
+	bool send_bar;
 };
 
 struct mt76_reg_pair {

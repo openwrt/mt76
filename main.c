@@ -400,6 +400,11 @@ mt76_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 {
 	struct mt76_dev *dev = hw->priv;
 	struct mt76_sta *msta = (struct mt76_sta *) sta->drv_priv;
+	struct ieee80211_txq *txq = sta->txq[tid];
+	struct mt76_txq *mtxq = (struct mt76_txq *) txq->drv_priv;
+
+	if (!txq)
+		return -EINVAL;
 
 	switch (action) {
 	case IEEE80211_AMPDU_RX_START:
@@ -409,13 +414,13 @@ mt76_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		mt76_clear(dev, MT_WCID_ADDR(msta->wcid.idx)+4, BIT(16 + tid));
 		break;
 	case IEEE80211_AMPDU_TX_OPERATIONAL:
-		ieee80211_send_bar(vif, sta->addr, tid, msta->agg_ssn[tid]);
+		ieee80211_send_bar(vif, sta->addr, tid, cpu_to_le16(mtxq->agg_ssn));
 		break;
 	case IEEE80211_AMPDU_TX_STOP_FLUSH:
 	case IEEE80211_AMPDU_TX_STOP_FLUSH_CONT:
 		break;
 	case IEEE80211_AMPDU_TX_START:
-		msta->agg_ssn[tid] = *ssn << 4;
+		mtxq->agg_ssn = *ssn << 4;
 		ieee80211_start_tx_ba_cb_irqsafe(vif, sta->addr, tid);
 		break;
 	case IEEE80211_AMPDU_TX_STOP_CONT:
