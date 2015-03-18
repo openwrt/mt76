@@ -243,7 +243,6 @@ mt76_phy_set_txpower_regs(struct mt76_dev *dev, enum ieee80211_band band)
 {
 	u32 pa_mode[2];
 	u32 pa_mode_adj;
-	u32 tx_cfg = 0;
 
 	if (band == IEEE80211_BAND_2GHZ) {
 		pa_mode[0] = 0x010055ff;
@@ -267,12 +266,11 @@ mt76_phy_set_txpower_regs(struct mt76_dev *dev, enum ieee80211_band band)
 		mt76_wr(dev, MT_TX_ALC_CFG_3, 0x1b0f0476);
 		mt76_wr(dev, MT_TX_ALC_CFG_4, 0);
 
-		if (mt76_ext_pa_enabled(dev, band)) {
-			tx_cfg = 0x00830083;
+		if (mt76_ext_pa_enabled(dev, band))
 			pa_mode_adj = 0x04000000;
-		} else {
+		else
 			pa_mode_adj = 0;
-		}
+
 		mt76_wr(dev, MT_RF_PA_MODE_ADJ0, pa_mode_adj);
 		mt76_wr(dev, MT_RF_PA_MODE_ADJ1, pa_mode_adj);
 	}
@@ -281,7 +279,6 @@ mt76_phy_set_txpower_regs(struct mt76_dev *dev, enum ieee80211_band band)
 	mt76_wr(dev, MT_BB_PA_MODE_CFG1, pa_mode[1]);
 	mt76_wr(dev, MT_RF_PA_MODE_CFG0, pa_mode[0]);
 	mt76_wr(dev, MT_RF_PA_MODE_CFG1, pa_mode[1]);
-	mt76_wr(dev, MT_PROT_AUTO_TX_CFG, tx_cfg);
 
 	if (mt76_ext_pa_enabled(dev, band)) {
 		u32 val = 0x3c3c023c;
