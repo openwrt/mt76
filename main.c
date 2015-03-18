@@ -452,6 +452,7 @@ const struct ieee80211_ops mt76_ops = {
 	.get_txpower = mt76_get_txpower,
 	.wake_tx_queue = mt76_wake_tx_queue,
 	.sta_rate_tbl_update = mt76_sta_rate_tbl_update,
+	.release_buffered_frames = mt76_release_buffered_frames,
 };
 
 void mt76_rx(struct mt76_dev *dev, struct sk_buff *skb)
