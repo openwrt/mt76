@@ -120,6 +120,8 @@ enum mcu_calibration {
 	MCU_CAL_DPD,
 	MCU_CAL_RXIQC_FI,
 	MCU_CAL_RXIQC_FD,
+	MCU_CAL_PWRON,
+	MCU_CAL_TX_SHAPING,
 };
 
 enum mt76_mcu_cr_mode {

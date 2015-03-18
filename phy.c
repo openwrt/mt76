@@ -228,6 +228,7 @@ mt76_phy_channel_calibrate(struct mt76_dev *dev, bool mac_stopped)
 	mt76_mcu_calibrate(dev, MCU_CAL_TXIQ, is_5ghz);
 	mt76_mcu_calibrate(dev, MCU_CAL_RXIQC_FI, is_5ghz);
 	mt76_mcu_calibrate(dev, MCU_CAL_TEMP_SENSOR, 0);
+	mt76_mcu_calibrate(dev, MCU_CAL_TX_SHAPING, 0);
 
 	if (!mac_stopped)
 		mt76_mac_resume(dev);
