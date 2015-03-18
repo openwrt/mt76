@@ -399,6 +399,22 @@ void mt76_txq_init(struct mt76_dev *dev, struct ieee80211_txq *txq)
 	mtxq->hwq = &dev->q_tx[mt76_txq_get_qid(txq)];
 }
 
+void
+mt76_stop_tx_queues(struct mt76_dev *dev, struct ieee80211_sta *sta)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(sta->txq); i++) {
+		struct ieee80211_txq *txq = sta->txq[i];
+		struct mt76_txq *mtxq = (struct mt76_txq *) txq->drv_priv;
+
+		spin_lock_bh(&mtxq->hwq->lock);
+		if (!list_empty(&mtxq->list))
+		    list_del_init(&mtxq->list);
+		spin_unlock_bh(&mtxq->hwq->lock);
+	}
+}
+
 void mt76_wake_tx_queue(struct ieee80211_hw *hw, struct ieee80211_txq *txq)
 {
 	struct mt76_dev *dev = hw->priv;

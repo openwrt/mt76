@@ -214,6 +214,7 @@ struct mt76_sta {
 
 	u32 status;
 	int n_frames;
+	bool sleeping;
 };
 
 struct mt76_txq {
@@ -344,5 +345,7 @@ void mt76_release_buffered_frames(struct ieee80211_hw *hw,
 				  u16 tids, int nframes,
 				  enum ieee80211_frame_release_type reason,
 				  bool more_data);
+
+void mt76_stop_tx_queues(struct mt76_dev *dev, struct ieee80211_sta *sta);
 
 #endif
