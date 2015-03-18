@@ -119,6 +119,7 @@ mt76_write_mac_initvals(struct mt76_dev *dev)
 		{ MT_HT_FBK_TO_LEGACY,		0x00001818 },
 		{ MT_VHT_HT_FBK_CFG1,		0xedcba980 },
 		{ MT_PROT_AUTO_TX_CFG,		0x00830083 },
+		{ MT_HT_CTRL_CFG,		0x000001ff },
 	};
 
 	mt76_write_reg_pairs(dev, vals, ARRAY_SIZE(vals));
