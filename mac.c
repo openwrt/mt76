@@ -183,10 +183,10 @@ void mt76_mac_write_txwi(struct mt76_dev *dev, struct mt76_txwi *txwi,
 	spin_unlock_irqrestore(&dev->lock, flags);
 
 	if (mt76xx_rev(dev) >= MT76XX_REV_E4)
-		txwi->txstream = 0x03;
+		txwi->txstream = 0x13;
 	else if (mt76xx_rev(dev) >= MT76XX_REV_E3 &&
 		 !(txwi->rate & cpu_to_le16(rate_ht_mask)))
-		txwi->txstream = 0x83;
+		txwi->txstream = 0x93;
 
 	if (info->flags & IEEE80211_TX_CTL_LDPC)
 		txwi->rate |= cpu_to_le16(MT_RXWI_RATE_LDPC);
