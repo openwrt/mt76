@@ -42,11 +42,29 @@
 #define MT_RX_FCE_INFO_D_PORT		GENMASK(29, 27)
 #define MT_RX_FCE_INFO_TYPE		GENMASK(31, 30)
 
+/* MCU request message header  */
+#define MT_MCU_MSG_LEN			GENMASK(15, 0)
+#define MT_MCU_MSG_CMD_SEQ		GENMASK(19, 16)
+#define MT_MCU_MSG_CMD_TYPE		GENMASK(26, 20)
+#define MT_MCU_MSG_PORT			GENMASK(29, 27)
+#define MT_MCU_MSG_TYPE			GENMASK(31, 30)
+#define MT_MCU_MSG_TYPE_CMD		BIT(30)
+
 enum mt76_qsel {
 	MT_QSEL_MGMT,
 	MT_QSEL_HCCA,
 	MT_QSEL_EDCA,
 	MT_QSEL_EDCA_2,
+};
+
+enum dma_msg_port {
+	WLAN_PORT,
+	CPU_RX_PORT,
+	CPU_TX_PORT,
+	HOST_PORT,
+	VIRTUAL_CPU_RX_PORT,
+	VIRTUAL_CPU_TX_PORT,
+	DISCARD,
 };
 
 struct mt76_desc {

@@ -79,13 +79,7 @@ mt76_mcu_msg_send(struct mt76_dev *dev, struct sk_buff *skb, enum mcu_cmd cmd)
 	if (!seq)
 		seq = ++dev->mcu.msg_seq & 0xf;
 
-	info = MT_MCU_MSG_TYPE_CMD |
-	       MT76_SET(MT_MCU_MSG_CMD_TYPE, cmd) |
-	       MT76_SET(MT_MCU_MSG_CMD_SEQ, seq) |
-	       MT76_SET(MT_MCU_MSG_PORT, CPU_TX_PORT) |
-	       MT76_SET(MT_MCU_MSG_LEN, skb->len);
-
-	ret = __mt76_tx_queue_skb(dev, MT_TXQ_MCU, skb, info);
+	ret = mt76_tx_queue_mcu(dev, MT_TXQ_MCU, skb, cmd, seq);
 	if (ret)
 		goto out;
 

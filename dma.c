@@ -183,12 +183,20 @@ mt76_dma_rx_fill(struct mt76_dev *dev, struct mt76_queue *q)
 	return frames;
 }
 
-int __mt76_tx_queue_skb(struct mt76_dev *dev, enum mt76_txq_id qid,
-			struct sk_buff *skb, u32 tx_info)
+static int
+mt76_dma_tx_queue_mcu(struct mt76_dev *dev, enum mt76_txq_id qid,
+		      struct sk_buff *skb, int cmd, int seq)
 {
 	struct mt76_queue *q = &dev->q_tx[qid];
 	dma_addr_t addr;
+	u32 tx_info;
 	int idx;
+
+	tx_info = MT_MCU_MSG_TYPE_CMD |
+		  MT76_SET(MT_MCU_MSG_CMD_TYPE, cmd) |
+		  MT76_SET(MT_MCU_MSG_CMD_SEQ, seq) |
+		  MT76_SET(MT_MCU_MSG_PORT, CPU_TX_PORT) |
+		  MT76_SET(MT_MCU_MSG_LEN, skb->len);
 
 	addr = dma_map_single(dev->dev, skb->data, skb->len, DMA_TO_DEVICE);
 	if (dma_mapping_error(dev->dev, addr))
@@ -520,6 +528,7 @@ mt76_rx_tasklet(unsigned long data)
 
 static const struct mt76_dma_ops dma_ops = {
 	.queue_skb = mt76_dma_tx_queue_skb,
+	.queue_mcu = mt76_dma_tx_queue_mcu,
 };
 
 int mt76_dma_init(struct mt76_dev *dev)

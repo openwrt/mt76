@@ -145,6 +145,8 @@ struct mt76_dma_ops {
 	int (*queue_skb)(struct mt76_dev *dev, struct mt76_queue *q,
 			 struct sk_buff *skb, struct mt76_wcid *wcid,
 			 struct ieee80211_sta *sta);
+	int (*queue_mcu)(struct mt76_dev *dev, enum mt76_txq_id qid,
+			 struct sk_buff *skb, int cmd, int seq);
 };
 
 struct mt76_dev {
@@ -330,10 +332,8 @@ void mt76_dma_cleanup(struct mt76_dev *dev);
 void mt76_cleanup(struct mt76_dev *dev);
 void mt76_rx(struct mt76_dev *dev, struct sk_buff *skb);
 
-int __mt76_tx_queue_skb(struct mt76_dev *dev, enum mt76_txq_id qid,
-			struct sk_buff *skb, u32 tx_info);
-
 #define mt76_tx_queue_skb(dev, ...) dev->dma_ops->queue_skb(dev, __VA_ARGS__)
+#define mt76_tx_queue_mcu(dev, ...) dev->dma_ops->queue_mcu(dev, __VA_ARGS__)
 
 void mt76_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
 	     struct sk_buff *skb);

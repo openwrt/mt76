@@ -47,14 +47,6 @@
 #define MT_MCU_DLM_ADDR			0x90000
 #define MT_MCU_DLM_ADDR_E3		0x90800
 
-/* MCU request message header  */
-#define MT_MCU_MSG_LEN			GENMASK(15, 0)
-#define MT_MCU_MSG_CMD_SEQ		GENMASK(19, 16)
-#define MT_MCU_MSG_CMD_TYPE		GENMASK(26, 20)
-#define MT_MCU_MSG_PORT			GENMASK(29, 27)
-#define MT_MCU_MSG_TYPE			GENMASK(31, 30)
-#define MT_MCU_MSG_TYPE_CMD		BIT(30)
-
 enum mcu_cmd {
 	CMD_FUN_SET_OP = 1,
 	CMD_LOAD_CR = 2,
@@ -86,16 +78,6 @@ enum mcu_function {
 	USB3_SW_DISCONNECT = 3,
 	LOG_FW_DEBUG_MSG = 4,
 	GET_FW_VERSION = 5,
-};
-
-enum mcu_msg_port {
-	WLAN_PORT,
-	CPU_RX_PORT,
-	CPU_TX_PORT,
-	HOST_PORT,
-	VIRTUAL_CPU_RX_PORT,
-	VIRTUAL_CPU_TX_PORT,
-	DISCARD,
 };
 
 enum mcu_power_mode {
