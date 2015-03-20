@@ -145,6 +145,15 @@ mt76_queue_add_buf(struct mt76_dev *dev, struct mt76_queue *q,
 }
 
 static int
+mt76_dma_add_rx_buf(struct mt76_dev *dev, struct mt76_queue *q,
+		    dma_addr_t addr, int len)
+{
+	int offset = mt76_rx_buf_offset(dev);
+
+	return mt76_queue_add_buf(dev, q, addr + offset, len - offset, 0, 0, 0);
+}
+
+static int
 mt76_dma_rx_fill(struct mt76_dev *dev, struct mt76_queue *q)
 {
 	dma_addr_t addr;
@@ -156,8 +165,6 @@ mt76_dma_rx_fill(struct mt76_dev *dev, struct mt76_queue *q)
 	spin_lock_bh(&q->lock);
 
 	while (q->queued < q->ndesc - 1) {
-		int offset = mt76_rx_buf_offset(dev);
-
 		buf = kzalloc(len, GFP_ATOMIC);
 		if (!buf)
 			break;
@@ -168,9 +175,7 @@ mt76_dma_rx_fill(struct mt76_dev *dev, struct mt76_queue *q)
 			break;
 		}
 
-		idx = mt76_queue_add_buf(dev, q, addr + offset, len - offset,
-					 0, 0, 0);
-
+		idx = dev->dma_ops->add_rx_buf(dev, q, addr, len);
 		q->entry[idx].buf = buf;
 		frames++;
 	}
@@ -540,6 +545,7 @@ static const struct mt76_dma_ops dma_ops = {
 	.queue_skb = mt76_dma_tx_queue_skb,
 	.queue_mcu = mt76_dma_tx_queue_mcu,
 	.cleanup_idx = mt76_dma_tx_cleanup_idx,
+	.add_rx_buf = mt76_dma_add_rx_buf,
 };
 
 int mt76_dma_init(struct mt76_dev *dev)

@@ -150,6 +150,9 @@ struct mt76_dma_ops {
 
 	void (*cleanup_idx)(struct mt76_dev *dev, struct mt76_queue *q, int idx,
 			    bool flush, bool *schedule);
+
+	int (*add_rx_buf)(struct mt76_dev *dev, struct mt76_queue *q,
+	                  dma_addr_t addr, int len);
 };
 
 struct mt76_dev {
