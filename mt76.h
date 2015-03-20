@@ -147,6 +147,9 @@ struct mt76_dma_ops {
 			 struct ieee80211_sta *sta);
 	int (*queue_mcu)(struct mt76_dev *dev, enum mt76_txq_id qid,
 			 struct sk_buff *skb, int cmd, int seq);
+
+	void (*cleanup_idx)(struct mt76_dev *dev, struct mt76_queue *q, int idx,
+			    bool flush, bool *schedule);
 };
 
 struct mt76_dev {

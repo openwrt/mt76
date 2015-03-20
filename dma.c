@@ -287,14 +287,15 @@ mt76_dma_dequeue(struct mt76_dev *dev, struct mt76_queue *q, bool flush)
 }
 
 static void
-mt76_tx_cleanup_entry(struct mt76_dev *dev, struct mt76_queue *q, int idx,
-		      bool flush)
+mt76_dma_tx_cleanup_idx(struct mt76_dev *dev, struct mt76_queue *q, int idx,
+			bool flush, bool *schedule)
 {
 	struct mt76_queue_entry *e = &q->entry[idx];
 	struct sk_buff *skb = e->skb;
 	struct mt76_txwi_cache *txwi = e->txwi;
 	dma_addr_t skb_addr;
-	bool schedule = e->schedule;
+
+	*schedule = e->schedule;
 
 	if (txwi)
 		skb_addr = ACCESS_ONCE(q->desc[idx].buf1);
@@ -306,17 +307,26 @@ mt76_tx_cleanup_entry(struct mt76_dev *dev, struct mt76_queue *q, int idx,
 	e->txwi = NULL;
 	e->schedule = false;
 
-	if (txwi) {
-		mt76_mac_queue_txdone(dev, skb, &txwi->txwi);
-		mt76_put_txwi(dev, txwi);
-
-		if (schedule) {
-			q->swq_queued--;
-			if (!flush)
-				mt76_txq_schedule(dev, q);
-		}
-	} else {
+	if (!txwi) {
 		dev_kfree_skb_any(skb);
+		return;
+	}
+
+	mt76_mac_queue_txdone(dev, skb, &txwi->txwi);
+	mt76_put_txwi(dev, txwi);
+}
+
+static void
+mt76_tx_cleanup_entry(struct mt76_dev *dev, struct mt76_queue *q, int idx,
+		      bool flush)
+{
+	bool schedule;
+
+	dev->dma_ops->cleanup_idx(dev, q, idx, flush, &schedule);
+	if (schedule) {
+		q->swq_queued--;
+		if (!flush)
+			mt76_txq_schedule(dev, q);
 	}
 }
 
@@ -529,6 +539,7 @@ mt76_rx_tasklet(unsigned long data)
 static const struct mt76_dma_ops dma_ops = {
 	.queue_skb = mt76_dma_tx_queue_skb,
 	.queue_mcu = mt76_dma_tx_queue_mcu,
+	.cleanup_idx = mt76_dma_tx_cleanup_idx,
 };
 
 int mt76_dma_init(struct mt76_dev *dev)
