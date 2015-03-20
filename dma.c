@@ -203,7 +203,8 @@ int __mt76_tx_queue_skb(struct mt76_dev *dev, enum mt76_txq_id qid,
 	return 0;
 }
 
-int mt76_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
+static int
+mt76_dma_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 		      struct sk_buff *skb, struct mt76_wcid *wcid,
 		      struct ieee80211_sta *sta)
 {
@@ -517,6 +518,10 @@ mt76_rx_tasklet(unsigned long data)
 	mt76_irq_enable(dev, MT_INT_RX_DONE(1));
 }
 
+static const struct mt76_dma_ops dma_ops = {
+	.queue_skb = mt76_dma_tx_queue_skb,
+};
+
 int mt76_dma_init(struct mt76_dev *dev)
 {
 	static const u8 wmm_queue_map[] = {
@@ -527,6 +532,8 @@ int mt76_dma_init(struct mt76_dev *dev)
 	};
 	int ret;
 	int i;
+
+	dev->dma_ops = &dma_ops;
 
 	init_waitqueue_head(&dev->mcu.wait);
 	skb_queue_head_init(&dev->mcu.res_q);

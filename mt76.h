@@ -141,6 +141,12 @@ struct mt76_hw_cap {
 	bool has_5ghz;
 };
 
+struct mt76_dma_ops {
+	int (*queue_skb)(struct mt76_dev *dev, struct mt76_queue *q,
+			 struct sk_buff *skb, struct mt76_wcid *wcid,
+			 struct ieee80211_sta *sta);
+};
+
 struct mt76_dev {
 	struct ieee80211_hw *hw;
 	struct device *dev;
@@ -150,6 +156,8 @@ struct mt76_dev {
 	void __iomem *regs;
 
 	struct mutex mutex;
+
+	const struct mt76_dma_ops *dma_ops;
 
 	const u16 *beacon_offsets;
 	unsigned long wcid_mask[256 / BITS_PER_LONG];
@@ -325,9 +333,7 @@ void mt76_rx(struct mt76_dev *dev, struct sk_buff *skb);
 int __mt76_tx_queue_skb(struct mt76_dev *dev, enum mt76_txq_id qid,
 			struct sk_buff *skb, u32 tx_info);
 
-int mt76_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
-		      struct sk_buff *skb, struct mt76_wcid *wcid,
-		      struct ieee80211_sta *sta);
+#define mt76_tx_queue_skb(dev, ...) dev->dma_ops->queue_skb(dev, __VA_ARGS__)
 
 void mt76_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
 	     struct sk_buff *skb);
