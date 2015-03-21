@@ -439,7 +439,6 @@ mt76_process_rx_skb(struct mt76_dev *dev, struct mt76_queue *q,
 		return;
 	}
 
-	memset(skb->cb, 0, sizeof(skb->cb));
 	if (mt76_mac_process_rx(dev, skb, rxwi)) {
 	    dev_kfree_skb(skb);
 	    return;
