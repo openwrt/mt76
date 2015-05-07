@@ -267,7 +267,8 @@ error:
 	return -ENOENT;
 }
 
-int mt76_mcu_function_select(struct mt76_dev *dev, enum mcu_function func, u32 val)
+static int
+mt76_mcu_function_select(struct mt76_dev *dev, enum mcu_function func, u32 val)
 {
 	struct sk_buff *skb;
 	struct {
