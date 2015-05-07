@@ -238,7 +238,7 @@ int mt76_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 		  MT76_SET(MT_TXD_INFO_QSEL, qsel) |
 		  MT_TXD_INFO_80211;
 
-	if (!wcid || wcid->hw_key_idx < 0)
+	if (!wcid || wcid->hw_key_idx == 0xff)
 		tx_info |= MT_TXD_INFO_WIV;
 
 	addr = dma_map_single(dev->dev, skb->data, skb->len, DMA_TO_DEVICE);
