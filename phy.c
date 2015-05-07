@@ -184,7 +184,7 @@ static bool
 mt76_phy_tssi_init_cal(struct mt76_dev *dev)
 {
 	struct ieee80211_channel *chan = dev->chandef.chan;
-	u16 flag = 0;
+	u32 flag = 0;
 
 	if (!mt76_tssi_enabled(dev))
 		return false;
