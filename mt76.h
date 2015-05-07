@@ -74,7 +74,7 @@ enum mt76_txq_id {
 };
 
 struct mt76_queue {
-	struct mt76_queue_regs *regs;
+	struct mt76_queue_regs __iomem *regs;
 
 	spinlock_t lock;
 	struct mt76_queue_entry *entry;
