@@ -41,6 +41,19 @@ mt76_eeprom_get_macaddr(struct mt76_dev *dev)
 	return 0;
 }
 
+static int mt76_check_eeprom(struct mt76_dev *dev, const char *type)
+{
+	u16 val = get_unaligned_le16(dev->eeprom.data);
+	switch (val) {
+	case 0x7662:
+	case 0x7612:
+		return 0;
+	default:
+		printk("%s EEPROM data check failed: %04x\n", type, val);
+		return -EINVAL;
+	}
+}
+
 static int mt76_get_of_eeprom(struct mt76_dev *dev, int len)
 {
 	int ret = -ENOENT;
@@ -88,6 +101,8 @@ static int mt76_get_of_eeprom(struct mt76_dev *dev, int len)
 
 	if (retlen < len)
 		return -EINVAL;
+
+	ret = mt76_check_eeprom(dev, "Flash");
 #endif
 	return ret;
 }
