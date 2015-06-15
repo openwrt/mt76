@@ -41,6 +41,7 @@ mt76_eeprom_get_macaddr(struct mt76_dev *dev)
 	return 0;
 }
 
+#ifdef CONFIG_OF
 static int mt76_check_eeprom(struct mt76_dev *dev, const char *type)
 {
 	u16 val = get_unaligned_le16(dev->eeprom.data);
@@ -53,6 +54,7 @@ static int mt76_check_eeprom(struct mt76_dev *dev, const char *type)
 		return -EINVAL;
 	}
 }
+#endif
 
 static int mt76_get_of_eeprom(struct mt76_dev *dev, int len)
 {
