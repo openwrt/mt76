@@ -784,15 +784,16 @@ int mt76_register_device(struct mt76_dev *dev)
 	SET_IEEE80211_DEV(hw, dev->dev);
 
 	hw->queues = 4;
-	hw->flags = IEEE80211_HW_SIGNAL_DBM |
-		    IEEE80211_HW_PS_NULLFUNC_STACK |
-		    IEEE80211_HW_SUPPORTS_HT_CCK_RATES |
-		    IEEE80211_HW_HOST_BROADCAST_PS_BUFFERING |
-		    IEEE80211_HW_AMPDU_AGGREGATION |
-		    IEEE80211_HW_SUPPORTS_RC_TABLE;
 	hw->max_rates = 1;
 	hw->max_report_rates = 7;
 	hw->max_rate_tries = 1;
+
+	ieee80211_hw_set(hw, SIGNAL_DBM);
+	ieee80211_hw_set(hw, PS_NULLFUNC_STACK);
+	ieee80211_hw_set(hw, SUPPORTS_HT_CCK_RATES);
+	ieee80211_hw_set(hw, HOST_BROADCAST_PS_BUFFERING);
+	ieee80211_hw_set(hw, AMPDU_AGGREGATION);
+	ieee80211_hw_set(hw, SUPPORTS_RC_TABLE);
 
 	hw->sta_data_size = sizeof(struct mt76_sta);
 	hw->vif_data_size = sizeof(struct mt76_vif);
