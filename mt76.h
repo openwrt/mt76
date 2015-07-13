@@ -243,7 +243,7 @@ struct mt76_vif {
 struct mt76_sta {
 	struct mt76_wcid wcid;
 
-	u32 status;
+	struct mt76_tx_status status;
 	int n_frames;
 	bool sleeping;
 };

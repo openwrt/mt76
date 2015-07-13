@@ -305,7 +305,7 @@ mt76_mac_process_tx_rate(struct ieee80211_tx_rate *txrate, u16 rate,
 
 static void
 mt76_mac_fill_tx_status(struct mt76_dev *dev, struct ieee80211_tx_info *info,
-			struct mt76_tx_status *st)
+			struct mt76_tx_status *st, int n_frames)
 {
 	struct ieee80211_tx_rate *rate = info->status.rates;
 	int cur_idx, last_rate;
@@ -327,8 +327,8 @@ mt76_mac_fill_tx_status(struct mt76_dev *dev, struct ieee80211_tx_info *info,
 	if (last_rate > 0)
 		rate[last_rate - 1].count = st->retry + 1 - last_rate;
 
-	info->status.ampdu_len = 1;
-	info->status.ampdu_ack_len = st->success;
+	info->status.ampdu_len = n_frames;
+	info->status.ampdu_ack_len = st->success ? n_frames : 0;
 
 	if (st->pktid & MT_TXWI_PKTID_PROBE)
 		info->flags |= IEEE80211_TX_CTL_RATE_CTRL_PROBE;
@@ -344,15 +344,13 @@ mt76_mac_fill_tx_status(struct mt76_dev *dev, struct ieee80211_tx_info *info,
 }
 
 static void
-mt76_send_tx_status(struct mt76_dev *dev, struct mt76_tx_status *stat, u32 *data)
+mt76_send_tx_status(struct mt76_dev *dev, struct mt76_tx_status *stat,
+		    u8 *update)
 {
 	struct ieee80211_tx_info info = {};
 	struct ieee80211_sta *sta = NULL;
 	struct mt76_wcid *wcid = NULL;
 	struct mt76_sta *msta = NULL;
-	u32 data_val = stat->wcid | BIT(31);
-	u32 stat_val = stat->rate | BIT(31);
-	stat_val |= ((u32) stat->retry) << 16;
 
 	rcu_read_lock();
 	if (stat->wcid < ARRAY_SIZE(dev->wcid))
@@ -366,24 +364,32 @@ mt76_send_tx_status(struct mt76_dev *dev, struct mt76_tx_status *stat, u32 *data
 				   drv_priv);
 	}
 
-	if (msta && stat->aggr && stat->success) {
-		if (stat_val == msta->status && *data == data_val &&
-		    msta->n_frames++ < 32)
+	if (msta && stat->aggr) {
+		u32 stat_val, stat_cache;
+
+		stat_val = stat->rate;
+		stat_val |= ((u32) stat->retry) << 16;
+		stat_cache = msta->status.rate;
+		stat_cache |= ((u32) msta->status.retry) << 16;
+
+		if (*update == 0 && stat_val == stat_cache &&
+		    stat->wcid == msta->status.wcid && ++msta->n_frames < 32)
 			goto out;
 
-		mt76_mac_fill_tx_status(dev, &info, stat);
-		info.status.ampdu_len = msta->n_frames;
-		info.status.ampdu_ack_len = stat->success ? msta->n_frames : 0;
-		msta->status = stat_val;
-	} else {
-		mt76_mac_fill_tx_status(dev, &info, stat);
-		if (msta)
-			msta->status = 0;
-	}
+		mt76_mac_fill_tx_status(dev, &info, &msta->status,
+					msta->n_frames);
 
-	*data = data_val;
-	if (msta)
-		msta->n_frames = 0;
+		msta->status = *stat;
+		if (*update == 1) {
+			msta->n_frames = 1;
+			*update = 0;
+		} else {
+			msta->n_frames = 0;
+		}
+	} else {
+		mt76_mac_fill_tx_status(dev, &info, stat, 1);
+		*update = 1;
+	}
 
 	ieee80211_tx_status_noskb(dev->hw, sta, &info);
 
@@ -395,7 +401,7 @@ void mt76_mac_poll_tx_status(struct mt76_dev *dev, bool irq)
 {
 	struct mt76_tx_status stat = {};
 	unsigned long flags;
-	u32 data = 0;
+	u8 update = 1;
 
 	if (!test_bit(MT76_STATE_RUNNING, &dev->state))
 		return;
@@ -426,7 +432,7 @@ void mt76_mac_poll_tx_status(struct mt76_dev *dev, bool irq)
 		trace_mac_txstat_fetch(dev, &stat);
 
 		if (!irq) {
-			mt76_send_tx_status(dev, &stat, &data);
+			mt76_send_tx_status(dev, &stat, &update);
 			continue;
 		}
 
@@ -452,10 +458,10 @@ void mt76_mac_queue_txdone(struct mt76_dev *dev, struct sk_buff *skb,
 void mt76_mac_process_tx_status_fifo(struct mt76_dev *dev)
 {
 	struct mt76_tx_status stat;
-	u32 data = 0;
+	u8 update = 1;
 
 	while (kfifo_get(&dev->txstatus_fifo, &stat))
-		mt76_send_tx_status(dev, &stat, &data);
+		mt76_send_tx_status(dev, &stat, &update);
 }
 
 static enum mt76_cipher_type
