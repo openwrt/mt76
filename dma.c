@@ -165,7 +165,7 @@ mt76_dma_rx_fill(struct mt76_dev *dev, struct mt76_queue *q)
 	spin_lock_bh(&q->lock);
 
 	while (q->queued < q->ndesc - 1) {
-		buf = kzalloc(len, GFP_ATOMIC);
+		buf = kzalloc(q->buf_size, GFP_ATOMIC);
 		if (!buf)
 			break;
 
