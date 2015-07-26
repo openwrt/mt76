@@ -469,7 +469,12 @@ mt76_process_rx_queue(struct mt76_dev *dev, struct mt76_queue *q, int budget)
 		}
 
 		skb_reserve(skb, MT_RX_HEADROOM);
-		skb_put(skb, len);
+		if (skb->tail + len > skb->end) {
+			dev_kfree_skb(skb);
+			continue;
+		}
+
+		__skb_put(skb, len);
 
 		desc = &q->desc[idx];
 		mt76_process_rx_skb(dev, q, skb, le32_to_cpu(desc->info));
