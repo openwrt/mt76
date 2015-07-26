@@ -80,7 +80,7 @@ mt76pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	pci_set_drvdata(pdev, dev);
 
 	dev->rev = mt76_rr(dev, MT_ASIC_VERSION);
-	printk("ASIC revision: %08x\n", dev->rev);
+	dev_printk(KERN_INFO, dev->dev, "ASIC revision: %08x\n", dev->rev);
 
 	ret = devm_request_irq(dev->dev, pdev->irq, mt76_irq_handler,
 			       IRQF_SHARED, KBUILD_MODNAME, dev);
@@ -102,7 +102,6 @@ mt76pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	/* RG_SSUSB_CDR_BR_PE1D = 0x3 */
 	mt76_rmw_field(dev, 0x15c58, 0x3 << 6, 0x3);
 
-	printk("pci device driver attached\n");
 	return 0;
 
 error:
