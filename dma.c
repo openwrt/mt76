@@ -545,7 +545,7 @@ mt76_rx_tasklet(unsigned long data)
 	mt76_irq_enable(dev, MT_INT_RX_DONE(1));
 }
 
-static const struct mt76_dma_ops dma_ops = {
+static const struct mt76_dma_ops mt76x2_dma_ops = {
 	.queue_skb = mt76_dma_tx_queue_skb,
 	.queue_mcu = mt76_dma_tx_queue_mcu,
 	.cleanup_idx = mt76_dma_tx_cleanup_idx,
@@ -563,7 +563,7 @@ int mt76_dma_init(struct mt76_dev *dev)
 	int ret;
 	int i;
 
-	dev->dma_ops = &dma_ops;
+	dev->dma_ops = &mt76x2_dma_ops;
 
 	init_waitqueue_head(&dev->mcu.wait);
 	skb_queue_head_init(&dev->mcu.res_q);
