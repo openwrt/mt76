@@ -66,7 +66,6 @@ static int
 mt76_mcu_msg_send(struct mt76_dev *dev, struct sk_buff *skb, enum mcu_cmd cmd)
 {
 	unsigned long expires = jiffies + HZ;
-	u32 info;
 	int ret;
 	u8 seq;
 
@@ -89,8 +88,7 @@ mt76_mcu_msg_send(struct mt76_dev *dev, struct sk_buff *skb, enum mcu_cmd cmd)
 
 		skb = mt76_mcu_get_response(dev, expires);
 		if (!skb) {
-			printk("MCU message %d (seq %d) timed out\n", cmd,
-			       MT76_GET(MT_MCU_MSG_CMD_SEQ, info));
+			printk("MCU message %d (seq %d) timed out\n", cmd, seq);
 			ret = -ETIMEDOUT;
 			break;
 		}
