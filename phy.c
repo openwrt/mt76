@@ -97,30 +97,6 @@ mt76_tx_power_mask(u8 v1, u8 v2, u8 v3, u8 v4)
 	return val;
 }
 
-static void mt76_apply_rate_power_table(struct mt76_dev *dev)
-{
-	struct mt76_rate_power t;
-
-	mt76_get_rate_power(dev, &t);
-
-	mt76_wr(dev, MT_TX_PWR_CFG_0,
-	        mt76_tx_power_mask(t.cck[0], t.cck[2], t.ofdm[0], t.ofdm[2]));
-	mt76_wr(dev, MT_TX_PWR_CFG_1,
-	        mt76_tx_power_mask(t.ofdm[4], t.ofdm[6], t.ht[0], t.ht[4]));
-	mt76_wr(dev, MT_TX_PWR_CFG_2,
-	        mt76_tx_power_mask(t.ht[4], t.ht[6], t.ht[8], t.ht[10]));
-	mt76_wr(dev, MT_TX_PWR_CFG_3,
-	        mt76_tx_power_mask(t.ht[12], t.ht[14], t.ht[0], t.ht[2]));
-	mt76_wr(dev, MT_TX_PWR_CFG_4,
-	        mt76_tx_power_mask(t.ht[4], t.ht[6], 0, 0));
-	mt76_wr(dev, MT_TX_PWR_CFG_7,
-	        mt76_tx_power_mask(t.ofdm[4], t.vht[8], t.ht[6], t.vht[8]));
-	mt76_wr(dev, MT_TX_PWR_CFG_8,
-	        mt76_tx_power_mask(t.ht[14], t.vht[8], t.vht[8], 0));
-	mt76_wr(dev, MT_TX_PWR_CFG_9,
-	        mt76_tx_power_mask(t.ht[6], t.vht[8], t.vht[8], 0));
-}
-
 int mt76_phy_get_rssi(struct mt76_dev *dev, s8 rssi, int chain)
 {
 	struct mt76_rx_freq_cal *cal = &dev->cal.rx;
@@ -141,11 +117,31 @@ mt76_txpower_check(int value)
 	return value;
 }
 
+static void
+mt76_add_rate_power_offset(struct mt76_rate_power *r, int offset)
+{
+	int i;
+
+	for (i = 0; i < sizeof(r->all); i++)
+		r->all[i] += offset;
+}
+
+static void
+mt76_limit_rate_power(struct mt76_rate_power *r, int limit)
+{
+	int i;
+
+	for (i = 0; i < sizeof(r->all); i++)
+		if (r->all[i] > limit)
+			r->all[i] = limit;
+}
+
 void mt76_phy_set_txpower(struct mt76_dev *dev)
 {
 	enum nl80211_chan_width width = dev->chandef.width;
 	struct mt76_tx_power_info txp;
 	int txp_0, txp_1, delta = 0;
+	struct mt76_rate_power t;
 
 	mt76_get_power_info(dev, &txp);
 
@@ -161,6 +157,17 @@ void mt76_phy_set_txpower(struct mt76_dev *dev)
 		dev->txpower_cur = txp.target_power;
 	}
 
+	mt76_get_rate_power(dev, &t);
+	mt76_add_rate_power_offset(&t, txp.chain[0].target_power +
+				   txp.chain[0].delta);
+	mt76_limit_rate_power(&t, dev->txpower_conf);
+	mt76_add_rate_power_offset(&t, -(txp.chain[0].target_power +
+					 txp.chain[0].delta + delta));
+	dev->target_power = txp.chain[0].target_power;
+	dev->target_power_delta[0] = txp.chain[0].delta + delta;
+	dev->target_power_delta[1] = txp.chain[1].delta + delta;
+	dev->rate_power = t;
+
 	txp_0 = mt76_txpower_check(txp.chain[0].target_power +
 				   txp.chain[0].delta + delta);
 
@@ -169,6 +176,23 @@ void mt76_phy_set_txpower(struct mt76_dev *dev)
 
 	mt76_rmw_field(dev, MT_TX_ALC_CFG_0, MT_TX_ALC_CFG_0_CH_INIT_0, txp_0);
 	mt76_rmw_field(dev, MT_TX_ALC_CFG_0, MT_TX_ALC_CFG_0_CH_INIT_1, txp_1);
+
+	mt76_wr(dev, MT_TX_PWR_CFG_0,
+	        mt76_tx_power_mask(t.cck[0], t.cck[2], t.ofdm[0], t.ofdm[2]));
+	mt76_wr(dev, MT_TX_PWR_CFG_1,
+	        mt76_tx_power_mask(t.ofdm[4], t.ofdm[6], t.ht[0], t.ht[4]));
+	mt76_wr(dev, MT_TX_PWR_CFG_2,
+	        mt76_tx_power_mask(t.ht[4], t.ht[6], t.ht[8], t.ht[10]));
+	mt76_wr(dev, MT_TX_PWR_CFG_3,
+	        mt76_tx_power_mask(t.ht[12], t.ht[14], t.ht[0], t.ht[2]));
+	mt76_wr(dev, MT_TX_PWR_CFG_4,
+	        mt76_tx_power_mask(t.ht[4], t.ht[6], 0, 0));
+	mt76_wr(dev, MT_TX_PWR_CFG_7,
+	        mt76_tx_power_mask(t.ofdm[4], t.vht[8], t.ht[6], t.vht[8]));
+	mt76_wr(dev, MT_TX_PWR_CFG_8,
+	        mt76_tx_power_mask(t.ht[14], t.vht[8], t.vht[8], 0));
+	mt76_wr(dev, MT_TX_PWR_CFG_9,
+	        mt76_tx_power_mask(t.ht[6], t.vht[8], t.vht[8], 0));
 }
 
 static bool
@@ -529,7 +553,6 @@ int mt76_phy_set_channel(struct mt76_dev *dev,
 	mt76_phy_set_txpower_regs(dev, band);
 	mt76_configure_tx_delay(dev, band, bw);
 	mt76_phy_set_txpower(dev);
-	mt76_apply_rate_power_table(dev);
 
 	mt76_set_rx_chains(dev);
 	mt76_phy_set_band(dev, chan->band, ch_group_index & 1);

@@ -65,6 +65,36 @@ mt76_ampdu_stat_open(struct inode *inode, struct file *f)
 	return single_open(f, mt76_ampdu_stat_read, inode->i_private);
 }
 
+static void
+seq_puts_array(struct seq_file *file, const char *str, s8 *val, int len)
+{
+	int i;
+
+	seq_printf(file, "%10s:", str);
+	for (i = 0; i < len; i++)
+		seq_printf(file, " %2d", val[i]);
+	seq_puts(file, "\n");
+}
+
+static int read_txpower(struct seq_file *file, void *data)
+{
+	struct mt76_dev *dev = dev_get_drvdata(file->private);
+
+	seq_printf(file, "Target power: %d\n", dev->target_power);
+
+	seq_puts_array(file, "Delta", dev->target_power_delta,
+		       ARRAY_SIZE(dev->target_power_delta));
+	seq_puts_array(file, "CCK", dev->rate_power.cck,
+		       ARRAY_SIZE(dev->rate_power.cck));
+	seq_puts_array(file, "OFDM", dev->rate_power.ofdm,
+		       ARRAY_SIZE(dev->rate_power.ofdm));
+	seq_puts_array(file, "HT", dev->rate_power.ht,
+		       ARRAY_SIZE(dev->rate_power.ht));
+	seq_puts_array(file, "VHT", dev->rate_power.vht,
+		       ARRAY_SIZE(dev->rate_power.vht));
+	return 0;
+}
+
 static const struct file_operations fops_ampdu_stat = {
 	.open = mt76_ampdu_stat_open,
 	.read = seq_read,
@@ -86,4 +116,5 @@ void mt76_init_debugfs(struct mt76_dev *dev)
 	debugfs_create_u32("regidx", S_IRUSR | S_IWUSR, dir, &dev->debugfs_reg);
 	debugfs_create_file("regval", S_IRUSR | S_IWUSR, dir, dev, &fops_regval);
 	debugfs_create_file("ampdu_stat", S_IRUSR, dir, dev, &fops_ampdu_stat);
+	debugfs_create_devm_seqfile(dev->dev, "txpower", dir, read_txpower);
 }

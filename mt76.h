@@ -141,6 +141,18 @@ struct mt76_hw_cap {
 	bool has_5ghz;
 };
 
+struct mt76_rate_power {
+	union {
+		struct {
+			s8 cck[4];
+			s8 ofdm[8];
+			s8 ht[16];
+			s8 vht[10];
+		};
+		s8 all[38];
+	};
+};
+
 struct mt76_dma_ops {
 	int (*queue_skb)(struct mt76_dev *dev, struct mt76_queue *q,
 			 struct sk_buff *skb, struct mt76_wcid *wcid,
@@ -216,6 +228,10 @@ struct mt76_dev {
 	struct mt76_hw_cap cap;
 
 	u32 debugfs_reg;
+
+	s8 target_power;
+	s8 target_power_delta[2];
+	struct mt76_rate_power rate_power;
 };
 
 struct mt76_vif {
