@@ -381,51 +381,51 @@ void mt76_get_rate_power(struct mt76_dev *dev, struct mt76_rate_power *t)
 	memset(t, 0, sizeof(*t));
 
 	val = mt76_eeprom_get(dev, MT_EE_TX_POWER_CCK);
-	t->cck[0] = mt76_rate_power_val(val);
-	t->cck[1] = mt76_rate_power_val(val >> 8);
+	t->cck[0] = t->cck[1] = mt76_rate_power_val(val);
+	t->cck[2] = t->cck[3] = mt76_rate_power_val(val >> 8);
 
 	if (is_5ghz)
 		val = mt76_eeprom_get(dev, MT_EE_TX_POWER_OFDM_5G_6M);
 	else
 		val = mt76_eeprom_get(dev, MT_EE_TX_POWER_OFDM_2G_6M);
-	t->ofdm[0] = mt76_rate_power_val(val);
-	t->ofdm[1] = mt76_rate_power_val(val >> 8);
+	t->ofdm[0] = t->ofdm[1] = mt76_rate_power_val(val);
+	t->ofdm[2] = t->ofdm[3] = mt76_rate_power_val(val >> 8);
 
 	if (is_5ghz)
 		val = mt76_eeprom_get(dev, MT_EE_TX_POWER_OFDM_2G_24M);
 	else
 		val = mt76_eeprom_get(dev, MT_EE_TX_POWER_OFDM_5G_24M);
-	t->ofdm[2] = mt76_rate_power_val(val);
-	t->ofdm[3] = mt76_rate_power_val(val >> 8);
+	t->ofdm[4] = t->ofdm[5] = mt76_rate_power_val(val);
+	t->ofdm[6] = t->ofdm[7] = mt76_rate_power_val(val >> 8);
 
 	val = mt76_eeprom_get(dev, MT_EE_TX_POWER_HT_MCS0);
-	t->ht[0] = mt76_rate_power_val(val);
-	t->ht[1] = mt76_rate_power_val(val >> 8);
+	t->ht[0] = t->ht[1] = mt76_rate_power_val(val);
+	t->ht[2] = t->ht[3] = mt76_rate_power_val(val >> 8);
 
 	val = mt76_eeprom_get(dev, MT_EE_TX_POWER_HT_MCS4);
-	t->ht[2] = mt76_rate_power_val(val);
-	t->ht[3] = mt76_rate_power_val(val >> 8);
+	t->ht[4] = t->ht[5] = mt76_rate_power_val(val);
+	t->ht[6] = t->ht[7] = mt76_rate_power_val(val >> 8);
 
 	val = mt76_eeprom_get(dev, MT_EE_TX_POWER_HT_MCS8);
-	t->ht[4] = mt76_rate_power_val(val);
-	t->ht[5] = mt76_rate_power_val(val >> 8);
+	t->ht[8] = t->ht[9] = mt76_rate_power_val(val);
+	t->ht[10] = t->ht[11] = mt76_rate_power_val(val >> 8);
 
 	val = mt76_eeprom_get(dev, MT_EE_TX_POWER_HT_MCS12);
-	t->ht[6] = mt76_rate_power_val(val);
-	t->ht[7] = mt76_rate_power_val(val >> 8);
+	t->ht[12] = t->ht[13] = mt76_rate_power_val(val);
+	t->ht[14] = t->ht[15] = mt76_rate_power_val(val >> 8);
 
 	val = mt76_eeprom_get(dev, MT_EE_TX_POWER_VHT_MCS0);
-	t->vht[0] = mt76_rate_power_val(val);
-	t->vht[1] = mt76_rate_power_val(val >> 8);
+	t->vht[0] = t->vht[1] = mt76_rate_power_val(val);
+	t->vht[2] = t->vht[3] = mt76_rate_power_val(val >> 8);
 
 	val = mt76_eeprom_get(dev, MT_EE_TX_POWER_VHT_MCS4);
-	t->vht[2] = mt76_rate_power_val(val);
-	t->vht[3] = mt76_rate_power_val(val >> 8);
+	t->vht[4] = t->vht[5] = mt76_rate_power_val(val);
+	t->vht[6] = t->vht[7] = mt76_rate_power_val(val >> 8);
 
 	val = mt76_eeprom_get(dev, MT_EE_TX_POWER_VHT_MCS8);
 	if (!is_5ghz)
 		val >>= 8;
-	t->vht[4] = mt76_rate_power_val(val);
+	t->vht[8] = t->vht[9] = mt76_rate_power_val(val >> 8);
 }
 
 static void

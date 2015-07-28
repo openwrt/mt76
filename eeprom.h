@@ -107,10 +107,15 @@ enum mt76_cal_channel_group {
 };
 
 struct mt76_rate_power {
-	s8 cck[2];
-	s8 ofdm[4];
-	s8 ht[8];
-	s8 vht[5];
+	union {
+		struct {
+			s8 cck[4];
+			s8 ofdm[8];
+			s8 ht[16];
+			s8 vht[10];
+		};
+		s8 all[38];
+	};
 };
 
 struct mt76_tx_power_info {
