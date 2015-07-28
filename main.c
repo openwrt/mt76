@@ -104,7 +104,7 @@ mt76_config(struct ieee80211_hw *hw, u32 changed)
 	mutex_lock(&dev->mutex);
 
 	if (changed & IEEE80211_CONF_CHANGE_POWER) {
-		dev->txpower_conf = hw->conf.power_level;
+		dev->txpower_conf = hw->conf.power_level * 2;
 
 		if (test_bit(MT76_STATE_RUNNING, &dev->state))
 			mt76_phy_set_txpower(dev);
@@ -388,7 +388,7 @@ mt76_get_txpower(struct ieee80211_hw *hw, struct ieee80211_vif *vif, int *dbm)
 {
 	struct mt76_dev *dev = hw->priv;
 
-	*dbm = dev->txpower_cur;
+	*dbm = dev->txpower_cur / 2;
 	return 0;
 }
 
