@@ -11,13 +11,11 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/of.h>
-#include <linux/mtd/mtd.h>
-#include <linux/mtd/partitions.h>
 #include <linux/etherdevice.h>
 #include <asm/unaligned.h>
 #include "mt76.h"
 #include "eeprom.h"
+#include "of.h"
 
 #define EE_FIELD(_name, _value) [MT_EE_##_name] = (_value) | 1
 
@@ -41,74 +39,6 @@ mt76_eeprom_get_macaddr(struct mt76_dev *dev)
 	return 0;
 }
 
-#ifdef CONFIG_OF
-static int mt76_check_eeprom(struct mt76_dev *dev, const char *type)
-{
-	u16 val = get_unaligned_le16(dev->eeprom.data);
-	switch (val) {
-	case 0x7662:
-	case 0x7612:
-		return 0;
-	default:
-		printk("%s EEPROM data check failed: %04x\n", type, val);
-		return -EINVAL;
-	}
-}
-#endif
-
-static int mt76_get_of_eeprom(struct mt76_dev *dev, int len)
-{
-	int ret = -ENOENT;
-#ifdef CONFIG_OF
-	struct device_node *np = dev->dev->of_node;
-	struct mtd_info *mtd;
-	const __be32 *list;
-	const char *part;
-	phandle phandle;
-	int offset = 0;
-	int size;
-	size_t retlen;
-
-	if (!np)
-		return -ENOENT;
-
-	list = of_get_property(np, "mediatek,mtd-eeprom", &size);
-	if (!list)
-		return -ENOENT;
-
-	phandle = be32_to_cpup(list++);
-	if (!phandle)
-		return -ENOENT;
-
-	np = of_find_node_by_phandle(phandle);
-	if (!np)
-		return -EINVAL;
-
-	part = of_get_property(np, "label", NULL);
-	if (!part)
-		part = np->name;
-
-	mtd = get_mtd_device_nm(part);
-	if (IS_ERR(mtd))
-		return PTR_ERR(mtd);
-
-	if (size <= sizeof(*list))
-		return -EINVAL;
-
-	offset = be32_to_cpup(list);
-	ret = mtd_read(mtd, offset, len, &retlen, dev->eeprom.data);
-	put_mtd_device(mtd);
-	if (ret)
-		return ret;
-
-	if (retlen < len)
-		return -EINVAL;
-
-	ret = mt76_check_eeprom(dev, "Flash");
-#endif
-	return ret;
-}
-
 static void
 mt76_eeprom_parse_hw_cap(struct mt76_dev *dev)
 {
@@ -126,27 +56,6 @@ mt76_eeprom_parse_hw_cap(struct mt76_dev *dev)
 		dev->cap.has_5ghz = true;
 		break;
 	}
-}
-
-static void
-mt76_get_of_overrides(struct mt76_dev *dev)
-{
-#ifdef CONFIG_OF
-	struct device_node *np = dev->dev->of_node;
-	const __be32 *val;
-	int size;
-
-	if (!np)
-		return;
-
-	val = of_get_property(np, "mediatek,2ghz", &size);
-	if (val)
-		dev->cap.has_2ghz = be32_to_cpup(val);
-
-	val = of_get_property(np, "mediatek,5ghz", &size);
-	if (val)
-		dev->cap.has_5ghz = be32_to_cpup(val);
-#endif
 }
 
 static int
