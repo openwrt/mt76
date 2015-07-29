@@ -153,7 +153,7 @@ void mt76_phy_set_txpower(struct mt76_dev *dev)
 	enum nl80211_chan_width width = dev->chandef.width;
 	struct mt76_tx_power_info txp;
 	int txp_0, txp_1, delta = 0;
-	struct mt76_rate_power t;
+	struct mt76_rate_power t = {};
 
 	mt76_get_power_info(dev, &txp);
 
