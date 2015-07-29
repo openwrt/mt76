@@ -136,6 +136,18 @@ mt76_limit_rate_power(struct mt76_rate_power *r, int limit)
 			r->all[i] = limit;
 }
 
+static int
+mt76_get_max_power(struct mt76_rate_power *r)
+{
+	int i;
+	s8 ret = 0;
+
+	for (i = 0; i < sizeof(r->all); i++)
+		ret = max(ret, r->all[i]);
+
+	return ret;
+}
+
 void mt76_phy_set_txpower(struct mt76_dev *dev)
 {
 	enum nl80211_chan_width width = dev->chandef.width;
@@ -150,17 +162,14 @@ void mt76_phy_set_txpower(struct mt76_dev *dev)
 	else if (width == NL80211_CHAN_WIDTH_80)
 		delta = txp.delta_bw80;
 
-	if (txp.target_power > dev->txpower_conf) {
-		dev->txpower_cur = dev->txpower_conf;
+	if (txp.target_power > dev->txpower_conf)
 		delta -= txp.target_power - dev->txpower_conf;
-	} else {
-		dev->txpower_cur = txp.target_power;
-	}
 
 	mt76_get_rate_power(dev, &t);
 	mt76_add_rate_power_offset(&t, txp.chain[0].target_power +
 				   txp.chain[0].delta);
 	mt76_limit_rate_power(&t, dev->txpower_conf);
+	dev->txpower_cur = mt76_get_max_power(&t);
 	mt76_add_rate_power_offset(&t, -(txp.chain[0].target_power +
 					 txp.chain[0].delta + delta));
 	dev->target_power = txp.chain[0].target_power;
