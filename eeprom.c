@@ -497,7 +497,7 @@ mt76_get_power_info_5g(struct mt76_dev *dev, struct mt76_tx_power_info *t,
 	t->chain[chain].tssi_slope = data[0];
 	t->chain[chain].tssi_offset = data[1];
 	t->chain[chain].target_power = data[2];
-	t->chain[chain].delta = data[delta_idx];
+	t->chain[chain].delta = mt76_sign_extend_optional(data[delta_idx], 7);
 
 	val = mt76_eeprom_get(dev, MT_EE_RF_2G_RX_HIGH_GAIN);
 	t->target_power = val & 0xff;
