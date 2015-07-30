@@ -229,7 +229,7 @@ mt76_phy_tssi_init_cal(struct mt76_dev *dev)
 		flag |= BIT(0);
 
 	if (mt76_ext_pa_enabled(dev, chan->band))
-		flag |= BIT(16);
+		flag |= BIT(8);
 
 	mt76_mcu_calibrate(dev, MCU_CAL_TSSI, flag);
 	dev->cal.tssi_cal_done = true;
