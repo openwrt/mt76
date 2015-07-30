@@ -635,14 +635,16 @@ mt76_phy_tssi_compensate(struct mt76_dev *dev)
 	if (!dev->cal.tssi_cal_done)
 		return;
 
-	if (dev->cal.tssi_comp_done) {
+	if (!dev->cal.tssi_comp_pending) {
 		/* TSSI trigger */
 		t.cal_mode = BIT(0);
 		mt76_mcu_tssi_comp(dev, &t);
+		dev->cal.tssi_comp_pending = true;
 	} else {
-		if (!(mt76_rr(dev, MT_BBP(CORE, 34)) & BIT(4)))
+		if (mt76_rr(dev, MT_BBP(CORE, 34)) & BIT(4))
 			return;
 
+		dev->cal.tssi_comp_pending = false;
 		mt76_get_power_info(dev, &txp);
 
 		if (mt76_ext_pa_enabled(dev, chan->band))
@@ -653,7 +655,6 @@ mt76_phy_tssi_compensate(struct mt76_dev *dev)
 		t.offset0 = txp.chain[0].tssi_offset;
 		t.slope1 = txp.chain[1].tssi_slope;
 		t.offset1 = txp.chain[1].tssi_offset;
-		dev->cal.tssi_comp_done = true;
 		mt76_mcu_tssi_comp(dev, &t);
 
 		if (t.pa_mode || dev->cal.dpd_cal_done)

@@ -122,7 +122,7 @@ struct mt76_calibration {
 
 	bool init_cal_done;
 	bool tssi_cal_done;
-	bool tssi_comp_done;
+	bool tssi_comp_pending;
 	bool dpd_cal_done;
 	bool channel_cal_done;
 };
