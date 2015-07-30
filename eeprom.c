@@ -91,12 +91,12 @@ mt76_efuse_read(struct mt76_dev *dev, u16 addr, u8 *data)
 }
 
 static int
-mt76_get_efuse_data(struct mt76_dev *dev, int len)
+mt76_get_efuse_data(struct mt76_dev *dev, void *buf, int len)
 {
 	int ret, i;
 
 	for (i = 0; i + 16 <= len; i += 16) {
-		ret = mt76_efuse_read(dev, i, dev->eeprom.data + i);
+		ret = mt76_efuse_read(dev, i, buf + i);
 		if (ret)
 			return ret;
 	}
@@ -104,23 +104,118 @@ mt76_get_efuse_data(struct mt76_dev *dev, int len)
 	return 0;
 }
 
+static bool
+mt76_has_cal_free_data(struct mt76_dev *dev, u8 *efuse)
+{
+	if (get_unaligned_le16(efuse + MT_EE_NIC_CONF_0) != 0)
+		return false;
+
+	if (get_unaligned_le16(efuse + MT_EE_XTAL_TRIM_1) == 0xffff)
+		return false;
+
+	if (get_unaligned_le16(efuse + MT_EE_TX_POWER_DELTA_BW40) != 0)
+		return false;
+
+	if (get_unaligned_le16(efuse + MT_EE_TX_POWER_0_START_2G) == 0xffff)
+		return false;
+
+	if (get_unaligned_le16(efuse + MT_EE_TX_POWER_0_GRP3_TX_POWER_DELTA) != 0)
+		return false;
+
+	if (get_unaligned_le16(efuse + MT_EE_TX_POWER_0_GRP4_TSSI_SLOPE) == 0xffff)
+		return false;
+
+	return true;
+}
+
+
+static void
+mt76_apply_cal_free_data(struct mt76_dev *dev, u8 *efuse)
+{
+#define GROUP_5G(_id)							   \
+	MT_EE_TX_POWER_0_START_5G + MT_TX_POWER_GROUP_SIZE_5G * (_id),	   \
+	MT_EE_TX_POWER_0_START_5G + MT_TX_POWER_GROUP_SIZE_5G * (_id) + 1, \
+	MT_EE_TX_POWER_1_START_5G + MT_TX_POWER_GROUP_SIZE_5G * (_id),	   \
+	MT_EE_TX_POWER_1_START_5G + MT_TX_POWER_GROUP_SIZE_5G * (_id) + 1
+
+	static const u8 cal_free_bytes[] = {
+		MT_EE_XTAL_TRIM_1,
+		MT_EE_TX_POWER_EXT_PA_5G + 1,
+		GROUP_5G(0),
+		GROUP_5G(1),
+		GROUP_5G(2),
+		GROUP_5G(3),
+		GROUP_5G(4),
+		GROUP_5G(5),
+		MT_EE_RF_2G_TSSI_OFF_TXPOWER,
+		MT_EE_RF_2G_RX_HIGH_GAIN + 1,
+		MT_EE_RF_5G_GRP0_1_RX_HIGH_GAIN,
+		MT_EE_RF_5G_GRP0_1_RX_HIGH_GAIN + 1,
+		MT_EE_RF_5G_GRP2_3_RX_HIGH_GAIN,
+		MT_EE_RF_5G_GRP2_3_RX_HIGH_GAIN + 1,
+		MT_EE_RF_5G_GRP4_5_RX_HIGH_GAIN,
+		MT_EE_RF_5G_GRP4_5_RX_HIGH_GAIN + 1,
+	};
+	u8 *eeprom = dev->eeprom.data;
+	u16 val;
+	int i;
+
+	if (!mt76_has_cal_free_data(dev, efuse))
+	    return;
+
+	for (i = 0; i < ARRAY_SIZE(cal_free_bytes); i++) {
+	    int offset = cal_free_bytes[i];
+	    eeprom[offset] = efuse[offset];
+	}
+
+	val = get_unaligned_le16(efuse + MT_EE_BT_RCAL_RESULT);
+	if (val != 0xffff)
+		eeprom[MT_EE_BT_RCAL_RESULT] = val & 0xff;
+
+	val = get_unaligned_le16(efuse + MT_EE_BT_VCDL_CALIBRATION);
+	if (val != 0xffff)
+		eeprom[MT_EE_BT_VCDL_CALIBRATION + 1] = val >> 8;
+
+	val = get_unaligned_le16(efuse + MT_EE_BT_PMUCFG);
+	if (val != 0xffff)
+		eeprom[MT_EE_BT_PMUCFG] = val & 0xff;
+}
+
 static int
 mt76_eeprom_load(struct mt76_dev *dev)
 {
+	void *efuse;
 	int len = MT7662_EEPROM_SIZE;
+	bool found;
 
 	dev->eeprom.size = len;
 	dev->eeprom.data = devm_kzalloc(dev->dev, len, GFP_KERNEL);
 	if (!dev->eeprom.data)
 		return -ENOMEM;
 
-	if (!mt76_get_of_eeprom(dev, len))
-		return 0;
+	found = !mt76_get_of_eeprom(dev, len);
 
-	if (!mt76_get_efuse_data(dev, len))
-		return 0;
+	efuse = kzalloc(len, GFP_KERNEL);
+	if (!efuse)
+		return -ENOMEM;
 
-	return -ENOENT;
+	if (mt76_get_efuse_data(dev, efuse, len))
+		goto out;
+
+	if (found) {
+		mt76_apply_cal_free_data(dev, efuse);
+	} else {
+		/* FIXME: check if efuse data is complete */
+		found = true;
+		memcpy(dev->eeprom.data, efuse, len);
+	}
+
+out:
+	kfree(efuse);
+	if (!found)
+		return -ENOENT;
+
+	return 0;
 }
 
 static inline int
