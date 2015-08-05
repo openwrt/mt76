@@ -180,6 +180,7 @@ mt76_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	if (changed & BSS_CHANGED_ERP_SLOT) {
 		int slottime = info->use_short_slot ? 9 : 20;
 
+		dev->slottime = slottime;
 		mt76_rmw_field(dev, MT_BKOFF_SLOT_CFG,
 			       MT_BKOFF_SLOT_CFG_SLOTTIME, slottime);
 	}
@@ -447,6 +448,17 @@ mt76_sta_rate_tbl_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	mt76_mac_wcid_set_rate(dev, &msta->wcid, &rate);
 }
 
+static void mt76_set_coverage_class(struct ieee80211_hw *hw,
+				    s16 coverage_class)
+{
+	struct mt76_dev *dev = hw->priv;
+
+	mutex_lock(&dev->mutex);
+	dev->coverage_class = coverage_class;
+	mt76_set_tx_ackto(dev);
+	mutex_unlock(&dev->mutex);
+}
+
 const struct ieee80211_ops mt76_ops = {
 	.tx = mt76_tx,
 	.start = mt76_start,
@@ -469,6 +481,7 @@ const struct ieee80211_ops mt76_ops = {
 	.wake_tx_queue = mt76_wake_tx_queue,
 	.sta_rate_tbl_update = mt76_sta_rate_tbl_update,
 	.release_buffered_frames = mt76_release_buffered_frames,
+	.set_coverage_class = mt76_set_coverage_class,
 };
 
 void mt76_rx(struct mt76_dev *dev, struct sk_buff *skb)

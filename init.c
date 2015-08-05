@@ -259,6 +259,8 @@ int mt76_mac_reset(struct mt76_dev *dev, bool hard)
 	mt76_set(dev, MT_MAC_APC_BSSID_H(0), MT_MAC_APC_BSSID0_H_EN);
 	mt76_init_beacon_offsets(dev);
 
+	mt76_set_tx_ackto(dev);
+
 	return 0;
 }
 
@@ -417,6 +419,20 @@ mt76_power_on(struct mt76_dev *dev)
 	mt76_power_on_rf(dev, 1);
 }
 
+void mt76_set_tx_ackto(struct mt76_dev *dev)
+{
+	u8 ackto, sifs, slottime = dev->slottime;
+
+	slottime += 3 * dev->coverage_class;
+
+	sifs = mt76_get_field(dev, MT_XIFS_TIME_CFG,
+			      MT_XIFS_TIME_CFG_OFDM_SIFS);
+
+	ackto = slottime + sifs;
+	mt76_rmw_field(dev, MT_TX_TIMEOUT_CFG,
+		       MT_TX_TIMEOUT_CFG_ACKTO, ackto);
+}
+
 static void
 mt76_set_wlan_state(struct mt76_dev *dev, bool enable)
 {
@@ -487,6 +503,8 @@ int mt76_init_hardware(struct mt76_dev *dev)
 		     (unsigned long) dev);
 
 	dev->chainmask = 0x202;
+
+	dev->slottime = 9;
 
 	val = mt76_rr(dev, MT_WPDMA_GLO_CFG);
 	val &= MT_WPDMA_GLO_CFG_DMA_BURST_SIZE |

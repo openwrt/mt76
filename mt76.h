@@ -232,6 +232,9 @@ struct mt76_dev {
 	s8 target_power;
 	s8 target_power_delta[2];
 	struct mt76_rate_power rate_power;
+
+	u8 coverage_class;
+	u8 slottime;
 };
 
 struct mt76_vif {
@@ -332,6 +335,7 @@ int mt76_init_hardware(struct mt76_dev *dev);
 void mt76_stop_hardware(struct mt76_dev *dev);
 int mt76_eeprom_init(struct mt76_dev *dev);
 int mt76_apply_calibration_data(struct mt76_dev *dev, int channel);
+void mt76_set_tx_ackto(struct mt76_dev *dev);
 
 int mt76_phy_start(struct mt76_dev *dev);
 int mt76_set_channel(struct mt76_dev *dev, struct cfg80211_chan_def *chandef);
