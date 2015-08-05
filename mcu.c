@@ -230,6 +230,10 @@ mt76pci_load_firmware(struct mt76_dev *dev)
 
 	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, 0);
 
+	val = mt76_eeprom_get(dev, MT_EE_NIC_CONF_2);
+	if (MT76_GET(MT_EE_NIC_CONF_2_XTAL_OPTION, val) == 1)
+		mt76_set(dev, MT_MCU_COM_REG0, BIT(30));
+
 	/* trigger firmware */
 	mt76_wr(dev, MT_MCU_INT_LEVEL, 2);
 	for (i = 200; i > 0; i--) {
