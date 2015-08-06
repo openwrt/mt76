@@ -357,7 +357,7 @@ mt76_txq_schedule_list(struct mt76_dev *dev, struct mt76_queue *hwq)
 	mtxq_last = list_last_entry(&hwq->swq, struct mt76_txq, list);
 	while (1) {
 		bool empty = false;
-		int cur, len;
+		int cur;
 
 		if (hwq->swq_queued >= 4)
 			break;
