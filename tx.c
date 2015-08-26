@@ -359,12 +359,6 @@ mt76_txq_schedule_list(struct mt76_dev *dev, struct mt76_queue *hwq)
 		bool empty = false;
 		int cur;
 
-		if (hwq->swq_queued >= 4)
-			break;
-
-		if (list_empty(&hwq->swq))
-			break;
-
 		mtxq = list_first_entry(&hwq->swq, struct mt76_txq, list);
 		if (mtxq->send_bar) {
 			struct ieee80211_txq *txq = mtxq_to_txq(mtxq);
@@ -400,6 +394,9 @@ void mt76_txq_schedule(struct mt76_dev *dev, struct mt76_queue *hwq)
 	int len;
 
 	do {
+		if (hwq->swq_queued >= 4 || list_empty(&hwq->swq))
+			break;
+
 		len = mt76_txq_schedule_list(dev, hwq);
 	} while (len > 0);
 }
