@@ -400,7 +400,7 @@ void mt76_txq_schedule(struct mt76_dev *dev, struct mt76_queue *hwq)
 	int len;
 
 	do {
-	    len = mt76_txq_schedule_list(dev, hwq);
+		len = mt76_txq_schedule_list(dev, hwq);
 	} while (len > 0);
 }
 
