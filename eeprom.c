@@ -396,9 +396,9 @@ void mt76_get_rate_power(struct mt76_dev *dev, struct mt76_rate_power *t)
 	t->ofdm[2] = t->ofdm[3] = mt76_rate_power_val(val >> 8);
 
 	if (is_5ghz)
-		val = mt76_eeprom_get(dev, MT_EE_TX_POWER_OFDM_2G_24M);
-	else
 		val = mt76_eeprom_get(dev, MT_EE_TX_POWER_OFDM_5G_24M);
+	else
+		val = mt76_eeprom_get(dev, MT_EE_TX_POWER_OFDM_2G_24M);
 	t->ofdm[4] = t->ofdm[5] = mt76_rate_power_val(val);
 	t->ofdm[6] = t->ofdm[7] = mt76_rate_power_val(val >> 8);
 
