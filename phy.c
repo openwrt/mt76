@@ -189,7 +189,7 @@ void mt76_phy_set_txpower(struct mt76_dev *dev)
 	mt76_wr(dev, MT_TX_PWR_CFG_0,
 	        mt76_tx_power_mask(t.cck[0], t.cck[2], t.ofdm[0], t.ofdm[2]));
 	mt76_wr(dev, MT_TX_PWR_CFG_1,
-	        mt76_tx_power_mask(t.ofdm[4], t.ofdm[6], t.ht[0], t.ht[4]));
+	        mt76_tx_power_mask(t.ofdm[4], t.ofdm[6], t.ht[0], t.ht[2]));
 	mt76_wr(dev, MT_TX_PWR_CFG_2,
 	        mt76_tx_power_mask(t.ht[4], t.ht[6], t.ht[8], t.ht[10]));
 	mt76_wr(dev, MT_TX_PWR_CFG_3,
