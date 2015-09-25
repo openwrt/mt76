@@ -157,6 +157,12 @@ mt76_apply_cal_free_data(struct mt76_dev *dev, u8 *efuse)
 		MT_EE_RF_5G_GRP4_5_RX_HIGH_GAIN + 1,
 	};
 	u8 *eeprom = dev->eeprom.data;
+	u8 prev_grp0[4] = {
+		eeprom[MT_EE_TX_POWER_0_START_5G],
+		eeprom[MT_EE_TX_POWER_0_START_5G + 1],
+		eeprom[MT_EE_TX_POWER_1_START_5G],
+		eeprom[MT_EE_TX_POWER_1_START_5G + 1]
+	};
 	u16 val;
 	int i;
 
@@ -167,6 +173,11 @@ mt76_apply_cal_free_data(struct mt76_dev *dev, u8 *efuse)
 	    int offset = cal_free_bytes[i];
 	    eeprom[offset] = efuse[offset];
 	}
+
+	if (!(efuse[MT_EE_TX_POWER_0_START_5G] | efuse[MT_EE_TX_POWER_0_START_5G + 1]))
+		memcpy(eeprom + MT_EE_TX_POWER_0_START_5G, prev_grp0, 2);
+	if (!(efuse[MT_EE_TX_POWER_1_START_5G] | efuse[MT_EE_TX_POWER_1_START_5G + 1]))
+		memcpy(eeprom + MT_EE_TX_POWER_1_START_5G, prev_grp0 + 2, 2);
 
 	val = get_unaligned_le16(efuse + MT_EE_BT_RCAL_RESULT);
 	if (val != 0xffff)
