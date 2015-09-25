@@ -189,15 +189,16 @@ mt76_eeprom_load(struct mt76_dev *dev)
 	bool found;
 
 	dev->eeprom.size = len;
-	dev->eeprom.data = devm_kzalloc(dev->dev, len, GFP_KERNEL);
+	dev->eeprom.data = devm_kzalloc(dev->dev, len * 2, GFP_KERNEL);
 	if (!dev->eeprom.data)
 		return -ENOMEM;
 
+	dev->otp.size = len;
+	dev->otp.data = dev->eeprom.data + len;
+
 	found = !mt76_get_of_eeprom(dev, len);
 
-	efuse = kzalloc(len, GFP_KERNEL);
-	if (!efuse)
-		return -ENOMEM;
+	efuse = dev->otp.data;
 
 	if (mt76_get_efuse_data(dev, efuse, len))
 		goto out;
@@ -211,7 +212,6 @@ mt76_eeprom_load(struct mt76_dev *dev)
 	}
 
 out:
-	kfree(efuse);
 	if (!found)
 		return -ENOENT;
 

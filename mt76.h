@@ -225,6 +225,7 @@ struct mt76_dev {
 
 	struct mt76_calibration cal;
 	struct debugfs_blob_wrapper eeprom;
+	struct debugfs_blob_wrapper otp;
 	struct mt76_hw_cap cap;
 
 	u32 debugfs_reg;
