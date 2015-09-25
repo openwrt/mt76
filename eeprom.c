@@ -141,6 +141,10 @@ mt76_apply_cal_free_data(struct mt76_dev *dev, u8 *efuse)
 	static const u8 cal_free_bytes[] = {
 		MT_EE_XTAL_TRIM_1,
 		MT_EE_TX_POWER_EXT_PA_5G + 1,
+		MT_EE_TX_POWER_0_START_2G,
+		MT_EE_TX_POWER_0_START_2G + 1,
+		MT_EE_TX_POWER_1_START_2G,
+		MT_EE_TX_POWER_1_START_2G + 1,
 		GROUP_5G(0),
 		GROUP_5G(1),
 		GROUP_5G(2),
