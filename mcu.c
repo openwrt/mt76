@@ -120,11 +120,12 @@ mt76pci_load_rom_patch(struct mt76_dev *dev)
 {
 	const struct firmware *fw = NULL;
 	struct mt76_patch_header *hdr;
+	bool rom_protect = !is_mt7612(dev);
 	int len, ret = 0;
 	__le32 *cur;
 	u32 patch_mask, patch_reg;
 
-	if (!mt76_poll(dev, MT_MCU_SEMAPHORE_03, 1, 1, 600)) {
+	if (rom_protect && !mt76_poll(dev, MT_MCU_SEMAPHORE_03, 1, 1, 600)) {
 		printk("Could not get hardware semaphore for ROM PATCH\n");
 		return -ETIMEDOUT;
 	}
@@ -137,7 +138,7 @@ mt76pci_load_rom_patch(struct mt76_dev *dev)
 		patch_reg = MT_MCU_COM_REG0;
 	}
 
-	if (mt76_rr(dev, patch_reg) & patch_mask) {
+	if (rom_protect && (mt76_rr(dev, patch_reg) & patch_mask)) {
 		printk("ROM patch already applied\n");
 		goto out;
 	}
@@ -173,7 +174,8 @@ mt76pci_load_rom_patch(struct mt76_dev *dev)
 
 out:
 	/* release semaphore */
-	mt76_wr(dev, MT_MCU_SEMAPHORE_03, 1);
+	if (rom_protect)
+		mt76_wr(dev, MT_MCU_SEMAPHORE_03, 1);
 	release_firmware(fw);
 	return ret;
 }
