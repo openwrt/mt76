@@ -445,7 +445,7 @@ mt76_phy_update_channel_gain(struct mt76_dev *dev)
 	int rssi0 = (s8) MT76_GET(MT_BBP_AGC20_RSSI0, val);
 	int rssi1 = (s8) MT76_GET(MT_BBP_AGC20_RSSI1, val);
 	bool low_gain;
-	u8 gain[2], gain_delta;
+	u8 *gain = dev->cal.agc_gain_init, gain_delta;
 
 	dev->cal.avg_rssi[0] = (dev->cal.avg_rssi[0] * 15) / 16 + (rssi0 << 8);
 	dev->cal.avg_rssi[1] = (dev->cal.avg_rssi[1] * 15) / 16 + (rssi1 << 8);
@@ -462,7 +462,6 @@ mt76_phy_update_channel_gain(struct mt76_dev *dev)
 	else
 		val = 0x1836 << 16;
 
-	mt76_get_agc_gain(dev, gain);
 	val |= 0xf8;
 
 	if (dev->chandef.width == NL80211_CHAN_WIDTH_80)
