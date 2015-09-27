@@ -360,7 +360,7 @@ mt76_txq_schedule_list(struct mt76_dev *dev, struct mt76_queue *hwq)
 		int cur;
 
 		mtxq = list_first_entry(&hwq->swq, struct mt76_txq, list);
-		if (mtxq->send_bar) {
+		if (mtxq->send_bar && mtxq->aggr) {
 			struct ieee80211_txq *txq = mtxq_to_txq(mtxq);
 
 			mtxq->send_bar = false;

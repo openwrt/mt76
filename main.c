@@ -417,10 +417,13 @@ mt76_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		mt76_clear(dev, MT_WCID_ADDR(msta->wcid.idx)+4, BIT(16 + tid));
 		break;
 	case IEEE80211_AMPDU_TX_OPERATIONAL:
+		mtxq->aggr = true;
+		mtxq->send_bar = false;
 		ieee80211_send_bar(vif, sta->addr, tid, cpu_to_le16(mtxq->agg_ssn));
 		break;
 	case IEEE80211_AMPDU_TX_STOP_FLUSH:
 	case IEEE80211_AMPDU_TX_STOP_FLUSH_CONT:
+		mtxq->aggr = false;
 		ieee80211_send_bar(vif, sta->addr, tid, cpu_to_le16(mtxq->agg_ssn));
 		break;
 	case IEEE80211_AMPDU_TX_START:

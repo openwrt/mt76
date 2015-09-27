@@ -260,6 +260,7 @@ struct mt76_txq {
 
 	u16 agg_ssn;
 	bool send_bar;
+	bool aggr;
 };
 
 struct mt76_reg_pair {
