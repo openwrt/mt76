@@ -322,11 +322,11 @@ void mt76_mac_stop(struct mt76_dev *dev, bool force)
 	}
 
 	if (force && !stopped) {
-		mt76_set(dev, MT_BBP(CORE, 4), BIT(2));
-		mt76_clear(dev, MT_BBP(CORE, 4), BIT(2));
-
 		mt76_set(dev, MT_BBP(CORE, 4), BIT(1));
 		mt76_clear(dev, MT_BBP(CORE, 4), BIT(1));
+
+		mt76_set(dev, MT_BBP(CORE, 4), BIT(0));
+		mt76_clear(dev, MT_BBP(CORE, 4), BIT(0));
 	}
 
 	mt76_wr(dev, MT_TX_RTS_CFG, rts_cfg);
