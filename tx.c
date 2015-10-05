@@ -187,7 +187,6 @@ static struct sk_buff *
 mt76_txq_dequeue(struct mt76_dev *dev, struct mt76_txq *mtxq, bool ps)
 {
 	struct ieee80211_txq *txq = mtxq_to_txq(mtxq);
-	struct ieee80211_hdr *hdr;
 	struct sk_buff *skb;
 
 	skb = skb_dequeue(&mtxq->retry_q);
@@ -204,10 +203,14 @@ mt76_txq_dequeue(struct mt76_dev *dev, struct mt76_txq *mtxq, bool ps)
 	if (!skb)
 		return NULL;
 
-	hdr = (struct ieee80211_hdr *) skb->data;
-	mtxq->agg_ssn = le16_to_cpu(hdr->seq_ctrl) + 0x10;
-
 	return skb;
+}
+
+static void
+mt76_check_agg_ssn(struct mt76_txq *mtxq, struct sk_buff *skb)
+{
+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
+	mtxq->agg_ssn = le16_to_cpu(hdr->seq_ctrl) + 0x10;
 }
 
 static void
@@ -250,6 +253,9 @@ mt76_release_buffered_frames(struct ieee80211_hw *hw, struct ieee80211_sta *sta,
 			skb = mt76_txq_dequeue(dev, mtxq, true);
 			if (!skb)
 				break;
+
+			if (mtxq->aggr)
+				mt76_check_agg_ssn(mtxq, skb);
 
 			nframes--;
 			if (last_skb) {
@@ -303,6 +309,10 @@ mt76_txq_send_burst(struct mt76_dev *dev, struct mt76_queue *hwq,
 	probe = (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE);
 	ampdu = IEEE80211_SKB_CB(skb)->flags & IEEE80211_TX_CTL_AMPDU;
 	limit = ampdu ? 16 : 3;
+
+	if (ampdu)
+		mt76_check_agg_ssn(mtxq, skb);
+
 	idx = mt76_tx_queue_skb(dev, hwq, skb, wcid, txq->sta);
 
 	if (idx < 0)
@@ -330,6 +340,9 @@ mt76_txq_send_burst(struct mt76_dev *dev, struct mt76_queue *hwq,
 
 		info = IEEE80211_SKB_CB(skb);
 		info->control.rates[0] = tx_rate;
+
+		if (cur_ampdu)
+			mt76_check_agg_ssn(mtxq, skb);
 
 		idx = mt76_tx_queue_skb(dev, hwq, skb, wcid, txq->sta);
 		if (idx < 0)
