@@ -442,7 +442,7 @@ mt76_stop_tx_queues(struct mt76_dev *dev, struct ieee80211_sta *sta)
 		struct mt76_txq *mtxq = (struct mt76_txq *) txq->drv_priv;
 
 		spin_lock_bh(&mtxq->hwq->lock);
-		mtxq->send_bar = true;
+		mtxq->send_bar = mtxq->aggr;
 		if (!list_empty(&mtxq->list))
 		    list_del_init(&mtxq->list);
 		spin_unlock_bh(&mtxq->hwq->lock);
