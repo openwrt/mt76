@@ -338,11 +338,10 @@ mt76_tx_cleanup_entry(struct mt76_dev *dev, struct mt76_queue *q, int idx,
 static void
 mt76_tx_cleanup_queue(struct mt76_dev *dev, struct mt76_queue *q, bool flush)
 {
-	int idx, last;
+	int last;
 
 	spin_lock_bh(&q->lock);
 
-	idx = q->tail;
 	if (flush)
 		last = -1;
 	else
