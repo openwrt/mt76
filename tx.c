@@ -371,6 +371,7 @@ mt76_txq_schedule_list(struct mt76_dev *dev, struct mt76_queue *hwq)
 	struct mt76_txq *mtxq, *mtxq_last;
 	int len = 0;
 
+restart:
 	mtxq_last = list_last_entry(&hwq->swq, struct mt76_txq, list);
 	while (1) {
 		bool empty = false;
@@ -385,7 +386,7 @@ mt76_txq_schedule_list(struct mt76_dev *dev, struct mt76_queue *hwq)
 			ieee80211_send_bar(txq->vif, txq->sta->addr, txq->tid,
 					   mtxq->agg_ssn);
 			spin_lock_bh(&hwq->lock);
-			continue;
+			goto restart;
 		}
 
 		list_del_init(&mtxq->list);
