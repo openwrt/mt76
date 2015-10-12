@@ -373,7 +373,7 @@ mt76_txq_schedule_list(struct mt76_dev *dev, struct mt76_queue *hwq)
 
 restart:
 	mtxq_last = list_last_entry(&hwq->swq, struct mt76_txq, list);
-	while (1) {
+	while (!list_empty(&hwq->swq)) {
 		bool empty = false;
 		int cur;
 
