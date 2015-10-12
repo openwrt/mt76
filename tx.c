@@ -380,11 +380,14 @@ restart:
 		mtxq = list_first_entry(&hwq->swq, struct mt76_txq, list);
 		if (mtxq->send_bar && mtxq->aggr) {
 			struct ieee80211_txq *txq = mtxq_to_txq(mtxq);
+			struct ieee80211_sta *sta = txq->sta;
+			struct ieee80211_vif *vif = txq->vif;
+			u16 agg_ssn = mtxq->agg_ssn;
+			u8 tid = txq->tid;
 
 			mtxq->send_bar = false;
 			spin_unlock_bh(&hwq->lock);
-			ieee80211_send_bar(txq->vif, txq->sta->addr, txq->tid,
-					   mtxq->agg_ssn);
+			ieee80211_send_bar(vif, sta->addr, tid, agg_ssn);
 			spin_lock_bh(&hwq->lock);
 			goto restart;
 		}
