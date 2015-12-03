@@ -82,7 +82,7 @@ mt76_write_mac_initvals(struct mt76_dev *dev)
 		{ MT_TX_SW_CFG0,		0x00101001 },
 		{ MT_TX_SW_CFG1,		0x00010000 },
 		{ MT_TX_SW_CFG2,		0x00000000 },
-		{ MT_TXOP_CTRL_CFG,		0x0000583f },
+		{ MT_TXOP_CTRL_CFG,		0x0400583f },
 		{ MT_TX_RTS_CFG,		0x00092b20 },
 		{ MT_TX_TIMEOUT_CFG,		0x000a2290 },
 		{ MT_TX_RETRY_CFG,		0x47f01f0f },
