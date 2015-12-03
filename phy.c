@@ -339,10 +339,10 @@ mt76_configure_tx_delay(struct mt76_dev *dev, enum ieee80211_band band, u8 bw)
 
 	if (mt76_ext_pa_enabled(dev, band)) {
 		cfg0 = bw ? 0x000b0c01 : 0x00101101;
-		cfg1 = 0x00010200;
+		cfg1 = 0x00011414;
 	} else {
 		cfg0 = bw ? 0x000b0b01 : 0x00101001;
-		cfg1 = 0x00020000;
+		cfg1 = 0x00021414;
 	}
 	mt76_wr(dev, MT_TX_SW_CFG0, cfg0);
 	mt76_wr(dev, MT_TX_SW_CFG1, cfg1);
