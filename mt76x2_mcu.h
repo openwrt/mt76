@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MT76_MCU_H
-#define __MT76_MCU_H
+#ifndef __MT76x2_MCU_H
+#define __MT76x2_MCU_H
 
 /* Register definitions */
 #define MT_MCU_CPU_CTL			0x0704

@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MT76_H
-#define __MT76_H
+#ifndef __MT76x2_H
+#define __MT76x2_H
 
 #include <linux/kernel.h>
 #include <linux/device.h>

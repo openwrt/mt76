@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#if !defined(__MT76_TRACE_H) || defined(TRACE_HEADER_MULTI_READ)
-#define __MT76_TRACE_H
+#if !defined(__MT76x2_TRACE_H) || defined(TRACE_HEADER_MULTI_READ)
+#define __MT76x2_TRACE_H
 
 #include <linux/tracepoint.h>
 #include "mt76x2.h"

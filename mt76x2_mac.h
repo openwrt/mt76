@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MT76_MAC_H
-#define __MT76_MAC_H
+#ifndef __MT76x2_MAC_H
+#define __MT76x2_MAC_H
 
 struct mt76x2_dev;
 struct mt76x2_sta;

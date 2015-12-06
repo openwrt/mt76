@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MT76_DMA_H
-#define __MT76_DMA_H
+#ifndef __MT76x2_DMA_H
+#define __MT76x2_DMA_H
 
 #define MT_DMA_CTL_SD_LEN1		GENMASK(13, 0)
 #define MT_DMA_CTL_LAST_SEC1		BIT(14)

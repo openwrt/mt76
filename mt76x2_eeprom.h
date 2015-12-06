@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MT76_EEPROM_H
-#define __MT76_EEPROM_H
+#ifndef __MT76x2_EEPROM_H
+#define __MT76x2_EEPROM_H
 
 #include "mt76x2.h"
 

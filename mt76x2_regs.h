@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MT76_REGS_H
-#define __MT76_REGS_H
+#ifndef __MT76x2_REGS_H
+#define __MT76x2_REGS_H
 
 #include <linux/bitops.h>
 
