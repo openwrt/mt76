@@ -153,7 +153,7 @@ void mt76x2_mac_wcid_set_rate(struct mt76x2_dev *dev, struct mt76x2_wcid *wcid,
 	spin_unlock_irqrestore(&dev->lock, flags);
 }
 
-void mt76x2_mac_write_txwi(struct mt76x2_dev *dev, struct mt76x2_txwi *txwi,
+void mt76x2_mac_write_txwi(struct mt76x2_dev *dev, struct mt76_txwi *txwi,
 			 struct sk_buff *skb, struct mt76x2_wcid *wcid,
 			 struct ieee80211_sta *sta)
 {
@@ -441,7 +441,7 @@ void mt76x2_mac_poll_tx_status(struct mt76x2_dev *dev, bool irq)
 }
 
 void mt76x2_mac_queue_txdone(struct mt76x2_dev *dev, struct sk_buff *skb,
-			   struct mt76x2_txwi *txwi)
+			   struct mt76_txwi *txwi)
 {
 	struct mt76x2_tx_info *txi = mt76x2_skb_tx_info(skb);
 
@@ -579,9 +579,9 @@ static int
 mt76_write_beacon(struct mt76x2_dev *dev, int offset, struct sk_buff *skb)
 {
 	int beacon_len = dev->beacon_offsets[1] - dev->beacon_offsets[0];
-	struct mt76x2_txwi txwi;
+	struct mt76_txwi txwi;
 
-	if (WARN_ON_ONCE(beacon_len < skb->len + sizeof(struct mt76x2_txwi)))
+	if (WARN_ON_ONCE(beacon_len < skb->len + sizeof(struct mt76_txwi)))
 		return -ENOSPC;
 
 	mt76x2_mac_write_txwi(dev, &txwi, skb, NULL, NULL);

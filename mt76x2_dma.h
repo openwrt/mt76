@@ -14,12 +14,7 @@
 #ifndef __MT76x2_DMA_H
 #define __MT76x2_DMA_H
 
-#define MT_DMA_CTL_SD_LEN1		GENMASK(13, 0)
-#define MT_DMA_CTL_LAST_SEC1		BIT(14)
-#define MT_DMA_CTL_BURST		BIT(15)
-#define MT_DMA_CTL_SD_LEN0		GENMASK(29, 16)
-#define MT_DMA_CTL_LAST_SEC0		BIT(30)
-#define MT_DMA_CTL_DMA_DONE		BIT(31)
+#include "dma.h"
 
 #define MT_TXD_INFO_LEN			GENMASK(13, 0)
 #define MT_TXD_INFO_NEXT_VLD		BIT(16)
@@ -66,12 +61,5 @@ enum dma_msg_port {
 	VIRTUAL_CPU_TX_PORT,
 	DISCARD,
 };
-
-struct mt76x2_desc {
-	__le32 buf0;
-	__le32 ctrl;
-	__le32 buf1;
-	__le32 info;
-} __packed __aligned(4);
 
 #endif

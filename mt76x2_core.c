@@ -71,7 +71,7 @@ irqreturn_t mt76x2_irq_handler(int irq, void *dev_instance)
 
 	/* send buffered multicast frames now */
 	if (intr & MT_INT_TBTT)
-		mt76x2_kick_queue(dev, &dev->q_tx[MT_TXQ_PSD]);
+		mt76_queue_kick(dev, &dev->q_tx[MT_TXQ_PSD]);
 
 	if (intr & MT_INT_TX_STAT) {
 		mt76x2_mac_poll_tx_status(dev, true);

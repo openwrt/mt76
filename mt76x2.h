@@ -45,15 +45,6 @@
 #include "mt76x2_regs.h"
 #include "mt76x2_mac.h"
 
-struct mt76x2_queue_entry {
-	struct sk_buff *skb;
-	union {
-		void *buf;
-		struct mt76x2_txwi_cache *txwi;
-	};
-	bool schedule;
-};
-
 enum {
 	MT76_STATE_INITIALIZED,
 	MT76_STATE_RUNNING,
@@ -70,32 +61,13 @@ enum mt76x2_txq_id {
 	__MT_TXQ_MAX
 };
 
-struct mt76x2_queue {
-	struct mt76x2_queue_regs __iomem *regs;
-
-	spinlock_t lock;
-	struct mt76x2_queue_entry *entry;
-	struct mt76x2_desc *desc;
-
-	struct list_head swq;
-	int swq_queued;
-
-	u16 head;
-	u16 tail;
-	int ndesc;
-	int queued;
-	int buf_size;
-
-	dma_addr_t desc_dma;
-};
-
 struct mt76x2_mcu {
 	struct mutex mutex;
 
 	wait_queue_head_t wait;
 	struct sk_buff_head res_q;
 
-	struct mt76x2_queue q_rx;
+	struct mt76_queue q_rx;
 	u32 msg_seq;
 };
 
@@ -150,20 +122,6 @@ struct mt76x2_rate_power {
 	};
 };
 
-struct mt76x2_dma_ops {
-	int (*queue_skb)(struct mt76x2_dev *dev, struct mt76x2_queue *q,
-			 struct sk_buff *skb, struct mt76x2_wcid *wcid,
-			 struct ieee80211_sta *sta);
-	int (*queue_mcu)(struct mt76x2_dev *dev, enum mt76x2_txq_id qid,
-			 struct sk_buff *skb, int cmd, int seq);
-
-	void (*cleanup_idx)(struct mt76x2_dev *dev, struct mt76x2_queue *q, int idx,
-			    bool flush, bool *schedule);
-
-	int (*add_rx_buf)(struct mt76x2_dev *dev, struct mt76x2_queue *q,
-	                  dma_addr_t addr, int len);
-};
-
 struct mt76x2_dev {
 	struct mt76_dev mt76;
 
@@ -171,8 +129,6 @@ struct mt76x2_dev {
 	struct mac_address macaddr_list[8];
 
 	struct mutex mutex;
-
-	const struct mt76x2_dma_ops *dma_ops;
 
 	const u16 *beacon_offsets;
 	unsigned long wcid_mask[256 / BITS_PER_LONG];
@@ -188,8 +144,8 @@ struct mt76x2_dev {
 
 	struct list_head txwi_cache;
 	struct mt76x2_mcu mcu;
-	struct mt76x2_queue q_rx;
-	struct mt76x2_queue q_tx[__MT_TXQ_MAX];
+	struct mt76_queue q_rx;
+	struct mt76_queue q_tx[__MT_TXQ_MAX];
 
 	struct net_device napi_dev;
 	struct napi_struct napi;
@@ -249,7 +205,7 @@ struct mt76x2_sta {
 
 struct mt76x2_txq {
 	struct list_head list;
-	struct mt76x2_queue *hwq;
+	struct mt76_queue *hwq;
 
 	struct sk_buff_head retry_q;
 
@@ -330,21 +286,21 @@ void mt76x2_dma_cleanup(struct mt76x2_dev *dev);
 void mt76x2_cleanup(struct mt76x2_dev *dev);
 void mt76x2_rx(struct mt76x2_dev *dev, struct sk_buff *skb);
 
-#define mt76x2_tx_queue_skb(dev, ...) dev->dma_ops->queue_skb(dev, __VA_ARGS__)
-#define mt76x2_tx_queue_mcu(dev, ...) dev->dma_ops->queue_mcu(dev, __VA_ARGS__)
-
+int mt76x2_tx_queue_skb(struct mt76x2_dev *dev, struct mt76_queue *q,
+			struct sk_buff *skb, struct mt76x2_wcid *wcid,
+			struct ieee80211_sta *sta);
+int mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76x2_txq_id qid,
+			struct sk_buff *skb, int cmd, int seq);
 void mt76x2_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
 	     struct sk_buff *skb);
 void mt76x2_tx_complete(struct mt76x2_dev *dev, struct sk_buff *skb);
-
-void mt76x2_kick_queue(struct mt76x2_dev *dev, struct mt76x2_queue *q);
 
 void mt76x2_pre_tbtt_tasklet(unsigned long data);
 
 void mt76x2_txq_init(struct mt76x2_dev *dev, struct ieee80211_txq *txq);
 void mt76x2_wake_tx_queue(struct ieee80211_hw *hw, struct ieee80211_txq *txq);
 void mt76x2_txq_remove(struct mt76x2_dev *dev, struct ieee80211_txq *txq);
-void mt76x2_txq_schedule(struct mt76x2_dev *dev, struct mt76x2_queue *hwq);
+void mt76x2_txq_schedule(struct mt76x2_dev *dev, struct mt76_queue *hwq);
 
 void mt76x2_release_buffered_frames(struct ieee80211_hw *hw,
 				  struct ieee80211_sta *sta,

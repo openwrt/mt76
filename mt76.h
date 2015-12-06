@@ -16,6 +16,8 @@
 
 #include <linux/kernel.h>
 #include <linux/io.h>
+#include <linux/spinlock.h>
+#include <linux/skbuff.h>
 #include <net/mac80211.h>
 #include "util.h"
 
@@ -28,12 +30,63 @@ struct mt76_bus_ops {
 	void (*copy)(struct mt76_dev *dev, u32 offset, const void *data, int len);
 };
 
+struct mt76_queue_entry {
+	struct sk_buff *skb;
+	union {
+		void *buf;
+		struct mt76_txwi_cache *txwi;
+	};
+	bool schedule;
+};
+
+struct mt76_queue_regs {
+	u32 desc_base;
+	u32 ring_size;
+	u32 cpu_idx;
+	u32 dma_idx;
+} __packed __aligned(4);
+
+struct mt76_queue {
+	struct mt76_queue_regs __iomem *regs;
+
+	spinlock_t lock;
+	struct mt76_queue_entry *entry;
+	struct mt76_desc *desc;
+
+	struct list_head swq;
+	int swq_queued;
+
+	u16 head;
+	u16 tail;
+	int ndesc;
+	int queued;
+	int buf_size;
+
+	dma_addr_t desc_dma;
+};
+
+struct mt76_queue_ops {
+	int (*alloc)(struct mt76_dev *dev, struct mt76_queue *q);
+
+	int (*add_buf)(struct mt76_dev *dev, struct mt76_queue *q,
+		       u32 buf0, int len0, u32 buf1, int len1, u32 info);
+
+	int (*dequeue)(struct mt76_dev *dev, struct mt76_queue *q, bool flush);
+
+	void (*cleanup_idx)(struct mt76_dev *dev, struct mt76_queue *q, int idx,
+			    struct mt76_queue_entry *e);
+
+	void (*kick)(struct mt76_dev *dev, struct mt76_queue *q);
+};
+
 struct mt76_dev {
+	struct ieee80211_hw *hw;
+
 	const struct mt76_bus_ops *bus;
 	void __iomem *regs;
 	struct device *dev;
 
-	struct ieee80211_hw *hw;
+	const struct mt76_queue_ops *queue_ops;
 };
 
 #define mt76_rr(dev, ...)	(dev)->mt76.bus->rr(&((dev)->mt76), __VA_ARGS__)
@@ -63,5 +116,12 @@ bool __mt76_poll_msec(struct mt76_dev *dev, u32 offset, u32 mask, u32 val,
 #define mt76_poll_msec(dev, ...) __mt76_poll_msec(&((dev)->mt76), __VA_ARGS__)
 
 void mt76_mmio_init(struct mt76_dev *dev, void __iomem *regs);
+
+
+#define mt76_queue_alloc(dev, ...) (dev)->mt76.queue_ops->alloc(&((dev)->mt76), __VA_ARGS__)
+#define mt76_queue_add_buf(dev, ...) (dev)->mt76.queue_ops->add_buf(&((dev)->mt76), __VA_ARGS__)
+#define mt76_queue_dequeue(dev, ...) (dev)->mt76.queue_ops->dequeue(&((dev)->mt76), __VA_ARGS__)
+#define mt76_queue_cleanup_idx(dev, ...) (dev)->mt76.queue_ops->cleanup_idx(&((dev)->mt76), __VA_ARGS__)
+#define mt76_queue_kick(dev, ...) (dev)->mt76.queue_ops->kick(&((dev)->mt76), __VA_ARGS__)
 
 #endif

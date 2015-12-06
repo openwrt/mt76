@@ -19,9 +19,9 @@ struct mt76x2_sta;
 struct mt76x2_vif;
 struct mt76x2_wcid;
 
-struct mt76x2_txwi;
-struct mt76x2_queue;
-struct mt76x2_txwi_cache;
+struct mt76_txwi;
+struct mt76_queue;
+struct mt76_txwi_cache;
 
 struct mt76x2_tx_status {
 	u8 valid:1;
@@ -140,7 +140,7 @@ enum mt76x2_phy_bandwith {
 
 #define MT_TXWI_PKTID_PROBE		BIT(7)
 
-struct mt76x2_txwi {
+struct mt76_txwi {
 	__le16 flags;
 	__le16 rate;
 	u8 ack_ctl;
@@ -169,7 +169,7 @@ void mt76x2_mac_resume(struct mt76x2_dev *dev);
 void mt76x2_mac_set_bssid(struct mt76x2_dev *dev, u8 idx, const u8 *addr);
 
 int mt76x2_mac_process_rx(struct mt76x2_dev *dev, struct sk_buff *skb, void *rxwi);
-void mt76x2_mac_write_txwi(struct mt76x2_dev *dev, struct mt76x2_txwi *txwi,
+void mt76x2_mac_write_txwi(struct mt76x2_dev *dev, struct mt76_txwi *txwi,
 			 struct sk_buff *skb, struct mt76x2_wcid *wcid,
 			 struct ieee80211_sta *sta);
 void mt76x2_mac_wcid_setup(struct mt76x2_dev *dev, u8 idx, u8 vif_idx, u8 *mac);
@@ -187,7 +187,7 @@ int mt76x2_mac_set_beacon(struct mt76x2_dev *dev, u8 vif_idx, struct sk_buff *sk
 void mt76x2_mac_set_beacon_enable(struct mt76x2_dev *dev, u8 vif_idx, bool val);
 
 void mt76x2_mac_queue_txdone(struct mt76x2_dev *dev, struct sk_buff *skb,
-			   struct mt76x2_txwi *txwi);
+			   struct mt76_txwi *txwi);
 
 void mt76x2_mac_poll_tx_status(struct mt76x2_dev *dev, bool irq);
 void mt76x2_mac_process_tx_status_fifo(struct mt76x2_dev *dev);

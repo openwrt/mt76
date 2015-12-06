@@ -517,13 +517,6 @@ struct mt76x2_wcid_key {
 	u8 rx_mic[8];
 } __packed __aligned(4);
 
-struct mt76x2_queue_regs {
-	u32 desc_base;
-	u32 ring_size;
-	u32 cpu_idx;
-	u32 dma_idx;
-} __packed __aligned(4);
-
 enum mt76x2_cipher_type {
 	MT_CIPHER_NONE,
 	MT_CIPHER_WEP40,
