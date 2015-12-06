@@ -15,6 +15,8 @@
 #ifndef __MT76_UTIL_H
 #define __MT76_UTIL_H
 
+#include <linux/skbuff.h>
+
 /*
  * Power of two check, this will check
  * if the mask that has been given contains and contiguous set of bits.
