@@ -105,7 +105,7 @@ mt76pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	return 0;
 
 error:
-	ieee80211_free_hw(dev->hw);
+	ieee80211_free_hw(mt76_hw(dev));
 	return ret;
 }
 
@@ -114,9 +114,9 @@ mt76pci_remove(struct pci_dev *pdev)
 {
 	struct mt76x2_dev *dev = pci_get_drvdata(pdev);
 
-	ieee80211_unregister_hw(dev->hw);
+	ieee80211_unregister_hw(mt76_hw(dev));
 	mt76x2_cleanup(dev);
-	ieee80211_free_hw(dev->hw);
+	ieee80211_free_hw(mt76_hw(dev));
 	printk("pci device driver detached\n");
 }
 

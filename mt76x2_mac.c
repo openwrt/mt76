@@ -121,7 +121,7 @@ mt76x2_mac_tx_rate_val(struct mt76x2_dev *dev, const struct ieee80211_tx_rate *r
 		int band = dev->chandef.chan->band;
 		u16 val;
 
-		r = &dev->hw->wiphy->bands[band]->bitrates[rate->idx];
+		r = &mt76_hw(dev)->wiphy->bands[band]->bitrates[rate->idx];
 		if (rate->flags & IEEE80211_TX_RC_USE_SHORT_PREAMBLE)
 			val = r->hw_value_short;
 		else
@@ -391,7 +391,7 @@ mt76x2_send_tx_status(struct mt76x2_dev *dev, struct mt76x2_tx_status *stat,
 		*update = 1;
 	}
 
-	ieee80211_tx_status_noskb(dev->hw, sta, &info);
+	ieee80211_tx_status_noskb(mt76_hw(dev), sta, &info);
 
 out:
 	rcu_read_unlock();
@@ -695,7 +695,7 @@ void mt76x2_mac_work(struct work_struct *work)
 		dev->aggr_stats[idx++] += val >> 16;
 	}
 
-	ieee80211_queue_delayed_work(dev->hw, &dev->mac_work,
+	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mac_work,
 				     MT_CALIBRATE_INTERVAL);
 
 }

@@ -269,7 +269,7 @@ mt76x2_dma_tx_queue_skb(struct mt76x2_dev *dev, struct mt76x2_queue *q,
 put_txwi:
 	mt76x2_put_txwi(dev, t);
 free:
-	ieee80211_free_txskb(dev->hw, skb);
+	ieee80211_free_txskb(mt76_hw(dev), skb);
 	return ret;
 }
 

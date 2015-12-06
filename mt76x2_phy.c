@@ -618,7 +618,7 @@ int mt76x2_phy_set_channel(struct mt76x2_dev *dev,
 	mt76x2_phy_channel_calibrate(dev, true);
 	mt76x2_get_agc_gain(dev, dev->cal.agc_gain_init);
 
-	ieee80211_queue_delayed_work(dev->hw, &dev->cal_work,
+	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->cal_work,
 				     MT_CALIBRATE_INTERVAL);
 
 	return 0;
@@ -702,7 +702,7 @@ void mt76x2_phy_calibrate(struct work_struct *work)
 	mt76x2_phy_tssi_compensate(dev);
 	mt76x2_phy_temp_compensate(dev);
 	mt76x2_phy_update_channel_gain(dev);
-	ieee80211_queue_delayed_work(dev->hw, &dev->cal_work,
+	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->cal_work,
 				     MT_CALIBRATE_INTERVAL);
 }
 

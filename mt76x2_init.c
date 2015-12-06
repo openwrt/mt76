@@ -736,7 +736,7 @@ mt76x2_init_sband_2g(struct mt76x2_dev *dev)
 	if (!dev->cap.has_2ghz)
 		return 0;
 
-	dev->hw->wiphy->bands[IEEE80211_BAND_2GHZ] = &dev->sband_2g;
+	mt76_hw(dev)->wiphy->bands[IEEE80211_BAND_2GHZ] = &dev->sband_2g;
 	return mt76x2_init_sband(dev, &dev->sband_2g,
 			       mt76x2_channels_2ghz,
 			       ARRAY_SIZE(mt76x2_channels_2ghz),
@@ -749,7 +749,7 @@ mt76x2_init_sband_5g(struct mt76x2_dev *dev)
 	if (!dev->cap.has_5ghz)
 		return 0;
 
-	dev->hw->wiphy->bands[IEEE80211_BAND_5GHZ] = &dev->sband_5g;
+	mt76_hw(dev)->wiphy->bands[IEEE80211_BAND_5GHZ] = &dev->sband_5g;
 	return mt76x2_init_sband(dev, &dev->sband_5g,
 			       mt76x2_channels_5ghz,
 			       ARRAY_SIZE(mt76x2_channels_5ghz),
@@ -782,7 +782,7 @@ static const struct ieee80211_iface_combination if_comb[] = {
 
 int mt76x2_register_device(struct mt76x2_dev *dev)
 {
-	struct ieee80211_hw *hw = dev->hw;
+	struct ieee80211_hw *hw = mt76_hw(dev);
 	struct wiphy *wiphy = hw->wiphy;
 	void *status_fifo;
 	int fifo_size;

@@ -63,17 +63,17 @@ void mt76x2_tx_complete(struct mt76x2_dev *dev, struct sk_buff *skb)
 	int qid = skb_get_queue_mapping(skb);
 
 	if (info->flags & IEEE80211_TX_CTL_AMPDU) {
-		ieee80211_free_txskb(dev->hw, skb);
+		ieee80211_free_txskb(mt76_hw(dev), skb);
 	} else {
 		ieee80211_tx_info_clear_status(info);
 		info->status.rates[0].idx = -1;
 		info->flags |= IEEE80211_TX_STAT_ACK;
-		ieee80211_tx_status(dev->hw, skb);
+		ieee80211_tx_status(mt76_hw(dev), skb);
 	}
 
 	q = &dev->q_tx[qid];
 	if (q->queued < q->ndesc - 8)
-		ieee80211_wake_queue(dev->hw, qid);
+		ieee80211_wake_queue(mt76_hw(dev), qid);
 }
 
 static void
@@ -87,7 +87,7 @@ mt76x2_update_beacon_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 	if (!(dev->beacon_mask & BIT(mvif->idx)))
 		return;
 
-	skb = ieee80211_beacon_get(dev->hw, vif);
+	skb = ieee80211_beacon_get(mt76_hw(dev), vif);
 	if (!skb)
 		return;
 
@@ -119,7 +119,7 @@ mt76x2_add_buffered_bc(void *priv, u8 *mac, struct ieee80211_vif *vif)
 	if (!(dev->beacon_mask & BIT(mvif->idx)))
 		return;
 
-	skb = ieee80211_get_buffered_bc(dev->hw, vif);
+	skb = ieee80211_get_buffered_bc(mt76_hw(dev), vif);
 	if (!skb)
 		return;
 
@@ -142,13 +142,13 @@ void mt76x2_pre_tbtt_tasklet(unsigned long arg)
 	data.dev = dev;
 	__skb_queue_head_init(&data.q);
 
-	ieee80211_iterate_active_interfaces_atomic(dev->hw,
+	ieee80211_iterate_active_interfaces_atomic(mt76_hw(dev),
 		IEEE80211_IFACE_ITER_RESUME_ALL,
 		mt76x2_update_beacon_iter, dev);
 
 	do {
 		nframes = skb_queue_len(&data.q);
-		ieee80211_iterate_active_interfaces_atomic(dev->hw,
+		ieee80211_iterate_active_interfaces_atomic(mt76_hw(dev),
 			IEEE80211_IFACE_ITER_RESUME_ALL,
 			mt76x2_add_buffered_bc, &data);
 	} while (nframes != skb_queue_len(&data.q));
@@ -199,7 +199,7 @@ mt76x2_txq_dequeue(struct mt76x2_dev *dev, struct mt76x2_txq *mtxq, bool ps)
 		return skb;
 	}
 
-	skb = ieee80211_tx_dequeue(dev->hw, txq);
+	skb = ieee80211_tx_dequeue(mt76_hw(dev), txq);
 	if (!skb)
 		return NULL;
 
@@ -484,5 +484,5 @@ void mt76x2_txq_remove(struct mt76x2_dev *dev, struct ieee80211_txq *txq)
 	spin_unlock_bh(&hwq->lock);
 
 	while ((skb = skb_dequeue(&mtxq->retry_q)) != NULL)
-		ieee80211_free_txskb(dev->hw, skb);
+		ieee80211_free_txskb(mt76_hw(dev), skb);
 }

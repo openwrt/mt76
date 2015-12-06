@@ -106,7 +106,7 @@ void mt76x2_init_debugfs(struct mt76x2_dev *dev)
 {
 	struct dentry *dir;
 
-	dir = debugfs_create_dir("mt76", dev->hw->wiphy->debugfsdir);
+	dir = debugfs_create_dir("mt76", mt76_hw(dev)->wiphy->debugfsdir);
 	if (!dir)
 		return;
 

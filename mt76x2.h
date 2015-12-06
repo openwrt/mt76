@@ -268,6 +268,8 @@ struct mt76x2_reg_pair {
 	u32 value;
 };
 
+#define mt76_hw(dev) (dev)->hw
+
 u32 mt76x2_rr(struct mt76x2_dev *dev, u32 offset);
 void mt76x2_wr(struct mt76x2_dev *dev, u32 offset, u32 val);
 u32 mt76x2_rmw(struct mt76x2_dev *dev, u32 offset, u32 mask, u32 val);

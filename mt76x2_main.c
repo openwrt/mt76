@@ -29,7 +29,7 @@ mt76x2_start(struct ieee80211_hw *hw)
 	if (ret)
 		goto out;
 
-	ieee80211_queue_delayed_work(dev->hw, &dev->mac_work,
+	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mac_work,
 				     MT_CALIBRATE_INTERVAL);
 	napi_enable(&dev->napi);
 
@@ -499,6 +499,6 @@ void mt76x2_rx(struct mt76x2_dev *dev, struct sk_buff *skb)
 		return;
 	}
 
-	ieee80211_rx(dev->hw, skb);
+	ieee80211_rx(mt76_hw(dev), skb);
 }
 
