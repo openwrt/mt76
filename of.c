@@ -18,7 +18,7 @@
 #include "eeprom.h"
 #include "of.h"
 
-static int mt76_check_eeprom(struct mt76_dev *dev, const char *type)
+static int mt76x2_check_eeprom(struct mt76x2_dev *dev, const char *type)
 {
 	u16 val = get_unaligned_le16(dev->eeprom.data);
 	switch (val) {
@@ -32,7 +32,7 @@ static int mt76_check_eeprom(struct mt76_dev *dev, const char *type)
 }
 
 int
-mt76_get_of_eeprom(struct mt76_dev *dev, int len)
+mt76x2_get_of_eeprom(struct mt76x2_dev *dev, int len)
 {
 	struct device_node *np = dev->dev->of_node;
 	struct mtd_info *mtd;
@@ -79,11 +79,11 @@ mt76_get_of_eeprom(struct mt76_dev *dev, int len)
 	if (retlen < len)
 		return -EINVAL;
 
-	return mt76_check_eeprom(dev, "Flash");
+	return mt76x2_check_eeprom(dev, "Flash");
 }
 
 void
-mt76_get_of_overrides(struct mt76_dev *dev)
+mt76x2_get_of_overrides(struct mt76x2_dev *dev)
 {
 	struct device_node *np = dev->dev->of_node;
 	const __be32 *val;

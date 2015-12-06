@@ -18,19 +18,19 @@
 
 #ifdef CONFIG_OF
 
-int mt76_get_of_eeprom(struct mt76_dev *dev, int len);
-void mt76_get_of_overrides(struct mt76_dev *dev);
+int mt76x2_get_of_eeprom(struct mt76x2_dev *dev, int len);
+void mt76x2_get_of_overrides(struct mt76x2_dev *dev);
 
 #else
 
 static inline int
-mt76_get_of_eeprom(struct mt76_dev *dev, int len)
+mt76x2_get_of_eeprom(struct mt76x2_dev *dev, int len)
 {
 	return -ENOENT;
 }
 
 static inline void
-mt76_get_of_overrides(struct mt76_dev *dev)
+mt76x2_get_of_overrides(struct mt76x2_dev *dev)
 {
 }
 

@@ -15,30 +15,30 @@
 #include "mt76.h"
 
 static int
-mt76_reg_set(void *data, u64 val)
+mt76x2_reg_set(void *data, u64 val)
 {
-	struct mt76_dev *dev = data;
+	struct mt76x2_dev *dev = data;
 
-	mt76_wr(dev, dev->debugfs_reg, val);
+	mt76x2_wr(dev, dev->debugfs_reg, val);
 	return 0;
 }
 
 static int
-mt76_reg_get(void *data, u64 *val)
+mt76x2_reg_get(void *data, u64 *val)
 {
-	struct mt76_dev *dev = data;
+	struct mt76x2_dev *dev = data;
 
-	*val = mt76_rr(dev, dev->debugfs_reg);
+	*val = mt76x2_rr(dev, dev->debugfs_reg);
 	return 0;
 }
 
-DEFINE_SIMPLE_ATTRIBUTE(fops_regval, mt76_reg_get, mt76_reg_set, "0x%08llx\n");
+DEFINE_SIMPLE_ATTRIBUTE(fops_regval, mt76x2_reg_get, mt76x2_reg_set, "0x%08llx\n");
 
 
 static int
-mt76_ampdu_stat_read(struct seq_file *file, void *data)
+mt76x2_ampdu_stat_read(struct seq_file *file, void *data)
 {
-	struct mt76_dev *dev = file->private;
+	struct mt76x2_dev *dev = file->private;
 	int i, j;
 
 	for (i = 0; i < 4; i++) {
@@ -60,9 +60,9 @@ mt76_ampdu_stat_read(struct seq_file *file, void *data)
 }
 
 static int
-mt76_ampdu_stat_open(struct inode *inode, struct file *f)
+mt76x2_ampdu_stat_open(struct inode *inode, struct file *f)
 {
-	return single_open(f, mt76_ampdu_stat_read, inode->i_private);
+	return single_open(f, mt76x2_ampdu_stat_read, inode->i_private);
 }
 
 static void
@@ -78,7 +78,7 @@ seq_puts_array(struct seq_file *file, const char *str, s8 *val, int len)
 
 static int read_txpower(struct seq_file *file, void *data)
 {
-	struct mt76_dev *dev = dev_get_drvdata(file->private);
+	struct mt76x2_dev *dev = dev_get_drvdata(file->private);
 
 	seq_printf(file, "Target power: %d\n", dev->target_power);
 
@@ -96,13 +96,13 @@ static int read_txpower(struct seq_file *file, void *data)
 }
 
 static const struct file_operations fops_ampdu_stat = {
-	.open = mt76_ampdu_stat_open,
+	.open = mt76x2_ampdu_stat_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
 	.release = single_release,
 };
 
-void mt76_init_debugfs(struct mt76_dev *dev)
+void mt76x2_init_debugfs(struct mt76x2_dev *dev)
 {
 	struct dentry *dir;
 

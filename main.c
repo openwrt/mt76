@@ -14,18 +14,18 @@
 #include "mt76.h"
 
 static int
-mt76_start(struct ieee80211_hw *hw)
+mt76x2_start(struct ieee80211_hw *hw)
 {
-	struct mt76_dev *dev = hw->priv;
+	struct mt76x2_dev *dev = hw->priv;
 	int ret;
 
 	mutex_lock(&dev->mutex);
 
-	ret = mt76_mac_start(dev);
+	ret = mt76x2_mac_start(dev);
 	if (ret)
 		goto out;
 
-	ret = mt76_phy_start(dev);
+	ret = mt76x2_phy_start(dev);
 	if (ret)
 		goto out;
 
@@ -41,22 +41,22 @@ out:
 }
 
 static void
-mt76_stop(struct ieee80211_hw *hw)
+mt76x2_stop(struct ieee80211_hw *hw)
 {
-	struct mt76_dev *dev = hw->priv;
+	struct mt76x2_dev *dev = hw->priv;
 
 	mutex_lock(&dev->mutex);
 	napi_disable(&dev->napi);
 	clear_bit(MT76_STATE_RUNNING, &dev->state);
-	mt76_stop_hardware(dev);
+	mt76x2_stop_hardware(dev);
 	mutex_unlock(&dev->mutex);
 }
 
 static int
-mt76_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
+mt76x2_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
-	struct mt76_dev *dev = hw->priv;
-	struct mt76_vif *mvif = (struct mt76_vif *) vif->drv_priv;
+	struct mt76x2_dev *dev = hw->priv;
+	struct mt76x2_vif *mvif = (struct mt76x2_vif *) vif->drv_priv;
 	unsigned int idx = 0;
 	int ret = 0;
 
@@ -82,23 +82,23 @@ mt76_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	mvif->idx = idx;
 	mvif->group_wcid.idx = 254 - idx;
 	mvif->group_wcid.hw_key_idx = -1;
-	mt76_txq_init(dev, vif->txq);
+	mt76x2_txq_init(dev, vif->txq);
 
 	return ret;
 }
 
 static void
-mt76_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
+mt76x2_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
-	struct mt76_dev *dev = hw->priv;
+	struct mt76x2_dev *dev = hw->priv;
 
-	mt76_txq_remove(dev, vif->txq);
+	mt76x2_txq_remove(dev, vif->txq);
 }
 
 static int
-mt76_config(struct ieee80211_hw *hw, u32 changed)
+mt76x2_config(struct ieee80211_hw *hw, u32 changed)
 {
-	struct mt76_dev *dev = hw->priv;
+	struct mt76x2_dev *dev = hw->priv;
 	int ret = 0;
 
 	mutex_lock(&dev->mutex);
@@ -107,12 +107,12 @@ mt76_config(struct ieee80211_hw *hw, u32 changed)
 		dev->txpower_conf = hw->conf.power_level * 2;
 
 		if (test_bit(MT76_STATE_RUNNING, &dev->state))
-			mt76_phy_set_txpower(dev);
+			mt76x2_phy_set_txpower(dev);
 	}
 
 	if (changed & IEEE80211_CONF_CHANGE_CHANNEL) {
 		ieee80211_stop_queues(hw);
-		ret = mt76_set_channel(dev, &hw->conf.chandef);
+		ret = mt76x2_set_channel(dev, &hw->conf.chandef);
 		ieee80211_wake_queues(hw);
 	}
 
@@ -122,10 +122,10 @@ mt76_config(struct ieee80211_hw *hw, u32 changed)
 }
 
 static void
-mt76_configure_filter(struct ieee80211_hw *hw, unsigned int changed_flags,
+mt76x2_configure_filter(struct ieee80211_hw *hw, unsigned int changed_flags,
 		      unsigned int *total_flags, u64 multicast)
 {
-	struct mt76_dev *dev = hw->priv;
+	struct mt76x2_dev *dev = hw->priv;
 	u32 flags = 0;
 
 #define MT76_FILTER(_flag, _hw) do { \
@@ -149,31 +149,31 @@ mt76_configure_filter(struct ieee80211_hw *hw, unsigned int changed_flags,
 	MT76_FILTER(PSPOLL, MT_RX_FILTR_CFG_PSPOLL);
 
 	*total_flags = flags;
-	mt76_wr(dev, MT_RX_FILTR_CFG, dev->rxfilter);
+	mt76x2_wr(dev, MT_RX_FILTR_CFG, dev->rxfilter);
 
 	mutex_unlock(&dev->mutex);
 }
 
 static void
-mt76_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+mt76x2_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		      struct ieee80211_bss_conf *info, u32 changed)
 {
-	struct mt76_dev *dev = hw->priv;
-	struct mt76_vif *mvif = (struct mt76_vif *) vif->drv_priv;
+	struct mt76x2_dev *dev = hw->priv;
+	struct mt76x2_vif *mvif = (struct mt76x2_vif *) vif->drv_priv;
 
 	mutex_lock(&dev->mutex);
 
 	if (changed & BSS_CHANGED_BSSID)
-		mt76_mac_set_bssid(dev, mvif->idx, info->bssid);
+		mt76x2_mac_set_bssid(dev, mvif->idx, info->bssid);
 
 	if (changed & BSS_CHANGED_BEACON_INT)
-		mt76_rmw_field(dev, MT_BEACON_TIME_CFG,
+		mt76x2_rmw_field(dev, MT_BEACON_TIME_CFG,
 			       MT_BEACON_TIME_CFG_INTVAL,
 			       info->beacon_int << 4);
 
 	if (changed & BSS_CHANGED_BEACON_ENABLED) {
 		tasklet_disable(&dev->pre_tbtt_tasklet);
-		mt76_mac_set_beacon_enable(dev, mvif->idx, info->enable_beacon);
+		mt76x2_mac_set_beacon_enable(dev, mvif->idx, info->enable_beacon);
 		tasklet_enable(&dev->pre_tbtt_tasklet);
 	}
 
@@ -181,7 +181,7 @@ mt76_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		int slottime = info->use_short_slot ? 9 : 20;
 
 		dev->slottime = slottime;
-		mt76_rmw_field(dev, MT_BKOFF_SLOT_CFG,
+		mt76x2_rmw_field(dev, MT_BKOFF_SLOT_CFG,
 			       MT_BKOFF_SLOT_CFG_SLOTTIME, slottime);
 	}
 
@@ -189,7 +189,7 @@ mt76_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 }
 
 static int
-mt76_wcid_alloc(struct mt76_dev *dev)
+mt76x2_wcid_alloc(struct mt76x2_dev *dev)
 {
 	int i, idx = 0;
 
@@ -211,19 +211,19 @@ mt76_wcid_alloc(struct mt76_dev *dev)
 }
 
 static int
-mt76_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+mt76x2_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	     struct ieee80211_sta *sta)
 {
-	struct mt76_dev *dev = hw->priv;
-	struct mt76_sta *msta = (struct mt76_sta *) sta->drv_priv;
-	struct mt76_vif *mvif = (struct mt76_vif *) vif->drv_priv;
+	struct mt76x2_dev *dev = hw->priv;
+	struct mt76x2_sta *msta = (struct mt76x2_sta *) sta->drv_priv;
+	struct mt76x2_vif *mvif = (struct mt76x2_vif *) vif->drv_priv;
 	int ret = 0;
 	int idx = 0;
 	int i;
 
 	mutex_lock(&dev->mutex);
 
-	idx = mt76_wcid_alloc(dev);
+	idx = mt76x2_wcid_alloc(dev);
 	if (idx < 0) {
 		ret = -ENOSPC;
 		goto out;
@@ -231,10 +231,10 @@ mt76_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	msta->wcid.idx = idx;
 	msta->wcid.hw_key_idx = -1;
-	mt76_mac_wcid_setup(dev, idx, mvif->idx, sta->addr);
-	mt76_clear(dev, MT_WCID_DROP(idx), MT_WCID_DROP_MASK(idx));
+	mt76x2_mac_wcid_setup(dev, idx, mvif->idx, sta->addr);
+	mt76x2_clear(dev, MT_WCID_DROP(idx), MT_WCID_DROP_MASK(idx));
 	for (i = 0; i < ARRAY_SIZE(sta->txq); i++)
-		mt76_txq_init(dev, sta->txq[i]);
+		mt76x2_txq_init(dev, sta->txq[i]);
 
 	rcu_assign_pointer(dev->wcid[idx], &msta->wcid);
 
@@ -245,56 +245,56 @@ out:
 }
 
 static int
-mt76_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+mt76x2_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		struct ieee80211_sta *sta)
 {
-	struct mt76_dev *dev = hw->priv;
-	struct mt76_sta *msta = (struct mt76_sta *) sta->drv_priv;
+	struct mt76x2_dev *dev = hw->priv;
+	struct mt76x2_sta *msta = (struct mt76x2_sta *) sta->drv_priv;
 	int idx = msta->wcid.idx;
 	int i;
 
 	mutex_lock(&dev->mutex);
 	rcu_assign_pointer(dev->wcid[idx], NULL);
 	for (i = 0; i < ARRAY_SIZE(sta->txq); i++)
-		mt76_txq_remove(dev, sta->txq[i]);
-	mt76_set(dev, MT_WCID_DROP(idx), MT_WCID_DROP_MASK(idx));
+		mt76x2_txq_remove(dev, sta->txq[i]);
+	mt76x2_set(dev, MT_WCID_DROP(idx), MT_WCID_DROP_MASK(idx));
 	dev->wcid_mask[idx / BITS_PER_LONG] &= ~BIT(idx % BITS_PER_LONG);
-	mt76_mac_wcid_setup(dev, idx, 0, NULL);
+	mt76x2_mac_wcid_setup(dev, idx, 0, NULL);
 	mutex_unlock(&dev->mutex);
 
 	return 0;
 }
 
 static void
-mt76_sta_notify(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+mt76x2_sta_notify(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		enum sta_notify_cmd cmd, struct ieee80211_sta *sta)
 {
-	struct mt76_sta *msta = (struct mt76_sta *) sta->drv_priv;
-	struct mt76_dev *dev = hw->priv;
+	struct mt76x2_sta *msta = (struct mt76x2_sta *) sta->drv_priv;
+	struct mt76x2_dev *dev = hw->priv;
 	int idx = msta->wcid.idx;
 
 	switch (cmd) {
 	case STA_NOTIFY_SLEEP:
 		msta->sleeping = true;
-		mt76_set(dev, MT_WCID_DROP(idx), MT_WCID_DROP_MASK(idx));
-		mt76_stop_tx_queues(dev, sta);
+		mt76x2_set(dev, MT_WCID_DROP(idx), MT_WCID_DROP_MASK(idx));
+		mt76x2_stop_tx_queues(dev, sta);
 		break;
 	case STA_NOTIFY_AWAKE:
-		mt76_clear(dev, MT_WCID_DROP(idx), MT_WCID_DROP_MASK(idx));
+		mt76x2_clear(dev, MT_WCID_DROP(idx), MT_WCID_DROP_MASK(idx));
 		msta->sleeping = false;
 		break;
 	}
 }
 
 static int
-mt76_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+mt76x2_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	     struct ieee80211_vif *vif, struct ieee80211_sta *sta,
 	     struct ieee80211_key_conf *key)
 {
-	struct mt76_dev *dev = hw->priv;
-	struct mt76_vif *mvif = (struct mt76_vif *) vif->drv_priv;
-	struct mt76_sta *msta = sta ? (struct mt76_sta *) sta->drv_priv : NULL;
-	struct mt76_wcid *wcid = msta ? &msta->wcid : &mvif->group_wcid;
+	struct mt76x2_dev *dev = hw->priv;
+	struct mt76x2_vif *mvif = (struct mt76x2_vif *) vif->drv_priv;
+	struct mt76x2_sta *msta = sta ? (struct mt76x2_sta *) sta->drv_priv : NULL;
+	struct mt76x2_wcid *wcid = msta ? &msta->wcid : &mvif->group_wcid;
 	int idx = key->keyidx;
 	int ret;
 
@@ -310,22 +310,22 @@ mt76_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 
 	if (!msta) {
 		if (key || wcid->hw_key_idx == idx) {
-			ret = mt76_mac_wcid_set_key(dev, wcid->idx, key);
+			ret = mt76x2_mac_wcid_set_key(dev, wcid->idx, key);
 			if (ret)
 				return ret;
 		}
 
-		return mt76_mac_shared_key_setup(dev, mvif->idx, idx, key);
+		return mt76x2_mac_shared_key_setup(dev, mvif->idx, idx, key);
 	}
 
-	return mt76_mac_wcid_set_key(dev, msta->wcid.idx, key);
+	return mt76x2_mac_wcid_set_key(dev, msta->wcid.idx, key);
 }
 
 static int
-mt76_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif, u16 queue,
+mt76x2_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif, u16 queue,
 	     const struct ieee80211_tx_queue_params *params)
 {
-	struct mt76_dev *dev = hw->priv;
+	struct mt76x2_dev *dev = hw->priv;
 	u8 cw_min = 5, cw_max = 10;
 	u32 val;
 
@@ -338,84 +338,84 @@ mt76_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif, u16 queue,
 	      MT76_SET(MT_EDCA_CFG_AIFSN, params->aifs) |
 	      MT76_SET(MT_EDCA_CFG_CWMIN, cw_min) |
 	      MT76_SET(MT_EDCA_CFG_CWMAX, cw_max);
-	mt76_wr(dev, MT_EDCA_CFG_AC(queue), val);
+	mt76x2_wr(dev, MT_EDCA_CFG_AC(queue), val);
 
-	val = mt76_rr(dev, MT_WMM_TXOP(queue));
+	val = mt76x2_rr(dev, MT_WMM_TXOP(queue));
 	val &= ~(MT_WMM_TXOP_MASK << MT_WMM_TXOP_SHIFT(queue));
 	val |= params->txop << MT_WMM_TXOP_SHIFT(queue);
-	mt76_wr(dev, MT_WMM_TXOP(queue), val);
+	mt76x2_wr(dev, MT_WMM_TXOP(queue), val);
 
-	val = mt76_rr(dev, MT_WMM_AIFSN);
+	val = mt76x2_rr(dev, MT_WMM_AIFSN);
 	val &= ~(MT_WMM_AIFSN_MASK << MT_WMM_AIFSN_SHIFT(queue));
 	val |= params->aifs << MT_WMM_AIFSN_SHIFT(queue);
-	mt76_wr(dev, MT_WMM_AIFSN, val);
+	mt76x2_wr(dev, MT_WMM_AIFSN, val);
 
-	val = mt76_rr(dev, MT_WMM_CWMIN);
+	val = mt76x2_rr(dev, MT_WMM_CWMIN);
 	val &= ~(MT_WMM_CWMIN_MASK << MT_WMM_CWMIN_SHIFT(queue));
 	val |= cw_min << MT_WMM_CWMIN_SHIFT(queue);
-	mt76_wr(dev, MT_WMM_CWMIN, val);
+	mt76x2_wr(dev, MT_WMM_CWMIN, val);
 
-	val = mt76_rr(dev, MT_WMM_CWMAX);
+	val = mt76x2_rr(dev, MT_WMM_CWMAX);
 	val &= ~(MT_WMM_CWMAX_MASK << MT_WMM_CWMAX_SHIFT(queue));
 	val |= cw_max << MT_WMM_CWMAX_SHIFT(queue);
-	mt76_wr(dev, MT_WMM_CWMAX, val);
+	mt76x2_wr(dev, MT_WMM_CWMAX, val);
 
 	return 0;
 }
 
 static void
-mt76_sw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif, const u8 *mac)
+mt76x2_sw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif, const u8 *mac)
 {
-	struct mt76_dev *dev = hw->priv;
+	struct mt76x2_dev *dev = hw->priv;
 
 	tasklet_disable(&dev->pre_tbtt_tasklet);
 	set_bit(MT76_SCANNING, &dev->state);
 }
 
 static void
-mt76_sw_scan_complete(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
+mt76x2_sw_scan_complete(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
-	struct mt76_dev *dev = hw->priv;
+	struct mt76x2_dev *dev = hw->priv;
 
 	clear_bit(MT76_SCANNING, &dev->state);
 	tasklet_enable(&dev->pre_tbtt_tasklet);
 }
 
 static void
-mt76_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+mt76x2_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	   u32 queues, bool drop)
 {
 }
 
 static int
-mt76_get_txpower(struct ieee80211_hw *hw, struct ieee80211_vif *vif, int *dbm)
+mt76x2_get_txpower(struct ieee80211_hw *hw, struct ieee80211_vif *vif, int *dbm)
 {
-	struct mt76_dev *dev = hw->priv;
+	struct mt76x2_dev *dev = hw->priv;
 
 	*dbm = dev->txpower_cur / 2;
 	return 0;
 }
 
 static int
-mt76_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+mt76x2_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		  enum ieee80211_ampdu_mlme_action action,
 		  struct ieee80211_sta *sta,u16 tid, u16 *ssn, u8 buf_size,
 		  bool amsdu)
 {
-	struct mt76_dev *dev = hw->priv;
-	struct mt76_sta *msta = (struct mt76_sta *) sta->drv_priv;
+	struct mt76x2_dev *dev = hw->priv;
+	struct mt76x2_sta *msta = (struct mt76x2_sta *) sta->drv_priv;
 	struct ieee80211_txq *txq = sta->txq[tid];
-	struct mt76_txq *mtxq = (struct mt76_txq *) txq->drv_priv;
+	struct mt76x2_txq *mtxq = (struct mt76x2_txq *) txq->drv_priv;
 
 	if (!txq)
 		return -EINVAL;
 
 	switch (action) {
 	case IEEE80211_AMPDU_RX_START:
-		mt76_set(dev, MT_WCID_ADDR(msta->wcid.idx)+4, BIT(16 + tid));
+		mt76x2_set(dev, MT_WCID_ADDR(msta->wcid.idx)+4, BIT(16 + tid));
 		break;
 	case IEEE80211_AMPDU_RX_STOP:
-		mt76_clear(dev, MT_WCID_ADDR(msta->wcid.idx)+4, BIT(16 + tid));
+		mt76x2_clear(dev, MT_WCID_ADDR(msta->wcid.idx)+4, BIT(16 + tid));
 		break;
 	case IEEE80211_AMPDU_TX_OPERATIONAL:
 		mtxq->aggr = true;
@@ -440,11 +440,11 @@ mt76_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 }
 
 static void
-mt76_sta_rate_tbl_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+mt76x2_sta_rate_tbl_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			 struct ieee80211_sta *sta)
 {
-	struct mt76_dev *dev = hw->priv;
-	struct mt76_sta *msta = (struct mt76_sta *) sta->drv_priv;
+	struct mt76x2_dev *dev = hw->priv;
+	struct mt76x2_sta *msta = (struct mt76x2_sta *) sta->drv_priv;
 	struct ieee80211_sta_rates *rates = rcu_dereference(sta->rates);
 	struct ieee80211_tx_rate rate = {};
 
@@ -453,46 +453,46 @@ mt76_sta_rate_tbl_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	rate.idx = rates->rate[0].idx;
 	rate.flags = rates->rate[0].flags;
-	mt76_mac_wcid_set_rate(dev, &msta->wcid, &rate);
+	mt76x2_mac_wcid_set_rate(dev, &msta->wcid, &rate);
 }
 
-static void mt76_set_coverage_class(struct ieee80211_hw *hw,
+static void mt76x2_set_coverage_class(struct ieee80211_hw *hw,
 				    s16 coverage_class)
 {
-	struct mt76_dev *dev = hw->priv;
+	struct mt76x2_dev *dev = hw->priv;
 
 	mutex_lock(&dev->mutex);
 	dev->coverage_class = coverage_class;
-	mt76_set_tx_ackto(dev);
+	mt76x2_set_tx_ackto(dev);
 	mutex_unlock(&dev->mutex);
 }
 
-const struct ieee80211_ops mt76_ops = {
-	.tx = mt76_tx,
-	.start = mt76_start,
-	.stop = mt76_stop,
-	.add_interface = mt76_add_interface,
-	.remove_interface = mt76_remove_interface,
-	.config = mt76_config,
-	.configure_filter = mt76_configure_filter,
-	.bss_info_changed = mt76_bss_info_changed,
-	.sta_add = mt76_sta_add,
-	.sta_remove = mt76_sta_remove,
-	.sta_notify = mt76_sta_notify,
-	.set_key = mt76_set_key,
-	.conf_tx = mt76_conf_tx,
-	.sw_scan_start = mt76_sw_scan,
-	.sw_scan_complete = mt76_sw_scan_complete,
-	.flush = mt76_flush,
-	.ampdu_action = mt76_ampdu_action,
-	.get_txpower = mt76_get_txpower,
-	.wake_tx_queue = mt76_wake_tx_queue,
-	.sta_rate_tbl_update = mt76_sta_rate_tbl_update,
-	.release_buffered_frames = mt76_release_buffered_frames,
-	.set_coverage_class = mt76_set_coverage_class,
+const struct ieee80211_ops mt76x2_ops = {
+	.tx = mt76x2_tx,
+	.start = mt76x2_start,
+	.stop = mt76x2_stop,
+	.add_interface = mt76x2_add_interface,
+	.remove_interface = mt76x2_remove_interface,
+	.config = mt76x2_config,
+	.configure_filter = mt76x2_configure_filter,
+	.bss_info_changed = mt76x2_bss_info_changed,
+	.sta_add = mt76x2_sta_add,
+	.sta_remove = mt76x2_sta_remove,
+	.sta_notify = mt76x2_sta_notify,
+	.set_key = mt76x2_set_key,
+	.conf_tx = mt76x2_conf_tx,
+	.sw_scan_start = mt76x2_sw_scan,
+	.sw_scan_complete = mt76x2_sw_scan_complete,
+	.flush = mt76x2_flush,
+	.ampdu_action = mt76x2_ampdu_action,
+	.get_txpower = mt76x2_get_txpower,
+	.wake_tx_queue = mt76x2_wake_tx_queue,
+	.sta_rate_tbl_update = mt76x2_sta_rate_tbl_update,
+	.release_buffered_frames = mt76x2_release_buffered_frames,
+	.set_coverage_class = mt76x2_set_coverage_class,
 };
 
-void mt76_rx(struct mt76_dev *dev, struct sk_buff *skb)
+void mt76x2_rx(struct mt76x2_dev *dev, struct sk_buff *skb)
 {
 	if (!test_bit(MT76_STATE_RUNNING, &dev->state)) {
 		dev_kfree_skb(skb);

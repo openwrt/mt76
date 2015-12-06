@@ -512,25 +512,25 @@
 #define MT_TEMP_SENSOR			0x1d000
 #define MT_TEMP_SENSOR_VAL		GENMASK(6, 0)
 
-struct mt76_wcid_addr {
+struct mt76x2_wcid_addr {
 	u8 macaddr[6];
 	__le16 ba_mask;
 } __packed __aligned(4);
 
-struct mt76_wcid_key {
+struct mt76x2_wcid_key {
 	u8 key[16];
 	u8 tx_mic[8];
 	u8 rx_mic[8];
 } __packed __aligned(4);
 
-struct mt76_queue_regs {
+struct mt76x2_queue_regs {
 	u32 desc_base;
 	u32 ring_size;
 	u32 cpu_idx;
 	u32 dma_idx;
 } __packed __aligned(4);
 
-enum mt76_cipher_type {
+enum mt76x2_cipher_type {
 	MT_CIPHER_NONE,
 	MT_CIPHER_WEP40,
 	MT_CIPHER_WEP104,

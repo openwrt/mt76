@@ -20,7 +20,7 @@
 #include "dma.h"
 #include "eeprom.h"
 
-struct mt76_fw_header {
+struct mt76x2_fw_header {
 	__le32 ilm_len;
 	__le32 dlm_len;
 	__le16 build_ver;
@@ -29,7 +29,7 @@ struct mt76_fw_header {
 	char build_time[16];
 };
 
-struct mt76_patch_header {
+struct mt76x2_patch_header {
 	char build_time[16];
 	char platform[4];
 	char hw_version[4];
@@ -38,7 +38,7 @@ struct mt76_patch_header {
 };
 
 static struct sk_buff *
-mt76_mcu_msg_alloc(struct mt76_dev *dev, const void *data, int len)
+mt76x2_mcu_msg_alloc(struct mt76x2_dev *dev, const void *data, int len)
 {
 	struct sk_buff *skb;
 
@@ -49,7 +49,7 @@ mt76_mcu_msg_alloc(struct mt76_dev *dev, const void *data, int len)
 }
 
 static struct sk_buff *
-mt76_mcu_get_response(struct mt76_dev *dev, unsigned long expires)
+mt76x2_mcu_get_response(struct mt76x2_dev *dev, unsigned long expires)
 {
 	unsigned long timeout;
 
@@ -63,7 +63,7 @@ mt76_mcu_get_response(struct mt76_dev *dev, unsigned long expires)
 }
 
 static int
-mt76_mcu_msg_send(struct mt76_dev *dev, struct sk_buff *skb, enum mcu_cmd cmd)
+mt76x2_mcu_msg_send(struct mt76x2_dev *dev, struct sk_buff *skb, enum mcu_cmd cmd)
 {
 	unsigned long expires = jiffies + HZ;
 	int ret;
@@ -78,7 +78,7 @@ mt76_mcu_msg_send(struct mt76_dev *dev, struct sk_buff *skb, enum mcu_cmd cmd)
 	if (!seq)
 		seq = ++dev->mcu.msg_seq & 0xf;
 
-	ret = mt76_tx_queue_mcu(dev, MT_TXQ_MCU, skb, cmd, seq);
+	ret = mt76x2_tx_queue_mcu(dev, MT_TXQ_MCU, skb, cmd, seq);
 	if (ret)
 		goto out;
 
@@ -86,7 +86,7 @@ mt76_mcu_msg_send(struct mt76_dev *dev, struct sk_buff *skb, enum mcu_cmd cmd)
 		u32 *rxfce;
 		bool check_seq = false;
 
-		skb = mt76_mcu_get_response(dev, expires);
+		skb = mt76x2_mcu_get_response(dev, expires);
 		if (!skb) {
 			printk("MCU message %d (seq %d) timed out\n", cmd, seq);
 			ret = -ETIMEDOUT;
@@ -110,22 +110,22 @@ out:
 }
 
 static void
-write_data(struct mt76_dev *dev, u32 offset, __le32 *data, int len)
+write_data(struct mt76x2_dev *dev, u32 offset, __le32 *data, int len)
 {
 	__iowrite32_copy(dev->regs + offset, data, len / 4);
 }
 
 static int
-mt76pci_load_rom_patch(struct mt76_dev *dev)
+mt76pci_load_rom_patch(struct mt76x2_dev *dev)
 {
 	const struct firmware *fw = NULL;
-	struct mt76_patch_header *hdr;
+	struct mt76x2_patch_header *hdr;
 	bool rom_protect = !is_mt7612(dev);
 	int len, ret = 0;
 	__le32 *cur;
 	u32 patch_mask, patch_reg;
 
-	if (rom_protect && !mt76_poll(dev, MT_MCU_SEMAPHORE_03, 1, 1, 600)) {
+	if (rom_protect && !mt76x2_poll(dev, MT_MCU_SEMAPHORE_03, 1, 1, 600)) {
 		printk("Could not get hardware semaphore for ROM PATCH\n");
 		return -ETIMEDOUT;
 	}
@@ -138,7 +138,7 @@ mt76pci_load_rom_patch(struct mt76_dev *dev)
 		patch_reg = MT_MCU_COM_REG0;
 	}
 
-	if (rom_protect && (mt76_rr(dev, patch_reg) & patch_mask)) {
+	if (rom_protect && (mt76x2_rr(dev, patch_reg) & patch_mask)) {
 		printk("ROM patch already applied\n");
 		goto out;
 	}
@@ -153,21 +153,21 @@ mt76pci_load_rom_patch(struct mt76_dev *dev)
 		goto out;
 	}
 
-	hdr = (struct mt76_patch_header *) fw->data;
+	hdr = (struct mt76x2_patch_header *) fw->data;
 	printk("ROM patch build: %.15s\n", hdr->build_time);
 
-	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, MT_MCU_ROM_PATCH_OFFSET);
+	mt76x2_wr(dev, MT_MCU_PCIE_REMAP_BASE4, MT_MCU_ROM_PATCH_OFFSET);
 
 	cur = (__le32 *) (fw->data + sizeof(*hdr));
 	len = fw->size - sizeof(*hdr);
 	write_data(dev, MT_MCU_ROM_PATCH_ADDR, cur, len);
 
-	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, 0);
+	mt76x2_wr(dev, MT_MCU_PCIE_REMAP_BASE4, 0);
 
 	/* Trigger ROM */
-	mt76_wr(dev, MT_MCU_INT_LEVEL, 4);
+	mt76x2_wr(dev, MT_MCU_INT_LEVEL, 4);
 
-	if (!mt76_poll_msec(dev, patch_reg, patch_mask, patch_mask, 2000)) {
+	if (!mt76x2_poll_msec(dev, patch_reg, patch_mask, patch_mask, 2000)) {
 		printk("Failed to load ROM patch\n");
 		ret = -ETIMEDOUT;
 	}
@@ -175,16 +175,16 @@ mt76pci_load_rom_patch(struct mt76_dev *dev)
 out:
 	/* release semaphore */
 	if (rom_protect)
-		mt76_wr(dev, MT_MCU_SEMAPHORE_03, 1);
+		mt76x2_wr(dev, MT_MCU_SEMAPHORE_03, 1);
 	release_firmware(fw);
 	return ret;
 }
 
 static int
-mt76pci_load_firmware(struct mt76_dev *dev)
+mt76pci_load_firmware(struct mt76x2_dev *dev)
 {
 	const struct firmware *fw;
-	const struct mt76_fw_header *hdr;
+	const struct mt76x2_fw_header *hdr;
 	int i, len, ret;
 	__le32 *cur;
 	u32 offset, val;
@@ -196,7 +196,7 @@ mt76pci_load_firmware(struct mt76_dev *dev)
 	if (!fw || !fw->data || fw->size < sizeof(*hdr))
 		goto error;
 
-	hdr = (const struct mt76_fw_header *) fw->data;
+	hdr = (const struct mt76x2_fw_header *) fw->data;
 
 	len = sizeof(*hdr);
 	len += le32_to_cpu(hdr->ilm_len);
@@ -216,7 +216,7 @@ mt76pci_load_firmware(struct mt76_dev *dev)
 	cur = (__le32 *) (fw->data + sizeof(*hdr));
 	len = le32_to_cpu(hdr->ilm_len);
 
-	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, MT_MCU_ILM_OFFSET);
+	mt76x2_wr(dev, MT_MCU_PCIE_REMAP_BASE4, MT_MCU_ILM_OFFSET);
 	write_data(dev, MT_MCU_ILM_ADDR, cur, len);
 
 	cur += len / sizeof(*cur);
@@ -227,19 +227,19 @@ mt76pci_load_firmware(struct mt76_dev *dev)
 	else
 		offset = MT_MCU_DLM_ADDR;
 
-	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, MT_MCU_DLM_OFFSET);
+	mt76x2_wr(dev, MT_MCU_PCIE_REMAP_BASE4, MT_MCU_DLM_OFFSET);
 	write_data(dev, offset, cur, len);
 
-	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, 0);
+	mt76x2_wr(dev, MT_MCU_PCIE_REMAP_BASE4, 0);
 
-	val = mt76_eeprom_get(dev, MT_EE_NIC_CONF_2);
+	val = mt76x2_eeprom_get(dev, MT_EE_NIC_CONF_2);
 	if (MT76_GET(MT_EE_NIC_CONF_2_XTAL_OPTION, val) == 1)
-		mt76_set(dev, MT_MCU_COM_REG0, BIT(30));
+		mt76x2_set(dev, MT_MCU_COM_REG0, BIT(30));
 
 	/* trigger firmware */
-	mt76_wr(dev, MT_MCU_INT_LEVEL, 2);
+	mt76x2_wr(dev, MT_MCU_INT_LEVEL, 2);
 	for (i = 200; i > 0; i--) {
-		val = mt76_rr(dev, MT_MCU_COM_REG0);
+		val = mt76x2_rr(dev, MT_MCU_COM_REG0);
 
 		if (val & 1)
 			break;
@@ -266,7 +266,7 @@ error:
 }
 
 static int
-mt76_mcu_function_select(struct mt76_dev *dev, enum mcu_function func, u32 val)
+mt76x2_mcu_function_select(struct mt76x2_dev *dev, enum mcu_function func, u32 val)
 {
 	struct sk_buff *skb;
 	struct {
@@ -277,11 +277,11 @@ mt76_mcu_function_select(struct mt76_dev *dev, enum mcu_function func, u32 val)
 	    .value = cpu_to_le32(val),
 	};
 
-	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
-	return mt76_mcu_msg_send(dev, skb, CMD_FUN_SET_OP);
+	skb = mt76x2_mcu_msg_alloc(dev, &msg, sizeof(msg));
+	return mt76x2_mcu_msg_send(dev, skb, CMD_FUN_SET_OP);
 }
 
-int mt76_mcu_load_cr(struct mt76_dev *dev, u8 type, u8 temp_level, u8 channel)
+int mt76x2_mcu_load_cr(struct mt76x2_dev *dev, u8 type, u8 temp_level, u8 channel)
 {
 	struct sk_buff *skb;
 	struct {
@@ -299,16 +299,16 @@ int mt76_mcu_load_cr(struct mt76_dev *dev, u8 type, u8 temp_level, u8 channel)
 	u32 val;
 
 	val = BIT(31);
-	val |= (mt76_eeprom_get(dev, MT_EE_NIC_CONF_0) >> 8) & 0x00ff;
-	val |= (mt76_eeprom_get(dev, MT_EE_NIC_CONF_1) << 8) & 0xff00;
+	val |= (mt76x2_eeprom_get(dev, MT_EE_NIC_CONF_0) >> 8) & 0x00ff;
+	val |= (mt76x2_eeprom_get(dev, MT_EE_NIC_CONF_1) << 8) & 0xff00;
 	msg.cfg = cpu_to_le32(val);
 
 	/* first set the channel without the extension channel info */
-	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
-	return mt76_mcu_msg_send(dev, skb, CMD_LOAD_CR);
+	skb = mt76x2_mcu_msg_alloc(dev, &msg, sizeof(msg));
+	return mt76x2_mcu_msg_send(dev, skb, CMD_LOAD_CR);
 }
 
-int mt76_mcu_set_channel(struct mt76_dev *dev, u8 channel, u8 bw, u8 bw_index,
+int mt76x2_mcu_set_channel(struct mt76x2_dev *dev, u8 channel, u8 bw, u8 bw_index,
 			 bool scan)
 {
 	struct sk_buff *skb;
@@ -330,17 +330,17 @@ int mt76_mcu_set_channel(struct mt76_dev *dev, u8 channel, u8 bw, u8 bw_index,
 	};
 
 	/* first set the channel without the extension channel info */
-	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
-	mt76_mcu_msg_send(dev, skb, CMD_SWITCH_CHANNEL_OP);
+	skb = mt76x2_mcu_msg_alloc(dev, &msg, sizeof(msg));
+	mt76x2_mcu_msg_send(dev, skb, CMD_SWITCH_CHANNEL_OP);
 
 	msleep(5);
 
 	msg.ext_chan = 0xe0 + bw_index;
-	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
-	return mt76_mcu_msg_send(dev, skb, CMD_SWITCH_CHANNEL_OP);
+	skb = mt76x2_mcu_msg_alloc(dev, &msg, sizeof(msg));
+	return mt76x2_mcu_msg_send(dev, skb, CMD_SWITCH_CHANNEL_OP);
 }
 
-int mt76_mcu_set_radio_state(struct mt76_dev *dev, bool on)
+int mt76x2_mcu_set_radio_state(struct mt76x2_dev *dev, bool on)
 {
 	struct sk_buff *skb;
 	struct {
@@ -351,11 +351,11 @@ int mt76_mcu_set_radio_state(struct mt76_dev *dev, bool on)
 		.level = cpu_to_le32(0),
 	};
 
-	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
-	return mt76_mcu_msg_send(dev, skb, CMD_POWER_SAVING_OP);
+	skb = mt76x2_mcu_msg_alloc(dev, &msg, sizeof(msg));
+	return mt76x2_mcu_msg_send(dev, skb, CMD_POWER_SAVING_OP);
 }
 
-int mt76_mcu_calibrate(struct mt76_dev *dev, enum mcu_calibration type,
+int mt76x2_mcu_calibrate(struct mt76x2_dev *dev, enum mcu_calibration type,
 		       u32 param)
 {
 	struct sk_buff *skb;
@@ -368,36 +368,36 @@ int mt76_mcu_calibrate(struct mt76_dev *dev, enum mcu_calibration type,
 	};
 	int ret;
 
-	mt76_clear(dev, MT_MCU_COM_REG0, BIT(31));
+	mt76x2_clear(dev, MT_MCU_COM_REG0, BIT(31));
 
-	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
-	ret = mt76_mcu_msg_send(dev, skb, CMD_CALIBRATION_OP);
+	skb = mt76x2_mcu_msg_alloc(dev, &msg, sizeof(msg));
+	ret = mt76x2_mcu_msg_send(dev, skb, CMD_CALIBRATION_OP);
 	if (ret)
 		return ret;
 
-	if (WARN_ON(!mt76_poll_msec(dev, MT_MCU_COM_REG0,
+	if (WARN_ON(!mt76x2_poll_msec(dev, MT_MCU_COM_REG0,
 				    BIT(31), BIT(31), 100)))
 		return -ETIMEDOUT;
 
 	return 0;
 }
 
-int mt76_mcu_tssi_comp(struct mt76_dev *dev, struct mt76_tssi_comp *tssi_data)
+int mt76x2_mcu_tssi_comp(struct mt76x2_dev *dev, struct mt76x2_tssi_comp *tssi_data)
 {
 	struct sk_buff *skb;
 	struct {
 		__le32 id;
-		struct mt76_tssi_comp data;
+		struct mt76x2_tssi_comp data;
 	} __packed __aligned(4) msg = {
 		.id = cpu_to_le32(MCU_CAL_TSSI_COMP),
 		.data = *tssi_data,
 	};
 
-	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
-	return mt76_mcu_msg_send(dev, skb, CMD_CALIBRATION_OP);
+	skb = mt76x2_mcu_msg_alloc(dev, &msg, sizeof(msg));
+	return mt76x2_mcu_msg_send(dev, skb, CMD_CALIBRATION_OP);
 }
 
-int mt76_mcu_init_gain(struct mt76_dev *dev, u8 channel, u32 gain, bool force)
+int mt76x2_mcu_init_gain(struct mt76x2_dev *dev, u8 channel, u32 gain, bool force)
 {
 	struct sk_buff *skb;
 	struct {
@@ -411,11 +411,11 @@ int mt76_mcu_init_gain(struct mt76_dev *dev, u8 channel, u32 gain, bool force)
 	if (force)
 		msg.channel |= cpu_to_le32(BIT(31));
 
-	skb = mt76_mcu_msg_alloc(dev, &msg, sizeof(msg));
-	return mt76_mcu_msg_send(dev, skb, CMD_INIT_GAIN_OP);
+	skb = mt76x2_mcu_msg_alloc(dev, &msg, sizeof(msg));
+	return mt76x2_mcu_msg_send(dev, skb, CMD_INIT_GAIN_OP);
 }
 
-int mt76_mcu_init(struct mt76_dev *dev)
+int mt76x2_mcu_init(struct mt76x2_dev *dev)
 {
 	int ret;
 
@@ -429,13 +429,13 @@ int mt76_mcu_init(struct mt76_dev *dev)
 	if (ret)
 		return ret;
 
-	mt76_mcu_function_select(dev, Q_SELECT, 1);
+	mt76x2_mcu_function_select(dev, Q_SELECT, 1);
 	return 0;
 }
 
-int mt76_mcu_cleanup(struct mt76_dev *dev)
+int mt76x2_mcu_cleanup(struct mt76x2_dev *dev)
 {
-	mt76_wr(dev, MT_MCU_INT_LEVEL, 1);
+	mt76x2_wr(dev, MT_MCU_INT_LEVEL, 1);
 	msleep(20);
 
 	return 0;

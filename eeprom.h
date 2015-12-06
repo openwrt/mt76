@@ -16,7 +16,7 @@
 
 #include "mt76.h"
 
-enum mt76_eeprom_field {
+enum mt76x2_eeprom_field {
 	MT_EE_CHIP_ID =				0x000,
 	MT_EE_VERSION =				0x002,
 	MT_EE_MAC_ADDR =			0x004,
@@ -97,12 +97,12 @@ enum mt76_eeprom_field {
 #define MT_EE_NIC_CONF_2_TEMP_DISABLE		BIT(11)
 #define MT_EE_NIC_CONF_2_COEX_METHOD		GENMASK(15, 13)
 
-enum mt76_board_type {
+enum mt76x2_board_type {
 	BOARD_TYPE_2GHZ = 1,
 	BOARD_TYPE_5GHZ = 2,
 };
 
-enum mt76_cal_channel_group {
+enum mt76x2_cal_channel_group {
 	MT_CH_5G_JAPAN,
 	MT_CH_5G_UNII_1,
 	MT_CH_5G_UNII_2,
@@ -112,7 +112,7 @@ enum mt76_cal_channel_group {
 	__MT_CH_MAX
 };
 
-struct mt76_tx_power_info {
+struct mt76x2_tx_power_info {
 	u8 target_power;
 
 	s8 delta_bw40;
@@ -126,7 +126,7 @@ struct mt76_tx_power_info {
 	} chain[MT_MAX_CHAINS];
 };
 
-struct mt76_temp_comp {
+struct mt76x2_temp_comp {
 	u8 temp_25_ref;
 	int lower_bound; /* J */
 	int upper_bound; /* J */
@@ -135,7 +135,7 @@ struct mt76_temp_comp {
 };
 
 static inline int
-mt76_eeprom_get(struct mt76_dev *dev, enum mt76_eeprom_field field)
+mt76x2_eeprom_get(struct mt76x2_dev *dev, enum mt76x2_eeprom_field field)
 {
 	if ((field & 1) || field >= __MT_EE_MAX)
 		return -1;
@@ -143,32 +143,32 @@ mt76_eeprom_get(struct mt76_dev *dev, enum mt76_eeprom_field field)
 	return get_unaligned_le16(dev->eeprom.data + field);
 }
 
-void mt76_get_rate_power(struct mt76_dev *dev, struct mt76_rate_power *t);
-void mt76_get_power_info(struct mt76_dev *dev, struct mt76_tx_power_info *t);
-int mt76_get_temp_comp(struct mt76_dev *dev, struct mt76_temp_comp *t);
-bool mt76_ext_pa_enabled(struct mt76_dev *dev, enum ieee80211_band band);
-void mt76_read_rx_gain(struct mt76_dev *dev);
+void mt76x2_get_rate_power(struct mt76x2_dev *dev, struct mt76x2_rate_power *t);
+void mt76x2_get_power_info(struct mt76x2_dev *dev, struct mt76x2_tx_power_info *t);
+int mt76x2_get_temp_comp(struct mt76x2_dev *dev, struct mt76x2_temp_comp *t);
+bool mt76x2_ext_pa_enabled(struct mt76x2_dev *dev, enum ieee80211_band band);
+void mt76x2_read_rx_gain(struct mt76x2_dev *dev);
 
 static inline bool
-mt76_temp_tx_alc_enabled(struct mt76_dev *dev)
+mt76x2_temp_tx_alc_enabled(struct mt76x2_dev *dev)
 {
-	return mt76_eeprom_get(dev, MT_EE_NIC_CONF_1) &
+	return mt76x2_eeprom_get(dev, MT_EE_NIC_CONF_1) &
 	       MT_EE_NIC_CONF_1_TEMP_TX_ALC;
 }
 
 static inline bool
-mt76_tssi_enabled(struct mt76_dev *dev)
+mt76x2_tssi_enabled(struct mt76x2_dev *dev)
 {
-	return !mt76_temp_tx_alc_enabled(dev) &&
-	       (mt76_eeprom_get(dev, MT_EE_NIC_CONF_1) &
+	return !mt76x2_temp_tx_alc_enabled(dev) &&
+	       (mt76x2_eeprom_get(dev, MT_EE_NIC_CONF_1) &
 	        MT_EE_NIC_CONF_1_TX_ALC_EN);
 }
 
 
 static inline bool
-mt76_has_ext_lna(struct mt76_dev *dev)
+mt76x2_has_ext_lna(struct mt76x2_dev *dev)
 {
-	u32 val = mt76_eeprom_get(dev, MT_EE_NIC_CONF_1);
+	u32 val = mt76x2_eeprom_get(dev, MT_EE_NIC_CONF_1);
 
 	if (dev->chandef.chan->band == IEEE80211_BAND_2GHZ)
 		return val & MT_EE_NIC_CONF_1_LNA_EXT_2G;

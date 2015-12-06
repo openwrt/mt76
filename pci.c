@@ -23,7 +23,7 @@ static const struct pci_device_id mt76pci_device_table[] = {
 	{ },
 };
 
-u32 mt76_rr(struct mt76_dev *dev, u32 offset)
+u32 mt76x2_rr(struct mt76x2_dev *dev, u32 offset)
 {
 	u32 val;
 
@@ -33,20 +33,20 @@ u32 mt76_rr(struct mt76_dev *dev, u32 offset)
 	return val;
 }
 
-void mt76_wr(struct mt76_dev *dev, u32 offset, u32 val)
+void mt76x2_wr(struct mt76x2_dev *dev, u32 offset, u32 val)
 {
 	trace_reg_write(dev, offset, val);
 	iowrite32(val, dev->regs + offset);
 }
 
-u32 mt76_rmw(struct mt76_dev *dev, u32 offset, u32 mask, u32 val)
+u32 mt76x2_rmw(struct mt76x2_dev *dev, u32 offset, u32 mask, u32 val)
 {
-	val |= mt76_rr(dev, offset) & ~mask;
-	mt76_wr(dev, offset, val);
+	val |= mt76x2_rr(dev, offset) & ~mask;
+	mt76x2_wr(dev, offset, val);
 	return val;
 }
 
-void mt76_wr_copy(struct mt76_dev *dev, u32 offset, const void *data, int len)
+void mt76x2_wr_copy(struct mt76x2_dev *dev, u32 offset, const void *data, int len)
 {
 	__iowrite32_copy(dev->regs + offset, data, len >> 2);
 }
@@ -54,7 +54,7 @@ void mt76_wr_copy(struct mt76_dev *dev, u32 offset, const void *data, int len)
 static int
 mt76pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
-	struct mt76_dev *dev;
+	struct mt76x2_dev *dev;
 	int ret;
 
 	ret = pcim_enable_device(pdev);
@@ -71,7 +71,7 @@ mt76pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (ret)
 		return ret;
 
-	dev = mt76_alloc_device(&pdev->dev);
+	dev = mt76x2_alloc_device(&pdev->dev);
 	if (!dev)
 		return -ENOMEM;
 
@@ -79,28 +79,28 @@ mt76pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	pci_set_drvdata(pdev, dev);
 
-	dev->rev = mt76_rr(dev, MT_ASIC_VERSION);
+	dev->rev = mt76x2_rr(dev, MT_ASIC_VERSION);
 	dev_printk(KERN_INFO, dev->dev, "ASIC revision: %08x\n", dev->rev);
 
-	ret = devm_request_irq(dev->dev, pdev->irq, mt76_irq_handler,
+	ret = devm_request_irq(dev->dev, pdev->irq, mt76x2_irq_handler,
 			       IRQF_SHARED, KBUILD_MODNAME, dev);
 	if (ret)
 		goto error;
 
-	ret = mt76_register_device(dev);
+	ret = mt76x2_register_device(dev);
 	if (ret)
 		goto error;
 
 	/* Fix up ASPM configuration */
 
 	/* RG_SSUSB_G1_CDR_BIR_LTR = 0x9 */
-	mt76_rmw_field(dev, 0x15a10, 0x1f << 16, 0x9);
+	mt76x2_rmw_field(dev, 0x15a10, 0x1f << 16, 0x9);
 
 	/* RG_SSUSB_G1_CDR_BIC_LTR = 0xf */
-	mt76_rmw_field(dev, 0x15a0c, 0xf << 28, 0xf);
+	mt76x2_rmw_field(dev, 0x15a0c, 0xf << 28, 0xf);
 
 	/* RG_SSUSB_CDR_BR_PE1D = 0x3 */
-	mt76_rmw_field(dev, 0x15c58, 0x3 << 6, 0x3);
+	mt76x2_rmw_field(dev, 0x15c58, 0x3 << 6, 0x3);
 
 	return 0;
 
@@ -112,10 +112,10 @@ error:
 static void
 mt76pci_remove(struct pci_dev *pdev)
 {
-	struct mt76_dev *dev = pci_get_drvdata(pdev);
+	struct mt76x2_dev *dev = pci_get_drvdata(pdev);
 
 	ieee80211_unregister_hw(dev->hw);
-	mt76_cleanup(dev);
+	mt76x2_cleanup(dev);
 	ieee80211_free_hw(dev->hw);
 	printk("pci device driver detached\n");
 }

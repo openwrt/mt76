@@ -50,7 +50,7 @@
 #define MT_MCU_MSG_TYPE			GENMASK(31, 30)
 #define MT_MCU_MSG_TYPE_CMD		BIT(30)
 
-enum mt76_qsel {
+enum mt76x2_qsel {
 	MT_QSEL_MGMT,
 	MT_QSEL_HCCA,
 	MT_QSEL_EDCA,
@@ -67,7 +67,7 @@ enum dma_msg_port {
 	DISCARD,
 };
 
-struct mt76_desc {
+struct mt76x2_desc {
 	__le32 buf0;
 	__le32 ctrl;
 	__le32 buf1;

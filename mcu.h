@@ -106,14 +106,14 @@ enum mcu_calibration {
 	MCU_CAL_TX_SHAPING,
 };
 
-enum mt76_mcu_cr_mode {
+enum mt76x2_mcu_cr_mode {
 	MT_RF_CR,
 	MT_BBP_CR,
 	MT_RF_BBP_CR,
 	MT_HL_TEMP_CR_UPDATE,
 };
 
-struct mt76_tssi_comp {
+struct mt76x2_tssi_comp {
 	u8 pa_mode;
 	u8 cal_mode;
 	u16 pad;
@@ -124,9 +124,9 @@ struct mt76_tssi_comp {
 	u8 offset1;
 } __packed __aligned(4);
 
-int mt76_mcu_calibrate(struct mt76_dev *dev, enum mcu_calibration type,
+int mt76x2_mcu_calibrate(struct mt76x2_dev *dev, enum mcu_calibration type,
 		       u32 param);
-int mt76_mcu_tssi_comp(struct mt76_dev *dev, struct mt76_tssi_comp *data);
-int mt76_mcu_init_gain(struct mt76_dev *dev, u8 channel, u32 gain, bool force);
+int mt76x2_mcu_tssi_comp(struct mt76x2_dev *dev, struct mt76x2_tssi_comp *data);
+int mt76x2_mcu_init_gain(struct mt76x2_dev *dev, u8 channel, u32 gain, bool force);
 
 #endif
