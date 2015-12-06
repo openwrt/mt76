@@ -38,7 +38,7 @@ mt76x2_wait_for_mac(struct mt76x2_dev *dev)
 static bool
 wait_for_wpdma(struct mt76x2_dev *dev)
 {
-	return mt76x2_poll(dev, MT_WPDMA_GLO_CFG,
+	return mt76_poll(dev, MT_WPDMA_GLO_CFG,
 			 MT_WPDMA_GLO_CFG_TX_DMA_BUSY |
 			 MT_WPDMA_GLO_CFG_RX_DMA_BUSY,
 			 0, 1000);
@@ -395,7 +395,7 @@ mt76x2_power_on(struct mt76x2_dev *dev)
 	      MT_WLAN_MTC_CTRL_PWR_ACK |
 	      MT_WLAN_MTC_CTRL_PWR_ACK_S;
 
-	mt76x2_poll(dev, MT_WLAN_MTC_CTRL, val, val, 1000);
+	mt76_poll(dev, MT_WLAN_MTC_CTRL, val, val, 1000);
 
 	mt76_clear(dev, MT_WLAN_MTC_CTRL, 0x7f << 16);
 	udelay(10);

@@ -71,7 +71,7 @@ mt76x2_efuse_read(struct mt76x2_dev *dev, u16 addr, u8 *data)
 	val |= MT_EFUSE_CTRL_KICK;
 	mt76_wr(dev, MT_EFUSE_CTRL, val);
 
-	if (!mt76x2_poll(dev, MT_EFUSE_CTRL, MT_EFUSE_CTRL_KICK, 0, 1000))
+	if (!mt76_poll(dev, MT_EFUSE_CTRL, MT_EFUSE_CTRL_KICK, 0, 1000))
 		return -ETIMEDOUT;
 
 	udelay(2);

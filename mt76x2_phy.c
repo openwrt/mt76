@@ -29,7 +29,7 @@ mt76x2_phy_rf_op(struct mt76x2_dev *dev, bool idx, u16 offset, bool write)
 
 	mt76_wr(dev, MT_RF_CTRL, val);
 
-	return mt76x2_poll(dev, MT_RF_CTRL, MT_RF_CTRL_BUSY, 0, 2000);
+	return mt76_poll(dev, MT_RF_CTRL, MT_RF_CTRL_BUSY, 0, 2000);
 }
 
 static int __maybe_unused

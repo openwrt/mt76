@@ -15,40 +15,6 @@
 #include "mt76x2.h"
 #include "mt76x2_trace.h"
 
-bool mt76x2_poll(struct mt76x2_dev *dev, u32 offset, u32 mask, u32 val,
-			   int timeout)
-{
-	u32 cur;
-
-	timeout /= 10;
-	do {
-		cur = mt76_rr(dev, offset) & mask;
-		if (cur == val)
-			return true;
-
-		udelay(10);
-	} while (timeout-- > 0);
-
-	return false;
-}
-
-bool mt76x2_poll_msec(struct mt76x2_dev *dev, u32 offset, u32 mask, u32 val,
-				    int timeout)
-{
-	u32 cur;
-
-	timeout /= 10;
-	do {
-		cur = mt76_rr(dev, offset) & mask;
-		if (cur == val)
-			return true;
-
-		msleep(10);
-	} while (timeout-- > 0);
-
-	return false;
-}
-
 void mt76_write_reg_pairs(struct mt76x2_dev *dev,
 			  const struct mt76x2_reg_pair *data, int len)
 {

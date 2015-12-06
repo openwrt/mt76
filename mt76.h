@@ -51,6 +51,16 @@ struct mt76_dev {
 
 #define mt76_hw(dev) (dev)->mt76.hw
 
+bool __mt76_poll(struct mt76_dev *dev, u32 offset, u32 mask, u32 val,
+	         int timeout);
+
+#define mt76_poll(dev, ...) __mt76_poll(&((dev)->mt76), __VA_ARGS__)
+
+bool __mt76_poll_msec(struct mt76_dev *dev, u32 offset, u32 mask, u32 val,
+		      int timeout);
+
+#define mt76_poll_msec(dev, ...) __mt76_poll_msec(&((dev)->mt76), __VA_ARGS__)
+
 void mt76_mmio_init(struct mt76_dev *dev, void __iomem *regs);
 
 #endif

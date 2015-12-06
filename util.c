@@ -12,7 +12,7 @@
  */
 
 #include <linux/module.h>
-#include "mt76x2.h"
+#include "mt76.h"
 
 void mt76_remove_hdr_pad(struct sk_buff *skb)
 {
@@ -42,5 +42,41 @@ int mt76_insert_hdr_pad(struct sk_buff *skb)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mt76_insert_hdr_pad);
+
+bool __mt76_poll(struct mt76_dev *dev, u32 offset, u32 mask, u32 val,
+		 int timeout)
+{
+	u32 cur;
+
+	timeout /= 10;
+	do {
+		cur = dev->bus->rr(dev, offset) & mask;
+		if (cur == val)
+			return true;
+
+		udelay(10);
+	} while (timeout-- > 0);
+
+	return false;
+}
+EXPORT_SYMBOL_GPL(__mt76_poll);
+
+bool __mt76_poll_msec(struct mt76_dev *dev, u32 offset, u32 mask, u32 val,
+		      int timeout)
+{
+	u32 cur;
+
+	timeout /= 10;
+	do {
+		cur = dev->bus->rr(dev, offset) & mask;
+		if (cur == val)
+			return true;
+
+		msleep(10);
+	} while (timeout-- > 0);
+
+	return false;
+}
+EXPORT_SYMBOL_GPL(__mt76_poll_msec);
 
 MODULE_LICENSE("GPL");

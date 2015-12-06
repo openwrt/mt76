@@ -119,7 +119,7 @@ mt76pci_load_rom_patch(struct mt76x2_dev *dev)
 	__le32 *cur;
 	u32 patch_mask, patch_reg;
 
-	if (rom_protect && !mt76x2_poll(dev, MT_MCU_SEMAPHORE_03, 1, 1, 600)) {
+	if (rom_protect && !mt76_poll(dev, MT_MCU_SEMAPHORE_03, 1, 1, 600)) {
 		printk("Could not get hardware semaphore for ROM PATCH\n");
 		return -ETIMEDOUT;
 	}
@@ -161,7 +161,7 @@ mt76pci_load_rom_patch(struct mt76x2_dev *dev)
 	/* Trigger ROM */
 	mt76_wr(dev, MT_MCU_INT_LEVEL, 4);
 
-	if (!mt76x2_poll_msec(dev, patch_reg, patch_mask, patch_mask, 2000)) {
+	if (!mt76_poll_msec(dev, patch_reg, patch_mask, patch_mask, 2000)) {
 		printk("Failed to load ROM patch\n");
 		ret = -ETIMEDOUT;
 	}
@@ -369,7 +369,7 @@ int mt76x2_mcu_calibrate(struct mt76x2_dev *dev, enum mcu_calibration type,
 	if (ret)
 		return ret;
 
-	if (WARN_ON(!mt76x2_poll_msec(dev, MT_MCU_COM_REG0,
+	if (WARN_ON(!mt76_poll_msec(dev, MT_MCU_COM_REG0,
 				    BIT(31), BIT(31), 100)))
 		return -ETIMEDOUT;
 

@@ -264,10 +264,6 @@ struct mt76x2_reg_pair {
 	u32 value;
 };
 
-bool mt76x2_poll(struct mt76x2_dev *dev, u32 offset, u32 mask, u32 val,
-	       int timeout);
-bool mt76x2_poll_msec(struct mt76x2_dev *dev, u32 offset, u32 mask, u32 val,
-		    int timeout);
 void mt76_write_reg_pairs(struct mt76x2_dev *dev,
 			  const struct mt76x2_reg_pair *data, int len);
 
