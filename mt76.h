@@ -71,7 +71,8 @@ struct mt76_queue_ops {
 	int (*add_buf)(struct mt76_dev *dev, struct mt76_queue *q,
 		       u32 buf0, int len0, u32 buf1, int len1, u32 info);
 
-	int (*dequeue)(struct mt76_dev *dev, struct mt76_queue *q, bool flush);
+	void *(*dequeue)(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
+			 int *len, u32 *info);
 
 	void (*cleanup)(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
 			void (*done)(struct mt76_dev *dev, struct mt76_queue *q,
