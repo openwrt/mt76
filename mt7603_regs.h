@@ -31,6 +31,8 @@
 #define MT_HIF(ofs)			(MT_HIF_BASE + (ofs))
 
 #define MT_ASIC_VERSION			MT_HIF(0x000)
+#define MT_INT_SOURCE_CSR		MT_HIF(0x200)
+#define MT_INT_MASK_CSR			MT_HIF(0x204)
 
 #define MT_SCH_1			MT_HIF(0x588)
 #define MT_SCH_2			MT_HIF(0x58c)
