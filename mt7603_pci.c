@@ -53,11 +53,24 @@ mt76pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	dev->rev = mt76_rr(dev, MT_ASIC_VERSION);
 	dev_printk(KERN_INFO, dev->mt76.dev, "ASIC revision: %08x\n", dev->rev);
 
+	ret = devm_request_irq(dev->mt76.dev, pdev->irq, mt7603_irq_handler,
+			       IRQF_SHARED, KBUILD_MODNAME, dev);
+	if (ret)
+		goto error;
+
 	ret = mt7603_mcu_init(dev);
 	if (ret)
-		return ret;
+		goto error;
 
-	return -EINVAL;
+	if (1) {
+		ret = -EINVAL;
+		goto error;
+	}
+
+	return 0;
+error:
+	ieee80211_free_hw(mt76_hw(dev));
+	return ret;
 }
 
 static void
