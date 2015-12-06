@@ -441,13 +441,6 @@ int mt76x2_dma_init(struct mt76x2_dev *dev)
 	init_waitqueue_head(&dev->mcu.wait);
 	skb_queue_head_init(&dev->mcu.res_q);
 
-	spin_lock_init(&dev->q_rx.lock);
-	spin_lock_init(&dev->mcu.q_rx.lock);
-	for (i = 0; i < ARRAY_SIZE(dev->q_tx); i++) {
-		spin_lock_init(&dev->q_tx[i].lock);
-		INIT_LIST_HEAD(&dev->q_tx[i].swq);
-	}
-
 	init_dummy_netdev(&dev->napi_dev);
 	netif_napi_add(&dev->napi_dev, &dev->napi, mt76x2_dma_rx_poll, 64);
 

@@ -21,6 +21,9 @@ mt76_dma_alloc_queue(struct mt76_dev *dev, struct mt76_queue *q)
 	int size;
 	int i;
 
+	spin_lock_init(&q->lock);
+	INIT_LIST_HEAD(&q->swq);
+
 	size = q->ndesc * sizeof(struct mt76_desc);
 	q->desc = dmam_alloc_coherent(dev->dev, size, &q->desc_dma, GFP_KERNEL);
 	if (!q->desc)
