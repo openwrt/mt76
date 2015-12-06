@@ -89,7 +89,6 @@ mt76pci_remove(struct pci_dev *pdev)
 	ieee80211_unregister_hw(mt76_hw(dev));
 	mt76x2_cleanup(dev);
 	ieee80211_free_hw(mt76_hw(dev));
-	printk("pci device driver detached\n");
 }
 
 MODULE_DEVICE_TABLE(pci, mt76pci_device_table);
