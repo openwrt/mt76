@@ -16,6 +16,12 @@
 #define __MT76_UTIL_H
 
 #include <linux/skbuff.h>
+#include <linux/bitops.h>
+
+#ifndef GENMASK
+#define GENMASK(h, l)       (((U32_C(1) << ((h) - (l) + 1)) - 1) << (l))
+#endif
+
 
 /*
  * Power of two check, this will check
