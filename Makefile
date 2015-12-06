@@ -1,6 +1,6 @@
 EXTRA_CFLAGS += -Werror
 
-obj-m := mt76.o mt76x2e.o
+obj-m := mt76.o mt76x2e.o mt7603e.o
 
 mt76-y := \
 	mmio.o util.o trace.o
@@ -12,3 +12,6 @@ mt76x2e-y := \
 	mt76x2_trace.o
 
 mt76x2e-$(CONFIG_OF) += mt76x2_of.o
+
+mt7603e-y := \
+	mt7603_pci.o mt7603_main.o mt7603_init.o mt7603_mcu.o
