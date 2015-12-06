@@ -406,7 +406,7 @@ mt76x2_init_tx_queue(struct mt76x2_dev *dev, struct mt76x2_queue *q,
 {
 	int ret;
 
-	q->regs = dev->regs + MT_TX_RING_BASE + idx * MT_RING_SIZE;
+	q->regs = dev->mt76.regs + MT_TX_RING_BASE + idx * MT_RING_SIZE;
 	q->ndesc = n_desc;
 
 	ret = mt76x2_alloc_queue(dev, q);
@@ -490,7 +490,7 @@ mt76x2_init_rx_queue(struct mt76x2_dev *dev, struct mt76x2_queue *q,
 {
 	int ret;
 
-	q->regs = dev->regs + MT_RX_RING_BASE + idx * MT_RING_SIZE;
+	q->regs = dev->mt76.regs + MT_RX_RING_BASE + idx * MT_RING_SIZE;
 	q->ndesc = n_desc;
 	q->buf_size = bufsize;
 
@@ -580,7 +580,7 @@ int mt76x2_dma_init(struct mt76x2_dev *dev)
 	tasklet_init(&dev->tx_tasklet, mt76x2_tx_tasklet, (unsigned long) dev);
 	tasklet_init(&dev->rx_tasklet, mt76x2_rx_tasklet, (unsigned long) dev);
 
-	mt76x2_wr(dev, MT_WPDMA_RST_IDX, ~0);
+	mt76_wr(dev, MT_WPDMA_RST_IDX, ~0);
 
 	for (i = 0; i < ARRAY_SIZE(wmm_queue_map); i++) {
 		ret = mt76x2_init_tx_queue(dev, &dev->q_tx[i], wmm_queue_map[i],

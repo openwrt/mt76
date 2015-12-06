@@ -20,8 +20,8 @@
 void mt76x2_mac_set_bssid(struct mt76x2_dev *dev, u8 idx, const u8 *addr)
 {
 	idx &= 7;
-	mt76x2_wr(dev, MT_MAC_APC_BSSID_L(idx), get_unaligned_le32(addr));
-	mt76x2_rmw_field(dev, MT_MAC_APC_BSSID_H(idx), MT_MAC_APC_BSSID_H_ADDR,
+	mt76_wr(dev, MT_MAC_APC_BSSID_L(idx), get_unaligned_le32(addr));
+	mt76_rmw_field(dev, MT_MAC_APC_BSSID_H(idx), MT_MAC_APC_BSSID_H_ADDR,
 		       get_unaligned_le16(addr + 4));
 }
 
@@ -412,13 +412,13 @@ void mt76x2_mac_poll_tx_status(struct mt76x2_dev *dev, bool irq)
 		u32 stat1, stat2;
 
 		spin_lock_irqsave(&dev->irq_lock, flags);
-		stat1 = mt76x2_rr(dev, MT_TX_STAT_FIFO);
+		stat1 = mt76_rr(dev, MT_TX_STAT_FIFO);
 		if (!(stat1 & MT_TX_STAT_FIFO_VALID)) {
 			spin_unlock_irqrestore(&dev->irq_lock, flags);
 			break;
 		}
 
-		stat2 = mt76x2_rr(dev, MT_TX_STAT_FIFO_EXT);
+		stat2 = mt76_rr(dev, MT_TX_STAT_FIFO_EXT);
 		spin_unlock_irqrestore(&dev->irq_lock, flags);
 
 		stat.valid = 1;
@@ -498,12 +498,12 @@ void mt76x2_mac_wcid_setup(struct mt76x2_dev *dev, u8 idx, u8 vif_idx, u8 *mac)
 	attr = MT76_SET(MT_WCID_ATTR_BSS_IDX, vif_idx & 7) |
 	       MT76_SET(MT_WCID_ATTR_BSS_IDX_EXT, !!(vif_idx & 8));
 
-	mt76x2_wr(dev, MT_WCID_ATTR(idx), attr);
+	mt76_wr(dev, MT_WCID_ATTR(idx), attr);
 
 	if (mac)
 		memcpy(addr.macaddr, mac, ETH_ALEN);
 
-	mt76x2_wr_copy(dev, MT_WCID_ADDR(idx), &addr, sizeof(addr));
+	mt76_wr_copy(dev, MT_WCID_ADDR(idx), &addr, sizeof(addr));
 }
 
 int mt76x2_mac_wcid_set_key(struct mt76x2_dev *dev, u8 idx,
@@ -517,19 +517,19 @@ int mt76x2_mac_wcid_set_key(struct mt76x2_dev *dev, u8 idx,
 	if (cipher == MT_CIPHER_NONE && key)
 		return -EINVAL;
 
-	mt76x2_rmw_field(dev, MT_WCID_ATTR(idx), MT_WCID_ATTR_PKEY_MODE, cipher);
-	mt76x2_wr_copy(dev, MT_WCID_KEY(idx), key_data, sizeof(key_data));
+	mt76_rmw_field(dev, MT_WCID_ATTR(idx), MT_WCID_ATTR_PKEY_MODE, cipher);
+	mt76_wr_copy(dev, MT_WCID_KEY(idx), key_data, sizeof(key_data));
 
 	memset(iv_data, 0, sizeof(iv_data));
 	if (key) {
-		mt76x2_rmw_field(dev, MT_WCID_ATTR(idx), MT_WCID_ATTR_PAIRWISE,
+		mt76_rmw_field(dev, MT_WCID_ATTR(idx), MT_WCID_ATTR_PAIRWISE,
 			       !!(key->flags & IEEE80211_KEY_FLAG_PAIRWISE));
 		iv_data[3] = key->keyidx << 6;
 		if (cipher >= MT_CIPHER_TKIP)
 			iv_data[3] |= 0x20;
 	}
 
-	mt76x2_wr_copy(dev, MT_WCID_IV(idx), iv_data, sizeof(iv_data));
+	mt76_wr_copy(dev, MT_WCID_IV(idx), iv_data, sizeof(iv_data));
 
 	return 0;
 }
@@ -545,12 +545,12 @@ int mt76x2_mac_shared_key_setup(struct mt76x2_dev *dev, u8 vif_idx, u8 key_idx,
 	if (cipher == MT_CIPHER_NONE && key)
 		return -EINVAL;
 
-	val = mt76x2_rr(dev, MT_SKEY_MODE(vif_idx));
+	val = mt76_rr(dev, MT_SKEY_MODE(vif_idx));
 	val &= ~(MT_SKEY_MODE_MASK << MT_SKEY_MODE_SHIFT(vif_idx, key_idx));
 	val |= cipher << MT_SKEY_MODE_SHIFT(vif_idx, key_idx);
-	mt76x2_wr(dev, MT_SKEY_MODE(vif_idx), val);
+	mt76_wr(dev, MT_SKEY_MODE(vif_idx), val);
 
-	mt76x2_wr_copy(dev, MT_SKEY(vif_idx, key_idx), key_data, sizeof(key_data));
+	mt76_wr_copy(dev, MT_SKEY(vif_idx, key_idx), key_data, sizeof(key_data));
 
 	return 0;
 }
@@ -576,7 +576,7 @@ int mt76x2_mac_skb_tx_overhead(struct mt76x2_dev *dev, struct sk_buff *skb)
 }
 
 static int
-mt76x2_write_beacon(struct mt76x2_dev *dev, int offset, struct sk_buff *skb)
+mt76_write_beacon(struct mt76x2_dev *dev, int offset, struct sk_buff *skb)
 {
 	int beacon_len = dev->beacon_offsets[1] - dev->beacon_offsets[0];
 	struct mt76x2_txwi txwi;
@@ -587,10 +587,10 @@ mt76x2_write_beacon(struct mt76x2_dev *dev, int offset, struct sk_buff *skb)
 	mt76x2_mac_write_txwi(dev, &txwi, skb, NULL, NULL);
 	txwi.flags |= cpu_to_le16(MT_TXWI_FLAGS_TS);
 
-	mt76x2_wr_copy(dev, offset, &txwi, sizeof(txwi));
+	mt76_wr_copy(dev, offset, &txwi, sizeof(txwi));
 	offset += sizeof(txwi);
 
-	mt76x2_wr_copy(dev, offset, skb->data, skb->len);
+	mt76_wr_copy(dev, offset, skb->data, skb->len);
 	return 0;
 }
 
@@ -606,16 +606,16 @@ __mt76x2_mac_set_beacon(struct mt76x2_dev *dev, u8 bcn_idx, struct sk_buff *skb)
 	mt76x2_set(dev, MT_BCN_BYPASS_MASK, BIT(bcn_idx));
 
 	if (skb) {
-		ret = mt76x2_write_beacon(dev, beacon_addr, skb);
+		ret = mt76_write_beacon(dev, beacon_addr, skb);
 		if (!ret)
 			dev->beacon_data_mask |= BIT(bcn_idx) & dev->beacon_mask;
 	} else {
 		dev->beacon_data_mask &= ~BIT(bcn_idx);
 		for (i = 0; i < beacon_len; i += 4)
-			mt76x2_wr(dev, beacon_addr + i, 0);
+			mt76_wr(dev, beacon_addr + i, 0);
 	}
 
-	mt76x2_wr(dev, MT_BCN_BYPASS_MASK, 0xff00 | ~dev->beacon_data_mask);
+	mt76_wr(dev, MT_BCN_BYPASS_MASK, 0xff00 | ~dev->beacon_data_mask);
 
 	return ret;
 }
@@ -649,7 +649,7 @@ int mt76x2_mac_set_beacon(struct mt76x2_dev *dev, u8 vif_idx, struct sk_buff *sk
 		__mt76x2_mac_set_beacon(dev, i, NULL);
 	}
 
-	mt76x2_rmw_field(dev, MT_MAC_BSSID_DW1, MT_MAC_BSSID_DW1_MBEACON_N, bcn_idx - 1);
+	mt76_rmw_field(dev, MT_MAC_BSSID_DW1, MT_MAC_BSSID_DW1_MBEACON_N, bcn_idx - 1);
 	return 0;
 }
 
@@ -671,11 +671,11 @@ void mt76x2_mac_set_beacon_enable(struct mt76x2_dev *dev, u8 vif_idx, bool val)
 
 	en = dev->beacon_mask;
 
-	mt76x2_rmw_field(dev, MT_INT_TIMER_EN, MT_INT_TIMER_EN_PRE_TBTT_EN, en);
+	mt76_rmw_field(dev, MT_INT_TIMER_EN, MT_INT_TIMER_EN_PRE_TBTT_EN, en);
 	reg = MT_BEACON_TIME_CFG_BEACON_TX |
 	      MT_BEACON_TIME_CFG_TBTT_EN |
 	      MT_BEACON_TIME_CFG_TIMER_EN;
-	mt76x2_rmw(dev, MT_BEACON_TIME_CFG, reg, reg * en);
+	mt76_rmw(dev, MT_BEACON_TIME_CFG, reg, reg * en);
 
 	if (en)
 		mt76x2_irq_enable(dev, MT_INT_PRE_TBTT | MT_INT_TBTT);
@@ -690,7 +690,7 @@ void mt76x2_mac_work(struct work_struct *work)
 	int i, idx;
 
 	for (i = 0, idx = 0; i < 16; i++) {
-		u32 val = mt76x2_rr(dev, MT_TX_AGG_CNT(i));
+		u32 val = mt76_rr(dev, MT_TX_AGG_CNT(i));
 		dev->aggr_stats[idx++] += val & 0xffff;
 		dev->aggr_stats[idx++] += val >> 16;
 	}

@@ -149,7 +149,7 @@ mt76x2_configure_filter(struct ieee80211_hw *hw, unsigned int changed_flags,
 	MT76_FILTER(PSPOLL, MT_RX_FILTR_CFG_PSPOLL);
 
 	*total_flags = flags;
-	mt76x2_wr(dev, MT_RX_FILTR_CFG, dev->rxfilter);
+	mt76_wr(dev, MT_RX_FILTR_CFG, dev->rxfilter);
 
 	mutex_unlock(&dev->mutex);
 }
@@ -167,7 +167,7 @@ mt76x2_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		mt76x2_mac_set_bssid(dev, mvif->idx, info->bssid);
 
 	if (changed & BSS_CHANGED_BEACON_INT)
-		mt76x2_rmw_field(dev, MT_BEACON_TIME_CFG,
+		mt76_rmw_field(dev, MT_BEACON_TIME_CFG,
 			       MT_BEACON_TIME_CFG_INTVAL,
 			       info->beacon_int << 4);
 
@@ -181,7 +181,7 @@ mt76x2_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		int slottime = info->use_short_slot ? 9 : 20;
 
 		dev->slottime = slottime;
-		mt76x2_rmw_field(dev, MT_BKOFF_SLOT_CFG,
+		mt76_rmw_field(dev, MT_BKOFF_SLOT_CFG,
 			       MT_BKOFF_SLOT_CFG_SLOTTIME, slottime);
 	}
 
@@ -338,27 +338,27 @@ mt76x2_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif, u16 queue,
 	      MT76_SET(MT_EDCA_CFG_AIFSN, params->aifs) |
 	      MT76_SET(MT_EDCA_CFG_CWMIN, cw_min) |
 	      MT76_SET(MT_EDCA_CFG_CWMAX, cw_max);
-	mt76x2_wr(dev, MT_EDCA_CFG_AC(queue), val);
+	mt76_wr(dev, MT_EDCA_CFG_AC(queue), val);
 
-	val = mt76x2_rr(dev, MT_WMM_TXOP(queue));
+	val = mt76_rr(dev, MT_WMM_TXOP(queue));
 	val &= ~(MT_WMM_TXOP_MASK << MT_WMM_TXOP_SHIFT(queue));
 	val |= params->txop << MT_WMM_TXOP_SHIFT(queue);
-	mt76x2_wr(dev, MT_WMM_TXOP(queue), val);
+	mt76_wr(dev, MT_WMM_TXOP(queue), val);
 
-	val = mt76x2_rr(dev, MT_WMM_AIFSN);
+	val = mt76_rr(dev, MT_WMM_AIFSN);
 	val &= ~(MT_WMM_AIFSN_MASK << MT_WMM_AIFSN_SHIFT(queue));
 	val |= params->aifs << MT_WMM_AIFSN_SHIFT(queue);
-	mt76x2_wr(dev, MT_WMM_AIFSN, val);
+	mt76_wr(dev, MT_WMM_AIFSN, val);
 
-	val = mt76x2_rr(dev, MT_WMM_CWMIN);
+	val = mt76_rr(dev, MT_WMM_CWMIN);
 	val &= ~(MT_WMM_CWMIN_MASK << MT_WMM_CWMIN_SHIFT(queue));
 	val |= cw_min << MT_WMM_CWMIN_SHIFT(queue);
-	mt76x2_wr(dev, MT_WMM_CWMIN, val);
+	mt76_wr(dev, MT_WMM_CWMIN, val);
 
-	val = mt76x2_rr(dev, MT_WMM_CWMAX);
+	val = mt76_rr(dev, MT_WMM_CWMAX);
 	val &= ~(MT_WMM_CWMAX_MASK << MT_WMM_CWMAX_SHIFT(queue));
 	val |= cw_max << MT_WMM_CWMAX_SHIFT(queue);
-	mt76x2_wr(dev, MT_WMM_CWMAX, val);
+	mt76_wr(dev, MT_WMM_CWMAX, val);
 
 	return 0;
 }

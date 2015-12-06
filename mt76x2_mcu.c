@@ -109,12 +109,6 @@ out:
 	return ret;
 }
 
-static void
-write_data(struct mt76x2_dev *dev, u32 offset, __le32 *data, int len)
-{
-	__iowrite32_copy(dev->regs + offset, data, len / 4);
-}
-
 static int
 mt76pci_load_rom_patch(struct mt76x2_dev *dev)
 {
@@ -138,7 +132,7 @@ mt76pci_load_rom_patch(struct mt76x2_dev *dev)
 		patch_reg = MT_MCU_COM_REG0;
 	}
 
-	if (rom_protect && (mt76x2_rr(dev, patch_reg) & patch_mask)) {
+	if (rom_protect && (mt76_rr(dev, patch_reg) & patch_mask)) {
 		printk("ROM patch already applied\n");
 		goto out;
 	}
@@ -156,16 +150,16 @@ mt76pci_load_rom_patch(struct mt76x2_dev *dev)
 	hdr = (struct mt76x2_patch_header *) fw->data;
 	printk("ROM patch build: %.15s\n", hdr->build_time);
 
-	mt76x2_wr(dev, MT_MCU_PCIE_REMAP_BASE4, MT_MCU_ROM_PATCH_OFFSET);
+	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, MT_MCU_ROM_PATCH_OFFSET);
 
 	cur = (__le32 *) (fw->data + sizeof(*hdr));
 	len = fw->size - sizeof(*hdr);
-	write_data(dev, MT_MCU_ROM_PATCH_ADDR, cur, len);
+	mt76_wr_copy(dev, MT_MCU_ROM_PATCH_ADDR, cur, len);
 
-	mt76x2_wr(dev, MT_MCU_PCIE_REMAP_BASE4, 0);
+	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, 0);
 
 	/* Trigger ROM */
-	mt76x2_wr(dev, MT_MCU_INT_LEVEL, 4);
+	mt76_wr(dev, MT_MCU_INT_LEVEL, 4);
 
 	if (!mt76x2_poll_msec(dev, patch_reg, patch_mask, patch_mask, 2000)) {
 		printk("Failed to load ROM patch\n");
@@ -175,7 +169,7 @@ mt76pci_load_rom_patch(struct mt76x2_dev *dev)
 out:
 	/* release semaphore */
 	if (rom_protect)
-		mt76x2_wr(dev, MT_MCU_SEMAPHORE_03, 1);
+		mt76_wr(dev, MT_MCU_SEMAPHORE_03, 1);
 	release_firmware(fw);
 	return ret;
 }
@@ -216,8 +210,8 @@ mt76pci_load_firmware(struct mt76x2_dev *dev)
 	cur = (__le32 *) (fw->data + sizeof(*hdr));
 	len = le32_to_cpu(hdr->ilm_len);
 
-	mt76x2_wr(dev, MT_MCU_PCIE_REMAP_BASE4, MT_MCU_ILM_OFFSET);
-	write_data(dev, MT_MCU_ILM_ADDR, cur, len);
+	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, MT_MCU_ILM_OFFSET);
+	mt76_wr_copy(dev, MT_MCU_ILM_ADDR, cur, len);
 
 	cur += len / sizeof(*cur);
 	len = le32_to_cpu(hdr->dlm_len);
@@ -227,19 +221,19 @@ mt76pci_load_firmware(struct mt76x2_dev *dev)
 	else
 		offset = MT_MCU_DLM_ADDR;
 
-	mt76x2_wr(dev, MT_MCU_PCIE_REMAP_BASE4, MT_MCU_DLM_OFFSET);
-	write_data(dev, offset, cur, len);
+	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, MT_MCU_DLM_OFFSET);
+	mt76_wr_copy(dev, offset, cur, len);
 
-	mt76x2_wr(dev, MT_MCU_PCIE_REMAP_BASE4, 0);
+	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, 0);
 
 	val = mt76x2_eeprom_get(dev, MT_EE_NIC_CONF_2);
 	if (MT76_GET(MT_EE_NIC_CONF_2_XTAL_OPTION, val) == 1)
 		mt76x2_set(dev, MT_MCU_COM_REG0, BIT(30));
 
 	/* trigger firmware */
-	mt76x2_wr(dev, MT_MCU_INT_LEVEL, 2);
+	mt76_wr(dev, MT_MCU_INT_LEVEL, 2);
 	for (i = 200; i > 0; i--) {
-		val = mt76x2_rr(dev, MT_MCU_COM_REG0);
+		val = mt76_rr(dev, MT_MCU_COM_REG0);
 
 		if (val & 1)
 			break;
@@ -435,7 +429,7 @@ int mt76x2_mcu_init(struct mt76x2_dev *dev)
 
 int mt76x2_mcu_cleanup(struct mt76x2_dev *dev)
 {
-	mt76x2_wr(dev, MT_MCU_INT_LEVEL, 1);
+	mt76_wr(dev, MT_MCU_INT_LEVEL, 1);
 	msleep(20);
 
 	return 0;

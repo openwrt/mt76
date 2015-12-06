@@ -14,9 +14,7 @@
 #ifndef __MT76x2_H
 #define __MT76x2_H
 
-#include <linux/kernel.h>
 #include <linux/device.h>
-#include <linux/io.h>
 #include <linux/dma-mapping.h>
 #include <linux/spinlock.h>
 #include <linux/skbuff.h>
@@ -26,7 +24,6 @@
 #include <linux/mutex.h>
 #include <linux/bitops.h>
 #include <linux/kfifo.h>
-#include <net/mac80211.h>
 
 #define MT7662_FIRMWARE		"mt7662.bin"
 #define MT7662_ROM_PATCH	"mt7662_rom_patch.bin"
@@ -44,8 +41,8 @@
 
 #define MT_CALIBRATE_INTERVAL	HZ
 
+#include "mt76.h"
 #include "mt76x2_regs.h"
-#include "util.h"
 #include "mt76x2_mac.h"
 
 struct mt76x2_queue_entry {
@@ -168,12 +165,11 @@ struct mt76x2_dma_ops {
 };
 
 struct mt76x2_dev {
-	struct ieee80211_hw *hw;
+	struct mt76_dev mt76;
+
 	struct device *dev;
 	u8 macaddr[ETH_ALEN];
 	struct mac_address macaddr_list[8];
-
-	void __iomem *regs;
 
 	struct mutex mutex;
 
@@ -268,34 +264,27 @@ struct mt76x2_reg_pair {
 	u32 value;
 };
 
-#define mt76_hw(dev) (dev)->hw
-
-u32 mt76x2_rr(struct mt76x2_dev *dev, u32 offset);
-void mt76x2_wr(struct mt76x2_dev *dev, u32 offset, u32 val);
-u32 mt76x2_rmw(struct mt76x2_dev *dev, u32 offset, u32 mask, u32 val);
-void mt76x2_wr_copy(struct mt76x2_dev *dev, u32 offset, const void *data, int len);
-
 bool mt76x2_poll(struct mt76x2_dev *dev, u32 offset, u32 mask, u32 val,
 	       int timeout);
 bool mt76x2_poll_msec(struct mt76x2_dev *dev, u32 offset, u32 mask, u32 val,
 		    int timeout);
-void mt76x2_write_reg_pairs(struct mt76x2_dev *dev,
+void mt76_write_reg_pairs(struct mt76x2_dev *dev,
 			  const struct mt76x2_reg_pair *data, int len);
 
 #define mt76x2_get_field(_dev, _reg, _field)		\
-	MT76_GET(_field, mt76x2_rr(dev, _reg))
+	MT76_GET(_field, mt76_rr(dev, _reg))
 
-#define mt76x2_rmw_field(_dev, _reg, _field, _val)	\
-	mt76x2_rmw(_dev, _reg, _field, MT76_SET(_field, _val))
+#define mt76_rmw_field(_dev, _reg, _field, _val)	\
+	mt76_rmw(_dev, _reg, _field, MT76_SET(_field, _val))
 
 static inline u32 mt76x2_set(struct mt76x2_dev *dev, u32 offset, u32 val)
 {
-	return mt76x2_rmw(dev, offset, 0, val);
+	return mt76_rmw(dev, offset, 0, val);
 }
 
 static inline u32 mt76x2_clear(struct mt76x2_dev *dev, u32 offset, u32 val)
 {
-	return mt76x2_rmw(dev, offset, val, 0);
+	return mt76_rmw(dev, offset, val, 0);
 }
 
 static inline bool is_mt7612(struct mt76x2_dev *dev)

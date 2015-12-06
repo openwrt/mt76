@@ -19,7 +19,7 @@ mt76x2_reg_set(void *data, u64 val)
 {
 	struct mt76x2_dev *dev = data;
 
-	mt76x2_wr(dev, dev->debugfs_reg, val);
+	mt76_wr(dev, dev->debugfs_reg, val);
 	return 0;
 }
 
@@ -28,7 +28,7 @@ mt76x2_reg_get(void *data, u64 *val)
 {
 	struct mt76x2_dev *dev = data;
 
-	*val = mt76x2_rr(dev, dev->debugfs_reg);
+	*val = mt76_rr(dev, dev->debugfs_reg);
 	return 0;
 }
 

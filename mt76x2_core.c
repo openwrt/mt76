@@ -22,7 +22,7 @@ bool mt76x2_poll(struct mt76x2_dev *dev, u32 offset, u32 mask, u32 val,
 
 	timeout /= 10;
 	do {
-		cur = mt76x2_rr(dev, offset) & mask;
+		cur = mt76_rr(dev, offset) & mask;
 		if (cur == val)
 			return true;
 
@@ -39,7 +39,7 @@ bool mt76x2_poll_msec(struct mt76x2_dev *dev, u32 offset, u32 mask, u32 val,
 
 	timeout /= 10;
 	do {
-		cur = mt76x2_rr(dev, offset) & mask;
+		cur = mt76_rr(dev, offset) & mask;
 		if (cur == val)
 			return true;
 
@@ -49,11 +49,11 @@ bool mt76x2_poll_msec(struct mt76x2_dev *dev, u32 offset, u32 mask, u32 val,
 	return false;
 }
 
-void mt76x2_write_reg_pairs(struct mt76x2_dev *dev,
+void mt76_write_reg_pairs(struct mt76x2_dev *dev,
 			  const struct mt76x2_reg_pair *data, int len)
 {
 	while (len > 0) {
-		mt76x2_wr(dev, data->reg, data->value);
+		mt76_wr(dev, data->reg, data->value);
 		len--;
 		data++;
 	}
@@ -66,7 +66,7 @@ void mt76x2_set_irq_mask(struct mt76x2_dev *dev, u32 clear, u32 set)
 	spin_lock_irqsave(&dev->irq_lock, flags);
 	dev->irqmask &= ~clear;
 	dev->irqmask |= set;
-	mt76x2_wr(dev, MT_INT_MASK_CSR, dev->irqmask);
+	mt76_wr(dev, MT_INT_MASK_CSR, dev->irqmask);
 	spin_unlock_irqrestore(&dev->irq_lock, flags);
 }
 
@@ -75,8 +75,8 @@ irqreturn_t mt76x2_irq_handler(int irq, void *dev_instance)
 	struct mt76x2_dev *dev = dev_instance;
 	u32 intr;
 
-	intr = mt76x2_rr(dev, MT_INT_SOURCE_CSR);
-	mt76x2_wr(dev, MT_INT_SOURCE_CSR, intr);
+	intr = mt76_rr(dev, MT_INT_SOURCE_CSR);
+	mt76_wr(dev, MT_INT_SOURCE_CSR, intr);
 
 	if (!test_bit(MT76_STATE_INITIALIZED, &dev->state))
 		return IRQ_NONE;

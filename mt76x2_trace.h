@@ -31,11 +31,6 @@
 #define TXID_PR_FMT	" [%d:%d]"
 #define TXID_PR_ARG	__entry->wcid, __entry->pktid
 
-#define REG_ENTRY	__field(u32, reg) __field(u32, val)
-#define REG_ASSIGN	__entry->reg = reg; __entry->val = val
-#define REG_PR_FMT	" %04x=%08x"
-#define REG_PR_ARG	__entry->reg, __entry->val
-
 DECLARE_EVENT_CLASS(dev_evt,
 	TP_PROTO(struct mt76x2_dev *dev),
 	TP_ARGS(dev),
@@ -63,33 +58,6 @@ DECLARE_EVENT_CLASS(dev_txid_evt,
 		DEV_PR_FMT TXID_PR_FMT,
 		DEV_PR_ARG, TXID_PR_ARG
 	)
-);
-
-DECLARE_EVENT_CLASS(dev_reg_evt,
-	TP_PROTO(struct mt76x2_dev *dev, u32 reg, u32 val),
-	TP_ARGS(dev, reg, val),
-	TP_STRUCT__entry(
-		DEV_ENTRY
-		REG_ENTRY
-	),
-	TP_fast_assign(
-		DEV_ASSIGN;
-		REG_ASSIGN;
-	),
-	TP_printk(
-		DEV_PR_FMT REG_PR_FMT,
-		DEV_PR_ARG, REG_PR_ARG
-	)
-);
-
-DEFINE_EVENT(dev_reg_evt, reg_read,
-	TP_PROTO(struct mt76x2_dev *dev, u32 reg, u32 val),
-	TP_ARGS(dev, reg, val)
-);
-
-DEFINE_EVENT(dev_reg_evt, reg_write,
-	TP_PROTO(struct mt76x2_dev *dev, u32 reg, u32 val),
-	TP_ARGS(dev, reg, val)
 );
 
 DEFINE_EVENT(dev_evt, mac_txstat_poll,

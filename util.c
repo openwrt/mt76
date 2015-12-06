@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/module.h>
 #include "mt76x2.h"
 
 void mt76_remove_hdr_pad(struct sk_buff *skb)
@@ -41,3 +42,5 @@ int mt76_insert_hdr_pad(struct sk_buff *skb)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mt76_insert_hdr_pad);
+
+MODULE_LICENSE("GPL");

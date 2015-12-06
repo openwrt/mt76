@@ -22,7 +22,7 @@ mt76x2_wait_for_mac(struct mt76x2_dev *dev)
 	int i;
 
 	for (i = 0; i < 500; i++) {
-		switch (mt76x2_rr(dev, MT_MAC_CSR0)) {
+		switch (mt76_rr(dev, MT_MAC_CSR0)) {
 		case 0:
 		case ~0:
 			break;
@@ -58,12 +58,12 @@ mt76x2_mac_pbf_init(struct mt76x2_dev *dev)
 	mt76x2_set(dev, MT_PBF_SYS_CTRL, val);
 	mt76x2_clear(dev, MT_PBF_SYS_CTRL, val);
 
-	mt76x2_wr(dev, MT_PBF_TX_MAX_PCNT, 0xefef3f1f);
-	mt76x2_wr(dev, MT_PBF_RX_MAX_PCNT, 0xfebf);
+	mt76_wr(dev, MT_PBF_TX_MAX_PCNT, 0xefef3f1f);
+	mt76_wr(dev, MT_PBF_RX_MAX_PCNT, 0xfebf);
 }
 
 static void
-mt76x2_write_mac_initvals(struct mt76x2_dev *dev)
+mt76_write_mac_initvals(struct mt76x2_dev *dev)
 {
 	static const struct mt76x2_reg_pair vals[] = {
 		/* Copied from MediaTek reference source */
@@ -122,7 +122,7 @@ mt76x2_write_mac_initvals(struct mt76x2_dev *dev)
 		{ MT_HT_CTRL_CFG,		0x000001ff },
 	};
 
-	mt76x2_write_reg_pairs(dev, vals, ARRAY_SIZE(vals));
+	mt76_write_reg_pairs(dev, vals, ARRAY_SIZE(vals));
 }
 
 static void
@@ -149,16 +149,16 @@ mt76x2_fixup_xtal(struct mt76x2_dev *dev)
 	}
 
 	eep_val &= 0x7f;
-	mt76x2_rmw_field(dev, MT_XO_CTRL5, MT_XO_CTRL5_C2_VAL, eep_val + offset);
+	mt76_rmw_field(dev, MT_XO_CTRL5, MT_XO_CTRL5_C2_VAL, eep_val + offset);
 	mt76x2_set(dev, MT_XO_CTRL6, MT_XO_CTRL6_C2_CTRL);
 
 	eep_val = mt76x2_eeprom_get(dev, MT_EE_NIC_CONF_2);
 	switch (MT76_GET(MT_EE_NIC_CONF_2_XTAL_OPTION, eep_val)) {
 	case 0:
-		mt76x2_wr(dev, MT_XO_CTRL7, 0x5c1fee80);
+		mt76_wr(dev, MT_XO_CTRL7, 0x5c1fee80);
 		break;
 	case 1:
-		mt76x2_wr(dev, MT_XO_CTRL7, 0x5c1feed0);
+		mt76_wr(dev, MT_XO_CTRL7, 0x5c1feed0);
 		break;
 	default:
 		break;
@@ -179,7 +179,7 @@ mt76x2_init_beacon_offsets(struct mt76x2_dev *dev)
 	}
 
 	for (i = 0; i < 4; i++)
-		mt76x2_wr(dev, MT_BCN_OFFSET(i), regs[i]);
+		mt76_wr(dev, MT_BCN_OFFSET(i), regs[i]);
 }
 
 int mt76x2_mac_reset(struct mt76x2_dev *dev, bool hard)
@@ -191,7 +191,7 @@ int mt76x2_mac_reset(struct mt76x2_dev *dev, bool hard)
 	if (!mt76x2_wait_for_mac(dev))
 		return -ETIMEDOUT;
 
-	val = mt76x2_rr(dev, MT_WPDMA_GLO_CFG);
+	val = mt76_rr(dev, MT_WPDMA_GLO_CFG);
 
 	val &= ~(MT_WPDMA_GLO_CFG_TX_DMA_EN |
 		 MT_WPDMA_GLO_CFG_TX_DMA_BUSY |
@@ -200,10 +200,10 @@ int mt76x2_mac_reset(struct mt76x2_dev *dev, bool hard)
 		 MT_WPDMA_GLO_CFG_DMA_BURST_SIZE);
 	val |= MT76_SET(MT_WPDMA_GLO_CFG_DMA_BURST_SIZE, 3);
 
-	mt76x2_wr(dev, MT_WPDMA_GLO_CFG, val);
+	mt76_wr(dev, MT_WPDMA_GLO_CFG, val);
 
 	mt76x2_mac_pbf_init(dev);
-	mt76x2_write_mac_initvals(dev);
+	mt76_write_mac_initvals(dev);
 	mt76x2_fixup_xtal(dev);
 
 	mt76x2_clear(dev, MT_MAC_SYS_CTRL,
@@ -216,28 +216,28 @@ int mt76x2_mac_reset(struct mt76x2_dev *dev, bool hard)
 	mt76x2_set(dev, MT_EXT_CCA_CFG, 0x0000f000);
 	mt76x2_clear(dev, MT_TX_ALC_CFG_4, BIT(31));
 
-	mt76x2_wr(dev, MT_RF_BYPASS_0, 0x06000000);
-	mt76x2_wr(dev, MT_RF_SETTING_0, 0x08800000);
+	mt76_wr(dev, MT_RF_BYPASS_0, 0x06000000);
+	mt76_wr(dev, MT_RF_SETTING_0, 0x08800000);
 	msleep(5);
-	mt76x2_wr(dev, MT_RF_BYPASS_0, 0x00000000);
+	mt76_wr(dev, MT_RF_BYPASS_0, 0x00000000);
 
-	mt76x2_wr(dev, MT_MCU_CLOCK_CTL, 0x1401);
+	mt76_wr(dev, MT_MCU_CLOCK_CTL, 0x1401);
 	mt76x2_clear(dev, MT_FCE_L2_STUFF, MT_FCE_L2_STUFF_WR_MPDU_LEN_EN);
 
-	mt76x2_wr(dev, MT_MAC_ADDR_DW0, get_unaligned_le32(dev->macaddr));
-	mt76x2_wr(dev, MT_MAC_ADDR_DW1, get_unaligned_le16(dev->macaddr + 4));
+	mt76_wr(dev, MT_MAC_ADDR_DW0, get_unaligned_le32(dev->macaddr));
+	mt76_wr(dev, MT_MAC_ADDR_DW1, get_unaligned_le16(dev->macaddr + 4));
 
-	mt76x2_wr(dev, MT_MAC_BSSID_DW0, get_unaligned_le32(dev->macaddr));
-	mt76x2_wr(dev, MT_MAC_BSSID_DW1, get_unaligned_le16(dev->macaddr + 4) |
+	mt76_wr(dev, MT_MAC_BSSID_DW0, get_unaligned_le32(dev->macaddr));
+	mt76_wr(dev, MT_MAC_BSSID_DW1, get_unaligned_le16(dev->macaddr + 4) |
 		MT76_SET(MT_MAC_BSSID_DW1_MBSS_MODE, 3) | /* 8 beacons */
 		MT_MAC_BSSID_DW1_MBSS_LOCAL_BIT);
 
 	/* Fire a pre-TBTT interrupt 8 ms before TBTT */
-	mt76x2_rmw_field(dev, MT_INT_TIMER_CFG, MT_INT_TIMER_CFG_PRE_TBTT,
+	mt76_rmw_field(dev, MT_INT_TIMER_CFG, MT_INT_TIMER_CFG_PRE_TBTT,
 		       8 << 4);
-	mt76x2_wr(dev, MT_INT_TIMER_EN, 0);
+	mt76_wr(dev, MT_INT_TIMER_EN, 0);
 
-	mt76x2_wr(dev, MT_BCN_BYPASS_MASK, 0xffff);
+	mt76_wr(dev, MT_BCN_BYPASS_MASK, 0xffff);
 	if (!hard)
 		return 0;
 
@@ -254,7 +254,7 @@ int mt76x2_mac_reset(struct mt76x2_dev *dev, bool hard)
 	}
 
 	for (i = 0; i < 16; i++)
-		mt76x2_rr(dev, MT_TX_STAT_FIFO);
+		mt76_rr(dev, MT_TX_STAT_FIFO);
 
 	mt76x2_set(dev, MT_MAC_APC_BSSID_H(0), MT_MAC_APC_BSSID0_H_EN);
 	mt76x2_init_beacon_offsets(dev);
@@ -269,14 +269,14 @@ int mt76x2_mac_start(struct mt76x2_dev *dev)
 	int i;
 
 	for (i = 0; i < 16; i++)
-		mt76x2_rr(dev, MT_TX_AGG_CNT(i));
+		mt76_rr(dev, MT_TX_AGG_CNT(i));
 
 	for (i = 0; i < 16; i++)
-		mt76x2_rr(dev, MT_TX_STAT_FIFO);
+		mt76_rr(dev, MT_TX_STAT_FIFO);
 
 	memset(dev->aggr_stats, 0, sizeof(dev->aggr_stats));
 
-	mt76x2_wr(dev, MT_MAC_SYS_CTRL, MT_MAC_SYS_CTRL_ENABLE_TX);
+	mt76_wr(dev, MT_MAC_SYS_CTRL, MT_MAC_SYS_CTRL_ENABLE_TX);
 	wait_for_wpdma(dev);
 	udelay(50);
 
@@ -286,9 +286,9 @@ int mt76x2_mac_start(struct mt76x2_dev *dev)
 
 	mt76x2_clear(dev, MT_WPDMA_GLO_CFG, MT_WPDMA_GLO_CFG_TX_WRITEBACK_DONE);
 
-	mt76x2_wr(dev, MT_RX_FILTR_CFG, dev->rxfilter);
+	mt76_wr(dev, MT_RX_FILTR_CFG, dev->rxfilter);
 
-	mt76x2_wr(dev, MT_MAC_SYS_CTRL,
+	mt76_wr(dev, MT_MAC_SYS_CTRL,
 		MT_MAC_SYS_CTRL_ENABLE_TX |
 		MT_MAC_SYS_CTRL_ENABLE_RX);
 
@@ -303,18 +303,18 @@ void mt76x2_mac_stop(struct mt76x2_dev *dev, bool force)
 	u32 rts_cfg;
 	int i;
 
-	mt76x2_wr(dev, MT_MAC_SYS_CTRL, 0);
+	mt76_wr(dev, MT_MAC_SYS_CTRL, 0);
 
-	rts_cfg = mt76x2_rr(dev, MT_TX_RTS_CFG);
-	mt76x2_wr(dev, MT_TX_RTS_CFG, rts_cfg & ~MT_TX_RTS_CFG_RETRY_LIMIT);
+	rts_cfg = mt76_rr(dev, MT_TX_RTS_CFG);
+	mt76_wr(dev, MT_TX_RTS_CFG, rts_cfg & ~MT_TX_RTS_CFG_RETRY_LIMIT);
 
 	/* Wait for MAC to become idle */
 	for (i = 0; i < 300; i++) {
-		if (mt76x2_rr(dev, MT_MAC_STATUS) &
+		if (mt76_rr(dev, MT_MAC_STATUS) &
 		    (MT_MAC_STATUS_RX | MT_MAC_STATUS_TX))
 			continue;
 
-		if (mt76x2_rr(dev, MT_BBP(IBI, 12)))
+		if (mt76_rr(dev, MT_BBP(IBI, 12)))
 			continue;
 
 		stopped = true;
@@ -329,12 +329,12 @@ void mt76x2_mac_stop(struct mt76x2_dev *dev, bool force)
 		mt76x2_clear(dev, MT_BBP(CORE, 4), BIT(0));
 	}
 
-	mt76x2_wr(dev, MT_TX_RTS_CFG, rts_cfg);
+	mt76_wr(dev, MT_TX_RTS_CFG, rts_cfg);
 }
 
 void mt76x2_mac_resume(struct mt76x2_dev *dev)
 {
-	mt76x2_wr(dev, MT_MAC_SYS_CTRL,
+	mt76_wr(dev, MT_MAC_SYS_CTRL,
 		MT_MAC_SYS_CTRL_ENABLE_TX |
 		MT_MAC_SYS_CTRL_ENABLE_RX);
 }
@@ -349,7 +349,7 @@ mt76x2_power_on_rf_patch(struct mt76x2_dev *dev)
 	mt76x2_clear(dev, 0x1001c, 0xff);
 	mt76x2_set(dev, 0x1001c, 0x30);
 
-	mt76x2_wr(dev, 0x10014, 0x484f);
+	mt76_wr(dev, 0x10014, 0x484f);
 	udelay(1);
 
 	mt76x2_set(dev, 0x10130, BIT(17));
@@ -429,14 +429,14 @@ void mt76x2_set_tx_ackto(struct mt76x2_dev *dev)
 			      MT_XIFS_TIME_CFG_OFDM_SIFS);
 
 	ackto = slottime + sifs;
-	mt76x2_rmw_field(dev, MT_TX_TIMEOUT_CFG,
+	mt76_rmw_field(dev, MT_TX_TIMEOUT_CFG,
 		       MT_TX_TIMEOUT_CFG_ACKTO, ackto);
 }
 
 static void
 mt76x2_set_wlan_state(struct mt76x2_dev *dev, bool enable)
 {
-	u32 val = mt76x2_rr(dev, MT_WLAN_FUN_CTRL);
+	u32 val = mt76_rr(dev, MT_WLAN_FUN_CTRL);
 
 	if (enable)
 		val |= (MT_WLAN_FUN_CTRL_WLAN_EN |
@@ -445,7 +445,7 @@ mt76x2_set_wlan_state(struct mt76x2_dev *dev, bool enable)
 		val &= ~(MT_WLAN_FUN_CTRL_WLAN_EN |
 			 MT_WLAN_FUN_CTRL_WLAN_CLK_EN);
 
-	mt76x2_wr(dev, MT_WLAN_FUN_CTRL, val);
+	mt76_wr(dev, MT_WLAN_FUN_CTRL, val);
 	udelay(20);
 }
 
@@ -454,19 +454,19 @@ mt76x2_reset_wlan(struct mt76x2_dev *dev, bool enable)
 {
 	u32 val;
 
-	val = mt76x2_rr(dev, MT_WLAN_FUN_CTRL);
+	val = mt76_rr(dev, MT_WLAN_FUN_CTRL);
 
 	val &= ~MT_WLAN_FUN_CTRL_FRC_WL_ANT_SEL;
 
 	if (val & MT_WLAN_FUN_CTRL_WLAN_EN) {
 		val |= MT_WLAN_FUN_CTRL_WLAN_RESET_RF;
-		mt76x2_wr(dev, MT_WLAN_FUN_CTRL, val);
+		mt76_wr(dev, MT_WLAN_FUN_CTRL, val);
 		udelay(20);
 
 		val &= ~MT_WLAN_FUN_CTRL_WLAN_RESET_RF;
 	}
 
-	mt76x2_wr(dev, MT_WLAN_FUN_CTRL, val);
+	mt76_wr(dev, MT_WLAN_FUN_CTRL, val);
 	udelay(20);
 
 	mt76x2_set_wlan_state(dev, enable);
@@ -506,12 +506,12 @@ int mt76x2_init_hardware(struct mt76x2_dev *dev)
 
 	dev->slottime = 9;
 
-	val = mt76x2_rr(dev, MT_WPDMA_GLO_CFG);
+	val = mt76_rr(dev, MT_WPDMA_GLO_CFG);
 	val &= MT_WPDMA_GLO_CFG_DMA_BURST_SIZE |
 	       MT_WPDMA_GLO_CFG_BIG_ENDIAN |
 	       MT_WPDMA_GLO_CFG_HDR_SEG_LEN;
 	val |= MT_WPDMA_GLO_CFG_TX_WRITEBACK_DONE;
-	mt76x2_wr(dev, MT_WPDMA_GLO_CFG, val);
+	mt76_wr(dev, MT_WPDMA_GLO_CFG, val);
 
 	mt76x2_reset_wlan(dev, true);
 	mt76x2_power_on(dev);
@@ -538,7 +538,7 @@ int mt76x2_init_hardware(struct mt76x2_dev *dev)
 		return ret;
 
 	mt76x2_mac_stop(dev, false);
-	dev->rxfilter = mt76x2_rr(dev, MT_RX_FILTR_CFG);
+	dev->rxfilter = mt76_rr(dev, MT_RX_FILTR_CFG);
 
 	return 0;
 }
@@ -569,7 +569,7 @@ struct mt76x2_dev *mt76x2_alloc_device(struct device *pdev)
 
 	dev = hw->priv;
 	dev->dev = pdev;
-	dev->hw = hw;
+	dev->mt76.hw = hw;
 	mutex_init(&dev->mutex);
 	spin_lock_init(&dev->lock);
 	spin_lock_init(&dev->irq_lock);
