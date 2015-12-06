@@ -239,7 +239,7 @@ mt76x2_dma_tx_queue_skb(struct mt76x2_dev *dev, struct mt76x2_queue *q,
 	dma_sync_single_for_device(dev->dev, t->dma_addr, sizeof(t->txwi),
 				   DMA_TO_DEVICE);
 
-	ret = mt76x2_insert_hdr_pad(skb);
+	ret = mt76_insert_hdr_pad(skb);
 	if (ret)
 		goto put_txwi;
 

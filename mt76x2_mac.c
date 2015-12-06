@@ -224,7 +224,7 @@ int mt76x2_mac_process_rx(struct mt76x2_dev *dev, struct sk_buff *skb, void *rxi
 	int len;
 
 	if (rxwi->rxinfo & cpu_to_le32(MT_RXINFO_L2PAD))
-		mt76x2_remove_hdr_pad(skb);
+		mt76_remove_hdr_pad(skb);
 
 	if (rxwi->rxinfo & cpu_to_le32(MT_RXINFO_DECRYPT)) {
 		status->flag |= RX_FLAG_DECRYPTED;
