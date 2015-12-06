@@ -28,7 +28,7 @@ mt7603_load_firmware(struct mt7603_dev *dev)
 	u32 val;
 	int ret;
 
-	ret = request_firmware(&fw, MT7603_FIRMWARE_E1, dev->dev);
+	ret = request_firmware(&fw, MT7603_FIRMWARE_E1, dev->mt76.dev);
 	if (ret)
 		return ret;
 
@@ -37,8 +37,8 @@ mt7603_load_firmware(struct mt7603_dev *dev)
 
 	hdr = (const struct mt7603_fw_trailer *) (fw->data + fw->size - sizeof(*hdr));
 
-	dev_info(dev->dev, "Firmware Version: %.10s\n", hdr->fw_ver);
-	dev_info(dev->dev, "Build Time: %.15s\n", hdr->build_date);
+	dev_info(dev->mt76.dev, "Firmware Version: %.10s\n", hdr->fw_ver);
+	dev_info(dev->mt76.dev, "Build Time: %.15s\n", hdr->build_date);
 
 	val = mt76_rr(dev, MT_MCU_PCIE_REMAP_1);
 	mt76_wr(dev, MT_MCU_PCIE_REMAP_1,
@@ -59,12 +59,12 @@ mt7603_load_firmware(struct mt7603_dev *dev)
 
 	val = mt76_rr(dev, MT_TOP_MISC2);
 	if (val & BIT(1)) {
-		dev_info(dev->dev, "Firmware already running!\n");
+		dev_info(dev->mt76.dev, "Firmware already running!\n");
 		goto out;
 	}
 
 	if (!mt76_poll(dev, MT_TOP_MISC2, BIT(0), BIT(0), 500)) {
-		dev_err(dev->dev, "Timeout waiting for ROM code to become ready\n");
+		dev_err(dev->mt76.dev, "Timeout waiting for ROM code to become ready\n");
 		ret = -EIO;
 		goto out;
 	}

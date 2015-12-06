@@ -23,7 +23,6 @@
 
 struct mt7603_dev {
 	struct mt76_dev mt76;
-	struct device *dev;
 
 	u32 rev;
 };

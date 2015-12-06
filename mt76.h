@@ -31,6 +31,7 @@ struct mt76_bus_ops {
 struct mt76_dev {
 	const struct mt76_bus_ops *bus;
 	void __iomem *regs;
+	struct device *dev;
 
 	struct ieee80211_hw *hw;
 };

@@ -52,9 +52,9 @@ mt76pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	pci_set_drvdata(pdev, dev);
 
 	dev->rev = mt76_rr(dev, MT_ASIC_VERSION);
-	dev_printk(KERN_INFO, dev->dev, "ASIC revision: %08x\n", dev->rev);
+	dev_printk(KERN_INFO, dev->mt76.dev, "ASIC revision: %08x\n", dev->rev);
 
-	ret = devm_request_irq(dev->dev, pdev->irq, mt76x2_irq_handler,
+	ret = devm_request_irq(dev->mt76.dev, pdev->irq, mt76x2_irq_handler,
 			       IRQF_SHARED, KBUILD_MODNAME, dev);
 	if (ret)
 		goto error;

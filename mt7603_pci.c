@@ -51,7 +51,7 @@ mt76pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	pci_set_drvdata(pdev, dev);
 
 	dev->rev = mt76_rr(dev, MT_ASIC_VERSION);
-	dev_printk(KERN_INFO, dev->dev, "ASIC revision: %08x\n", dev->rev);
+	dev_printk(KERN_INFO, dev->mt76.dev, "ASIC revision: %08x\n", dev->rev);
 
 	ret = mt7603_mcu_init(dev);
 	if (ret)

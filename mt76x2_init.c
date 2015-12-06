@@ -568,7 +568,7 @@ struct mt76x2_dev *mt76x2_alloc_device(struct device *pdev)
 		return NULL;
 
 	dev = hw->priv;
-	dev->dev = pdev;
+	dev->mt76.dev = pdev;
 	dev->mt76.hw = hw;
 	mutex_init(&dev->mutex);
 	spin_lock_init(&dev->lock);
@@ -678,7 +678,7 @@ mt76x2_init_sband(struct mt76x2_dev *dev, struct ieee80211_supported_band *sband
 	int size;
 
 	size = n_chan * sizeof(*chan);
-	chanlist = devm_kmemdup(dev->dev, chan, size, GFP_KERNEL);
+	chanlist = devm_kmemdup(dev->mt76.dev, chan, size, GFP_KERNEL);
 	if (!chanlist)
 		return -ENOMEM;
 
@@ -789,7 +789,7 @@ int mt76x2_register_device(struct mt76x2_dev *dev)
 	int i, ret;
 
 	fifo_size = roundup_pow_of_two(32 * sizeof(struct mt76x2_tx_status));
-	status_fifo = devm_kzalloc(dev->dev, fifo_size, GFP_KERNEL);
+	status_fifo = devm_kzalloc(dev->mt76.dev, fifo_size, GFP_KERNEL);
 	if (!status_fifo)
 		return -ENOMEM;
 
@@ -799,7 +799,7 @@ int mt76x2_register_device(struct mt76x2_dev *dev)
 	if (ret)
 		return ret;
 
-	SET_IEEE80211_DEV(hw, dev->dev);
+	SET_IEEE80211_DEV(hw, dev->mt76.dev);
 
 	hw->queues = 4;
 	hw->max_rates = 1;

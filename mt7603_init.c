@@ -23,7 +23,7 @@ struct mt7603_dev *mt7603_alloc_device(struct device *pdev)
 		return NULL;
 
 	dev = hw->priv;
-	dev->dev = pdev;
+	dev->mt76.dev = pdev;
 	dev->mt76.hw = hw;
 
 	return dev;

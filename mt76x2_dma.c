@@ -36,11 +36,11 @@ mt76x2_alloc_txwi(struct mt76x2_dev *dev)
 	int size;
 
 	size = (sizeof(*t) + L1_CACHE_BYTES - 1) & ~(L1_CACHE_BYTES - 1);
-	t = devm_kzalloc(dev->dev, size, GFP_ATOMIC);
+	t = devm_kzalloc(dev->mt76.dev, size, GFP_ATOMIC);
 	if (!t)
 		return NULL;
 
-	addr = dma_map_single(dev->dev, &t->txwi, sizeof(t->txwi), DMA_TO_DEVICE);
+	addr = dma_map_single(dev->mt76.dev, &t->txwi, sizeof(t->txwi), DMA_TO_DEVICE);
 	t->dma_addr = addr;
 
 	return t;
@@ -91,12 +91,12 @@ mt76x2_alloc_queue(struct mt76x2_dev *dev, struct mt76x2_queue *q)
 	int i;
 
 	size = q->ndesc * sizeof(struct mt76x2_desc);
-	q->desc = dmam_alloc_coherent(dev->dev, size, &q->desc_dma, GFP_KERNEL);
+	q->desc = dmam_alloc_coherent(dev->mt76.dev, size, &q->desc_dma, GFP_KERNEL);
 	if (!q->desc)
 		return -ENOMEM;
 
 	size = q->ndesc * sizeof(*q->entry);
-	q->entry = devm_kzalloc(dev->dev, size, GFP_KERNEL);
+	q->entry = devm_kzalloc(dev->mt76.dev, size, GFP_KERNEL);
 	if (!q->entry)
 		return -ENOMEM;
 
@@ -169,8 +169,8 @@ mt76x2_dma_rx_fill(struct mt76x2_dev *dev, struct mt76x2_queue *q)
 		if (!buf)
 			break;
 
-		addr = dma_map_single(dev->dev, buf, len, DMA_FROM_DEVICE);
-		if (dma_mapping_error(dev->dev, addr)) {
+		addr = dma_map_single(dev->mt76.dev, buf, len, DMA_FROM_DEVICE);
+		if (dma_mapping_error(dev->mt76.dev, addr)) {
 			kfree(buf);
 			break;
 		}
@@ -203,8 +203,8 @@ mt76x2_dma_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76x2_txq_id qid,
 		  MT76_SET(MT_MCU_MSG_PORT, CPU_TX_PORT) |
 		  MT76_SET(MT_MCU_MSG_LEN, skb->len);
 
-	addr = dma_map_single(dev->dev, skb->data, skb->len, DMA_TO_DEVICE);
-	if (dma_mapping_error(dev->dev, addr))
+	addr = dma_map_single(dev->mt76.dev, skb->data, skb->len, DMA_TO_DEVICE);
+	if (dma_mapping_error(dev->mt76.dev, addr))
 		return -ENOMEM;
 
 	spin_lock_bh(&q->lock);
@@ -233,10 +233,10 @@ mt76x2_dma_tx_queue_skb(struct mt76x2_dev *dev, struct mt76x2_queue *q,
 	if (!t)
 		goto free;
 
-	dma_sync_single_for_cpu(dev->dev, t->dma_addr, sizeof(t->txwi),
+	dma_sync_single_for_cpu(dev->mt76.dev, t->dma_addr, sizeof(t->txwi),
 				DMA_TO_DEVICE);
 	mt76x2_mac_write_txwi(dev, &t->txwi, skb, wcid, sta);
-	dma_sync_single_for_device(dev->dev, t->dma_addr, sizeof(t->txwi),
+	dma_sync_single_for_device(dev->mt76.dev, t->dma_addr, sizeof(t->txwi),
 				   DMA_TO_DEVICE);
 
 	ret = mt76_insert_hdr_pad(skb);
@@ -255,8 +255,8 @@ mt76x2_dma_tx_queue_skb(struct mt76x2_dev *dev, struct mt76x2_queue *q,
 	if (!wcid || wcid->hw_key_idx == 0xff)
 		tx_info |= MT_TXD_INFO_WIV;
 
-	addr = dma_map_single(dev->dev, skb->data, skb->len, DMA_TO_DEVICE);
-	if (dma_mapping_error(dev->dev, addr))
+	addr = dma_map_single(dev->mt76.dev, skb->data, skb->len, DMA_TO_DEVICE);
+	if (dma_mapping_error(dev->mt76.dev, addr))
 		goto put_txwi;
 
 	idx = mt76x2_queue_add_buf(dev, q, t->dma_addr, sizeof(t->txwi),
@@ -307,7 +307,7 @@ mt76x2_dma_tx_cleanup_idx(struct mt76x2_dev *dev, struct mt76x2_queue *q, int id
 	else
 		skb_addr = ACCESS_ONCE(q->desc[idx].buf0);
 
-	dma_unmap_single(dev->dev, skb_addr, skb->len, DMA_TO_DEVICE);
+	dma_unmap_single(dev->mt76.dev, skb_addr, skb->len, DMA_TO_DEVICE);
 	e->skb = NULL;
 	e->txwi = NULL;
 	e->schedule = false;
@@ -374,7 +374,7 @@ mt76x2_rx_get_buf(struct mt76x2_dev *dev, struct mt76x2_queue *q, int idx, int *
 		u32 ctl = ACCESS_ONCE(q->desc[idx].ctrl);
 		*len = MT76_GET(MT_DMA_CTL_SD_LEN0, ctl);
 	}
-	dma_unmap_single(dev->dev, buf_addr, buf_len, DMA_FROM_DEVICE);
+	dma_unmap_single(dev->mt76.dev, buf_addr, buf_len, DMA_FROM_DEVICE);
 	e->buf = NULL;
 
 	return buf;
@@ -628,6 +628,6 @@ void mt76x2_dma_cleanup(struct mt76x2_dev *dev)
 	mt76x2_rx_cleanup(dev, &dev->mcu.q_rx);
 
 	while ((t = __mt76x2_get_txwi(dev)) != NULL)
-		dma_unmap_single(dev->dev, t->dma_addr, sizeof(t->txwi),
+		dma_unmap_single(dev->mt76.dev, t->dma_addr, sizeof(t->txwi),
 				 DMA_TO_DEVICE);
 }

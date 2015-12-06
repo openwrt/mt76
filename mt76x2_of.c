@@ -34,7 +34,7 @@ static int mt76x2_check_eeprom(struct mt76x2_dev *dev, const char *type)
 int
 mt76x2_get_of_eeprom(struct mt76x2_dev *dev, int len)
 {
-	struct device_node *np = dev->dev->of_node;
+	struct device_node *np = dev->mt76.dev->of_node;
 	struct mtd_info *mtd;
 	const __be32 *list;
 	const char *part;
@@ -85,7 +85,7 @@ mt76x2_get_of_eeprom(struct mt76x2_dev *dev, int len)
 void
 mt76x2_get_of_overrides(struct mt76x2_dev *dev)
 {
-	struct device_node *np = dev->dev->of_node;
+	struct device_node *np = dev->mt76.dev->of_node;
 	const __be32 *val;
 	int size;
 

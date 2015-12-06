@@ -167,7 +167,6 @@ struct mt76x2_dma_ops {
 struct mt76x2_dev {
 	struct mt76_dev mt76;
 
-	struct device *dev;
 	u8 macaddr[ETH_ALEN];
 	struct mac_address macaddr_list[8];
 

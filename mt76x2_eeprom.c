@@ -204,7 +204,7 @@ mt76x2_eeprom_load(struct mt76x2_dev *dev)
 	bool found;
 
 	dev->eeprom.size = len;
-	dev->eeprom.data = devm_kzalloc(dev->dev, len * 2, GFP_KERNEL);
+	dev->eeprom.data = devm_kzalloc(dev->mt76.dev, len * 2, GFP_KERNEL);
 	if (!dev->eeprom.data)
 		return -ENOMEM;
 
@@ -606,7 +606,7 @@ int mt76x2_eeprom_init(struct mt76x2_dev *dev)
 	mt76x2_eeprom_get_macaddr(dev);
 	if (!is_valid_ether_addr(dev->macaddr)) {
 		eth_random_addr(dev->macaddr);
-		dev_printk(KERN_INFO, dev->dev,
+		dev_printk(KERN_INFO, dev->mt76.dev,
 			   "Invalid MAC address, using random address %pM\n",
 			   dev->macaddr);
 	}
