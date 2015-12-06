@@ -29,13 +29,7 @@
 #define MT7662_ROM_PATCH	"mt7662_rom_patch.bin"
 #define MT7662_EEPROM_SIZE	512
 
-#define MT_RX_BUF_SIZE		2048
 #define MT_RX_HEADROOM		32
-#define MT_RX_RING_SIZE		128
-
-#define MT_TX_RING_SIZE		128
-
-#define MT_MCU_RING_SIZE	32
 
 #define MT_MAX_CHAINS		2
 

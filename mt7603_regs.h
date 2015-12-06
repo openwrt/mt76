@@ -31,8 +31,25 @@
 #define MT_HIF(ofs)			(MT_HIF_BASE + (ofs))
 
 #define MT_ASIC_VERSION			MT_HIF(0x000)
+
 #define MT_INT_SOURCE_CSR		MT_HIF(0x200)
 #define MT_INT_MASK_CSR			MT_HIF(0x204)
+
+#define MT_INT_RX_DONE(_n)      BIT(_n)
+#define MT_INT_RX_DONE_ALL      GENMASK(1, 0)
+#define MT_INT_TX_DONE_ALL      GENMASK(19, 4)
+#define MT_INT_TX_DONE(_n)      BIT(_n + 4)
+
+#define MT_INT_RX_COHERENT      BIT(20)
+#define MT_INT_TX_COHERENT      BIT(21)
+#define MT_INT_PRE_TBTT         BIT(27)
+
+#define MT_INT_MCU_CMD          BIT(30)
+
+#define MT_WPDMA_RST_IDX		MT_HIF(0x20c)
+
+#define MT_TX_RING_BASE			MT_HIF(0x300)
+#define MT_RX_RING_BASE			MT_HIF(0x400)
 
 #define MT_SCH_1			MT_HIF(0x588)
 #define MT_SCH_2			MT_HIF(0x58c)
@@ -44,5 +61,10 @@
 
 #define MT_PCIE_REMAP_BASE_1		0x40000
 #define MT_PCIE_REMAP_BASE_2		0x80000
+
+#define MT_TX_HW_QUEUE_MGMT		4
+#define MT_TX_HW_QUEUE_MCU		5
+#define MT_TX_HW_QUEUE_BCN		7
+#define MT_TX_HW_QUEUE_BMC		8
 
 #endif

@@ -28,3 +28,18 @@ struct mt7603_dev *mt7603_alloc_device(struct device *pdev)
 
 	return dev;
 }
+
+int mt7603_init_hardware(struct mt7603_dev *dev)
+{
+	int ret;
+
+	ret = mt7603_dma_init(dev);
+	if (ret)
+		return ret;
+
+	ret = mt7603_mcu_init(dev);
+	if (ret)
+		return ret;
+
+	return 0;
+}

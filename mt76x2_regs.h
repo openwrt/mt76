@@ -143,7 +143,6 @@
 
 #define MT_TX_RING_BASE			0x0300
 #define MT_RX_RING_BASE			0x03c0
-#define MT_RING_SIZE			0x10
 
 #define MT_TX_HW_QUEUE_MCU		8
 #define MT_TX_HW_QUEUE_MGMT		9

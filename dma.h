@@ -13,6 +13,8 @@
 #ifndef __MT76_DMA_H
 #define __MT76_DMA_H
 
+#define MT_RING_SIZE			0x10
+
 #define MT_DMA_CTL_SD_LEN1		GENMASK(13, 0)
 #define MT_DMA_CTL_LAST_SEC1		BIT(14)
 #define MT_DMA_CTL_BURST		BIT(15)

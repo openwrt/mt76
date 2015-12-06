@@ -21,6 +21,11 @@
 #include <net/mac80211.h>
 #include "util.h"
 
+#define MT_RX_RING_SIZE     128
+#define MT_TX_RING_SIZE     128
+#define MT_MCU_RING_SIZE    32
+#define MT_RX_BUF_SIZE      2048
+
 struct mt76_dev;
 
 struct mt76_bus_ops {

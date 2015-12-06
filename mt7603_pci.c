@@ -58,7 +58,7 @@ mt76pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (ret)
 		goto error;
 
-	ret = mt7603_mcu_init(dev);
+	ret = mt7603_init_hardware(dev);
 	if (ret)
 		goto error;
 
@@ -78,6 +78,7 @@ mt76pci_remove(struct pci_dev *pdev)
 {
 	struct mt7603_dev *dev = pci_get_drvdata(pdev);
 
+	mt7603_dma_cleanup(dev);
 	ieee80211_free_hw(mt76_hw(dev));
 }
 
