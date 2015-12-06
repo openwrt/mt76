@@ -12,9 +12,9 @@
  */
 
 #include <linux/delay.h>
-#include "mt76.h"
-#include "mcu.h"
-#include "eeprom.h"
+#include "mt76x2.h"
+#include "mt76x2_mcu.h"
+#include "mt76x2_eeprom.h"
 
 static bool
 mt76x2_phy_rf_op(struct mt76x2_dev *dev, bool idx, u16 offset, bool write)

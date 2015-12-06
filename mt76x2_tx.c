@@ -11,7 +11,7 @@
  * GNU General Public License for more details.
  */
 
-#include "mt76.h"
+#include "mt76x2.h"
 
 struct beacon_bc_data {
 	struct mt76x2_dev *dev;

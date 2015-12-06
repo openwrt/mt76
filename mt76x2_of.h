@@ -14,7 +14,7 @@
 #ifndef __MT76_OF_H
 #define __MT76_OF_H
 
-#include "mt76.h"
+#include "mt76x2.h"
 
 #ifdef CONFIG_OF
 

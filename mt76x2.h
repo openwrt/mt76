@@ -44,9 +44,9 @@
 
 #define MT_CALIBRATE_INTERVAL	HZ
 
-#include "regs.h"
-#include "util.h"
-#include "mac.h"
+#include "mt76x2_regs.h"
+#include "mt76x2_util.h"
+#include "mt76x2_mac.h"
 
 struct mt76x2_queue_entry {
 	struct sk_buff *skb;

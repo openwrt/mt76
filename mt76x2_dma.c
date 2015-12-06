@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#include "mt76.h"
-#include "dma.h"
+#include "mt76x2.h"
+#include "mt76x2_dma.h"
 
 struct mt76x2_txwi_cache {
 	struct mt76x2_txwi txwi;

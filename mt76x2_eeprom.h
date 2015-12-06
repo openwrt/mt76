@@ -14,7 +14,7 @@
 #ifndef __MT76_EEPROM_H
 #define __MT76_EEPROM_H
 
-#include "mt76.h"
+#include "mt76x2.h"
 
 enum mt76x2_eeprom_field {
 	MT_EE_CHIP_ID =				0x000,

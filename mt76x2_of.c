@@ -14,9 +14,9 @@
 #include <linux/of.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
-#include "mt76.h"
-#include "eeprom.h"
-#include "of.h"
+#include "mt76x2.h"
+#include "mt76x2_eeprom.h"
+#include "mt76x2_of.h"
 
 static int mt76x2_check_eeprom(struct mt76x2_dev *dev, const char *type)
 {

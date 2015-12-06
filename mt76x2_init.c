@@ -12,9 +12,9 @@
  */
 
 #include <linux/delay.h>
-#include "mt76.h"
-#include "eeprom.h"
-#include "mcu.h"
+#include "mt76x2.h"
+#include "mt76x2_eeprom.h"
+#include "mt76x2_mcu.h"
 
 static bool
 mt76x2_wait_for_mac(struct mt76x2_dev *dev)

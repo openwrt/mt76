@@ -15,8 +15,8 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 
-#include "mt76.h"
-#include "trace.h"
+#include "mt76x2.h"
+#include "mt76x2_trace.h"
 
 static const struct pci_device_id mt76pci_device_table[] = {
 	{ PCI_DEVICE(0x14c3, 0x7662) },

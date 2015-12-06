@@ -15,10 +15,10 @@
 #include <linux/firmware.h>
 #include <linux/delay.h>
 
-#include "mt76.h"
-#include "mcu.h"
-#include "dma.h"
-#include "eeprom.h"
+#include "mt76x2.h"
+#include "mt76x2_mcu.h"
+#include "mt76x2_dma.h"
+#include "mt76x2_eeprom.h"
 
 struct mt76x2_fw_header {
 	__le32 ilm_len;

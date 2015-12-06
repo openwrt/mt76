@@ -15,10 +15,10 @@
 #define __MT76_TRACE_H
 
 #include <linux/tracepoint.h>
-#include "mt76.h"
+#include "mt76x2.h"
 
 #undef TRACE_SYSTEM
-#define TRACE_SYSTEM mt76
+#define TRACE_SYSTEM mt76x2
 
 #define MAXNAME		32
 #define DEV_ENTRY	__array(char, wiphy_name, 32)
@@ -168,6 +168,6 @@ TRACE_EVENT(dev_irq,
 #undef TRACE_INCLUDE_PATH
 #define TRACE_INCLUDE_PATH .
 #undef TRACE_INCLUDE_FILE
-#define TRACE_INCLUDE_FILE trace
+#define TRACE_INCLUDE_FILE mt76x2_trace
 
 #include <trace/define_trace.h>

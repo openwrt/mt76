@@ -12,8 +12,8 @@
  */
 
 #include <linux/delay.h>
-#include "mt76.h"
-#include "trace.h"
+#include "mt76x2.h"
+#include "mt76x2_trace.h"
 
 bool mt76x2_poll(struct mt76x2_dev *dev, u32 offset, u32 mask, u32 val,
 			   int timeout)

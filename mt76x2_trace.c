@@ -11,32 +11,10 @@
  * GNU General Public License for more details.
  */
 
-#include "mt76.h"
+#include <linux/module.h>
 
-void mt76x2_remove_hdr_pad(struct sk_buff *skb)
-{
-	int len = ieee80211_get_hdrlen_from_skb(skb);
-	memmove(skb->data + 2, skb->data, len);
-	skb_pull(skb, 2);
-}
+#ifndef __CHECKER__
+#define CREATE_TRACE_POINTS
+#include "mt76x2_trace.h"
 
-int mt76x2_insert_hdr_pad(struct sk_buff *skb)
-{
-	int len = ieee80211_get_hdrlen_from_skb(skb);
-	int ret;
-
-	if (len % 4 == 0)
-		return 0;
-
-	ret = skb_cow(skb, 2);
-	if (ret)
-		return ret;
-
-	skb_push(skb, 2);
-	memmove(skb->data, skb->data + 2, len);
-
-	skb->data[len] = 0;
-	skb->data[len + 1] = 0;
-	return 0;
-}
-
+#endif

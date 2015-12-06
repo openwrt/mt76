@@ -12,10 +12,10 @@
  */
 
 #include <linux/delay.h>
-#include "mt76.h"
-#include "mcu.h"
-#include "eeprom.h"
-#include "trace.h"
+#include "mt76x2.h"
+#include "mt76x2_mcu.h"
+#include "mt76x2_eeprom.h"
+#include "mt76x2_trace.h"
 
 void mt76x2_mac_set_bssid(struct mt76x2_dev *dev, u8 idx, const u8 *addr)
 {

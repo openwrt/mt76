@@ -12,7 +12,7 @@
  */
 
 #include <linux/debugfs.h>
-#include "mt76.h"
+#include "mt76x2.h"
 
 static int
 mt76x2_reg_set(void *data, u64 val)
