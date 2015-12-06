@@ -228,7 +228,7 @@ mt76pci_load_firmware(struct mt76x2_dev *dev)
 
 	val = mt76x2_eeprom_get(dev, MT_EE_NIC_CONF_2);
 	if (MT76_GET(MT_EE_NIC_CONF_2_XTAL_OPTION, val) == 1)
-		mt76x2_set(dev, MT_MCU_COM_REG0, BIT(30));
+		mt76_set(dev, MT_MCU_COM_REG0, BIT(30));
 
 	/* trigger firmware */
 	mt76_wr(dev, MT_MCU_INT_LEVEL, 2);
@@ -362,7 +362,7 @@ int mt76x2_mcu_calibrate(struct mt76x2_dev *dev, enum mcu_calibration type,
 	};
 	int ret;
 
-	mt76x2_clear(dev, MT_MCU_COM_REG0, BIT(31));
+	mt76_clear(dev, MT_MCU_COM_REG0, BIT(31));
 
 	skb = mt76x2_mcu_msg_alloc(dev, &msg, sizeof(msg));
 	ret = mt76x2_mcu_msg_send(dev, skb, CMD_CALIBRATION_OP);

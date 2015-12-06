@@ -603,7 +603,7 @@ __mt76x2_mac_set_beacon(struct mt76x2_dev *dev, u8 bcn_idx, struct sk_buff *skb)
 	int i;
 
 	/* Prevent corrupt transmissions during update */
-	mt76x2_set(dev, MT_BCN_BYPASS_MASK, BIT(bcn_idx));
+	mt76_set(dev, MT_BCN_BYPASS_MASK, BIT(bcn_idx));
 
 	if (skb) {
 		ret = mt76_write_beacon(dev, beacon_addr, skb);

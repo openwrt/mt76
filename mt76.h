@@ -40,6 +40,15 @@ struct mt76_dev {
 #define mt76_rmw(dev, ...)	(dev)->mt76.bus->rmw(&((dev)->mt76), __VA_ARGS__)
 #define mt76_wr_copy(dev, ...)	(dev)->mt76.bus->copy(&((dev)->mt76), __VA_ARGS__)
 
+#define mt76_set(dev, offset, val)	mt76_rmw(dev, offset, 0, val)
+#define mt76_clear(dev, offset, val)	mt76_rmw(dev, offset, val, 0)
+
+#define mt76_get_field(_dev, _reg, _field)		\
+	MT76_GET(_field, mt76_rr(dev, _reg))
+
+#define mt76_rmw_field(_dev, _reg, _field, _val)	\
+	mt76_rmw(_dev, _reg, _field, MT76_SET(_field, _val))
+
 #define mt76_hw(dev) (dev)->mt76.hw
 
 void mt76_mmio_init(struct mt76_dev *dev, void __iomem *regs);

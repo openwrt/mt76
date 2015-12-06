@@ -271,22 +271,6 @@ bool mt76x2_poll_msec(struct mt76x2_dev *dev, u32 offset, u32 mask, u32 val,
 void mt76_write_reg_pairs(struct mt76x2_dev *dev,
 			  const struct mt76x2_reg_pair *data, int len);
 
-#define mt76x2_get_field(_dev, _reg, _field)		\
-	MT76_GET(_field, mt76_rr(dev, _reg))
-
-#define mt76_rmw_field(_dev, _reg, _field, _val)	\
-	mt76_rmw(_dev, _reg, _field, MT76_SET(_field, _val))
-
-static inline u32 mt76x2_set(struct mt76x2_dev *dev, u32 offset, u32 val)
-{
-	return mt76_rmw(dev, offset, 0, val);
-}
-
-static inline u32 mt76x2_clear(struct mt76x2_dev *dev, u32 offset, u32 val)
-{
-	return mt76_rmw(dev, offset, val, 0);
-}
-
 static inline bool is_mt7612(struct mt76x2_dev *dev)
 {
 	return (dev->rev >> 16) == 0x7612;

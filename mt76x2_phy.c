@@ -382,12 +382,12 @@ mt76x2_phy_set_band(struct mt76x2_dev *dev, int band, bool primary_upper)
 {
 	switch (band) {
 	case IEEE80211_BAND_2GHZ:
-		mt76x2_set(dev, MT_TX_BAND_CFG, MT_TX_BAND_CFG_2G);
-		mt76x2_clear(dev, MT_TX_BAND_CFG, MT_TX_BAND_CFG_5G);
+		mt76_set(dev, MT_TX_BAND_CFG, MT_TX_BAND_CFG_2G);
+		mt76_clear(dev, MT_TX_BAND_CFG, MT_TX_BAND_CFG_5G);
 		break;
 	case IEEE80211_BAND_5GHZ:
-		mt76x2_clear(dev, MT_TX_BAND_CFG, MT_TX_BAND_CFG_2G);
-		mt76x2_set(dev, MT_TX_BAND_CFG, MT_TX_BAND_CFG_5G);
+		mt76_clear(dev, MT_TX_BAND_CFG, MT_TX_BAND_CFG_2G);
+		mt76_set(dev, MT_TX_BAND_CFG, MT_TX_BAND_CFG_5G);
 		break;
 	}
 
@@ -413,16 +413,16 @@ static void
 mt76x2_set_tx_dac(struct mt76x2_dev *dev)
 {
 	if (dev->chainmask & BIT(1))
-		mt76x2_set(dev, MT_BBP(TXBE, 5), 3);
+		mt76_set(dev, MT_BBP(TXBE, 5), 3);
 	else
-		mt76x2_clear(dev, MT_BBP(TXBE, 5), 3);
+		mt76_clear(dev, MT_BBP(TXBE, 5), 3);
 }
 
 static void
 mt76x2_get_agc_gain(struct mt76x2_dev *dev, u8 *dest)
 {
-	dest[0] = mt76x2_get_field(dev, MT_BBP(AGC, 8), MT_BBP_AGC_GAIN);
-	dest[1] = mt76x2_get_field(dev, MT_BBP(AGC, 9), MT_BBP_AGC_GAIN);
+	dest[0] = mt76_get_field(dev, MT_BBP(AGC, 8), MT_BBP_AGC_GAIN);
+	dest[1] = mt76_get_field(dev, MT_BBP(AGC, 9), MT_BBP_AGC_GAIN);
 }
 
 static int
@@ -588,7 +588,7 @@ int mt76x2_phy_set_channel(struct mt76x2_dev *dev,
 
 	/* Enable LDPC Rx */
 	if (mt76xx_rev(dev) >= MT76XX_REV_E3)
-	    mt76x2_set(dev, MT_BBP(RXO, 13), BIT(10));
+	    mt76_set(dev, MT_BBP(RXO, 13), BIT(10));
 
 	if (!dev->cal.init_cal_done) {
 		u8 val = mt76x2_eeprom_get(dev, MT_EE_BT_RCAL_RESULT);
@@ -674,7 +674,7 @@ mt76x2_phy_temp_compensate(struct mt76x2_dev *dev)
 	if (mt76x2_get_temp_comp(dev, &t))
 		return;
 
-	temp = mt76x2_get_field(dev, MT_TEMP_SENSOR, MT_TEMP_SENSOR_VAL);
+	temp = mt76_get_field(dev, MT_TEMP_SENSOR, MT_TEMP_SENSOR_VAL);
 	temp -= t.temp_25_ref;
 	temp = (temp * 1789) / 1000 + 25;
 	dev->cal.temp = temp;
