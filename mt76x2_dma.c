@@ -214,49 +214,20 @@ free:
 }
 
 static void
-mt76x2_tx_cleanup_entry(struct mt76x2_dev *dev, struct mt76_queue *q, int idx,
-		      bool flush)
+mt76x2_tx_cleanup_entry(struct mt76_dev *mdev, struct mt76_queue *q,
+			struct mt76_queue_entry *e)
 {
-	struct mt76_queue_entry entry;
+	struct mt76x2_dev *dev = container_of(mdev, struct mt76x2_dev, mt76);
 
-	mt76_queue_cleanup_idx(dev, q, idx, &entry);
-
-	if (entry.txwi) {
-		mt76x2_mac_queue_txdone(dev, entry.skb, &entry.txwi->txwi);
-		mt76x2_put_txwi(dev, entry.txwi);
+	if (e->txwi) {
+		mt76x2_mac_queue_txdone(dev, e->skb, &e->txwi->txwi);
+		mt76x2_put_txwi(dev, e->txwi);
 	} else {
-		dev_kfree_skb_any(entry.skb);
+		dev_kfree_skb_any(e->skb);
 	}
 
-	if (entry.schedule) {
+	if (e->schedule)
 		q->swq_queued--;
-		if (!flush)
-			mt76x2_txq_schedule(dev, q);
-	}
-}
-
-static void
-mt76x2_tx_cleanup_queue(struct mt76x2_dev *dev, struct mt76_queue *q, bool flush)
-{
-	int last;
-
-	spin_lock_bh(&q->lock);
-
-	if (flush)
-		last = -1;
-	else
-		last = ioread32(&q->regs->dma_idx);
-
-	while (q->queued && q->tail != last) {
-		mt76x2_tx_cleanup_entry(dev, q, q->tail, flush);
-		q->tail = (q->tail + 1) % q->ndesc;
-		q->queued--;
-
-		if (q->tail == last)
-		    last = ioread32(&q->regs->dma_idx);
-	}
-
-	spin_unlock_bh(&q->lock);
 }
 
 static void *
@@ -297,6 +268,16 @@ mt76x2_rx_cleanup(struct mt76x2_dev *dev, struct mt76_queue *q)
 		kfree(buf);
 	} while (1);
 
+	spin_unlock_bh(&q->lock);
+}
+
+static void
+mt76_tx_cleanup(struct mt76x2_dev *dev, struct mt76_queue *q, bool flush)
+{
+	spin_lock_bh(&q->lock);
+	mt76_queue_cleanup(dev, q, flush, mt76x2_tx_cleanup_entry);
+	if (!flush)
+		mt76x2_txq_schedule(dev, q);
 	spin_unlock_bh(&q->lock);
 }
 
@@ -412,7 +393,7 @@ mt76x2_tx_tasklet(unsigned long data)
 	mt76x2_mac_process_tx_status_fifo(dev);
 
 	for (i = ARRAY_SIZE(dev->q_tx) - 1; i >= 0; i--)
-		mt76x2_tx_cleanup_queue(dev, &dev->q_tx[i], false);
+		mt76_tx_cleanup(dev, &dev->q_tx[i], false);
 
 	mt76x2_mac_poll_tx_status(dev, false);
 	mt76x2_irq_enable(dev, MT_INT_TX_DONE_ALL);
@@ -516,7 +497,7 @@ void mt76x2_dma_cleanup(struct mt76x2_dev *dev)
 	tasklet_kill(&dev->tx_tasklet);
 	tasklet_kill(&dev->rx_tasklet);
 	for (i = 0; i < ARRAY_SIZE(dev->q_tx); i++)
-		mt76x2_tx_cleanup_queue(dev, &dev->q_tx[i], true);
+		mt76_tx_cleanup(dev, &dev->q_tx[i], true);
 	mt76x2_rx_cleanup(dev, &dev->q_rx);
 	mt76x2_rx_cleanup(dev, &dev->mcu.q_rx);
 

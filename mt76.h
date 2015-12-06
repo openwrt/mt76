@@ -73,8 +73,9 @@ struct mt76_queue_ops {
 
 	int (*dequeue)(struct mt76_dev *dev, struct mt76_queue *q, bool flush);
 
-	void (*cleanup_idx)(struct mt76_dev *dev, struct mt76_queue *q, int idx,
-			    struct mt76_queue_entry *e);
+	void (*cleanup)(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
+			void (*done)(struct mt76_dev *dev, struct mt76_queue *q,
+				     struct mt76_queue_entry *e));
 
 	void (*kick)(struct mt76_dev *dev, struct mt76_queue *q);
 };
@@ -126,10 +127,10 @@ bool __mt76_poll_msec(struct mt76_dev *dev, u32 offset, u32 mask, u32 val,
 void mt76_mmio_init(struct mt76_dev *dev, void __iomem *regs);
 
 
-#define mt76_queue_alloc(dev, ...) (dev)->mt76.queue_ops->alloc(&((dev)->mt76), __VA_ARGS__)
-#define mt76_queue_add_buf(dev, ...) (dev)->mt76.queue_ops->add_buf(&((dev)->mt76), __VA_ARGS__)
-#define mt76_queue_dequeue(dev, ...) (dev)->mt76.queue_ops->dequeue(&((dev)->mt76), __VA_ARGS__)
-#define mt76_queue_cleanup_idx(dev, ...) (dev)->mt76.queue_ops->cleanup_idx(&((dev)->mt76), __VA_ARGS__)
-#define mt76_queue_kick(dev, ...) (dev)->mt76.queue_ops->kick(&((dev)->mt76), __VA_ARGS__)
+#define mt76_queue_alloc(dev, ...)	(dev)->mt76.queue_ops->alloc(&((dev)->mt76), __VA_ARGS__)
+#define mt76_queue_add_buf(dev, ...)	(dev)->mt76.queue_ops->add_buf(&((dev)->mt76), __VA_ARGS__)
+#define mt76_queue_dequeue(dev, ...)	(dev)->mt76.queue_ops->dequeue(&((dev)->mt76), __VA_ARGS__)
+#define mt76_queue_cleanup(dev, ...)	(dev)->mt76.queue_ops->cleanup(&((dev)->mt76), __VA_ARGS__)
+#define mt76_queue_kick(dev, ...)	(dev)->mt76.queue_ops->kick(&((dev)->mt76), __VA_ARGS__)
 
 #endif

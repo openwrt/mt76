@@ -89,6 +89,31 @@ mt76_dma_tx_cleanup_idx(struct mt76_dev *dev, struct mt76_queue *q, int idx,
 	memset(e, 0, sizeof(*e));
 }
 
+static void
+mt76_dma_cleanup(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
+		 void (*done)(struct mt76_dev *dev, struct mt76_queue *q,
+			      struct mt76_queue_entry *e))
+{
+	struct mt76_queue_entry entry;
+	int last;
+
+	if (flush)
+		last = -1;
+	else
+		last = ioread32(&q->regs->dma_idx);
+
+	while (q->queued && q->tail != last) {
+		mt76_dma_tx_cleanup_idx(dev, q, q->tail, &entry);
+		done(dev, q, &entry);
+
+		q->tail = (q->tail + 1) % q->ndesc;
+		q->queued--;
+
+		if (q->tail == last)
+		    last = ioread32(&q->regs->dma_idx);
+	}
+}
+
 static int
 mt76_dma_dequeue(struct mt76_dev *dev, struct mt76_queue *q, bool flush)
 {
@@ -117,7 +142,7 @@ static const struct mt76_queue_ops mt76_dma_ops = {
 	.alloc = mt76_dma_alloc_queue,
 	.add_buf = mt76_dma_add_buf,
 	.dequeue = mt76_dma_dequeue,
-	.cleanup_idx = mt76_dma_tx_cleanup_idx,
+	.cleanup = mt76_dma_cleanup,
 	.kick = mt76_dma_kick_queue,
 };
 
