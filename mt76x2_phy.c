@@ -492,7 +492,7 @@ int mt76x2_phy_set_channel(struct mt76x2_dev *dev,
 			 struct cfg80211_chan_def *chandef)
 {
 	struct ieee80211_channel *chan = chandef->chan;
-	bool scan = test_bit(MT76_SCANNING, &dev->state);
+	bool scan = test_bit(MT76_SCANNING, &dev->mt76.state);
 	enum ieee80211_band band = chan->band;
 	u8 channel;
 

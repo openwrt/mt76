@@ -79,6 +79,12 @@ struct mt76_queue_ops {
 	void (*kick)(struct mt76_dev *dev, struct mt76_queue *q);
 };
 
+enum {
+	MT76_STATE_INITIALIZED,
+	MT76_STATE_RUNNING,
+	MT76_SCANNING,
+};
+
 struct mt76_dev {
 	struct ieee80211_hw *hw;
 
@@ -87,6 +93,8 @@ struct mt76_dev {
 	struct device *dev;
 
 	const struct mt76_queue_ops *queue_ops;
+
+	unsigned long state;
 };
 
 #define mt76_rr(dev, ...)	(dev)->mt76.bus->rr(&((dev)->mt76), __VA_ARGS__)

@@ -403,7 +403,7 @@ void mt76x2_mac_poll_tx_status(struct mt76x2_dev *dev, bool irq)
 	unsigned long flags;
 	u8 update = 1;
 
-	if (!test_bit(MT76_STATE_RUNNING, &dev->state))
+	if (!test_bit(MT76_STATE_RUNNING, &dev->mt76.state))
 		return;
 
 	trace_mac_txstat_poll(dev);

@@ -528,7 +528,7 @@ int mt76x2_init_hardware(struct mt76x2_dev *dev)
 	if (ret)
 		return ret;
 
-	set_bit(MT76_STATE_INITIALIZED, &dev->state);
+	set_bit(MT76_STATE_INITIALIZED, &dev->mt76.state);
 	ret = mt76x2_mac_start(dev);
 	if (ret)
 		return ret;

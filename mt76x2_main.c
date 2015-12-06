@@ -33,7 +33,7 @@ mt76x2_start(struct ieee80211_hw *hw)
 				     MT_CALIBRATE_INTERVAL);
 	napi_enable(&dev->napi);
 
-	set_bit(MT76_STATE_RUNNING, &dev->state);
+	set_bit(MT76_STATE_RUNNING, &dev->mt76.state);
 
 out:
 	mutex_unlock(&dev->mutex);
@@ -47,7 +47,7 @@ mt76x2_stop(struct ieee80211_hw *hw)
 
 	mutex_lock(&dev->mutex);
 	napi_disable(&dev->napi);
-	clear_bit(MT76_STATE_RUNNING, &dev->state);
+	clear_bit(MT76_STATE_RUNNING, &dev->mt76.state);
 	mt76x2_stop_hardware(dev);
 	mutex_unlock(&dev->mutex);
 }
@@ -106,7 +106,7 @@ mt76x2_config(struct ieee80211_hw *hw, u32 changed)
 	if (changed & IEEE80211_CONF_CHANGE_POWER) {
 		dev->txpower_conf = hw->conf.power_level * 2;
 
-		if (test_bit(MT76_STATE_RUNNING, &dev->state))
+		if (test_bit(MT76_STATE_RUNNING, &dev->mt76.state))
 			mt76x2_phy_set_txpower(dev);
 	}
 
@@ -369,7 +369,7 @@ mt76x2_sw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif, const u8 *mac
 	struct mt76x2_dev *dev = hw->priv;
 
 	tasklet_disable(&dev->pre_tbtt_tasklet);
-	set_bit(MT76_SCANNING, &dev->state);
+	set_bit(MT76_SCANNING, &dev->mt76.state);
 }
 
 static void
@@ -377,7 +377,7 @@ mt76x2_sw_scan_complete(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
 	struct mt76x2_dev *dev = hw->priv;
 
-	clear_bit(MT76_SCANNING, &dev->state);
+	clear_bit(MT76_SCANNING, &dev->mt76.state);
 	tasklet_enable(&dev->pre_tbtt_tasklet);
 }
 
@@ -494,7 +494,7 @@ const struct ieee80211_ops mt76x2_ops = {
 
 void mt76x2_rx(struct mt76x2_dev *dev, struct sk_buff *skb)
 {
-	if (!test_bit(MT76_STATE_RUNNING, &dev->state)) {
+	if (!test_bit(MT76_STATE_RUNNING, &dev->mt76.state)) {
 		dev_kfree_skb(skb);
 		return;
 	}

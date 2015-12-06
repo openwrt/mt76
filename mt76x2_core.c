@@ -44,7 +44,7 @@ irqreturn_t mt76x2_irq_handler(int irq, void *dev_instance)
 	intr = mt76_rr(dev, MT_INT_SOURCE_CSR);
 	mt76_wr(dev, MT_INT_SOURCE_CSR, intr);
 
-	if (!test_bit(MT76_STATE_INITIALIZED, &dev->state))
+	if (!test_bit(MT76_STATE_INITIALIZED, &dev->mt76.state))
 		return IRQ_NONE;
 
 	trace_dev_irq(dev, intr, dev->irqmask);

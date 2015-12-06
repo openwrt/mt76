@@ -45,12 +45,6 @@
 #include "mt76x2_regs.h"
 #include "mt76x2_mac.h"
 
-enum {
-	MT76_STATE_INITIALIZED,
-	MT76_STATE_RUNNING,
-	MT76_SCANNING,
-};
-
 enum mt76x2_txq_id {
 	MT_TXQ_VO = IEEE80211_AC_VO,
 	MT_TXQ_VI = IEEE80211_AC_VI,
@@ -163,7 +157,6 @@ struct mt76x2_dev {
 	spinlock_t lock;
 	spinlock_t irq_lock;
 	u32 irqmask;
-	unsigned long state;
 
 	struct sk_buff *beacons[8];
 	u8 beacon_mask;
