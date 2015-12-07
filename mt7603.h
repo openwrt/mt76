@@ -20,6 +20,11 @@
 #define MT7603_FIRMWARE_E1	"mt7603_e1.bin"
 #define MT7603_FIRMWARE_E2	"mt7603_e2.bin"
 
+enum {
+	MT7603_REV_E1 = 0x00,
+	MT7603_REV_E2 = 0x10
+};
+
 enum mt7603_txq_id {
 	MT_TXQ_VO = IEEE80211_AC_VO,
 	MT_TXQ_VI = IEEE80211_AC_VI,

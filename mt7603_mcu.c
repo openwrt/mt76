@@ -189,11 +189,17 @@ mt7603_load_firmware(struct mt7603_dev *dev)
 {
 	const struct firmware *fw;
 	const struct mt7603_fw_trailer *hdr;
+	const char *firmware;
 	int dl_len;
 	u32 val;
 	int ret;
 
-	ret = request_firmware(&fw, MT7603_FIRMWARE_E2, dev->mt76.dev);
+	if (mt76xx_rev(dev) < MT7603_REV_E2)
+		firmware = MT7603_FIRMWARE_E1;
+	else
+		firmware = MT7603_FIRMWARE_E2;
+
+	ret = request_firmware(&fw, firmware, dev->mt76.dev);
 	if (ret)
 		return ret;
 
