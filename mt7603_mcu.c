@@ -64,7 +64,7 @@ __mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd, int 
 	txd = (struct mt7603_mcu_txd *) skb_push(skb, hdrlen);
 	memset(txd, 0, hdrlen);
 
-	txd->len = cpu_to_le16(skb->len - hdrlen);
+	txd->len = cpu_to_le16(skb->len);
 	if (cmd == MCU_CMD_FW_SCATTER)
 		txd->pq_id = cpu_to_le16(MCU_PORT_QUEUE_FW);
 	else
@@ -79,9 +79,9 @@ __mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd, int 
 		txd->ext_cid = cmd;
 		if (query != MCU_Q_NA)
 			txd->ext_cid_ack = 1;
-
-		txd->set_query = query;
 	}
+
+	txd->set_query = query;
 
 	if (wait_seq)
 		*wait_seq = seq;
@@ -143,7 +143,7 @@ mt7603_mcu_init_download(struct mt7603_dev *dev, u32 addr, u32 len)
 	};
 	struct sk_buff *skb = mt7603_mcu_msg_alloc(dev, &req, sizeof(req));
 
-	return mt7603_mcu_msg_send(dev, skb, MCU_CMD_TARGET_ADDRESS_LEN_REQ, 0);
+	return mt7603_mcu_msg_send(dev, skb, -MCU_CMD_TARGET_ADDRESS_LEN_REQ, MCU_Q_NA);
 }
 
 static int
