@@ -15,18 +15,18 @@
 #define __MT7603_MCU_H
 
 struct mt7603_mcu_txd {
-	__le16 pq_id;
 	__le16 len;
+	__le16 pq_id;
 
-	u8 seq;
-	u8 set_query;
-	u8 pkt_type;
 	u8 cid;
+	u8 pkt_type;
+	u8 set_query;
+	u8 seq;
 
-	u8 ext_cid_ack;
-	u8 uc_d2b2_rev;
-	u8 ext_cid;
 	u8 uc_d2b0_rev;
+	u8 ext_cid;
+	u8 uc_d2b2_rev;
+	u8 ext_cid_ack;
 
 	u8 au4_d3_to_d7_rev[5];
 } __packed __aligned(4);
