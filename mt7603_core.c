@@ -38,7 +38,6 @@ irqreturn_t mt7603_irq_handler(int irq, void *dev_instance)
 	intr &= dev->irqmask;
 	printk("got irq: %08x\n", intr);
 
-#if 0
 	if (intr & MT_INT_TX_DONE_ALL) {
 		mt7603_irq_disable(dev, MT_INT_TX_DONE_ALL);
 		tasklet_schedule(&dev->tx_tasklet);
@@ -54,17 +53,13 @@ irqreturn_t mt7603_irq_handler(int irq, void *dev_instance)
 		tasklet_schedule(&dev->rx_tasklet);
 	}
 
+#if 0
 	if (intr & MT_INT_PRE_TBTT)
 		tasklet_schedule(&dev->pre_tbtt_tasklet);
 
 	/* send buffered multicast frames now */
 	if (intr & MT_INT_TBTT)
 		mt76_queue_kick(dev, &dev->q_tx[MT_TXQ_PSD]);
-
-	if (intr & MT_INT_TX_STAT) {
-		mt7603_mac_poll_tx_status(dev, true);
-		tasklet_schedule(&dev->tx_tasklet);
-	}
 #endif
 
 	return IRQ_HANDLED;
