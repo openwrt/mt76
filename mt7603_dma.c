@@ -295,6 +295,8 @@ int mt7603_dma_init(struct mt7603_dev *dev)
 	mt7603_dma_rx_fill(dev, &dev->q_rx);
 	mt7603_dma_rx_fill(dev, &dev->mcu.q_rx);
 
+	mt76_wr(dev, MT_DELAY_INT_CFG, 0);
+
 	return 0;
 }
 

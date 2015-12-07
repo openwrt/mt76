@@ -34,6 +34,7 @@
 
 #define MT_INT_SOURCE_CSR		MT_HIF(0x200)
 #define MT_INT_MASK_CSR			MT_HIF(0x204)
+#define MT_DELAY_INT_CFG		MT_HIF(0x204)
 
 #define MT_INT_RX_DONE(_n)		BIT(_n)
 #define MT_INT_RX_DONE_ALL		GENMASK(1, 0)
@@ -70,6 +71,14 @@
 #define MT_SCH_4			MT_HIF(0x594)
 #define MT_SCH_4_FORCE_QID		GENMASK(4, 0)
 #define MT_SCH_4_BYPASS			BIT(5)
+
+#define MT_WF_DMA_BASE			0x21c00
+#define MT_WF_DMA(ofs)			(MT_WF_DMA_BASE + (ofs))
+
+#define MT_DMA_DCR0			MT_WF_DMA(0x000)
+#define MT_DMA_DCR1			MT_WF_DMA(0x004)
+#define MT_DMA_RCFR0			MT_WF_DMA(0x070)
+#define MT_DMA_VCFR0			MT_WF_DMA(0x07c)
 
 #define MT_PCIE_REMAP_BASE_1		0x40000
 #define MT_PCIE_REMAP_BASE_2		0x80000
