@@ -93,6 +93,7 @@ static int
 mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd, int query)
 {
 	unsigned long expires = jiffies + HZ;
+	struct mt7603_mcu_rxd *rxd;
 	int ret, seq;
 
 	mutex_lock(&dev->mcu.mutex);
@@ -111,11 +112,9 @@ mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd, int qu
 			break;
 		}
 
-#if 0
-		rxfce = (u32 *) skb->cb;
+		rxd = (struct mt7603_mcu_rxd *) skb->data;
 
-		if (seq == MT76_GET(MT_RX_FCE_INFO_CMD_SEQ, *rxfce))
-#endif
+		if (seq == rxd->seq)
 			check_seq = true;
 
 		dev_kfree_skb(skb);

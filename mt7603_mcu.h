@@ -31,6 +31,18 @@ struct mt7603_mcu_txd {
 	u8 au4_d3_to_d7_rev[5];
 } __packed __aligned(4);
 
+struct mt7603_mcu_rxd {
+	__le16 len;
+	__le16 pkt_type_id;
+
+	u8 eid;
+	u8 seq;
+	__le16 __rsv;
+
+	u8 ext_eid;
+	u8 __rsv1[3];
+};
+
 #define MCU_PKT_ID		0xa0
 #define MCU_PORT_QUEUE		0x8000
 #define MCU_PORT_QUEUE_FW	0xc000
