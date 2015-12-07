@@ -41,17 +41,18 @@ wait_for_wpdma(struct mt7603_dev *dev)
 static int
 mt7603_mac_reset(struct mt7603_dev *dev)
 {
-	u32 val;
-
 	mt76_wr(dev, MT_WPDMA_GLO_CFG, 0x52000850);
 
-	mt76_wr(dev, MT_DMA_DCR0, 0x1000);
+	mt76_rmw(dev, MT_DMA_DCR0, 0xffff, 0xc0211000);
 	mt76_wr(dev, MT_DMA_DCR1, GENMASK(13, 11));
 
-	val = mt76_rr(dev, MT_DMA_VCFR0);
-	val &= ~BIT(0); /* To HIF */
-	val |= BIT(13); /* Rx Ring 1 */
-	mt76_wr(dev, MT_DMA_VCFR0, val);
+	mt76_rmw(dev, MT_DMA_VCFR0, BIT(0), BIT(13));
+	mt76_rmw(dev, MT_DMA_TMCFR0, BIT(0) | BIT(1), BIT(13));
+
+	mt76_clear(dev, MT_WF_RMAC_TMR_PA, BIT(31));
+
+	mt76_set(dev, MT_WF_RMAC_RMACDR, BIT(30));
+	mt76_rmw(dev, MT_WF_RMAC_MAXMINLEN, 0xffffff, 0x19000);
 
 	return 0;
 }
