@@ -16,4 +16,16 @@
 
 #include "dma.h"
 
+#define MT_RXD0_PKT_TYPE		GENMASK(31, 29)
+
+enum rx_pkt_type {
+	PKT_TYPE_TXS		= 0,
+	PKT_TYPE_TXRXV		= 1,
+	PKT_TYPE_NORMAL		= 2,
+	PKT_TYPE_RX_DUP_RFB	= 3,
+	PKT_TYPE_RX_TMR		= 4,
+	PKT_TYPE_RETRIEVE	= 5,
+	PKT_TYPE_RX_EVENT	= 7,
+};
+
 #endif

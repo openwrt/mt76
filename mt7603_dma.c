@@ -134,20 +134,21 @@ mt7603_init_tx_queue(struct mt7603_dev *dev, struct mt76_queue *q,
 
 static void
 mt7603_process_rx_skb(struct mt7603_dev *dev, struct mt76_queue *q,
-		    struct sk_buff *skb, u32 info)
+		    struct sk_buff *skb)
 {
-	if (q == &dev->mcu.q_rx) {
-		u32 *rxfce;
+	__le32 *rxd = (__le32 *) skb->data;
+	enum rx_pkt_type type;
 
-		rxfce = (u32 *) skb->cb;
-		*rxfce = info;
+	type = MT76_GET(MT_RXD0_PKT_TYPE, le32_to_cpu(rxd[0]));
 
+	switch(type) {
+	case PKT_TYPE_RX_EVENT:
 		skb_queue_tail(&dev->mcu.res_q, skb);
 		wake_up(&dev->mcu.wait);
 		return;
+	default:
+		dev_kfree_skb(skb);
 	}
-
-	dev_kfree_skb(skb);
 }
 
 static int
@@ -159,9 +160,7 @@ mt7603_process_rx_queue(struct mt7603_dev *dev, struct mt76_queue *q, int budget
 	int done = 0;
 
 	while (done < budget) {
-		u32 info;
-
-		data = mt76_queue_dequeue(dev, q, false, &len, &info);
+		data = mt76_queue_dequeue(dev, q, false, &len, NULL);
 		if (!data)
 			break;
 
@@ -177,7 +176,7 @@ mt7603_process_rx_queue(struct mt7603_dev *dev, struct mt76_queue *q, int budget
 		}
 
 		__skb_put(skb, len);
-		mt7603_process_rx_skb(dev, q, skb, info);
+		mt7603_process_rx_skb(dev, q, skb);
 		done++;
 	}
 
@@ -259,6 +258,7 @@ int mt7603_dma_init(struct mt7603_dev *dev)
 
 	init_dummy_netdev(&dev->napi_dev);
 	netif_napi_add(&dev->napi_dev, &dev->napi, mt7603_dma_rx_poll, 64);
+	napi_enable(&dev->napi);
 
 	tasklet_init(&dev->tx_tasklet, mt7603_tx_tasklet, (unsigned long) dev);
 	tasklet_init(&dev->rx_tasklet, mt7603_rx_tasklet, (unsigned long) dev);
