@@ -85,11 +85,11 @@ int mt7603_init_hardware(struct mt7603_dev *dev)
 {
 	int ret;
 
-	ret = mt7603_mac_reset(dev);
+	ret = mt7603_dma_init(dev);
 	if (ret)
 		return ret;
 
-	ret = mt7603_dma_init(dev);
+	ret = mt7603_mac_reset(dev);
 	if (ret)
 		return ret;
 
