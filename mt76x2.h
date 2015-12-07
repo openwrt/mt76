@@ -122,8 +122,6 @@ struct mt76x2_dev {
 	unsigned long wcid_mask[256 / BITS_PER_LONG];
 
 	struct cfg80211_chan_def chandef;
-	struct ieee80211_supported_band sband_2g;
-	struct ieee80211_supported_band sband_5g;
 	int txpower_conf;
 	int txpower_cur;
 

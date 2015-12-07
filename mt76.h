@@ -103,6 +103,17 @@ struct mt76_dev {
 
 	u32 rev;
 	unsigned long state;
+
+	struct ieee80211_supported_band sband_2g;
+	struct ieee80211_supported_band sband_5g;
+};
+
+enum mt76_phy_type {
+	MT_PHY_TYPE_CCK,
+	MT_PHY_TYPE_OFDM,
+	MT_PHY_TYPE_HT,
+	MT_PHY_TYPE_HT_GF,
+	MT_PHY_TYPE_VHT,
 };
 
 #define mt76_rr(dev, ...)	(dev)->mt76.bus->rr(&((dev)->mt76), __VA_ARGS__)
@@ -145,5 +156,8 @@ static inline u16 mt76_rev(struct mt76_dev *dev)
 #define mt76_queue_dequeue(dev, ...)	(dev)->mt76.queue_ops->dequeue(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_cleanup(dev, ...)	(dev)->mt76.queue_ops->cleanup(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_kick(dev, ...)	(dev)->mt76.queue_ops->kick(&((dev)->mt76), __VA_ARGS__)
+
+int mt76_register_device(struct mt76_dev *dev, int bands, bool vht,
+			 struct ieee80211_rate *rates, int n_rates);
 
 #endif

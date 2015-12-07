@@ -107,14 +107,6 @@ struct mt76x2_rxwi {
 #define MT_RATE_INDEX_VHT_IDX		GENMASK(3, 0)
 #define MT_RATE_INDEX_VHT_NSS		GENMASK(5, 4)
 
-enum mt76x2_phy_type {
-	MT_PHY_TYPE_CCK,
-	MT_PHY_TYPE_OFDM,
-	MT_PHY_TYPE_HT,
-	MT_PHY_TYPE_HT_GF,
-	MT_PHY_TYPE_VHT,
-};
-
 enum mt76x2_phy_bandwith {
 	MT_PHY_BW_20,
 	MT_PHY_BW_40,
