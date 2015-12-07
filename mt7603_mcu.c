@@ -169,7 +169,7 @@ mt7603_load_firmware(struct mt7603_dev *dev)
 
 	val = mt76_rr(dev, MT_MCU_PCIE_REMAP_1);
 	mt76_wr(dev, MT_MCU_PCIE_REMAP_1,
-		MT76_SET(MT_MCU_PCIE_REMAP_1_OFFSET, 0x1400));
+		MT76_SET(MT_MCU_PCIE_REMAP_1_BASE, 0x1400));
 	mt76_wr(dev, MT_PCIE_REMAP_BASE_1 + 0x12498, 0x5);
 	mt76_wr(dev, MT_PCIE_REMAP_BASE_1 + 0x12498, 0x5);
 	udelay(1);
