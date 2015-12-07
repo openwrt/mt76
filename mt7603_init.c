@@ -42,7 +42,6 @@ static int
 mt7603_mac_reset(struct mt7603_dev *dev)
 {
 	mt76_wr(dev, MT_WPDMA_GLO_CFG, 0x52000850);
-	return 0;
 
 	/* Disable MAC */
 	mt76_set(dev, MT_WF_ARB_SCR, MT_WF_ARB_TX_DISABLE | MT_WF_ARB_RX_DISABLE);
