@@ -65,7 +65,7 @@ __mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd, int 
 	memset(txd, 0, hdrlen);
 
 	txd->len = cpu_to_le16(skb->len);
-	if (cmd == MCU_CMD_FW_SCATTER)
+	if (cmd == -MCU_CMD_FW_SCATTER)
 		txd->pq_id = cpu_to_le16(MCU_PORT_QUEUE_FW);
 	else
 		txd->pq_id = cpu_to_le16(MCU_PORT_QUEUE);
@@ -146,6 +146,45 @@ mt7603_mcu_init_download(struct mt7603_dev *dev, u32 addr, u32 len)
 }
 
 static int
+mt7603_mcu_send_firmware(struct mt7603_dev *dev, const void *data, int len)
+{
+	struct sk_buff *skb;
+	int ret = 0;
+
+	while (len > 0) {
+		int cur_len = min_t(int, 4096 - 12, len);
+
+		skb = mt7603_mcu_msg_alloc(dev, data, cur_len);
+		if (!skb)
+			return -ENOMEM;
+
+		ret = __mt7603_mcu_msg_send(dev, skb, -MCU_CMD_FW_SCATTER, MCU_Q_NA, NULL);
+		if (ret)
+			break;
+
+		data += cur_len;
+		len -= cur_len;
+	}
+
+	return ret;
+}
+
+static int
+mt7603_mcu_start_firmware(struct mt7603_dev *dev, u32 addr)
+{
+	struct {
+		__le32 override;
+		__le32 addr;
+	} req = {
+		.override = cpu_to_le32(addr ? 1 : 0),
+		.addr = cpu_to_le32(addr),
+	};
+	struct sk_buff *skb = mt7603_mcu_msg_alloc(dev, &req, sizeof(req));
+
+	return mt7603_mcu_msg_send(dev, skb, -MCU_CMD_FW_START_REQ, MCU_Q_NA);
+}
+
+static int
 mt7603_load_firmware(struct mt7603_dev *dev)
 {
 	const struct firmware *fw;
@@ -154,12 +193,15 @@ mt7603_load_firmware(struct mt7603_dev *dev)
 	u32 val;
 	int ret;
 
-	ret = request_firmware(&fw, MT7603_FIRMWARE_E1, dev->mt76.dev);
+	ret = request_firmware(&fw, MT7603_FIRMWARE_E2, dev->mt76.dev);
 	if (ret)
 		return ret;
 
-	if (!fw || !fw->data || fw->size < sizeof(*hdr))
-		goto error;
+	if (!fw || !fw->data || fw->size < sizeof(*hdr)) {
+		dev_err(dev->mt76.dev, "Invalid firmware\n");
+		ret = -EINVAL;
+		goto out;
+	}
 
 	hdr = (const struct mt7603_fw_trailer *) (fw->data + fw->size - sizeof(*hdr));
 
@@ -195,17 +237,40 @@ mt7603_load_firmware(struct mt7603_dev *dev)
 
 	dl_len = le32_to_cpu(hdr->dl_len) + 4;
 	ret = mt7603_mcu_init_download(dev, MCU_FIRMWARE_ADDRESS, dl_len);
-	printk("init_download(%d): %d\n", dl_len, ret);
+	if (ret) {
+		dev_err(dev->mt76.dev, "Download request failed\n");
+		goto out;
+	}
+
+	ret = mt7603_mcu_send_firmware(dev, fw->data, dl_len);
+	if (ret) {
+		dev_err(dev->mt76.dev, "Failed to send firmware to device\n");
+		goto out;
+	}
+
+	ret = mt7603_mcu_start_firmware(dev, MCU_FIRMWARE_ADDRESS);
+	if (ret) {
+		dev_err(dev->mt76.dev, "Failed to start firmware\n");
+		goto out;
+	}
+
+	if (!mt76_poll_msec(dev, MT_TOP_MISC2, BIT(1), BIT(1), 500)) {
+		dev_err(dev->mt76.dev, "Timeout waiting for firmware to initialize\n");
+		ret = -EIO;
+		goto out;
+	}
+
+	mt76_clear(dev, MT_SCH_4, MT_SCH_4_FORCE_QID | MT_SCH_4_BYPASS);
+
+	mt76_set(dev, MT_SCH_4, BIT(8));
+	mt76_clear(dev, MT_SCH_4, BIT(8));
+
+	printk("firmware init done\n");
 
 out:
 	release_firmware(fw);
 
 	return ret;
-
-error:
-	printk("Invalid firmware\n");
-	release_firmware(fw);
-	return -ENOENT;
 }
 
 int mt7603_mcu_init(struct mt7603_dev *dev)
