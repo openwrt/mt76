@@ -58,7 +58,7 @@ mt7603_dma_rx_fill(struct mt7603_dev *dev, struct mt76_queue *q)
 
 int
 mt7603_tx_queue_mcu(struct mt7603_dev *dev, enum mt7603_txq_id qid,
-		    struct sk_buff *skb, int cmd, int seq)
+		    struct sk_buff *skb)
 {
 	struct mt76_queue *q = &dev->q_tx[qid];
 	dma_addr_t addr;

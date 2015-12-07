@@ -37,6 +37,9 @@ int mt7603_init_hardware(struct mt7603_dev *dev)
 	if (ret)
 		return ret;
 
+	set_bit(MT76_STATE_INITIALIZED, &dev->mt76.state);
+	mt7603_irq_enable(dev, MT_INT_RX_DONE_ALL | MT_INT_TX_DONE_ALL);
+
 	ret = mt7603_mcu_init(dev);
 	if (ret)
 		return ret;

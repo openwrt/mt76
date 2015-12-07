@@ -13,6 +13,7 @@
 
 #include <linux/firmware.h>
 #include "mt7603.h"
+#include "mt7603_mcu.h"
 
 struct mt7603_fw_trailer {
 	char fw_ver[10];
@@ -20,11 +21,137 @@ struct mt7603_fw_trailer {
 	__le32 dl_len;
 } __packed;
 
+static struct sk_buff *
+mt7603_mcu_msg_alloc(struct mt7603_dev *dev, const void *data, int len)
+{
+	struct sk_buff *skb;
+
+	skb = alloc_skb(len + sizeof(struct mt7603_mcu_txd), GFP_KERNEL);
+	skb_reserve(skb, sizeof(struct mt7603_mcu_txd));
+	memcpy(skb_put(skb, len), data, len);
+
+	return skb;
+}
+
+static struct sk_buff *
+mt7603_mcu_get_response(struct mt7603_dev *dev, unsigned long expires)
+{
+	unsigned long timeout;
+
+	if (!time_is_after_jiffies(expires))
+		return NULL;
+
+	timeout = expires - jiffies;
+	wait_event_timeout(dev->mcu.wait, !skb_queue_empty(&dev->mcu.res_q),
+			   timeout);
+	return skb_dequeue(&dev->mcu.res_q);
+}
+
+static int
+__mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd, int query, int *wait_seq)
+{
+	int hdrlen = dev->mcu.running ? sizeof(struct mt7603_mcu_txd) : 12;
+	struct mt7603_mcu_txd *txd;
+	u8 seq;
+
+	if (!skb)
+		return -EINVAL;
+
+	seq = ++dev->mcu.msg_seq & 0xf;
+	if (!seq)
+		seq = ++dev->mcu.msg_seq & 0xf;
+
+	txd = (struct mt7603_mcu_txd *) skb_push(skb, hdrlen);
+	memset(txd, 0, hdrlen);
+
+	txd->len = cpu_to_le16(skb->len - hdrlen);
+	if (cmd == MCU_CMD_FW_SCATTER)
+		txd->pq_id = cpu_to_le16(MCU_PORT_QUEUE_FW);
+	else
+		txd->pq_id = cpu_to_le16(MCU_PORT_QUEUE);
+	txd->pkt_type = MCU_PKT_ID;
+	txd->seq = seq;
+
+	if (cmd < 0) {
+		txd->cid = -cmd;
+	} else {
+		txd->cid = MCU_CMD_EXT_CID;
+		txd->ext_cid = cmd;
+		if (query != MCU_Q_NA)
+			txd->ext_cid_ack = 1;
+
+		txd->set_query = query;
+	}
+
+	if (wait_seq)
+		*wait_seq = seq;
+
+	return mt7603_tx_queue_mcu(dev, MT_TXQ_MCU, skb);
+}
+
+static int
+mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd, int query)
+{
+	unsigned long expires = jiffies + HZ;
+	int ret, seq;
+
+	mutex_lock(&dev->mcu.mutex);
+
+	ret = __mt7603_mcu_msg_send(dev, skb, cmd, query, &seq);
+	if (ret)
+		goto out;
+
+	while (1) {
+		bool check_seq = false;
+
+		skb = mt7603_mcu_get_response(dev, expires);
+		if (!skb) {
+			printk("MCU message %d (seq %d) timed out\n", cmd, seq);
+			ret = -ETIMEDOUT;
+			break;
+		}
+
+#if 0
+		rxfce = (u32 *) skb->cb;
+
+		if (seq == MT76_GET(MT_RX_FCE_INFO_CMD_SEQ, *rxfce))
+#endif
+			check_seq = true;
+
+		dev_kfree_skb(skb);
+		if (check_seq)
+			break;
+	}
+
+out:
+	mutex_unlock(&dev->mcu.mutex);
+
+	return ret;
+}
+
+static int
+mt7603_mcu_init_download(struct mt7603_dev *dev, u32 addr, u32 len)
+{
+	struct {
+		__le32 addr;
+		__le32 len;
+		__le32 mode;
+	} req = {
+		.addr = cpu_to_le32(addr),
+		.len = cpu_to_le32(len),
+		.mode = cpu_to_le32(BIT(31)),
+	};
+	struct sk_buff *skb = mt7603_mcu_msg_alloc(dev, &req, sizeof(req));
+
+	return mt7603_mcu_msg_send(dev, skb, MCU_CMD_TARGET_ADDRESS_LEN_REQ, 0);
+}
+
 static int
 mt7603_load_firmware(struct mt7603_dev *dev)
 {
 	const struct firmware *fw;
 	const struct mt7603_fw_trailer *hdr;
+	int dl_len;
 	u32 val;
 	int ret;
 
@@ -69,6 +196,9 @@ mt7603_load_firmware(struct mt7603_dev *dev)
 		goto out;
 	}
 
+	dl_len = le32_to_cpu(hdr->dl_len) + 4;
+	ret = mt7603_mcu_init_download(dev, MCU_FIRMWARE_ADDRESS, dl_len);
+	printk("init_download(%d): %d\n", dl_len, ret);
 
 out:
 	release_firmware(fw);
@@ -83,5 +213,6 @@ error:
 
 int mt7603_mcu_init(struct mt7603_dev *dev)
 {
+	mutex_init(&dev->mcu.mutex);
 	return mt7603_load_firmware(dev);
 }
