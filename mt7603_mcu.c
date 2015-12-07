@@ -28,7 +28,8 @@ mt7603_mcu_msg_alloc(struct mt7603_dev *dev, const void *data, int len)
 
 	skb = alloc_skb(len + sizeof(struct mt7603_mcu_txd), GFP_KERNEL);
 	skb_reserve(skb, sizeof(struct mt7603_mcu_txd));
-	memcpy(skb_put(skb, len), data, len);
+	if (len)
+		memcpy(skb_put(skb, len), data, len);
 
 	return skb;
 }
@@ -185,6 +186,14 @@ mt7603_mcu_start_firmware(struct mt7603_dev *dev, u32 addr)
 }
 
 static int
+mt7603_mcu_restart(struct mt7603_dev *dev)
+{
+	struct sk_buff *skb = mt7603_mcu_msg_alloc(dev, NULL, 0);
+
+	return mt7603_mcu_msg_send(dev, skb, -MCU_CMD_RESTART_DL_REQ, MCU_Q_NA);
+}
+
+static int
 mt7603_load_firmware(struct mt7603_dev *dev)
 {
 	const struct firmware *fw;
@@ -231,8 +240,13 @@ mt7603_load_firmware(struct mt7603_dev *dev)
 
 	val = mt76_rr(dev, MT_TOP_MISC2);
 	if (val & BIT(1)) {
-		dev_info(dev->mt76.dev, "Firmware already running!\n");
-		goto out;
+		dev_info(dev->mt76.dev, "Firmware already running, restarting...\n");
+
+		ret = mt7603_mcu_restart(dev);
+		if (ret) {
+			dev_err(dev->mt76.dev, "Failed to restart the MCU\n");
+			goto out;
+		}
 	}
 
 	if (!mt76_poll(dev, MT_TOP_MISC2, BIT(0), BIT(0), 500)) {
