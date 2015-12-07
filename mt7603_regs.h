@@ -81,6 +81,21 @@
 #define MT_DMA_VCFR0			MT_WF_DMA(0x07c)
 #define MT_DMA_TMCFR0			MT_WF_DMA(0x088)
 
+#define MT_WF_ARB_BASE			0x21400
+#define MT_WF_ARB(ofs)			(MT_WF_ARB_BASE + (ofs))
+
+#define MT_WF_ARB_RQCR			MT_WF_ARB(0x070)
+#define MT_WF_ARB_RQCR_RX_START		BIT(0)
+#define MT_WF_ARB_RQCR_RXV_START	BIT(4)
+#define MT_WF_ARB_RQCR_RXV_R_EN		BIT(7)
+#define MT_WF_ARB_RQCR_RXV_T_EN		BIT(8)
+
+#define MT_WF_ARB_SCR			MT_WF_ARB(0x080)
+#define MT_WF_ARB_TX_DISABLE		BIT(8)
+#define MT_WF_ARB_RX_DISABLE		BIT(9)
+
+#define MT_WF_ARB_TQCR0			MT_WF_ARB(0x100)
+
 #define MT_WF_RMAC_BASE			0x21800
 #define MT_WF_RMAC(ofs)			(MT_WF_RMAC_BASE + (ofs))
 #define MT_WF_RMAC_RMACDR		MT_WF_RMAC(0x078)
