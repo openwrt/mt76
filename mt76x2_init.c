@@ -632,14 +632,6 @@ int mt76x2_register_device(struct mt76x2_dev *dev)
 	hw->max_rate_tries = 1;
 	hw->extra_tx_headroom = 2;
 
-	ieee80211_hw_set(hw, SIGNAL_DBM);
-	ieee80211_hw_set(hw, PS_NULLFUNC_STACK);
-	ieee80211_hw_set(hw, SUPPORTS_HT_CCK_RATES);
-	ieee80211_hw_set(hw, HOST_BROADCAST_PS_BUFFERING);
-	ieee80211_hw_set(hw, AMPDU_AGGREGATION);
-	ieee80211_hw_set(hw, SUPPORTS_RC_TABLE);
-	ieee80211_hw_set(hw, SUPPORT_FAST_XMIT);
-
 	hw->sta_data_size = sizeof(struct mt76x2_sta);
 	hw->vif_data_size = sizeof(struct mt76x2_vif);
 	hw->txq_data_size = sizeof(struct mt76x2_txq);
