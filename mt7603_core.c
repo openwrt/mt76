@@ -36,7 +36,6 @@ irqreturn_t mt7603_irq_handler(int irq, void *dev_instance)
 		return IRQ_NONE;
 
 	intr &= dev->irqmask;
-	printk("got irq: %08x\n", intr);
 
 	if (intr & MT_INT_TX_DONE_ALL) {
 		mt7603_irq_disable(dev, MT_INT_TX_DONE_ALL);
