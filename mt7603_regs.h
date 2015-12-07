@@ -14,6 +14,8 @@
 #ifndef __MT7603_REGS_H
 #define __MT7603_REGS_H
 
+#define MT_HW_REV			0x1000
+#define MT_HW_CHIPID			0x1008
 #define MT_TOP_MISC2			0x1134
 
 #define MT_MCU_BASE			0x2000
@@ -29,8 +31,6 @@
 
 #define MT_HIF_BASE			0x4000
 #define MT_HIF(ofs)			(MT_HIF_BASE + (ofs))
-
-#define MT_ASIC_VERSION			MT_HIF(0x000)
 
 #define MT_INT_SOURCE_CSR		MT_HIF(0x200)
 #define MT_INT_MASK_CSR			MT_HIF(0x204)
