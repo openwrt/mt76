@@ -44,7 +44,6 @@ struct mt7603_mcu {
 
 struct mt7603_dev {
 	struct mt76_dev mt76;
-	u32 rev;
 
 	u32 irqmask;
 	spinlock_t irq_lock;

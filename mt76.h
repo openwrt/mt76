@@ -101,6 +101,7 @@ struct mt76_dev {
 
 	const struct mt76_queue_ops *queue_ops;
 
+	u32 rev;
 	unsigned long state;
 };
 
@@ -132,6 +133,12 @@ bool __mt76_poll_msec(struct mt76_dev *dev, u32 offset, u32 mask, u32 val,
 
 void mt76_mmio_init(struct mt76_dev *dev, void __iomem *regs);
 
+static inline u16 mt76_rev(struct mt76_dev *dev)
+{
+	return dev->rev & 0xffff;
+}
+
+#define mt76xx_rev(dev) mt76_rev(&((dev)->mt76))
 
 #define mt76_queue_alloc(dev, ...)	(dev)->mt76.queue_ops->alloc(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_add_buf(dev, ...)	(dev)->mt76.queue_ops->add_buf(&((dev)->mt76), __VA_ARGS__)

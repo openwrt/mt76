@@ -214,11 +214,6 @@ static inline bool is_mt7612(struct mt76x2_dev *dev)
 	return (dev->rev >> 16) == 0x7612;
 }
 
-static inline u16 mt76xx_rev(struct mt76x2_dev *dev)
-{
-	return dev->rev & 0xffff;
-}
-
 void mt76x2_set_irq_mask(struct mt76x2_dev *dev, u32 clear, u32 set);
 
 static inline void mt76x2_irq_enable(struct mt76x2_dev *dev, u32 mask)
