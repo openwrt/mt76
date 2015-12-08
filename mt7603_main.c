@@ -16,7 +16,7 @@
 static int
 mt7603_start(struct ieee80211_hw *hw)
 {
-	return -EINVAL;
+	return 0;
 }
 
 static void
@@ -38,7 +38,19 @@ mt7603_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 static int
 mt7603_config(struct ieee80211_hw *hw, u32 changed)
 {
-	return -EINVAL;
+	struct mt7603_dev *dev = hw->priv;
+	int ret = 0;
+
+	mutex_lock(&dev->mutex);
+
+	if (changed & IEEE80211_CONF_CHANGE_CHANNEL) {
+		dev->chandef = hw->conf.chandef;
+		ret = mt7603_mcu_set_channel(dev);
+	}
+
+	mutex_unlock(&dev->mutex);
+
+	return ret;
 }
 
 static void

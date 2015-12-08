@@ -298,3 +298,28 @@ int mt7603_mcu_init(struct mt7603_dev *dev)
 	mutex_init(&dev->mcu.mutex);
 	return mt7603_load_firmware(dev);
 }
+
+int mt7603_mcu_set_channel(struct mt7603_dev *dev)
+{
+	struct {
+		u8 control_chan;
+		u8 center_chan;
+		u8 bw;
+		u8 tx_streams;
+		u8 rx_streams;
+		u8 _res0[7];
+		u8 txpower[21];
+		u8 _res1[3];
+	} req = {
+		.control_chan = dev->chandef.chan->hw_value,
+		.center_chan = dev->chandef.chan->hw_value,
+		.bw = MT_BW_20,
+		.tx_streams = dev->tx_chains,
+		.rx_streams = dev->rx_chains,
+	};
+	struct sk_buff *skb;
+
+	memset(req.txpower, 0xff, sizeof(req.txpower));
+	skb = mt7603_mcu_msg_alloc(dev, &req, sizeof(req));
+	return mt7603_mcu_msg_send(dev, skb, MCU_EXT_CMD_CHANNEL_SWITCH, MCU_Q_SET);
+}

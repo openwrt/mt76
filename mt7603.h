@@ -25,6 +25,12 @@ enum {
 	MT7603_REV_E2 = 0x10
 };
 
+enum mt7603_bw {
+	MT_BW_20,
+	MT_BW_40,
+	MT_BW_80,
+};
+
 enum mt7603_txq_id {
 	MT_TXQ_VO = IEEE80211_AC_VO,
 	MT_TXQ_VI = IEEE80211_AC_VI,
@@ -50,12 +56,16 @@ struct mt7603_mcu {
 struct mt7603_dev {
 	struct mt76_dev mt76;
 
+	struct mutex mutex;
 	struct cfg80211_chan_def chandef;
 
 	u32 irqmask;
 	spinlock_t irq_lock;
 
 	u32 rxfilter;
+
+	u8 rx_chains;
+	u8 tx_chains;
 
 	struct mt7603_mcu mcu;
 	struct mt76_queue q_rx;
@@ -91,5 +101,7 @@ static inline void mt7603_irq_disable(struct mt7603_dev *dev, u32 mask)
 {
 	mt7603_set_irq_mask(dev, mask, 0);
 }
+
+int mt7603_mcu_set_channel(struct mt7603_dev *dev);
 
 #endif
