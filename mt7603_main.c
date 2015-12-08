@@ -45,6 +45,39 @@ static void
 mt7603_configure_filter(struct ieee80211_hw *hw, unsigned int changed_flags,
 		      unsigned int *total_flags, u64 multicast)
 {
+	struct mt7603_dev *dev = hw->priv;
+	u32 flags = 0;
+
+#define MT76_FILTER(_flag, _hw) do { \
+		flags |= *total_flags & FIF_##_flag;			\
+		dev->rxfilter &= ~(_hw);				\
+		dev->rxfilter |= !(flags & FIF_##_flag) * (_hw);	\
+	} while (0)
+
+	dev->rxfilter |= MT_WF_RFCR_DROP_STBC_MULTI;
+	dev->rxfilter &= ~(MT_WF_RFCR_DROP_OTHER_BEACON |
+			   MT_WF_RFCR_DROP_MCAST_FILTERED |
+			   MT_WF_RFCR_DROP_MCAST |
+			   MT_WF_RFCR_DROP_BCAST);
+
+	MT76_FILTER(OTHER_BSS, MT_WF_RFCR_DROP_OTHER_BSS |
+			       MT_WF_RFCR_DROP_OTHER_UC |
+			       MT_WF_RFCR_DROP_OTHER_TIM |
+			       MT_WF_RFCR_DROP_A3_MAC |
+			       MT_WF_RFCR_DROP_A3_BSSID |
+			       MT_WF_RFCR_DROP_A2_BSSID);
+
+	MT76_FILTER(FCSFAIL, MT_WF_RFCR_DROP_FCSFAIL);
+
+	MT76_FILTER(CONTROL, MT_WF_RFCR_DROP_UNWANTED_CTL |
+			     MT_WF_RFCR_DROP_CTS |
+			     MT_WF_RFCR_DROP_RTS |
+			     MT_WF_RFCR_DROP_CTL_RSV |
+			     MT_WF_RFCR_DROP_NDPA);
+
+	*total_flags = flags;
+	mt76_wr(dev, MT_WF_RFCR, dev->rxfilter);
+
 }
 
 static void

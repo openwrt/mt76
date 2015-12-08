@@ -97,6 +97,7 @@ mt7603_init_hardware(struct mt7603_dev *dev)
 	if (ret)
 		return ret;
 
+	dev->rxfilter = mt76_rr(dev, MT_WF_RFCR);
 	set_bit(MT76_STATE_INITIALIZED, &dev->mt76.state);
 
 	ret = mt7603_mac_start(dev);

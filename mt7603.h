@@ -55,6 +55,8 @@ struct mt7603_dev {
 	u32 irqmask;
 	spinlock_t irq_lock;
 
+	u32 rxfilter;
+
 	struct mt7603_mcu mcu;
 	struct mt76_queue q_rx;
 	struct mt76_queue q_tx[__MT_TXQ_MAX];
