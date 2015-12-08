@@ -72,6 +72,12 @@
 #define MT_SCH_4_FORCE_QID		GENMASK(4, 0)
 #define MT_SCH_4_BYPASS			BIT(5)
 
+#define MT_WF_AGG_BASE			0x21200
+#define MT_WF_AGG(ofs)			(MT_WF_AGG_BASE + (ofs))
+
+#define MT_AGG_TMP			MT_WF_AGG(0x0d8)
+
+
 #define MT_WF_DMA_BASE			0x21c00
 #define MT_WF_DMA(ofs)			(MT_WF_DMA_BASE + (ofs))
 
