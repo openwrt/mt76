@@ -79,7 +79,8 @@ int mt7603_mac_start(struct mt7603_dev *dev)
 	return 0;
 }
 
-int mt7603_init_hardware(struct mt7603_dev *dev)
+static int
+mt7603_init_hardware(struct mt7603_dev *dev)
 {
 	int ret;
 
@@ -105,6 +106,66 @@ int mt7603_init_hardware(struct mt7603_dev *dev)
 	ret = mt7603_mcu_init(dev);
 	if (ret)
 		return ret;
+
+	return 0;
+}
+
+#define CCK_RATE(_idx, _rate) {					\
+	.bitrate = _rate,					\
+	.flags = IEEE80211_RATE_SHORT_PREAMBLE,			\
+	.hw_value = (MT_PHY_TYPE_CCK << 8) | _idx,		\
+	.hw_value_short = (MT_PHY_TYPE_CCK << 8) | (4 + _idx),	\
+}
+
+#define OFDM_RATE(_idx, _rate) {				\
+	.bitrate = _rate,					\
+	.hw_value = (MT_PHY_TYPE_OFDM << 8) | _idx,		\
+	.hw_value_short = (MT_PHY_TYPE_OFDM << 8) | _idx,	\
+}
+
+static struct ieee80211_rate mt76x2_rates[] = {
+	CCK_RATE(0, 10),
+	CCK_RATE(1, 20),
+	CCK_RATE(2, 55),
+	CCK_RATE(3, 110),
+	OFDM_RATE(11, 60),
+	OFDM_RATE(15, 90),
+	OFDM_RATE(10, 120),
+	OFDM_RATE(14, 180),
+	OFDM_RATE(9,  240),
+	OFDM_RATE(13, 360),
+	OFDM_RATE(8,  480),
+	OFDM_RATE(12, 540),
+};
+
+
+int mt7603_register_device(struct mt7603_dev *dev)
+{
+	static u8 macaddr[] = { 0x00, 0x11, 0x22, 0x33, 0x44, 0x55 };
+	struct ieee80211_hw *hw = mt76_hw(dev);
+	struct ieee80211_supported_band *sband;
+	struct wiphy *wiphy = hw->wiphy;
+	int ret;
+
+	ret = mt7603_init_hardware(dev);
+	if (ret)
+		return ret;
+
+	hw->queues = 4;
+	hw->max_rates = 1;
+	hw->max_report_rates = 7;
+	hw->max_rate_tries = 1;
+	hw->extra_tx_headroom = 2;
+
+	SET_IEEE80211_PERM_ADDR(hw, macaddr);
+
+	ret = mt76_register_device(&dev->mt76, BIT(IEEE80211_BAND_2GHZ), true,
+				   mt76x2_rates, ARRAY_SIZE(mt76x2_rates));
+	if (ret)
+		return ret;
+
+	sband = wiphy->bands[IEEE80211_BAND_2GHZ];
+	dev->chandef.chan = &sband->channels[0];
 
 	return 0;
 }

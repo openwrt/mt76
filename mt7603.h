@@ -50,6 +50,8 @@ struct mt7603_mcu {
 struct mt7603_dev {
 	struct mt76_dev mt76;
 
+	struct cfg80211_chan_def chandef;
+
 	u32 irqmask;
 	spinlock_t irq_lock;
 
@@ -69,7 +71,7 @@ extern const struct ieee80211_ops mt7603_ops;
 struct mt7603_dev *mt7603_alloc_device(struct device *pdev);
 irqreturn_t mt7603_irq_handler(int irq, void *dev_instance);
 
-int mt7603_init_hardware(struct mt7603_dev *dev);
+int mt7603_register_device(struct mt7603_dev *dev);
 int mt7603_dma_init(struct mt7603_dev *dev);
 void mt7603_dma_cleanup(struct mt7603_dev *dev);
 int mt7603_mcu_init(struct mt7603_dev *dev);

@@ -59,14 +59,9 @@ mt76pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (ret)
 		goto error;
 
-	ret = mt7603_init_hardware(dev);
+	ret = mt7603_register_device(dev);
 	if (ret)
 		goto error;
-
-	if (1) {
-		ret = -EINVAL;
-		goto error;
-	}
 
 	return 0;
 error:
