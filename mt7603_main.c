@@ -55,13 +55,16 @@ mt7603_configure_filter(struct ieee80211_hw *hw, unsigned int changed_flags,
 	} while (0)
 
 	dev->rxfilter |= MT_WF_RFCR_DROP_STBC_MULTI;
-	dev->rxfilter &= ~(MT_WF_RFCR_DROP_OTHER_BEACON |
+	dev->rxfilter &= ~(MT_WF_RFCR_DROP_OTHER_BSS |
+			   MT_WF_RFCR_DROP_OTHER_BEACON |
+			   MT_WF_RFCR_DROP_FRAME_REPORT |
+			   MT_WF_RFCR_DROP_PROBEREQ |
 			   MT_WF_RFCR_DROP_MCAST_FILTERED |
 			   MT_WF_RFCR_DROP_MCAST |
-			   MT_WF_RFCR_DROP_BCAST);
+			   MT_WF_RFCR_DROP_BCAST |
+			   MT_WF_RFCR_DROP_DUPLICATE);
 
-	MT76_FILTER(OTHER_BSS, MT_WF_RFCR_DROP_OTHER_BSS |
-			       MT_WF_RFCR_DROP_OTHER_UC |
+	MT76_FILTER(OTHER_BSS, MT_WF_RFCR_DROP_OTHER_UC |
 			       MT_WF_RFCR_DROP_OTHER_TIM |
 			       MT_WF_RFCR_DROP_A3_MAC |
 			       MT_WF_RFCR_DROP_A3_BSSID |
