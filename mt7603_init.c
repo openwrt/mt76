@@ -59,6 +59,8 @@ mt7603_mac_reset(struct mt7603_dev *dev)
 	mt76_set(dev, MT_WF_RMAC_RMACDR, BIT(30));
 	mt76_rmw(dev, MT_WF_RMAC_MAXMINLEN, 0xffffff, 0x19000);
 
+	mt76_wr(dev, MT_WF_RFCR1, 0);
+
 	return 0;
 }
 
