@@ -106,6 +106,8 @@ struct mt76_dev {
 
 	struct ieee80211_supported_band sband_2g;
 	struct ieee80211_supported_band sband_5g;
+
+	u32 debugfs_reg;
 };
 
 enum mt76_phy_type {
@@ -159,5 +161,7 @@ static inline u16 mt76_rev(struct mt76_dev *dev)
 
 int mt76_register_device(struct mt76_dev *dev, int bands, bool vht,
 			 struct ieee80211_rate *rates, int n_rates);
+
+struct dentry *mt76_register_debugfs(struct mt76_dev *dev);
 
 #endif

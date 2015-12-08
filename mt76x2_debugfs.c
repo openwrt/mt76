@@ -15,27 +15,6 @@
 #include "mt76x2.h"
 
 static int
-mt76x2_reg_set(void *data, u64 val)
-{
-	struct mt76x2_dev *dev = data;
-
-	mt76_wr(dev, dev->debugfs_reg, val);
-	return 0;
-}
-
-static int
-mt76x2_reg_get(void *data, u64 *val)
-{
-	struct mt76x2_dev *dev = data;
-
-	*val = mt76_rr(dev, dev->debugfs_reg);
-	return 0;
-}
-
-DEFINE_SIMPLE_ATTRIBUTE(fops_regval, mt76x2_reg_get, mt76x2_reg_set, "0x%08llx\n");
-
-
-static int
 mt76x2_ampdu_stat_read(struct seq_file *file, void *data)
 {
 	struct mt76x2_dev *dev = file->private;
@@ -106,7 +85,7 @@ void mt76x2_init_debugfs(struct mt76x2_dev *dev)
 {
 	struct dentry *dir;
 
-	dir = debugfs_create_dir("mt76", mt76_hw(dev)->wiphy->debugfsdir);
+	dir = mt76_register_debugfs(&dev->mt76);
 	if (!dir)
 		return;
 
@@ -114,8 +93,6 @@ void mt76x2_init_debugfs(struct mt76x2_dev *dev)
 	debugfs_create_blob("otp", S_IRUSR, dir, &dev->otp);
 	debugfs_create_u8("temperature", S_IRUSR, dir, &dev->cal.temp);
 
-	debugfs_create_u32("regidx", S_IRUSR | S_IWUSR, dir, &dev->debugfs_reg);
-	debugfs_create_file("regval", S_IRUSR | S_IWUSR, dir, dev, &fops_regval);
 	debugfs_create_file("ampdu_stat", S_IRUSR, dir, dev, &fops_ampdu_stat);
 	debugfs_create_devm_seqfile(dev->mt76.dev, "txpower", dir, read_txpower);
 }

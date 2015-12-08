@@ -164,8 +164,6 @@ struct mt76x2_dev {
 	struct debugfs_blob_wrapper otp;
 	struct mt76x2_hw_cap cap;
 
-	u32 debugfs_reg;
-
 	s8 target_power;
 	s8 target_power_delta[2];
 	struct mt76x2_rate_power rate_power;
