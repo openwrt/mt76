@@ -74,6 +74,7 @@ mt76pci_remove(struct pci_dev *pdev)
 {
 	struct mt7603_dev *dev = pci_get_drvdata(pdev);
 
+	ieee80211_unregister_hw(mt76_hw(dev));
 	mt7603_dma_cleanup(dev);
 	ieee80211_free_hw(mt76_hw(dev));
 }
