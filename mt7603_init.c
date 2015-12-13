@@ -99,6 +99,72 @@ int mt7603_mac_start(struct mt7603_dev *dev)
 	return 0;
 }
 
+static void
+mt7603_dma_sched_init(struct mt7603_dev *dev)
+{
+	int page_size, page_count;
+	int max_len = 1792;
+	int max_amsdu_len = 4096;
+	int max_mcu_len = 4096;
+	int max_beacon_len = 512 * 8 + max_len;
+	int max_mcast_count = 3;
+	int beacon_pages;
+	int mcu_pages;
+	int i;
+
+	page_size = mt76_get_field(dev, MT_PSE_FC_P0,
+				   MT_PSE_FC_P0_MAX_QUOTA);
+	page_count = 0x1ae;
+	beacon_pages = max_beacon_len / page_size;
+	mcu_pages = max_mcu_len / page_size;
+
+	mt76_wr(dev, MT_PSE_FRP,
+		MT76_SET(MT_PSE_FRP_P0, 7) |
+		MT76_SET(MT_PSE_FRP_P1, 6) |
+		MT76_SET(MT_PSE_FRP_P2_RQ2, 4));
+
+	mt76_wr(dev, MT_HIGH_PRIORITY_1, 0x55555553);
+	mt76_wr(dev, MT_HIGH_PRIORITY_2, 0x78555555);
+
+	mt76_wr(dev, MT_QUEUE_PRIORITY_1, 0x2b1a096e);
+	mt76_wr(dev, MT_QUEUE_PRIORITY_2, 0x785f4d3c);
+
+	mt76_wr(dev, MT_PRIORITY_MASK, 0xffffffff);
+
+	mt76_wr(dev, MT_SCH_1, page_count | (2 << 28));
+	mt76_wr(dev, MT_SCH_2, max_len / page_size);
+
+	for (i = 0; i <= 4; i++)
+		mt76_wr(dev, MT_PAGE_COUNT(i), max_amsdu_len / page_size);
+
+	mt76_wr(dev, MT_PAGE_COUNT(5), mcu_pages);
+	mt76_wr(dev, MT_PAGE_COUNT(7), beacon_pages);
+
+	mt76_wr(dev, MT_PAGE_COUNT(8),
+		(max_mcast_count + 1) * max_len / page_size);
+
+	mt76_wr(dev, MT_RSV_MAX_THRESH, page_count);
+
+	if (mt76xx_rev(dev) < MT7603_REV_E2) {
+		mt76_wr(dev, MT_GROUP_THRESH(0), page_count);
+		mt76_wr(dev, MT_BMAP_0, 0xffff);
+	} else {
+		mt76_wr(dev, MT_GROUP_THRESH(0),
+			page_count - beacon_pages - mcu_pages);
+		mt76_wr(dev, MT_GROUP_THRESH(1), beacon_pages);
+		mt76_wr(dev, MT_BMAP_0, 0x0080ff5f);
+		mt76_wr(dev, MT_GROUP_THRESH(2), mcu_pages);
+		mt76_wr(dev, MT_BMAP_1, 0x00000020);
+	}
+
+	mt76_wr(dev, MT_SCH_4, 0);
+
+	for (i = 0; i <= 15; i++)
+		mt76_wr(dev, MT_TXTIME_THRESH(i), 0xfffff);
+
+	mt76_set(dev, MT_SCH_4, BIT(6));
+}
+
 static int
 mt7603_init_hardware(struct mt7603_dev *dev)
 {
@@ -127,6 +193,8 @@ mt7603_init_hardware(struct mt7603_dev *dev)
 	ret = mt7603_mcu_init(dev);
 	if (ret)
 		return ret;
+
+	mt7603_dma_sched_init(dev);
 
 	return 0;
 }

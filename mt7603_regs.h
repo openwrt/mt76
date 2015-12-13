@@ -64,6 +64,12 @@
 #define MT_TX_RING_BASE			MT_HIF(0x300)
 #define MT_RX_RING_BASE			MT_HIF(0x400)
 
+#define MT_TXTIME_THRESH_BASE		MT_HIF(0x500)
+#define MT_TXTIME_THRESH(n)		(MT_TXTIME_THRESH_BASE + ((n) * 4))
+
+#define MT_PAGE_COUNT_BASE		MT_HIF(0x540)
+#define MT_PAGE_COUNT(n)		(MT_PAGE_COUNT_BASE + ((n) * 4))
+
 #define MT_SCH_1			MT_HIF(0x588)
 #define MT_SCH_2			MT_HIF(0x58c)
 #define MT_SCH_3			MT_HIF(0x590)
@@ -71,6 +77,37 @@
 #define MT_SCH_4			MT_HIF(0x594)
 #define MT_SCH_4_FORCE_QID		GENMASK(4, 0)
 #define MT_SCH_4_BYPASS			BIT(5)
+
+#define MT_GROUP_THRESH_BASE		MT_HIF(0x598)
+#define MT_GROUP_THRESH(n)		(MT_GROUP_THRESH_BASE + ((n) * 4))
+
+#define MT_QUEUE_PRIORITY_1		MT_HIF(0x580)
+#define MT_QUEUE_PRIORITY_2		MT_HIF(0x584)
+
+#define MT_BMAP_0			MT_HIF(0x5b0)
+#define MT_BMAP_1			MT_HIF(0x5b4)
+#define MT_BMAP_2			MT_HIF(0x5b8)
+
+#define MT_HIGH_PRIORITY_1		MT_HIF(0x5bc)
+#define MT_HIGH_PRIORITY_2		MT_HIF(0x5c0)
+
+#define MT_PRIORITY_MASK		MT_HIF(0x5c4)
+
+#define MT_RSV_MAX_THRESH		MT_HIF(0x5c8)
+
+#define MT_PSE_BASE			0x8000
+#define MT_PSE(ofs)			(MT_PSE_BASE + (ofs))
+
+#define MT_PSE_FC_P0			MT_PSE(0x120)
+#define MT_PSE_FC_P0_MIN_RESERVE	GENMASK(11, 0)
+#define MT_PSE_FC_P0_MAX_QUOTA		GENMASK(27, 16)
+
+#define MT_PSE_FRP			MT_PSE(0x138)
+#define MT_PSE_FRP_P0			GENMASK(2, 0)
+#define MT_PSE_FRP_P1			GENMASK(5, 3)
+#define MT_PSE_FRP_P2_RQ0		GENMASK(8, 6)
+#define MT_PSE_FRP_P2_RQ1		GENMASK(11, 9)
+#define MT_PSE_FRP_P2_RQ2		GENMASK(14, 12)
 
 #define MT_WF_AGG_BASE			0x21200
 #define MT_WF_AGG(ofs)			(MT_WF_AGG_BASE + (ofs))
@@ -142,5 +179,10 @@
 #define MT_TX_HW_QUEUE_BMC		8
 
 #define MT_TMAC_INFO_TEMPLATE		0x800c0040
+
+#define MT_PSE_BASE_PHYS_ADDR		0xa0000000
+
+#define MT_PSE_WTBL_2_PHYS_ADDR		0xa5000000
+
 
 #endif
