@@ -170,8 +170,8 @@ int mt7603_register_device(struct mt7603_dev *dev)
 
 	mutex_init(&dev->mutex);
 
-	dev->rx_chains = 3;
-	dev->tx_chains = 3;
+	dev->rx_chains = 2;
+	dev->tx_chains = 2;
 
 	ret = mt7603_init_hardware(dev);
 	if (ret)
