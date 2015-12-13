@@ -165,6 +165,24 @@ mt7603_dma_sched_init(struct mt7603_dev *dev)
 	mt76_set(dev, MT_SCH_4, BIT(6));
 }
 
+static void
+mt7603_phy_init(struct mt7603_dev *dev)
+{
+	int rx_chains = BIT(dev->rx_chains) - 1;
+	int tx_chains = BIT(dev->tx_chains) - 1;
+
+	mt76_wr(dev, MT_WF_PHY_CR_RXTD(39), 0x0004ba43);
+
+	mt76_rmw(dev, MT_WF_RMAC_RMCR,
+		 (MT_WF_RMAC_RMCR_SMPS_MODE |
+		  MT_WF_RMAC_RMCR_RX_STREAMS),
+		 (MT76_SET(MT_WF_RMAC_RMCR_SMPS_MODE, 3) |
+		  MT76_SET(MT_WF_RMAC_RMCR_RX_STREAMS, rx_chains)));
+
+	mt76_rmw_field(dev, MT_WF_TMAC_TCR, MT_WF_TMAC_TCR_TX_STREAMS,
+		       tx_chains);
+}
+
 static int
 mt7603_init_hardware(struct mt7603_dev *dev)
 {
@@ -195,6 +213,7 @@ mt7603_init_hardware(struct mt7603_dev *dev)
 		return ret;
 
 	mt7603_dma_sched_init(dev);
+	mt7603_phy_init(dev);
 
 	return 0;
 }
