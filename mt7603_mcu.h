@@ -28,7 +28,7 @@ struct mt7603_mcu_txd {
 	u8 uc_d2b2_rev;
 	u8 ext_cid_ack;
 
-	u8 au4_d3_to_d7_rev[5];
+	u32 au4_d3_to_d7_rev[5];
 } __packed __aligned(4);
 
 struct mt7603_mcu_rxd {
