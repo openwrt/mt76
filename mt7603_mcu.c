@@ -200,7 +200,7 @@ mt7603_load_firmware(struct mt7603_dev *dev)
 	const struct mt7603_fw_trailer *hdr;
 	const char *firmware;
 	int dl_len;
-	u32 val;
+	u32 addr, val;
 	int ret;
 
 	if (mt76xx_rev(dev) < MT7603_REV_E2)
@@ -223,16 +223,10 @@ mt7603_load_firmware(struct mt7603_dev *dev)
 	dev_info(dev->mt76.dev, "Firmware Version: %.10s\n", hdr->fw_ver);
 	dev_info(dev->mt76.dev, "Build Time: %.15s\n", hdr->build_date);
 
-	val = mt76_rr(dev, MT_MCU_PCIE_REMAP_1);
-
-	mt76_wr(dev, MT_MCU_PCIE_REMAP_1,
-		MT76_SET(MT_MCU_PCIE_REMAP_1_BASE, 0x1400));
-
-	mt76_wr(dev, MT_PCIE_REMAP_BASE_1 + 0x12498, 0x5);
-	mt76_wr(dev, MT_PCIE_REMAP_BASE_1 + 0x12498, 0x5);
+	addr = mt7603_reg_map(dev, 0x50012498);
+	mt76_wr(dev, addr, 0x5);
+	mt76_wr(dev, addr, 0x5);
 	udelay(1);
-
-	mt76_wr(dev, MT_MCU_PCIE_REMAP_1, val);
 
 	/* switch to bypass mode */
 	mt76_rmw(dev, MT_SCH_4, MT_SCH_4_FORCE_QID,
