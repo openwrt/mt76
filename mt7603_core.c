@@ -63,3 +63,13 @@ irqreturn_t mt7603_irq_handler(int irq, void *dev_instance)
 
 	return IRQ_HANDLED;
 }
+
+u32 mt7603_reg_map(struct mt7603_dev *dev, u32 addr)
+{
+	u32 base = addr & GENMASK(31, 19);
+	u32 offset = addr & GENMASK(18, 0);
+
+	mt76_wr(dev, MT_MCU_PCIE_REMAP_2, base);
+
+	return MT_PCIE_REMAP_BASE_2 + offset;
+}

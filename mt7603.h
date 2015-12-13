@@ -80,6 +80,9 @@ struct mt7603_dev {
 };
 
 extern const struct ieee80211_ops mt7603_ops;
+
+u32 mt7603_reg_map(struct mt7603_dev *dev, u32 addr);
+
 struct mt7603_dev *mt7603_alloc_device(struct device *pdev);
 irqreturn_t mt7603_irq_handler(int irq, void *dev_instance);
 

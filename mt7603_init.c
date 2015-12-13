@@ -12,6 +12,7 @@
  */
 
 #include "mt7603.h"
+#include "mt7603_dma.h"
 
 struct mt7603_dev *mt7603_alloc_device(struct device *pdev)
 {
@@ -38,6 +39,21 @@ wait_for_wpdma(struct mt7603_dev *dev)
 			 0, 1000);
 }
 
+static void
+mt7603_set_tmac_template(struct mt7603_dev *dev)
+{
+	u32 desc[5] = {
+		[1] = MT76_SET(MT_TXD3_REM_TX_COUNT, 0xf),
+		[3] = MT_TXD5_SW_POWER_MGMT
+	};
+	u32 addr;
+	int i;
+
+	addr = mt7603_reg_map(dev, MT_TMAC_INFO_TEMPLATE);
+	for (i = 0; i < ARRAY_SIZE(desc); i++)
+		mt76_wr(dev, addr + 4 * i, desc[i]);
+}
+
 static int
 mt7603_mac_reset(struct mt7603_dev *dev)
 {
@@ -60,6 +76,8 @@ mt7603_mac_reset(struct mt7603_dev *dev)
 	mt76_rmw(dev, MT_WF_RMAC_MAXMINLEN, 0xffffff, 0x19000);
 
 	mt76_wr(dev, MT_WF_RFCR1, 0);
+
+	mt7603_set_tmac_template(dev);
 
 	return 0;
 }

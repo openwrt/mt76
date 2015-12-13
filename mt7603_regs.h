@@ -141,4 +141,6 @@
 #define MT_TX_HW_QUEUE_BCN		7
 #define MT_TX_HW_QUEUE_BMC		8
 
+#define MT_TMAC_INFO_TEMPLATE		0x800c0040
+
 #endif
