@@ -126,6 +126,9 @@
 
 #define MT_AGG_TMP			MT_WF_AGG(0x0d8)
 
+#define MT_AGG_BWCR			MT_WF_AGG(0x0ec)
+#define MT_AGG_BWCR_BW			GENMASK(3, 2)
+
 
 #define MT_WF_DMA_BASE			0x21c00
 #define MT_WF_DMA(ofs)			(MT_WF_DMA_BASE + (ofs))
@@ -207,6 +210,7 @@
 #define MT_WF_RMAC_RMCR_RX_STREAMS	GENMASK(24, 22)
 #define MT_WF_RMAC_RMCR_SMPS_RTS	BIT(25)
 
+#define MT_WF_RMAC_CH_FREQ		MT_WF_RMAC(0x090)
 #define MT_WF_RMAC_MAXMINLEN		MT_WF_RMAC(0x098)
 #define MT_WF_RFCR1			MT_WF_RMAC(0x0a4)
 #define MT_WF_RMAC_TMR_PA		MT_WF_RMAC(0x0e0)

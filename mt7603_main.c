@@ -51,8 +51,7 @@ mt7603_config(struct ieee80211_hw *hw, u32 changed)
 	mutex_lock(&dev->mutex);
 
 	if (changed & IEEE80211_CONF_CHANGE_CHANNEL) {
-		dev->chandef = hw->conf.chandef;
-		ret = mt7603_mcu_set_channel(dev);
+		ret = mt7603_set_channel(dev, &hw->conf.chandef);
 	}
 
 	mutex_unlock(&dev->mutex);

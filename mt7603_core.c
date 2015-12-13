@@ -73,3 +73,20 @@ u32 mt7603_reg_map(struct mt7603_dev *dev, u32 addr)
 
 	return MT_PCIE_REMAP_BASE_2 + offset;
 }
+
+int mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
+{
+	int ret;
+
+	u8 bw = MT_BW_20;
+
+	dev->chandef = *def;
+	mt76_rmw_field(dev, MT_AGG_BWCR, MT_AGG_BWCR_BW, bw);
+	ret = mt7603_mcu_set_channel(dev);
+	if (ret)
+		return ret;
+
+	mt76_set(dev, MT_WF_RMAC_CH_FREQ, 1);
+
+	return 0;
+}
