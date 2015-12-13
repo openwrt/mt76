@@ -285,6 +285,7 @@ mt7603_load_firmware(struct mt7603_dev *dev)
 	mt76_set(dev, MT_SCH_4, BIT(8));
 	mt76_clear(dev, MT_SCH_4, BIT(8));
 
+	dev->mcu.running = true;
 	printk("firmware init done\n");
 
 out:
