@@ -58,6 +58,8 @@ mt7603_set_tmac_template(struct mt7603_dev *dev)
 static int
 mt7603_mac_reset(struct mt7603_dev *dev)
 {
+	u32 addr;
+
 	mt76_wr(dev, MT_WPDMA_GLO_CFG, 0x52000850);
 
 	/* Disable MAC */
@@ -65,8 +67,7 @@ mt7603_mac_reset(struct mt7603_dev *dev)
 	mt76_wr(dev, MT_WF_ARB_TQCR0, 0);
 	mt76_clear(dev, MT_WF_ARB_RQCR, MT_WF_ARB_RQCR_RX_START);
 
-	mt76_rmw(dev, MT_DMA_DCR0, 0xffff, 0xc0211000);
-	mt76_wr(dev, MT_DMA_DCR1, GENMASK(13, 11));
+	mt76_rmw(dev, MT_DMA_DCR0, ~0xfffc, 0x400);
 
 	mt76_rmw(dev, MT_DMA_VCFR0, BIT(0), BIT(13));
 	mt76_rmw(dev, MT_DMA_TMCFR0, BIT(0) | BIT(1), BIT(13));
@@ -79,6 +80,16 @@ mt7603_mac_reset(struct mt7603_dev *dev)
 	mt76_wr(dev, MT_WF_RFCR1, 0);
 
 	mt7603_set_tmac_template(dev);
+
+	/* Enable RX group to HIF */
+	addr = mt7603_reg_map(dev, MT_CLIENT_BASE_PHYS_ADDR);
+	mt76_set(dev, addr + MT_CLIENT_RXINF, MT_CLIENT_RXINF_RXSH_GROUPS);
+
+	/* Enable RX group to MCU */
+	mt76_set(dev, MT_DMA_DCR1, GENMASK(13, 11));
+
+	/* Configure all rx packets to HIF */
+	mt76_wr(dev, MT_DMA_RCFR0, 0xc0200000);
 
 	return 0;
 }
