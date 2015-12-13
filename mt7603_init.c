@@ -49,7 +49,8 @@ mt7603_set_tmac_template(struct mt7603_dev *dev)
 	u32 addr;
 	int i;
 
-	addr = mt7603_reg_map(dev, MT_TMAC_INFO_TEMPLATE);
+	addr = mt7603_reg_map(dev, MT_CLIENT_BASE_PHYS_ADDR);
+	addr += MT_CLIENT_TMAC_INFO_TEMPLATE;
 	for (i = 0; i < ARRAY_SIZE(desc); i++)
 		mt76_wr(dev, addr + 4 * i, desc[i]);
 }
