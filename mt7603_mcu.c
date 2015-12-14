@@ -91,7 +91,8 @@ __mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd, int 
 }
 
 static int
-mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd, int query)
+mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd, int query,
+		    struct sk_buff **skb_ret)
 {
 	unsigned long expires = jiffies + HZ;
 	struct mt7603_mcu_rxd *rxd;
@@ -104,8 +105,6 @@ mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd, int qu
 		goto out;
 
 	while (1) {
-		bool check_seq = false;
-
 		skb = mt7603_mcu_get_response(dev, expires);
 		if (!skb) {
 			printk("MCU message %d (seq %d) timed out\n", cmd, seq);
@@ -114,13 +113,17 @@ mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd, int qu
 		}
 
 		rxd = (struct mt7603_mcu_rxd *) skb->data;
+		skb_pull(skb, sizeof(*rxd));
 
-		if (seq == rxd->seq)
-			check_seq = true;
+		if (seq != rxd->seq)
+			continue;
 
-		dev_kfree_skb(skb);
-		if (check_seq)
-			break;
+		if (skb_ret)
+			*skb_ret = skb;
+		else
+			dev_kfree_skb(skb);
+
+		break;
 	}
 
 out:
@@ -143,7 +146,7 @@ mt7603_mcu_init_download(struct mt7603_dev *dev, u32 addr, u32 len)
 	};
 	struct sk_buff *skb = mt7603_mcu_msg_alloc(dev, &req, sizeof(req));
 
-	return mt7603_mcu_msg_send(dev, skb, -MCU_CMD_TARGET_ADDRESS_LEN_REQ, MCU_Q_NA);
+	return mt7603_mcu_msg_send(dev, skb, -MCU_CMD_TARGET_ADDRESS_LEN_REQ, MCU_Q_NA, NULL);
 }
 
 static int
@@ -182,7 +185,7 @@ mt7603_mcu_start_firmware(struct mt7603_dev *dev, u32 addr)
 	};
 	struct sk_buff *skb = mt7603_mcu_msg_alloc(dev, &req, sizeof(req));
 
-	return mt7603_mcu_msg_send(dev, skb, -MCU_CMD_FW_START_REQ, MCU_Q_NA);
+	return mt7603_mcu_msg_send(dev, skb, -MCU_CMD_FW_START_REQ, MCU_Q_NA, NULL);
 }
 
 static int
@@ -190,7 +193,7 @@ mt7603_mcu_restart(struct mt7603_dev *dev)
 {
 	struct sk_buff *skb = mt7603_mcu_msg_alloc(dev, NULL, 0);
 
-	return mt7603_mcu_msg_send(dev, skb, -MCU_CMD_RESTART_DL_REQ, MCU_Q_NA);
+	return mt7603_mcu_msg_send(dev, skb, -MCU_CMD_RESTART_DL_REQ, MCU_Q_NA, NULL);
 }
 
 static int
@@ -316,5 +319,32 @@ int mt7603_mcu_set_channel(struct mt7603_dev *dev)
 
 	memset(req.txpower, 0xff, sizeof(req.txpower));
 	skb = mt7603_mcu_msg_alloc(dev, &req, sizeof(req));
-	return mt7603_mcu_msg_send(dev, skb, MCU_EXT_CMD_CHANNEL_SWITCH, MCU_Q_SET);
+	return mt7603_mcu_msg_send(dev, skb, MCU_EXT_CMD_CHANNEL_SWITCH, MCU_Q_SET, NULL);
+}
+
+int mt7603_mcu_reg_read(struct mt7603_dev *dev, u32 reg, u32 *val, bool rf)
+{
+	struct {
+		__le32 type;
+		__le32 addr;
+		__le32 data;
+	} req = {
+		.type = rf ? cpu_to_le32(1) : 0,
+		.addr = cpu_to_le32(reg),
+	};
+	struct sk_buff *skb;
+	__le32 *res;
+	int ret;
+
+	skb = mt7603_mcu_msg_alloc(dev, &req, sizeof(req));
+	ret = mt7603_mcu_msg_send(dev, skb, MCU_EXT_CMD_MULTIPLE_REG_ACCESS, MCU_Q_QUERY, &skb);
+	if (ret)
+		return ret;
+
+	res = (__le32 *) skb_pull(skb, 20);
+	if (skb->len != 12)
+		return -EIO;
+
+	*val = le32_to_cpu(res[2]);
+	return 0;
 }

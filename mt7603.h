@@ -107,5 +107,6 @@ static inline void mt7603_irq_disable(struct mt7603_dev *dev, u32 mask)
 
 int mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def);
 int mt7603_mcu_set_channel(struct mt7603_dev *dev);
+int mt7603_mcu_reg_read(struct mt7603_dev *dev, u32 reg, u32 *val, bool rf);
 
 #endif
