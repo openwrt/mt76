@@ -191,6 +191,7 @@ mt7603_phy_init(struct mt7603_dev *dev)
 static void
 mt7603_mac_init(struct mt7603_dev *dev)
 {
+	void *dev_addr = dev->mt76.hw->wiphy->perm_addr;
 	u8 addr[ETH_ALEN];
 	int i;
 
@@ -204,6 +205,10 @@ mt7603_mac_init(struct mt7603_dev *dev)
 
 	mt76_rmw_field(dev, MT_LPON_BTEIR, MT_LPON_BTEIR_MBSS_MODE, 2);
 	mt76_rmw_field(dev, MT_WF_RMACDR, MT_WF_RMACDR_MBSSID_MASK, 2);
+
+	mt76_wr(dev, MT_MAC_ADDR0(0), get_unaligned_le32(dev_addr));
+	mt76_wr(dev, MT_MAC_ADDR1(0),
+		get_unaligned_le16(dev_addr + 4) | MT_MAC_ADDR1_VALID);
 }
 
 static int
