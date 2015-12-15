@@ -156,7 +156,7 @@ mt7603_mcu_send_firmware(struct mt7603_dev *dev, const void *data, int len)
 	int ret = 0;
 
 	while (len > 0) {
-		int cur_len = min_t(int, 4096 - 12, len);
+		int cur_len = min_t(int, 4096 - sizeof(struct mt7603_mcu_txd), len);
 
 		skb = mt7603_mcu_msg_alloc(dev, data, cur_len);
 		if (!skb)
