@@ -92,24 +92,30 @@ mt7603_mac_reset(struct mt7603_dev *dev)
 	/* Configure all rx packets to HIF */
 	mt76_wr(dev, MT_DMA_RCFR0, 0xc0200000);
 
-	return 0;
-}
-
-int mt7603_mac_start(struct mt7603_dev *dev)
-{
 	wait_for_wpdma(dev);
 	udelay(50);
-
-	mt76_clear(dev, MT_WF_ARB_SCR, MT_WF_ARB_TX_DISABLE | MT_WF_ARB_RX_DISABLE);
-	mt76_wr(dev, MT_WF_ARB_TX_START_0, ~0);
-	mt76_set(dev, MT_WF_ARB_RQCR, MT_WF_ARB_RQCR_RX_START);
 
 	mt76_set(dev, MT_WPDMA_GLO_CFG,
 		 MT_WPDMA_GLO_CFG_TX_DMA_EN |
 		 MT_WPDMA_GLO_CFG_RX_DMA_EN);
 
 	mt7603_irq_enable(dev, MT_INT_RX_DONE_ALL | MT_INT_TX_DONE_ALL);
+
 	return 0;
+}
+
+void mt7603_mac_start(struct mt7603_dev *dev)
+{
+	mt76_clear(dev, MT_WF_ARB_SCR, MT_WF_ARB_TX_DISABLE | MT_WF_ARB_RX_DISABLE);
+	mt76_wr(dev, MT_WF_ARB_TX_START_0, ~0);
+	mt76_set(dev, MT_WF_ARB_RQCR, MT_WF_ARB_RQCR_RX_START);
+}
+
+void mt7603_mac_stop(struct mt7603_dev *dev)
+{
+	mt76_set(dev, MT_WF_ARB_SCR, MT_WF_ARB_TX_DISABLE | MT_WF_ARB_RX_DISABLE);
+	mt76_wr(dev, MT_WF_ARB_TX_START_0, 0);
+	mt76_clear(dev, MT_WF_ARB_RQCR, MT_WF_ARB_RQCR_RX_START);
 }
 
 static void
@@ -234,10 +240,6 @@ mt7603_init_hardware(struct mt7603_dev *dev)
 
 	dev->rxfilter = mt76_rr(dev, MT_WF_RFCR);
 	set_bit(MT76_STATE_INITIALIZED, &dev->mt76.state);
-
-	ret = mt7603_mac_start(dev);
-	if (ret)
-		return ret;
 
 	ret = mt7603_mcu_init(dev);
 	if (ret)

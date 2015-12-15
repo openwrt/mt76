@@ -19,6 +19,7 @@ mt7603_start(struct ieee80211_hw *hw)
 	struct mt7603_dev *dev = hw->priv;
 
 	mt76_clear(dev, MT_AGG_TMP, GENMASK(31, 16));
+	mt7603_mac_start(dev);
 
 	return 0;
 }
@@ -28,6 +29,7 @@ mt7603_stop(struct ieee80211_hw *hw)
 {
 	struct mt7603_dev *dev = hw->priv;
 
+	mt7603_mac_stop(dev);
 	mt76_set(dev, MT_AGG_TMP, GENMASK(31, 16));
 }
 
