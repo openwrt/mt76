@@ -68,14 +68,14 @@ mt7603_mac_reset(struct mt7603_dev *dev)
 	mt76_wr(dev, MT_WF_ARB_TX_START_0, 0);
 	mt76_clear(dev, MT_WF_ARB_RQCR, MT_WF_ARB_RQCR_RX_START);
 
-	mt76_rmw(dev, MT_DMA_DCR0, ~0xfffc, 0x400);
+	mt76_rmw(dev, MT_DMA_DCR0, ~0xfffc, MT_RX_BUF_SIZE);
 
 	mt76_rmw(dev, MT_DMA_VCFR0, BIT(0), BIT(13));
 	mt76_rmw(dev, MT_DMA_TMCFR0, BIT(0) | BIT(1), BIT(13));
 
 	mt76_clear(dev, MT_WF_RMAC_TMR_PA, BIT(31));
 
-	mt76_set(dev, MT_WF_RMAC_RMACDR, BIT(30));
+	mt76_set(dev, MT_WF_RMACDR, MT_WF_RMACDR_MAXLEN_20BIT);
 	mt76_rmw(dev, MT_WF_RMAC_MAXMINLEN, 0xffffff, 0x19000);
 
 	mt76_wr(dev, MT_WF_RFCR1, 0);
@@ -209,6 +209,9 @@ mt7603_mac_init(struct mt7603_dev *dev)
 
 	eth_broadcast_addr(addr);
 	mt7603_wtbl_init(dev, MT7603_WTBL_RESERVED, addr);
+
+	mt76_rmw_field(dev, MT_LPON_BTEIR, MT_LPON_BTEIR_MBSS_MODE, 2);
+	mt76_rmw_field(dev, MT_WF_RMACDR, MT_WF_RMACDR_MBSSID_MASK, 2);
 }
 
 static int
