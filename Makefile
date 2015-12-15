@@ -15,4 +15,4 @@ mt76x2e-$(CONFIG_OF) += mt76x2_of.o
 
 mt7603e-y := \
 	mt7603_pci.o mt7603_main.o mt7603_init.o mt7603_mcu.o \
-	mt7603_core.o mt7603_dma.o
+	mt7603_core.o mt7603_dma.o mt7603_mac.o

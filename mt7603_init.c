@@ -195,6 +195,15 @@ mt7603_phy_init(struct mt7603_dev *dev)
 		       tx_chains);
 }
 
+static void
+mt7603_mac_init(struct mt7603_dev *dev)
+{
+	int i;
+
+	for (i = 0; i < MT7603_WTBL_SIZE; i++)
+		mt7603_wtbl_clear(dev, i);
+}
+
 static int
 mt7603_init_hardware(struct mt7603_dev *dev)
 {
@@ -226,6 +235,7 @@ mt7603_init_hardware(struct mt7603_dev *dev)
 
 	mt7603_dma_sched_init(dev);
 	mt7603_phy_init(dev);
+	mt7603_mac_init(dev);
 
 	return 0;
 }
