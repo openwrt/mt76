@@ -263,6 +263,10 @@ int mt7603_dma_init(struct mt7603_dev *dev)
 	tasklet_init(&dev->tx_tasklet, mt7603_tx_tasklet, (unsigned long) dev);
 	tasklet_init(&dev->rx_tasklet, mt7603_rx_tasklet, (unsigned long) dev);
 
+	mt76_clear(dev, MT_WPDMA_GLO_CFG,
+		   MT_WPDMA_GLO_CFG_TX_DMA_EN |
+		   MT_WPDMA_GLO_CFG_RX_DMA_EN);
+
 	mt76_wr(dev, MT_WPDMA_RST_IDX, ~0);
 
 	for (i = 0; i < ARRAY_SIZE(wmm_queue_map); i++) {
@@ -313,6 +317,10 @@ int mt7603_dma_init(struct mt7603_dev *dev)
 void mt7603_dma_cleanup(struct mt7603_dev *dev)
 {
 	int i;
+
+	mt76_clear(dev, MT_WPDMA_GLO_CFG,
+		   MT_WPDMA_GLO_CFG_TX_DMA_EN |
+		   MT_WPDMA_GLO_CFG_RX_DMA_EN);
 
 	tasklet_kill(&dev->tx_tasklet);
 	tasklet_kill(&dev->rx_tasklet);

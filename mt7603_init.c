@@ -59,15 +59,18 @@ mt7603_set_tmac_template(struct mt7603_dev *dev)
 static int
 mt7603_mac_early_init(struct mt7603_dev *dev)
 {
-	/* Disable MAC */
-	mt76_set(dev, MT_WF_ARB_SCR, MT_WF_ARB_TX_DISABLE | MT_WF_ARB_RX_DISABLE);
-	mt76_wr(dev, MT_WF_ARB_TX_START_0, 0);
+	mt76_wr(dev, MT_WPDMA_GLO_CFG, 0x52000850);
+
+	mt76_clear(dev, MT_WF_ARB_SCR, MT_WF_ARB_TX_DISABLE | MT_WF_ARB_RX_DISABLE);
+	mt76_wr(dev, MT_WF_ARB_TX_START_0, ~0);
 	mt76_clear(dev, MT_WF_ARB_RQCR, MT_WF_ARB_RQCR_RX_START);
 
 	wait_for_wpdma(dev);
 	udelay(50);
 
-	mt76_wr(dev, MT_WPDMA_GLO_CFG, 0x52000875);
+	mt76_set(dev, MT_WPDMA_GLO_CFG,
+		 (MT_WPDMA_GLO_CFG_TX_DMA_EN |
+		  MT_WPDMA_GLO_CFG_RX_DMA_EN));
 
 	mt7603_irq_enable(dev, MT_INT_RX_DONE_ALL | MT_INT_TX_DONE_ALL);
 
@@ -212,9 +215,6 @@ mt7603_init_hardware(struct mt7603_dev *dev)
 	int ret;
 
 	mt76_wr(dev, MT_INT_SOURCE_CSR, ~0);
-	mt76_clear(dev, MT_WPDMA_GLO_CFG,
-		   MT_WPDMA_GLO_CFG_TX_DMA_EN |
-		   MT_WPDMA_GLO_CFG_RX_DMA_EN);
 
 	ret = mt7603_dma_init(dev);
 	if (ret)
