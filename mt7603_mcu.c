@@ -233,7 +233,7 @@ mt7603_load_firmware(struct mt7603_dev *dev)
 		goto running;
 	}
 
-	if (!mt76_poll(dev, MT_TOP_MISC2, BIT(0), BIT(0), 500)) {
+	if (!mt76_poll_msec(dev, MT_TOP_MISC2, BIT(0) | BIT(1), BIT(0), 500)) {
 		dev_err(dev->mt76.dev, "Timeout waiting for ROM code to become ready\n");
 		ret = -EIO;
 		goto out;
