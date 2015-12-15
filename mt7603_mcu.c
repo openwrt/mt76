@@ -297,6 +297,32 @@ int mt7603_mcu_init(struct mt7603_dev *dev)
 	return mt7603_load_firmware(dev);
 }
 
+static int mt7603_mcu_set_tx_power(struct mt7603_dev *dev)
+{
+	struct {
+		u8 center_channel;
+		u8 tssi;
+		u8 temp_comp;
+		u8 target_power[2];
+		u8 rate_power_delta[14];
+		u8 bw_power_delta;
+		u8 ch_power_delta[6];
+		u8 temp_comp_power[17];
+		u8 reserved;
+	} req = {
+		.center_channel = dev->chandef.chan->hw_value,
+		.temp_comp = 0xe,
+		.target_power = { 0x11, 0x15 },
+		.rate_power_delta = { 0x82, 0x82, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+		.ch_power_delta = { 0x00, 0xc2, 0xc3, 0xc1, 0xc2, 0xc3 },
+		.temp_comp_power = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x2c, 0x37, 0x40, 0x01, 0x40, 0x47, 0x51, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f },
+	};
+	struct sk_buff *skb;
+
+	skb = mt7603_mcu_msg_alloc(dev, &req, sizeof(req));
+	return mt7603_mcu_msg_send(dev, skb, MCU_EXT_CMD_SET_TX_POWER_CTRL, MCU_Q_SET, NULL);
+}
+
 int mt7603_mcu_set_channel(struct mt7603_dev *dev)
 {
 	struct {
@@ -316,10 +342,15 @@ int mt7603_mcu_set_channel(struct mt7603_dev *dev)
 		.rx_streams = dev->rx_chains,
 	};
 	struct sk_buff *skb;
+	int ret;
 
 	memset(req.txpower, 0xff, sizeof(req.txpower));
 	skb = mt7603_mcu_msg_alloc(dev, &req, sizeof(req));
-	return mt7603_mcu_msg_send(dev, skb, MCU_EXT_CMD_CHANNEL_SWITCH, MCU_Q_SET, NULL);
+	ret = mt7603_mcu_msg_send(dev, skb, MCU_EXT_CMD_CHANNEL_SWITCH, MCU_Q_SET, NULL);
+	if (ret)
+		return ret;
+
+	return mt7603_mcu_set_tx_power(dev);
 }
 
 int mt7603_mcu_reg_read(struct mt7603_dev *dev, u32 reg, u32 *val, bool rf)
