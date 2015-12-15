@@ -106,3 +106,17 @@ void mt7603_wtbl_clear(struct mt7603_dev *dev, int idx)
 	mt7603_wtbl_update(dev, idx, MT_WTBL_UPDATE_TX_COUNT_CLEAR);
 	mt7603_wtbl_update(dev, idx, MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
 }
+
+void mt7603_mac_start(struct mt7603_dev *dev)
+{
+	mt76_clear(dev, MT_WF_ARB_SCR, MT_WF_ARB_TX_DISABLE | MT_WF_ARB_RX_DISABLE);
+	mt76_wr(dev, MT_WF_ARB_TX_START_0, ~0);
+	mt76_set(dev, MT_WF_ARB_RQCR, MT_WF_ARB_RQCR_RX_START);
+}
+
+void mt7603_mac_stop(struct mt7603_dev *dev)
+{
+	mt76_set(dev, MT_WF_ARB_SCR, MT_WF_ARB_TX_DISABLE | MT_WF_ARB_RX_DISABLE);
+	mt76_wr(dev, MT_WF_ARB_TX_START_0, 0);
+	mt76_clear(dev, MT_WF_ARB_RQCR, MT_WF_ARB_RQCR_RX_START);
+}
