@@ -18,6 +18,7 @@
 #include "mt7603_regs.h"
 
 #define MT7603_WTBL_SIZE	128
+#define MT7603_WTBL_RESERVED	(MT7603_WTBL_SIZE - 1)
 
 #define MT7603_FIRMWARE_E1	"mt7603_e1.bin"
 #define MT7603_FIRMWARE_E2	"mt7603_e2.bin"
@@ -111,6 +112,7 @@ int mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def);
 int mt7603_mcu_set_channel(struct mt7603_dev *dev);
 int mt7603_mcu_reg_read(struct mt7603_dev *dev, u32 reg, u32 *val, bool rf);
 
+void mt7603_wtbl_init(struct mt7603_dev *dev, int idx, const u8 *addr);
 void mt7603_wtbl_clear(struct mt7603_dev *dev, int idx);
 
 #endif

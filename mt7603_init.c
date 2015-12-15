@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/etherdevice.h>
 #include "mt7603.h"
 #include "mt7603_dma.h"
 
@@ -64,7 +65,7 @@ mt7603_mac_reset(struct mt7603_dev *dev)
 
 	/* Disable MAC */
 	mt76_set(dev, MT_WF_ARB_SCR, MT_WF_ARB_TX_DISABLE | MT_WF_ARB_RX_DISABLE);
-	mt76_wr(dev, MT_WF_ARB_TQCR0, 0);
+	mt76_wr(dev, MT_WF_ARB_TX_START_0, 0);
 	mt76_clear(dev, MT_WF_ARB_RQCR, MT_WF_ARB_RQCR_RX_START);
 
 	mt76_rmw(dev, MT_DMA_DCR0, ~0xfffc, 0x400);
@@ -100,7 +101,7 @@ int mt7603_mac_start(struct mt7603_dev *dev)
 	udelay(50);
 
 	mt76_clear(dev, MT_WF_ARB_SCR, MT_WF_ARB_TX_DISABLE | MT_WF_ARB_RX_DISABLE);
-	mt76_wr(dev, MT_WF_ARB_TQCR0, ~0);
+	mt76_wr(dev, MT_WF_ARB_TX_START_0, ~0);
 	mt76_set(dev, MT_WF_ARB_RQCR, MT_WF_ARB_RQCR_RX_START);
 
 	mt76_set(dev, MT_WPDMA_GLO_CFG,
@@ -198,10 +199,16 @@ mt7603_phy_init(struct mt7603_dev *dev)
 static void
 mt7603_mac_init(struct mt7603_dev *dev)
 {
+	u8 addr[ETH_ALEN];
 	int i;
+
+	mt76_wr(dev, MT_MCU_PCIE_REMAP_1, MT_PSE_WTBL_2_PHYS_ADDR);
 
 	for (i = 0; i < MT7603_WTBL_SIZE; i++)
 		mt7603_wtbl_clear(dev, i);
+
+	eth_broadcast_addr(addr);
+	mt7603_wtbl_init(dev, MT7603_WTBL_RESERVED, addr);
 }
 
 static int
