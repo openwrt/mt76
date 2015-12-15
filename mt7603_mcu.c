@@ -189,14 +189,6 @@ mt7603_mcu_start_firmware(struct mt7603_dev *dev, u32 addr)
 }
 
 static int
-mt7603_mcu_restart(struct mt7603_dev *dev)
-{
-	struct sk_buff *skb = mt7603_mcu_msg_alloc(dev, NULL, 0);
-
-	return mt7603_mcu_msg_send(dev, skb, -MCU_CMD_RESTART_DL_REQ, MCU_Q_NA, NULL);
-}
-
-static int
 mt7603_load_firmware(struct mt7603_dev *dev)
 {
 	const struct firmware *fw;
@@ -237,13 +229,8 @@ mt7603_load_firmware(struct mt7603_dev *dev)
 
 	val = mt76_rr(dev, MT_TOP_MISC2);
 	if (val & BIT(1)) {
-		dev_info(dev->mt76.dev, "Firmware already running, restarting...\n");
-
-		ret = mt7603_mcu_restart(dev);
-		if (ret) {
-			dev_err(dev->mt76.dev, "Failed to restart the MCU\n");
-			goto out;
-		}
+		dev_info(dev->mt76.dev, "Firmware already running...\n");
+		goto running;
 	}
 
 	if (!mt76_poll(dev, MT_TOP_MISC2, BIT(0), BIT(0), 500)) {
@@ -277,6 +264,7 @@ mt7603_load_firmware(struct mt7603_dev *dev)
 		goto out;
 	}
 
+running:
 	mt76_clear(dev, MT_SCH_4, MT_SCH_4_FORCE_QID | MT_SCH_4_BYPASS);
 
 	mt76_set(dev, MT_SCH_4, BIT(8));
