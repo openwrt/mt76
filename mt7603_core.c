@@ -80,6 +80,8 @@ int mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 
 	u8 bw = MT_BW_20;
 
+	mt7603_mac_stop(dev);
+
 	dev->chandef = *def;
 	mt76_rmw_field(dev, MT_AGG_BWCR, MT_AGG_BWCR_BW, bw);
 	ret = mt7603_mcu_set_channel(dev);
@@ -87,6 +89,7 @@ int mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 		return ret;
 
 	mt76_set(dev, MT_WF_RMAC_CH_FREQ, 1);
+	mt7603_mac_start(dev);
 
 	return 0;
 }
