@@ -57,47 +57,17 @@ mt7603_set_tmac_template(struct mt7603_dev *dev)
 }
 
 static int
-mt7603_mac_reset(struct mt7603_dev *dev)
+mt7603_mac_early_init(struct mt7603_dev *dev)
 {
-	u32 addr;
-
-	mt76_wr(dev, MT_WPDMA_GLO_CFG, 0x52000850);
-
 	/* Disable MAC */
 	mt76_set(dev, MT_WF_ARB_SCR, MT_WF_ARB_TX_DISABLE | MT_WF_ARB_RX_DISABLE);
 	mt76_wr(dev, MT_WF_ARB_TX_START_0, 0);
 	mt76_clear(dev, MT_WF_ARB_RQCR, MT_WF_ARB_RQCR_RX_START);
 
-	mt76_rmw(dev, MT_DMA_DCR0, ~0xfffc, MT_RX_BUF_SIZE);
-
-	mt76_rmw(dev, MT_DMA_VCFR0, BIT(0), BIT(13));
-	mt76_rmw(dev, MT_DMA_TMCFR0, BIT(0) | BIT(1), BIT(13));
-
-	mt76_clear(dev, MT_WF_RMAC_TMR_PA, BIT(31));
-
-	mt76_set(dev, MT_WF_RMACDR, MT_WF_RMACDR_MAXLEN_20BIT);
-	mt76_rmw(dev, MT_WF_RMAC_MAXMINLEN, 0xffffff, 0x19000);
-
-	mt76_wr(dev, MT_WF_RFCR1, 0);
-
-	mt7603_set_tmac_template(dev);
-
-	/* Enable RX group to HIF */
-	addr = mt7603_reg_map(dev, MT_CLIENT_BASE_PHYS_ADDR);
-	mt76_set(dev, addr + MT_CLIENT_RXINF, MT_CLIENT_RXINF_RXSH_GROUPS);
-
-	/* Enable RX group to MCU */
-	mt76_set(dev, MT_DMA_DCR1, GENMASK(13, 11));
-
-	/* Configure all rx packets to HIF */
-	mt76_wr(dev, MT_DMA_RCFR0, 0xc0200000);
-
 	wait_for_wpdma(dev);
 	udelay(50);
 
-	mt76_set(dev, MT_WPDMA_GLO_CFG,
-		 MT_WPDMA_GLO_CFG_TX_DMA_EN |
-		 MT_WPDMA_GLO_CFG_RX_DMA_EN);
+	mt76_wr(dev, MT_WPDMA_GLO_CFG, 0x52000875);
 
 	mt7603_irq_enable(dev, MT_INT_RX_DONE_ALL | MT_INT_TX_DONE_ALL);
 
@@ -192,16 +162,41 @@ static void
 mt7603_mac_init(struct mt7603_dev *dev)
 {
 	void *dev_addr = dev->mt76.hw->wiphy->perm_addr;
-	u8 addr[ETH_ALEN];
+	u8 bc_addr[ETH_ALEN];
+	u32 addr;
 	int i;
+
+	mt76_rmw(dev, MT_DMA_DCR0, ~0xfffc, MT_RX_BUF_SIZE);
+
+	mt76_rmw(dev, MT_DMA_VCFR0, BIT(0), BIT(13));
+	mt76_rmw(dev, MT_DMA_TMCFR0, BIT(0) | BIT(1), BIT(13));
+
+	mt76_clear(dev, MT_WF_RMAC_TMR_PA, BIT(31));
+
+	mt76_set(dev, MT_WF_RMACDR, MT_WF_RMACDR_MAXLEN_20BIT);
+	mt76_rmw(dev, MT_WF_RMAC_MAXMINLEN, 0xffffff, 0x19000);
+
+	mt76_wr(dev, MT_WF_RFCR1, 0);
+
+	mt7603_set_tmac_template(dev);
+
+	/* Enable RX group to HIF */
+	addr = mt7603_reg_map(dev, MT_CLIENT_BASE_PHYS_ADDR);
+	mt76_set(dev, addr + MT_CLIENT_RXINF, MT_CLIENT_RXINF_RXSH_GROUPS);
+
+	/* Enable RX group to MCU */
+	mt76_set(dev, MT_DMA_DCR1, GENMASK(13, 11));
+
+	/* Configure all rx packets to HIF */
+	mt76_wr(dev, MT_DMA_RCFR0, 0xc0200000);
 
 	mt76_wr(dev, MT_MCU_PCIE_REMAP_1, MT_PSE_WTBL_2_PHYS_ADDR);
 
 	for (i = 0; i < MT7603_WTBL_SIZE; i++)
 		mt7603_wtbl_clear(dev, i);
 
-	eth_broadcast_addr(addr);
-	mt7603_wtbl_init(dev, MT7603_WTBL_RESERVED, addr);
+	eth_broadcast_addr(bc_addr);
+	mt7603_wtbl_init(dev, MT7603_WTBL_RESERVED, bc_addr);
 
 	mt76_rmw_field(dev, MT_LPON_BTEIR, MT_LPON_BTEIR_MBSS_MODE, 2);
 	mt76_rmw_field(dev, MT_WF_RMACDR, MT_WF_RMACDR_MBSSID_MASK, 2);
@@ -225,7 +220,7 @@ mt7603_init_hardware(struct mt7603_dev *dev)
 	if (ret)
 		return ret;
 
-	ret = mt7603_mac_reset(dev);
+	ret = mt7603_mac_early_init(dev);
 	if (ret)
 		return ret;
 
