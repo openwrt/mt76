@@ -41,6 +41,8 @@ enum mt7603_txq_id {
 	MT_TXQ_BK = IEEE80211_AC_BK,
 	MT_TXQ_PSD,
 	MT_TXQ_MCU,
+	MT_TXQ_BEACON,
+	MT_TXQ_CAB,
 	__MT_TXQ_MAX
 };
 
