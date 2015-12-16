@@ -161,6 +161,9 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 	    !(rxd[2] & (MT_RXD2_NORMAL_CLM | MT_RXD2_NORMAL_CM)))
 		status->rx_flags |= RX_FLAG_DECRYPTED;
 
+	if (rxd[2] & MT_RXD2_NORMAL_MAX_LEN_ERROR)
+		return -EINVAL;
+
 	if (WARN_ON_ONCE(!sband->channels))
 		return -EINVAL;
 
