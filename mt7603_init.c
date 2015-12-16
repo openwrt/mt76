@@ -70,7 +70,9 @@ mt7603_mac_early_init(struct mt7603_dev *dev)
 
 	mt76_set(dev, MT_WPDMA_GLO_CFG,
 		 (MT_WPDMA_GLO_CFG_TX_DMA_EN |
-		  MT_WPDMA_GLO_CFG_RX_DMA_EN));
+		  MT_WPDMA_GLO_CFG_RX_DMA_EN |
+		  MT76_SET(MT_WPDMA_GLO_CFG_DMA_BURST_SIZE, 3) |
+		  MT_WPDMA_GLO_CFG_TX_WRITEBACK_DONE));
 
 	mt7603_irq_enable(dev, MT_INT_RX_DONE_ALL | MT_INT_TX_DONE_ALL);
 
