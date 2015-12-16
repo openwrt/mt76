@@ -637,7 +637,6 @@ int mt76x2_register_device(struct mt76x2_dev *dev)
 
 	hw->sta_data_size = sizeof(struct mt76x2_sta);
 	hw->vif_data_size = sizeof(struct mt76x2_vif);
-	hw->txq_data_size = sizeof(struct mt76_txq);
 
 	dev->macaddr[0] &= ~BIT(1);
 	SET_IEEE80211_PERM_ADDR(hw, dev->macaddr);
