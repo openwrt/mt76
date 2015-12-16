@@ -130,10 +130,17 @@ struct mt76_hw_cap {
 	bool has_5ghz;
 };
 
+struct mt76_driver_ops {
+	int (*tx_queue_skb)(struct mt76_dev *dev, struct mt76_queue *q,
+			    struct sk_buff *skb, struct mt76_wcid *wcid,
+			    struct ieee80211_sta *sta);
+};
+
 struct mt76_dev {
 	struct ieee80211_hw *hw;
 
 	const struct mt76_bus_ops *bus;
+	const struct mt76_driver_ops *drv;
 	void __iomem *regs;
 	struct device *dev;
 
@@ -199,6 +206,8 @@ static inline u16 mt76_rev(struct mt76_dev *dev)
 #define mt76_queue_dequeue(dev, ...)	(dev)->mt76.queue_ops->dequeue(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_cleanup(dev, ...)	(dev)->mt76.queue_ops->cleanup(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_kick(dev, ...)	(dev)->mt76.queue_ops->kick(&((dev)->mt76), __VA_ARGS__)
+
+#define mt76_tx_queue_skb(dev, ...) (dev)->drv->tx_queue_skb(dev, __VA_ARGS__)
 
 int mt76_register_device(struct mt76_dev *dev, bool vht,
 			 struct ieee80211_rate *rates, int n_rates);

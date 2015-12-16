@@ -157,10 +157,11 @@ mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76_txq_id qid,
 }
 
 int
-mt76x2_tx_queue_skb(struct mt76x2_dev *dev, struct mt76_queue *q,
+mt76x2_tx_queue_skb(struct mt76_dev *cdev, struct mt76_queue *q,
 		    struct sk_buff *skb, struct mt76_wcid *wcid,
 		    struct ieee80211_sta *sta)
 {
+	struct mt76x2_dev *dev = container_of(cdev, struct mt76x2_dev, mt76);
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct mt76_txwi_cache *t;
 	dma_addr_t addr;

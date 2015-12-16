@@ -48,7 +48,7 @@ void mt76x2_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
 	q = &dev->mt76.q_tx[qid];
 
 	spin_lock_bh(&q->lock);
-	mt76x2_tx_queue_skb(dev, q, skb, wcid, control->sta);
+	mt76_tx_queue_skb(&dev->mt76, q, skb, wcid, control->sta);
 	mt76_queue_kick(dev, q);
 
 	if (q->queued > q->ndesc - 8)
@@ -169,7 +169,7 @@ void mt76x2_pre_tbtt_tasklet(unsigned long arg)
 		struct ieee80211_vif *vif = info->control.vif;
 		struct mt76x2_vif *mvif = (struct mt76x2_vif *) vif->drv_priv;
 
-		mt76x2_tx_queue_skb(dev, q, skb, &mvif->group_wcid, NULL);
+		mt76_tx_queue_skb(&dev->mt76, q, skb, &mvif->group_wcid, NULL);
 	}
 	spin_unlock_bh(&q->lock);
 }
@@ -231,7 +231,7 @@ mt76x2_queue_ps_skb(struct mt76x2_dev *dev, struct ieee80211_sta *sta,
 		info->flags |= IEEE80211_TX_STATUS_EOSP;
 
 	mt76x2_skb_set_moredata(skb, !last);
-	mt76x2_tx_queue_skb(dev, hwq, skb, wcid, sta);
+	mt76_tx_queue_skb(&dev->mt76, hwq, skb, wcid, sta);
 }
 
 void
@@ -309,7 +309,7 @@ mt76x2_txq_send_burst(struct mt76x2_dev *dev, struct mt76_queue *hwq,
 	if (ampdu)
 		mt76x2_check_agg_ssn(mtxq, skb);
 
-	idx = mt76x2_tx_queue_skb(dev, hwq, skb, wcid, txq->sta);
+	idx = mt76_tx_queue_skb(&dev->mt76, hwq, skb, wcid, txq->sta);
 
 	if (idx < 0)
 		return idx;
@@ -340,7 +340,7 @@ mt76x2_txq_send_burst(struct mt76x2_dev *dev, struct mt76_queue *hwq,
 		if (cur_ampdu)
 			mt76x2_check_agg_ssn(mtxq, skb);
 
-		idx = mt76x2_tx_queue_skb(dev, hwq, skb, wcid, txq->sta);
+		idx = mt76_tx_queue_skb(&dev->mt76, hwq, skb, wcid, txq->sta);
 		if (idx < 0)
 			return idx;
 

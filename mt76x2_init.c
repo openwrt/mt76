@@ -560,6 +560,9 @@ void mt76x2_cleanup(struct mt76x2_dev *dev)
 
 struct mt76x2_dev *mt76x2_alloc_device(struct device *pdev)
 {
+	static const struct mt76_driver_ops drv_ops = {
+		.tx_queue_skb = mt76x2_tx_queue_skb
+	};
 	struct ieee80211_hw *hw;
 	struct mt76x2_dev *dev;
 
@@ -570,6 +573,7 @@ struct mt76x2_dev *mt76x2_alloc_device(struct device *pdev)
 	dev = hw->priv;
 	dev->mt76.dev = pdev;
 	dev->mt76.hw = hw;
+	dev->mt76.drv = &drv_ops;
 	mutex_init(&dev->mutex);
 	spin_lock_init(&dev->lock);
 	spin_lock_init(&dev->irq_lock);

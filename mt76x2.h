@@ -226,7 +226,7 @@ void mt76x2_dma_cleanup(struct mt76x2_dev *dev);
 void mt76x2_cleanup(struct mt76x2_dev *dev);
 void mt76x2_rx(struct mt76x2_dev *dev, struct sk_buff *skb);
 
-int mt76x2_tx_queue_skb(struct mt76x2_dev *dev, struct mt76_queue *q,
+int mt76x2_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 			struct sk_buff *skb, struct mt76_wcid *wcid,
 			struct ieee80211_sta *sta);
 int mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76_txq_id qid,
