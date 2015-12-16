@@ -14,48 +14,6 @@
 #include "mt7603.h"
 #include "mt7603_dma.h"
 
-static int
-mt7603_dma_add_rx_buf(struct mt7603_dev *dev, struct mt76_queue *q,
-		    dma_addr_t addr, int len)
-{
-	return mt76_queue_add_buf(dev, q, addr, len, 0, 0, 0);
-}
-
-static int
-mt7603_dma_rx_fill(struct mt7603_dev *dev, struct mt76_queue *q)
-{
-	dma_addr_t addr;
-	void *buf;
-	int frames = 0;
-	int len = SKB_WITH_OVERHEAD(q->buf_size);
-	int idx;
-
-	spin_lock_bh(&q->lock);
-
-	while (q->queued < q->ndesc - 1) {
-		buf = kzalloc(q->buf_size, GFP_ATOMIC);
-		if (!buf)
-			break;
-
-		addr = dma_map_single(dev->mt76.dev, buf, len, DMA_FROM_DEVICE);
-		if (dma_mapping_error(dev->mt76.dev, addr)) {
-			kfree(buf);
-			break;
-		}
-
-		idx = mt7603_dma_add_rx_buf(dev, q, addr, len);
-		q->entry[idx].buf = buf;
-		frames++;
-	}
-
-	if (frames)
-		mt76_queue_kick(dev, q);
-
-	spin_unlock_bh(&q->lock);
-
-	return frames;
-}
-
 int
 mt7603_tx_queue_mcu(struct mt7603_dev *dev, enum mt76_txq_id qid,
 		    struct sk_buff *skb)
@@ -186,7 +144,7 @@ mt7603_process_rx_queue(struct mt7603_dev *dev, struct mt76_queue *q, int budget
 		done++;
 	}
 
-	mt7603_dma_rx_fill(dev, q);
+	mt76_queue_rx_fill(dev, q);
 	return done;
 }
 
@@ -314,8 +272,8 @@ int mt7603_dma_init(struct mt7603_dev *dev)
 	if (ret)
 		return ret;
 
-	mt7603_dma_rx_fill(dev, &dev->q_rx);
-	mt7603_dma_rx_fill(dev, &dev->mcu.q_rx);
+	mt76_queue_rx_fill(dev, &dev->q_rx);
+	mt76_queue_rx_fill(dev, &dev->mcu.q_rx);
 
 	mt76_wr(dev, MT_DELAY_INT_CFG, 0);
 

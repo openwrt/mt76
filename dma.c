@@ -165,9 +165,46 @@ mt76_dma_kick_queue(struct mt76_dev *dev, struct mt76_queue *q)
 	iowrite32(q->head, &q->regs->cpu_idx);
 }
 
+static int
+mt76_dma_rx_fill(struct mt76_dev *dev, struct mt76_queue *q)
+{
+	dma_addr_t addr;
+	void *buf;
+	int frames = 0;
+	int len = SKB_WITH_OVERHEAD(q->buf_size);
+	int offset = q->buf_offset;
+	int idx;
+
+	spin_lock_bh(&q->lock);
+
+	while (q->queued < q->ndesc - 1) {
+		buf = kzalloc(q->buf_size, GFP_ATOMIC);
+		if (!buf)
+			break;
+
+		addr = dma_map_single(dev->dev, buf, len, DMA_FROM_DEVICE);
+		if (dma_mapping_error(dev->dev, addr)) {
+			kfree(buf);
+			break;
+		}
+
+		idx = mt76_dma_add_buf(dev, q, addr + offset, len - offset, 0, 0, 0);
+		q->entry[idx].buf = buf;
+		frames++;
+	}
+
+	if (frames)
+		mt76_dma_kick_queue(dev, q);
+
+	spin_unlock_bh(&q->lock);
+
+	return frames;
+}
+
 static const struct mt76_queue_ops mt76_dma_ops = {
 	.alloc = mt76_dma_alloc_queue,
 	.add_buf = mt76_dma_add_buf,
+	.rx_fill = mt76_dma_rx_fill,
 	.dequeue = mt76_dma_dequeue,
 	.cleanup = mt76_dma_cleanup,
 	.kick = mt76_dma_kick_queue,

@@ -20,14 +20,6 @@ struct mt76_txwi_cache {
 	struct list_head list;
 };
 
-static inline int
-mt76x2_rx_buf_offset(struct mt76x2_dev *dev)
-{
-	BUILD_BUG_ON(MT_RX_HEADROOM < sizeof(struct mt76x2_rxwi));
-
-	return MT_RX_HEADROOM - sizeof(struct mt76x2_rxwi);
-}
-
 static struct mt76_txwi_cache *
 mt76x2_alloc_txwi(struct mt76x2_dev *dev)
 {
@@ -82,50 +74,6 @@ mt76x2_put_txwi(struct mt76x2_dev *dev, struct mt76_txwi_cache *t)
 	spin_lock_bh(&dev->lock);
 	list_add(&t->list, &dev->txwi_cache);
 	spin_unlock_bh(&dev->lock);
-}
-
-static int
-mt76x2_dma_add_rx_buf(struct mt76x2_dev *dev, struct mt76_queue *q,
-		    dma_addr_t addr, int len)
-{
-	int offset = mt76x2_rx_buf_offset(dev);
-
-	return mt76_queue_add_buf(dev, q, addr + offset, len - offset, 0, 0, 0);
-}
-
-static int
-mt76x2_dma_rx_fill(struct mt76x2_dev *dev, struct mt76_queue *q)
-{
-	dma_addr_t addr;
-	void *buf;
-	int frames = 0;
-	int len = SKB_WITH_OVERHEAD(q->buf_size);
-	int idx;
-
-	spin_lock_bh(&q->lock);
-
-	while (q->queued < q->ndesc - 1) {
-		buf = kzalloc(q->buf_size, GFP_ATOMIC);
-		if (!buf)
-			break;
-
-		addr = dma_map_single(dev->mt76.dev, buf, len, DMA_FROM_DEVICE);
-		if (dma_mapping_error(dev->mt76.dev, addr)) {
-			kfree(buf);
-			break;
-		}
-
-		idx = mt76x2_dma_add_rx_buf(dev, q, addr, len);
-		q->entry[idx].buf = buf;
-		frames++;
-	}
-
-	if (frames)
-		mt76_queue_kick(dev, q);
-
-	spin_unlock_bh(&q->lock);
-
-	return frames;
 }
 
 int
@@ -338,7 +286,7 @@ mt76x2_process_rx_queue(struct mt76x2_dev *dev, struct mt76_queue *q, int budget
 		done++;
 	}
 
-	mt76x2_dma_rx_fill(dev, q);
+	mt76_queue_rx_fill(dev, q);
 	return done;
 }
 
@@ -453,8 +401,8 @@ int mt76x2_dma_init(struct mt76x2_dev *dev)
 	if (ret)
 		return ret;
 
-	mt76x2_dma_rx_fill(dev, &dev->q_rx);
-	mt76x2_dma_rx_fill(dev, &dev->mcu.q_rx);
+	mt76_queue_rx_fill(dev, &dev->q_rx);
+	mt76_queue_rx_fill(dev, &dev->mcu.q_rx);
 
 	return 0;
 }
@@ -463,6 +411,10 @@ void mt76x2_dma_cleanup(struct mt76x2_dev *dev)
 {
 	struct mt76_txwi_cache *t;
 	int i;
+
+	BUILD_BUG_ON(MT_RX_HEADROOM < sizeof(struct mt76x2_rxwi));
+	dev->q_rx.buf_offset = MT_RX_HEADROOM - sizeof(struct mt76x2_rxwi);
+	dev->mcu.q_rx.buf_offset = MT_RX_HEADROOM - sizeof(struct mt76x2_rxwi);
 
 	tasklet_kill(&dev->tx_tasklet);
 	tasklet_kill(&dev->rx_tasklet);
