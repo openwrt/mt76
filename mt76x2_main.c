@@ -189,7 +189,7 @@ mt76x2_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 }
 
 static int
-mt76x2_wcid_alloc(struct mt76x2_dev *dev)
+mt76_wcid_alloc(struct mt76x2_dev *dev)
 {
 	int i, idx = 0;
 
@@ -223,7 +223,7 @@ mt76x2_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	mutex_lock(&dev->mutex);
 
-	idx = mt76x2_wcid_alloc(dev);
+	idx = mt76_wcid_alloc(dev);
 	if (idx < 0) {
 		ret = -ENOSPC;
 		goto out;
@@ -294,7 +294,7 @@ mt76x2_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	struct mt76x2_dev *dev = hw->priv;
 	struct mt76x2_vif *mvif = (struct mt76x2_vif *) vif->drv_priv;
 	struct mt76x2_sta *msta = sta ? (struct mt76x2_sta *) sta->drv_priv : NULL;
-	struct mt76x2_wcid *wcid = msta ? &msta->wcid : &mvif->group_wcid;
+	struct mt76_wcid *wcid = msta ? &msta->wcid : &mvif->group_wcid;
 	int idx = key->keyidx;
 	int ret;
 
@@ -405,7 +405,7 @@ mt76x2_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct mt76x2_dev *dev = hw->priv;
 	struct mt76x2_sta *msta = (struct mt76x2_sta *) sta->drv_priv;
 	struct ieee80211_txq *txq = sta->txq[tid];
-	struct mt76x2_txq *mtxq = (struct mt76x2_txq *) txq->drv_priv;
+	struct mt76_txq *mtxq = (struct mt76_txq *) txq->drv_priv;
 
 	if (!txq)
 		return -EINVAL;

@@ -84,15 +84,6 @@ struct mt76x2_calibration {
 	bool channel_cal_done;
 };
 
-struct mt76x2_wcid {
-	u8 idx;
-	u8 hw_key_idx;
-
-	__le16 tx_rate;
-	bool tx_rate_set;
-	u8 tx_rate_nss;
-};
-
 struct mt76x2_rate_power {
 	union {
 		struct {
@@ -139,7 +130,7 @@ struct mt76x2_dev {
 
 	u32 aggr_stats[32];
 
-	struct mt76x2_wcid __rcu *wcid[254 - 8];
+	struct mt76_wcid __rcu *wcid[254 - 8];
 
 	spinlock_t lock;
 	spinlock_t irq_lock;
@@ -168,26 +159,15 @@ struct mt76x2_dev {
 struct mt76x2_vif {
 	u8 idx;
 
-	struct mt76x2_wcid group_wcid;
+	struct mt76_wcid group_wcid;
 };
 
 struct mt76x2_sta {
-	struct mt76x2_wcid wcid;
+	struct mt76_wcid wcid;
 
 	struct mt76x2_tx_status status;
 	int n_frames;
 	bool sleeping;
-};
-
-struct mt76x2_txq {
-	struct list_head list;
-	struct mt76_queue *hwq;
-
-	struct sk_buff_head retry_q;
-
-	u16 agg_ssn;
-	bool send_bar;
-	bool aggr;
 };
 
 struct mt76x2_reg_pair {
@@ -216,7 +196,7 @@ static inline void mt76x2_irq_disable(struct mt76x2_dev *dev, u32 mask)
 }
 
 static inline struct ieee80211_txq *
-mtxq_to_txq(struct mt76x2_txq *mtxq)
+mtxq_to_txq(struct mt76_txq *mtxq)
 {
 	void *ptr = mtxq;
 	return container_of(ptr, struct ieee80211_txq, drv_priv);
@@ -258,7 +238,7 @@ void mt76x2_cleanup(struct mt76x2_dev *dev);
 void mt76x2_rx(struct mt76x2_dev *dev, struct sk_buff *skb);
 
 int mt76x2_tx_queue_skb(struct mt76x2_dev *dev, struct mt76_queue *q,
-			struct sk_buff *skb, struct mt76x2_wcid *wcid,
+			struct sk_buff *skb, struct mt76_wcid *wcid,
 			struct ieee80211_sta *sta);
 int mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76x2_txq_id qid,
 			struct sk_buff *skb, int cmd, int seq);

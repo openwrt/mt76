@@ -158,7 +158,7 @@ mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76x2_txq_id qid,
 
 int
 mt76x2_tx_queue_skb(struct mt76x2_dev *dev, struct mt76_queue *q,
-		    struct sk_buff *skb, struct mt76x2_wcid *wcid,
+		    struct sk_buff *skb, struct mt76_wcid *wcid,
 		    struct ieee80211_sta *sta)
 {
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);

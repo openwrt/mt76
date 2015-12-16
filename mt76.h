@@ -86,6 +86,27 @@ struct mt76_queue_ops {
 	void (*kick)(struct mt76_dev *dev, struct mt76_queue *q);
 };
 
+struct mt76_wcid {
+	u8 idx;
+	u8 hw_key_idx;
+
+	__le16 tx_rate;
+	bool tx_rate_set;
+	u8 tx_rate_nss;
+};
+
+struct mt76_txq {
+	struct list_head list;
+	struct mt76_queue *hwq;
+	struct mt76_wcid *wcid;
+
+	struct sk_buff_head retry_q;
+
+	u16 agg_ssn;
+	bool send_bar;
+	bool aggr;
+};
+
 enum {
 	MT76_STATE_INITIALIZED,
 	MT76_STATE_RUNNING,

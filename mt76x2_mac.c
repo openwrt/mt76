@@ -142,7 +142,7 @@ mt76x2_mac_tx_rate_val(struct mt76x2_dev *dev, const struct ieee80211_tx_rate *r
 	return cpu_to_le16(rateval);
 }
 
-void mt76x2_mac_wcid_set_rate(struct mt76x2_dev *dev, struct mt76x2_wcid *wcid,
+void mt76x2_mac_wcid_set_rate(struct mt76x2_dev *dev, struct mt76_wcid *wcid,
 			    const struct ieee80211_tx_rate *rate)
 {
 	unsigned long flags;
@@ -154,7 +154,7 @@ void mt76x2_mac_wcid_set_rate(struct mt76x2_dev *dev, struct mt76x2_wcid *wcid,
 }
 
 void mt76x2_mac_write_txwi(struct mt76x2_dev *dev, struct mt76_txwi *txwi,
-			 struct sk_buff *skb, struct mt76x2_wcid *wcid,
+			 struct sk_buff *skb, struct mt76_wcid *wcid,
 			 struct ieee80211_sta *sta)
 {
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
@@ -349,7 +349,7 @@ mt76x2_send_tx_status(struct mt76x2_dev *dev, struct mt76x2_tx_status *stat,
 {
 	struct ieee80211_tx_info info = {};
 	struct ieee80211_sta *sta = NULL;
-	struct mt76x2_wcid *wcid = NULL;
+	struct mt76_wcid *wcid = NULL;
 	struct mt76x2_sta *msta = NULL;
 
 	rcu_read_lock();
@@ -492,7 +492,7 @@ mt76x2_mac_get_key_info(struct ieee80211_key_conf *key, u8 *key_data)
 
 void mt76x2_mac_wcid_setup(struct mt76x2_dev *dev, u8 idx, u8 vif_idx, u8 *mac)
 {
-	struct mt76x2_wcid_addr addr = {};
+	struct mt76_wcid_addr addr = {};
 	u32 attr;
 
 	attr = MT76_SET(MT_WCID_ATTR_BSS_IDX, vif_idx & 7) |
