@@ -225,4 +225,22 @@ static inline void mt76_eeprom_override(struct mt76_dev *dev)
 
 int mt76_eeprom_init(struct mt76_dev *dev, int len);
 
+static inline struct ieee80211_txq *
+mtxq_to_txq(struct mt76_txq *mtxq)
+{
+	void *ptr = mtxq;
+	return container_of(ptr, struct ieee80211_txq, drv_priv);
+}
+
+void mt76_txq_init(struct mt76_dev *dev, struct ieee80211_txq *txq);
+void mt76_txq_remove(struct mt76_dev *dev, struct ieee80211_txq *txq);
+void mt76_wake_tx_queue(struct ieee80211_hw *hw, struct ieee80211_txq *txq);
+void mt76_stop_tx_queues(struct mt76_dev *dev, struct ieee80211_sta *sta);
+void mt76_txq_schedule(struct mt76_dev *dev, struct mt76_queue *hwq);
+void mt76_release_buffered_frames(struct ieee80211_hw *hw,
+				  struct ieee80211_sta *sta,
+				  u16 tids, int nframes,
+				  enum ieee80211_frame_release_type reason,
+				  bool more_data);
+
 #endif

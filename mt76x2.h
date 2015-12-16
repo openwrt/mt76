@@ -152,7 +152,7 @@ struct mt76x2_vif {
 };
 
 struct mt76x2_sta {
-	struct mt76_wcid wcid;
+	struct mt76_wcid wcid; /* must be first */
 
 	struct mt76x2_tx_status status;
 	int n_frames;
@@ -182,13 +182,6 @@ static inline void mt76x2_irq_enable(struct mt76x2_dev *dev, u32 mask)
 static inline void mt76x2_irq_disable(struct mt76x2_dev *dev, u32 mask)
 {
 	mt76x2_set_irq_mask(dev, mask, 0);
-}
-
-static inline struct ieee80211_txq *
-mtxq_to_txq(struct mt76_txq *mtxq)
-{
-	void *ptr = mtxq;
-	return container_of(ptr, struct ieee80211_txq, drv_priv);
 }
 
 extern const struct ieee80211_ops mt76x2_ops;
@@ -238,16 +231,5 @@ void mt76x2_tx_complete(struct mt76x2_dev *dev, struct sk_buff *skb);
 void mt76x2_pre_tbtt_tasklet(unsigned long data);
 
 void mt76x2_txq_init(struct mt76x2_dev *dev, struct ieee80211_txq *txq);
-void mt76x2_wake_tx_queue(struct ieee80211_hw *hw, struct ieee80211_txq *txq);
-void mt76x2_txq_remove(struct mt76x2_dev *dev, struct ieee80211_txq *txq);
-void mt76x2_txq_schedule(struct mt76x2_dev *dev, struct mt76_queue *hwq);
-
-void mt76x2_release_buffered_frames(struct ieee80211_hw *hw,
-				  struct ieee80211_sta *sta,
-				  u16 tids, int nframes,
-				  enum ieee80211_frame_release_type reason,
-				  bool more_data);
-
-void mt76x2_stop_tx_queues(struct mt76x2_dev *dev, struct ieee80211_sta *sta);
 
 #endif

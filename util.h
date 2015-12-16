@@ -83,4 +83,15 @@
 int mt76_insert_hdr_pad(struct sk_buff *skb);
 void mt76_remove_hdr_pad(struct sk_buff *skb);
 
+static inline void
+mt76_skb_set_moredata(struct sk_buff *skb, bool enable)
+{
+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
+
+	if (enable)
+		hdr->frame_control |= cpu_to_le16(IEEE80211_FCTL_MOREDATA);
+	else
+		hdr->frame_control &= ~cpu_to_le16(IEEE80211_FCTL_MOREDATA);
+}
+
 #endif

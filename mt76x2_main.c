@@ -92,7 +92,7 @@ mt76x2_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
 	struct mt76x2_dev *dev = hw->priv;
 
-	mt76x2_txq_remove(dev, vif->txq);
+	mt76_txq_remove(&dev->mt76, vif->txq);
 }
 
 static int
@@ -256,7 +256,7 @@ mt76x2_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	mutex_lock(&dev->mutex);
 	rcu_assign_pointer(dev->wcid[idx], NULL);
 	for (i = 0; i < ARRAY_SIZE(sta->txq); i++)
-		mt76x2_txq_remove(dev, sta->txq[i]);
+		mt76_txq_remove(&dev->mt76, sta->txq[i]);
 	mt76_set(dev, MT_WCID_DROP(idx), MT_WCID_DROP_MASK(idx));
 	dev->wcid_mask[idx / BITS_PER_LONG] &= ~BIT(idx % BITS_PER_LONG);
 	mt76x2_mac_wcid_setup(dev, idx, 0, NULL);
@@ -277,7 +277,7 @@ mt76x2_sta_notify(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	case STA_NOTIFY_SLEEP:
 		msta->sleeping = true;
 		mt76_set(dev, MT_WCID_DROP(idx), MT_WCID_DROP_MASK(idx));
-		mt76x2_stop_tx_queues(dev, sta);
+		mt76_stop_tx_queues(&dev->mt76, sta);
 		break;
 	case STA_NOTIFY_AWAKE:
 		mt76_clear(dev, MT_WCID_DROP(idx), MT_WCID_DROP_MASK(idx));
@@ -486,9 +486,9 @@ const struct ieee80211_ops mt76x2_ops = {
 	.flush = mt76x2_flush,
 	.ampdu_action = mt76x2_ampdu_action,
 	.get_txpower = mt76x2_get_txpower,
-	.wake_tx_queue = mt76x2_wake_tx_queue,
+	.wake_tx_queue = mt76_wake_tx_queue,
 	.sta_rate_tbl_update = mt76x2_sta_rate_tbl_update,
-	.release_buffered_frames = mt76x2_release_buffered_frames,
+	.release_buffered_frames = mt76_release_buffered_frames,
 	.set_coverage_class = mt76x2_set_coverage_class,
 };
 
