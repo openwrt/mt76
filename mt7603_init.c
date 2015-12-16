@@ -260,7 +260,7 @@ mt7603_init_hardware(struct mt7603_dev *dev)
 	.hw_value_short = (MT_PHY_TYPE_OFDM << 8) | _idx,	\
 }
 
-static struct ieee80211_rate mt76x2_rates[] = {
+static struct ieee80211_rate mt7603_rates[] = {
 	CCK_RATE(0, 10),
 	CCK_RATE(1, 20),
 	CCK_RATE(2, 55),
@@ -301,8 +301,8 @@ int mt7603_register_device(struct mt7603_dev *dev)
 
 	SET_IEEE80211_PERM_ADDR(hw, macaddr);
 
-	ret = mt76_register_device(&dev->mt76, true, mt76x2_rates,
-				   ARRAY_SIZE(mt76x2_rates));
+	ret = mt76_register_device(&dev->mt76, true, mt7603_rates,
+				   ARRAY_SIZE(mt7603_rates));
 	if (ret)
 		return ret;
 
