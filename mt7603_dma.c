@@ -146,6 +146,12 @@ mt7603_process_rx_skb(struct mt7603_dev *dev, struct mt76_queue *q,
 		skb_queue_tail(&dev->mcu.res_q, skb);
 		wake_up(&dev->mcu.wait);
 		return;
+	case PKT_TYPE_NORMAL:
+		if (mt7603_mac_fill_rx(dev, skb) == 0) {
+			ieee80211_rx(mt76_hw(dev), skb);
+			return;
+		}
+		/* fall through */
 	default:
 		dev_kfree_skb(skb);
 	}

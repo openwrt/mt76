@@ -12,6 +12,7 @@
  */
 
 #include "mt7603.h"
+#include "mt7603_dma.h"
 
 #define MT_PSE_PAGE_SIZE	128
 
@@ -105,6 +106,41 @@ void mt7603_wtbl_clear(struct mt7603_dev *dev, int idx)
 	mt7603_wtbl_update(dev, idx, MT_WTBL_UPDATE_RX_COUNT_CLEAR);
 	mt7603_wtbl_update(dev, idx, MT_WTBL_UPDATE_TX_COUNT_CLEAR);
 	mt7603_wtbl_update(dev, idx, MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
+}
+
+int
+mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
+{
+	struct ieee80211_rx_status *status = IEEE80211_SKB_RXCB(skb);
+	__le32 *rxd = (__le32 *) skb->data;
+	u32 rxd0 = le32_to_cpu(rxd[0]);
+
+	rxd += 4;
+	if (rxd0 & MT_RXD0_NORMAL_GROUP_4) {
+		rxd += 4;
+		if ((u8 *) rxd - skb->data >= skb->len)
+			return -EINVAL;
+	}
+	if (rxd0 & MT_RXD0_NORMAL_GROUP_1) {
+		rxd += 4;
+		if ((u8 *) rxd - skb->data >= skb->len)
+			return -EINVAL;
+	}
+	if (rxd0 & MT_RXD0_NORMAL_GROUP_2) {
+		rxd += 2;
+		if ((u8 *) rxd - skb->data >= skb->len)
+			return -EINVAL;
+	}
+	if (rxd0 & MT_RXD0_NORMAL_GROUP_3) {
+		rxd += 6;
+		if ((u8 *) rxd - skb->data >= skb->len)
+			return -EINVAL;
+	}
+
+	memset(status, 0, sizeof(*status));
+	skb_pull(skb, (u8 *) rxd - skb->data);
+
+	return 0;
 }
 
 void mt7603_mac_start(struct mt7603_dev *dev)
