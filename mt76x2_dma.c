@@ -174,9 +174,6 @@ mt76x2_tx_cleanup_entry(struct mt76_dev *mdev, struct mt76_queue *q,
 	} else {
 		dev_kfree_skb_any(e->skb);
 	}
-
-	if (e->schedule)
-		q->swq_queued--;
 }
 
 static void
