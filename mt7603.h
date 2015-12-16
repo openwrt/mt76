@@ -75,6 +75,7 @@ struct mt7603_dev {
 	u8 tx_chains;
 
 	u8 rssi_offset[3];
+	u8 macaddr[ETH_ALEN];
 
 	struct mt7603_mcu mcu;
 	struct mt76_queue q_rx;

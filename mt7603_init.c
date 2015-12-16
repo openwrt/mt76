@@ -14,6 +14,7 @@
 #include <linux/etherdevice.h>
 #include "mt7603.h"
 #include "mt7603_dma.h"
+#include "mt7603_eeprom.h"
 
 struct mt7603_dev *mt7603_alloc_device(struct device *pdev)
 {
@@ -223,6 +224,7 @@ mt7603_init_hardware(struct mt7603_dev *dev)
 		return ret;
 
 	dev->mt76.cap.has_2ghz = true;
+	memcpy(dev->macaddr, dev->mt76.eeprom.data + MT_EE_MAC_ADDR, ETH_ALEN);
 
 	ret = mt7603_dma_init(dev);
 	if (ret)
@@ -278,7 +280,6 @@ static struct ieee80211_rate mt7603_rates[] = {
 
 int mt7603_register_device(struct mt7603_dev *dev)
 {
-	static u8 macaddr[] = { 0x00, 0x11, 0x22, 0x33, 0x44, 0x55 };
 	struct ieee80211_hw *hw = mt76_hw(dev);
 	struct ieee80211_supported_band *sband;
 	struct wiphy *wiphy = hw->wiphy;
@@ -299,7 +300,7 @@ int mt7603_register_device(struct mt7603_dev *dev)
 	hw->max_rate_tries = 1;
 	hw->extra_tx_headroom = 2;
 
-	SET_IEEE80211_PERM_ADDR(hw, macaddr);
+	SET_IEEE80211_PERM_ADDR(hw, dev->macaddr);
 
 	ret = mt76_register_device(&dev->mt76, true, mt7603_rates,
 				   ARRAY_SIZE(mt7603_rates));
