@@ -28,32 +28,13 @@ void mt76x2_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
 	struct mt76x2_vif *mvif = (struct mt76x2_vif *) vif->drv_priv;
 	struct mt76x2_sta *msta = NULL;
 	struct mt76_wcid *wcid = &mvif->group_wcid;
-	struct mt76_queue *q;
-	int qid = skb_get_queue_mapping(skb);
-
-	if (WARN_ON(qid >= MT_TXQ_PSD)) {
-		qid = MT_TXQ_BE;
-		skb_set_queue_mapping(skb, qid);
-	}
 
 	if (control->sta) {
 		msta = (struct mt76x2_sta *) control->sta->drv_priv;
 		wcid = &msta->wcid;
 	}
 
-	if (!wcid->tx_rate_set)
-		ieee80211_get_tx_rates(info->control.vif, control->sta, skb,
-				       info->control.rates, 1);
-
-	q = &dev->mt76.q_tx[qid];
-
-	spin_lock_bh(&q->lock);
-	mt76_tx_queue_skb(&dev->mt76, q, skb, wcid, control->sta);
-	mt76_queue_kick(dev, q);
-
-	if (q->queued > q->ndesc - 8)
-		ieee80211_stop_queue(hw, skb_get_queue_mapping(skb));
-	spin_unlock_bh(&q->lock);
+	mt76_tx(&dev->mt76, control->sta, wcid, skb);
 }
 
 void mt76x2_tx_complete(struct mt76x2_dev *dev, struct sk_buff *skb)
