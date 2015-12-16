@@ -193,6 +193,14 @@ mt7603_mcu_start_firmware(struct mt7603_dev *dev, u32 addr)
 }
 
 static int
+mt7603_mcu_restart(struct mt7603_dev *dev)
+{
+	struct sk_buff *skb = mt7603_mcu_msg_alloc(dev, NULL, 0);
+
+	return mt7603_mcu_msg_send(dev, skb, -MCU_CMD_RESTART_DL_REQ, MCU_Q_NA, NULL);
+}
+
+static int
 mt7603_load_firmware(struct mt7603_dev *dev)
 {
 	const struct firmware *fw;
@@ -287,6 +295,11 @@ int mt7603_mcu_init(struct mt7603_dev *dev)
 {
 	mutex_init(&dev->mcu.mutex);
 	return mt7603_load_firmware(dev);
+}
+
+int mt7603_mcu_exit(struct mt7603_dev *dev)
+{
+	return mt7603_mcu_restart(dev);
 }
 
 int mt7603_mcu_set_eeprom(struct mt7603_dev *dev)
