@@ -108,6 +108,32 @@ void mt7603_wtbl_clear(struct mt7603_dev *dev, int idx)
 	mt7603_wtbl_update(dev, idx, MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
 }
 
+static int
+mt7603_get_rate(struct mt7603_dev *dev, struct ieee80211_supported_band *sband,
+		int idx, bool cck)
+{
+	int offset = 0;
+	int len = sband->n_bitrates;
+	int i;
+
+	if (cck) {
+		if (WARN_ON_ONCE(sband == &dev->mt76.sband_5g))
+			return 0;
+
+		idx &= ~BIT(2); /* short preamble */
+	} else if (sband == &dev->mt76.sband_2g) {
+		offset = 4;
+	}
+
+	for (i = offset; i < len; i++) {
+		if ((sband->bitrates[i].hw_value & GENMASK(7, 0)) == idx)
+			return i;
+	}
+
+	WARN_ON_ONCE(1);
+	return 0;
+}
+
 int
 mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 {
@@ -115,15 +141,18 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 	struct ieee80211_supported_band *sband;
 	__le32 *rxd = (__le32 *) skb->data;
 	u32 rxd0 = le32_to_cpu(rxd[0]);
-	int idx;
+	int i;
 
 	memset(status, 0, sizeof(*status));
 
-	idx = MT76_GET(MT_RXD1_NORMAL_CH_FREQ, rxd[1]);
-	sband = (idx & 1) ? &dev->mt76.sband_5g : &dev->mt76.sband_2g;
-	idx >>= 1;
-	if (idx < sband->n_channels)
-		status->freq = sband->channels[idx].center_freq;
+	i = MT76_GET(MT_RXD1_NORMAL_CH_FREQ, rxd[1]);
+	sband = (i & 1) ? &dev->mt76.sband_5g : &dev->mt76.sband_2g;
+	i >>= 1;
+	if (i < sband->n_channels)
+		status->freq = sband->channels[i].center_freq;
+
+	if (WARN_ON_ONCE(!sband->channels))
+		return -EINVAL;
 
 	rxd += 4;
 	if (rxd0 & MT_RXD0_NORMAL_GROUP_4) {
@@ -142,7 +171,36 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 			return -EINVAL;
 	}
 	if (rxd0 & MT_RXD0_NORMAL_GROUP_3) {
+		bool cck = false;
+
+		i = MT76_GET(MT_RXV1_TX_RATE, rxd[0]);
+		switch (MT76_GET(MT_RXV1_TX_MODE, rxd[0])) {
+		case MT_PHY_TYPE_CCK:
+			cck = true;
+			/* fall through */
+		case MT_PHY_TYPE_OFDM:
+			i = mt7603_get_rate(dev, sband, i, cck);
+			break;
+		case MT_PHY_TYPE_HT_GF:
+		case MT_PHY_TYPE_HT:
+			status->rx_flags |= RX_FLAG_HT;
+			break;
+		case MT_PHY_TYPE_VHT:
+			status->rx_flags |= RX_FLAG_VHT;
+			break;
+		default:
+			WARN_ON(1);
+		}
+
+		if (rxd[0] & MT_RXV1_HT_SHORT_GI)
+			status->rx_flags |= RX_FLAG_SHORT_GI;
+
+		status->rx_flags |= RX_FLAG_STBC_MASK *
+				    MT76_GET(MT_RXV1_HT_STBC, rxd[0]);
+
+		status->rate_idx = i;
 		rxd += 6;
+
 		if ((u8 *) rxd - skb->data >= skb->len)
 			return -EINVAL;
 	}
