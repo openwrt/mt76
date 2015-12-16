@@ -89,7 +89,6 @@ void mt76x2_init_debugfs(struct mt76x2_dev *dev)
 	if (!dir)
 		return;
 
-	debugfs_create_blob("eeprom", S_IRUSR, dir, &dev->eeprom);
 	debugfs_create_blob("otp", S_IRUSR, dir, &dev->otp);
 	debugfs_create_u8("temperature", S_IRUSR, dir, &dev->cal.temp);
 

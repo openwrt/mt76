@@ -613,7 +613,6 @@ int mt76x2_register_device(struct mt76x2_dev *dev)
 	void *status_fifo;
 	int fifo_size;
 	int i, ret;
-	int bands;
 
 	fifo_size = roundup_pow_of_two(32 * sizeof(struct mt76x2_tx_status));
 	status_fifo = devm_kzalloc(dev->mt76.dev, fifo_size, GFP_KERNEL);
@@ -656,15 +655,12 @@ int mt76x2_register_device(struct mt76x2_dev *dev)
 	INIT_DELAYED_WORK(&dev->cal_work, mt76x2_phy_calibrate);
 	INIT_DELAYED_WORK(&dev->mac_work, mt76x2_mac_work);
 
-	bands = (!!dev->cap.has_2ghz * BIT(IEEE80211_BAND_2GHZ)) |
-		(!!dev->cap.has_5ghz * BIT(IEEE80211_BAND_5GHZ));
-
-	ret = mt76_register_device(&dev->mt76, bands, true,
-				   mt76x2_rates, ARRAY_SIZE(mt76x2_rates));
+	ret = mt76_register_device(&dev->mt76, true, mt76x2_rates,
+				   ARRAY_SIZE(mt76x2_rates));
 	if (ret)
 		goto fail;
 
-	sband = wiphy->bands[dev->cap.has_5ghz ? IEEE80211_BAND_5GHZ :
+	sband = wiphy->bands[dev->mt76.cap.has_5ghz ? IEEE80211_BAND_5GHZ :
 			     IEEE80211_BAND_2GHZ];
 	dev->chandef.chan = &sband->channels[0];
 

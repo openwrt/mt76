@@ -218,6 +218,12 @@ mt7603_init_hardware(struct mt7603_dev *dev)
 
 	mt76_wr(dev, MT_INT_SOURCE_CSR, ~0);
 
+	ret = mt76_eeprom_init(&dev->mt76, MT7603_EEPROM_SIZE);
+	if (ret < 0)
+		return ret;
+
+	dev->mt76.cap.has_2ghz = true;
+
 	ret = mt7603_dma_init(dev);
 	if (ret)
 		return ret;
@@ -294,8 +300,8 @@ int mt7603_register_device(struct mt7603_dev *dev)
 
 	SET_IEEE80211_PERM_ADDR(hw, macaddr);
 
-	ret = mt76_register_device(&dev->mt76, BIT(IEEE80211_BAND_2GHZ), true,
-				   mt76x2_rates, ARRAY_SIZE(mt76x2_rates));
+	ret = mt76_register_device(&dev->mt76, true, mt76x2_rates,
+				   ARRAY_SIZE(mt76x2_rates));
 	if (ret)
 		return ret;
 

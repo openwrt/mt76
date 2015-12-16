@@ -183,7 +183,7 @@ static const struct ieee80211_iface_combination if_comb[] = {
 	}
 };
 
-int mt76_register_device(struct mt76_dev *dev, int bands, bool vht,
+int mt76_register_device(struct mt76_dev *dev, bool vht,
 			 struct ieee80211_rate *rates, int n_rates)
 {
 	struct ieee80211_hw *hw = dev->hw;
@@ -213,13 +213,13 @@ int mt76_register_device(struct mt76_dev *dev, int bands, bool vht,
 	ieee80211_hw_set(hw, SUPPORTS_RC_TABLE);
 	ieee80211_hw_set(hw, SUPPORT_FAST_XMIT);
 
-	if (bands & BIT(IEEE80211_BAND_2GHZ)) {
+	if (dev->cap.has_2ghz) {
 		ret = mt76_init_sband_2g(dev, rates, n_rates);
 		if (ret)
 			return ret;
 	}
 
-	if (bands & BIT(IEEE80211_BAND_5GHZ)) {
+	if (dev->cap.has_5ghz) {
 		ret = mt76_init_sband_5g(dev, rates + 4, n_rates - 4, vht);
 		if (ret)
 			return ret;

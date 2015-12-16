@@ -93,11 +93,6 @@ struct mt76x2_wcid {
 	u8 tx_rate_nss;
 };
 
-struct mt76x2_hw_cap {
-	bool has_2ghz;
-	bool has_5ghz;
-};
-
 struct mt76x2_rate_power {
 	union {
 		struct {
@@ -160,9 +155,7 @@ struct mt76x2_dev {
 	u16 chainmask;
 
 	struct mt76x2_calibration cal;
-	struct debugfs_blob_wrapper eeprom;
 	struct debugfs_blob_wrapper otp;
-	struct mt76x2_hw_cap cap;
 
 	s8 target_power;
 	s8 target_power_delta[2];

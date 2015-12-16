@@ -23,6 +23,8 @@
 #define MT7603_FIRMWARE_E1	"mt7603_e1.bin"
 #define MT7603_FIRMWARE_E2	"mt7603_e2.bin"
 
+#define MT7603_EEPROM_SIZE	1024
+
 enum {
 	MT7603_REV_E1 = 0x00,
 	MT7603_REV_E2 = 0x10

@@ -140,7 +140,7 @@ mt76x2_eeprom_get(struct mt76x2_dev *dev, enum mt76x2_eeprom_field field)
 	if ((field & 1) || field >= __MT_EE_MAX)
 		return -1;
 
-	return get_unaligned_le16(dev->eeprom.data + field);
+	return get_unaligned_le16(dev->mt76.eeprom.data + field);
 }
 
 void mt76x2_get_rate_power(struct mt76x2_dev *dev, struct mt76x2_rate_power *t);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Felix Fietkau <nbd@openwrt.org>
+ * Copyright (C) 2015 Felix Fietkau <nbd@openwrt.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -10,31 +10,16 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
 #include <linux/of.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
-#include "mt76x2.h"
-#include "mt76x2_eeprom.h"
-#include "mt76x2_of.h"
+#include "mt76.h"
 
-static int mt76x2_check_eeprom(struct mt76x2_dev *dev, const char *type)
+static int
+mt76_get_of_eeprom(struct mt76_dev *dev, int len)
 {
-	u16 val = get_unaligned_le16(dev->eeprom.data);
-	switch (val) {
-	case 0x7662:
-	case 0x7612:
-		return 0;
-	default:
-		printk("%s EEPROM data check failed: %04x\n", type, val);
-		return -EINVAL;
-	}
-}
-
-int
-mt76x2_get_of_eeprom(struct mt76x2_dev *dev, int len)
-{
-	struct device_node *np = dev->mt76.dev->of_node;
+#ifdef CONFIG_OF
+	struct device_node *np = dev->dev->of_node;
 	struct mtd_info *mtd;
 	const __be32 *list;
 	const char *part;
@@ -79,13 +64,17 @@ mt76x2_get_of_eeprom(struct mt76x2_dev *dev, int len)
 	if (retlen < len)
 		return -EINVAL;
 
-	return mt76x2_check_eeprom(dev, "Flash");
+	return 0;
+#else
+	return -ENOENT;
+#endif
 }
 
+#ifdef CONFIG_OF
 void
-mt76x2_get_of_overrides(struct mt76x2_dev *dev)
+mt76_eeprom_override(struct mt76_dev *dev)
 {
-	struct device_node *np = dev->mt76.dev->of_node;
+	struct device_node *np = dev->dev->of_node;
 	const __be32 *val;
 	int size;
 
@@ -100,3 +89,17 @@ mt76x2_get_of_overrides(struct mt76x2_dev *dev)
 	if (val)
 		dev->cap.has_5ghz = be32_to_cpup(val);
 }
+EXPORT_SYMBOL_GPL(mt76_eeprom_override);
+#endif
+
+int
+mt76_eeprom_init(struct mt76_dev *dev, int len)
+{
+	dev->eeprom.size = len;
+	dev->eeprom.data = devm_kzalloc(dev->dev, len, GFP_KERNEL);
+	if (!dev->eeprom.data)
+		return -ENOMEM;
+
+	return !mt76_get_of_eeprom(dev, len);
+}
+EXPORT_SYMBOL_GPL(mt76_eeprom_init);

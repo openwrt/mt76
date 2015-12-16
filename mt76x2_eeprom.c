@@ -15,7 +15,6 @@
 #include <asm/unaligned.h>
 #include "mt76x2.h"
 #include "mt76x2_eeprom.h"
-#include "mt76x2_of.h"
 
 #define EE_FIELD(_name, _value) [MT_EE_##_name] = (_value) | 1
 
@@ -23,17 +22,17 @@ static int
 mt76x2_eeprom_copy(struct mt76x2_dev *dev, enum mt76x2_eeprom_field field,
 		 void *dest, int len)
 {
-	if (field + len > dev->eeprom.size)
+	if (field + len > dev->mt76.eeprom.size)
 		return -1;
 
-	memcpy(dest, dev->eeprom.data + field, len);
+	memcpy(dest, dev->mt76.eeprom.data + field, len);
 	return 0;
 }
 
 static int
 mt76x2_eeprom_get_macaddr(struct mt76x2_dev *dev)
 {
-	void *src = dev->eeprom.data + MT_EE_MAC_ADDR;
+	void *src = dev->mt76.eeprom.data + MT_EE_MAC_ADDR;
 
 	memcpy(dev->macaddr, src, ETH_ALEN);
 	return 0;
@@ -46,14 +45,14 @@ mt76x2_eeprom_parse_hw_cap(struct mt76x2_dev *dev)
 
 	switch (MT76_GET(MT_EE_NIC_CONF_0_BOARD_TYPE, val)) {
 	case BOARD_TYPE_5GHZ:
-		dev->cap.has_5ghz = true;
+		dev->mt76.cap.has_5ghz = true;
 		break;
 	case BOARD_TYPE_2GHZ:
-		dev->cap.has_2ghz = true;
+		dev->mt76.cap.has_2ghz = true;
 		break;
 	default:
-		dev->cap.has_2ghz = true;
-		dev->cap.has_5ghz = true;
+		dev->mt76.cap.has_2ghz = true;
+		dev->mt76.cap.has_5ghz = true;
 		break;
 	}
 }
@@ -160,7 +159,7 @@ mt76x2_apply_cal_free_data(struct mt76x2_dev *dev, u8 *efuse)
 		MT_EE_RF_5G_GRP4_5_RX_HIGH_GAIN,
 		MT_EE_RF_5G_GRP4_5_RX_HIGH_GAIN + 1,
 	};
-	u8 *eeprom = dev->eeprom.data;
+	u8 *eeprom = dev->mt76.eeprom.data;
 	u8 prev_grp0[4] = {
 		eeprom[MT_EE_TX_POWER_0_START_5G],
 		eeprom[MT_EE_TX_POWER_0_START_5G + 1],
@@ -196,22 +195,39 @@ mt76x2_apply_cal_free_data(struct mt76x2_dev *dev, u8 *efuse)
 		eeprom[MT_EE_BT_PMUCFG] = val & 0xff;
 }
 
+static int mt76x2_check_eeprom(struct mt76x2_dev *dev)
+{
+	u16 val = get_unaligned_le16(dev->mt76.eeprom.data);
+	switch (val) {
+	case 0x7662:
+	case 0x7612:
+		return 0;
+	default:
+		printk("EEPROM data check failed: %04x\n", val);
+		return -EINVAL;
+	}
+}
+
 static int
 mt76x2_eeprom_load(struct mt76x2_dev *dev)
 {
 	void *efuse;
 	int len = MT7662_EEPROM_SIZE;
 	bool found;
+	int ret;
 
-	dev->eeprom.size = len;
-	dev->eeprom.data = devm_kzalloc(dev->mt76.dev, len * 2, GFP_KERNEL);
-	if (!dev->eeprom.data)
-		return -ENOMEM;
+	ret = mt76_eeprom_init(&dev->mt76, len);
+	if (ret < 0)
+		return ret;
 
+	found = ret;
+	if (found)
+		found = !mt76x2_check_eeprom(dev);
+
+	dev->otp.data = devm_kzalloc(dev->mt76.dev, len, GFP_KERNEL);
 	dev->otp.size = len;
-	dev->otp.data = dev->eeprom.data + len;
-
-	found = !mt76x2_get_of_eeprom(dev, len);
+	if (!dev->otp.data)
+		return -ENOMEM;
 
 	efuse = dev->otp.data;
 
@@ -223,7 +239,7 @@ mt76x2_eeprom_load(struct mt76x2_dev *dev)
 	} else {
 		/* FIXME: check if efuse data is complete */
 		found = true;
-		memcpy(dev->eeprom.data, efuse, len);
+		memcpy(dev->mt76.eeprom.data, efuse, len);
 	}
 
 out:
@@ -601,7 +617,7 @@ int mt76x2_eeprom_init(struct mt76x2_dev *dev)
 		return ret;
 
 	mt76x2_eeprom_parse_hw_cap(dev);
-	mt76x2_get_of_overrides(dev);
+	mt76_eeprom_override(&dev->mt76);
 
 	mt76x2_eeprom_get_macaddr(dev);
 	if (!is_valid_ether_addr(dev->macaddr)) {

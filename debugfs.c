@@ -43,6 +43,7 @@ struct dentry *mt76_register_debugfs(struct mt76_dev *dev)
 
 	debugfs_create_u32("regidx", S_IRUSR | S_IWUSR, dir, &dev->debugfs_reg);
 	debugfs_create_file("regval", S_IRUSR | S_IWUSR, dir, dev, &fops_regval);
+	debugfs_create_blob("eeprom", S_IRUSR, dir, &dev->eeprom);
 
 	return dir;
 }
