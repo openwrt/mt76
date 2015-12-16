@@ -76,7 +76,7 @@ u32 mt7603_reg_map(struct mt7603_dev *dev, u32 addr)
 
 int mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 {
-	int ret;
+	int idx, ret;
 
 	u8 bw = MT_BW_20;
 
@@ -88,7 +88,9 @@ int mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 	if (ret)
 		return ret;
 
-	mt76_set(dev, MT_WF_RMAC_CH_FREQ, 1);
+	idx = def->chan->band == IEEE80211_BAND_5GHZ;
+	idx |= (def->chan - mt76_hw(dev)->wiphy->bands[def->chan->band]->channels) << 1;
+	mt76_set(dev, MT_WF_RMAC_CH_FREQ, idx);
 	mt7603_mac_start(dev);
 
 	return 0;
