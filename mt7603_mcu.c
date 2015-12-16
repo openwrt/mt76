@@ -416,13 +416,32 @@ static int mt7603_mcu_set_tx_power(struct mt7603_dev *dev)
 		u8 reserved;
 	} req = {
 		.center_channel = dev->chandef.chan->hw_value,
-		.temp_comp = 0xe,
-		.target_power = { 0x11, 0x15 },
-		.rate_power_delta = { 0x82, 0x82, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-		.ch_power_delta = { 0x00, 0xc2, 0xc3, 0xc1, 0xc2, 0xc3 },
-		.temp_comp_power = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x2c, 0x37, 0x40, 0x01, 0x40, 0x47, 0x51, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f },
+#define EEP_VAL(n) ((u8 *) dev->mt76.eeprom.data)[n]
+		.tssi = EEP_VAL(MT_EE_NIC_CONF_1 + 1),
+		.temp_comp = EEP_VAL(MT_EE_NIC_CONF_1),
+		.target_power = {
+			EEP_VAL(MT_EE_TX_POWER_0_START_2G + 2),
+			EEP_VAL(MT_EE_TX_POWER_1_START_2G + 2)
+		},
+		.bw_power_delta = EEP_VAL(MT_EE_TX_POWER_DELTA_BW40),
+		.ch_power_delta = {
+			EEP_VAL(MT_EE_TX_POWER_0_START_2G + 3),
+			EEP_VAL(MT_EE_TX_POWER_0_START_2G + 4),
+			EEP_VAL(MT_EE_TX_POWER_0_START_2G + 5),
+			EEP_VAL(MT_EE_TX_POWER_1_START_2G + 3),
+			EEP_VAL(MT_EE_TX_POWER_1_START_2G + 4),
+			EEP_VAL(MT_EE_TX_POWER_1_START_2G + 5)
+		},
+#undef EEP_VAL
 	};
 	struct sk_buff *skb;
+	u8 *eep = (u8 *) dev->mt76.eeprom.data;
+
+	memcpy(req.rate_power_delta, eep + MT_EE_TX_POWER_CCK,
+	       sizeof(req.rate_power_delta));
+
+	memcpy(req.temp_comp_power, eep + MT_EE_STEP_NUM_NEG_6_7,
+	       sizeof(req.temp_comp_power));
 
 	skb = mt7603_mcu_msg_alloc(dev, &req, sizeof(req));
 	return mt7603_mcu_msg_send(dev, skb, MCU_EXT_CMD_SET_TX_POWER_CTRL, MCU_Q_SET, NULL);
