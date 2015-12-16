@@ -39,16 +39,6 @@
 #include "mt76x2_regs.h"
 #include "mt76x2_mac.h"
 
-enum mt76x2_txq_id {
-	MT_TXQ_VO = IEEE80211_AC_VO,
-	MT_TXQ_VI = IEEE80211_AC_VI,
-	MT_TXQ_BE = IEEE80211_AC_BE,
-	MT_TXQ_BK = IEEE80211_AC_BK,
-	MT_TXQ_PSD,
-	MT_TXQ_MCU,
-	__MT_TXQ_MAX
-};
-
 struct mt76x2_mcu {
 	struct mutex mutex;
 
@@ -117,7 +107,6 @@ struct mt76x2_dev {
 	struct list_head txwi_cache;
 	struct mt76x2_mcu mcu;
 	struct mt76_queue q_rx;
-	struct mt76_queue q_tx[__MT_TXQ_MAX];
 
 	struct net_device napi_dev;
 	struct napi_struct napi;
@@ -240,7 +229,7 @@ void mt76x2_rx(struct mt76x2_dev *dev, struct sk_buff *skb);
 int mt76x2_tx_queue_skb(struct mt76x2_dev *dev, struct mt76_queue *q,
 			struct sk_buff *skb, struct mt76_wcid *wcid,
 			struct ieee80211_sta *sta);
-int mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76x2_txq_id qid,
+int mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76_txq_id qid,
 			struct sk_buff *skb, int cmd, int seq);
 void mt76x2_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
 	     struct sk_buff *skb);

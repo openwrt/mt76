@@ -45,7 +45,7 @@ void mt76x2_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
 		ieee80211_get_tx_rates(info->control.vif, control->sta, skb,
 				       info->control.rates, 1);
 
-	q = &dev->q_tx[qid];
+	q = &dev->mt76.q_tx[qid];
 
 	spin_lock_bh(&q->lock);
 	mt76x2_tx_queue_skb(dev, q, skb, wcid, control->sta);
@@ -71,7 +71,7 @@ void mt76x2_tx_complete(struct mt76x2_dev *dev, struct sk_buff *skb)
 		ieee80211_tx_status(mt76_hw(dev), skb);
 	}
 
-	q = &dev->q_tx[qid];
+	q = &dev->mt76.q_tx[qid];
 	if (q->queued < q->ndesc - 8)
 		ieee80211_wake_queue(mt76_hw(dev), qid);
 }
@@ -134,7 +134,7 @@ mt76x2_add_buffered_bc(void *priv, u8 *mac, struct ieee80211_vif *vif)
 void mt76x2_pre_tbtt_tasklet(unsigned long arg)
 {
 	struct mt76x2_dev *dev = (struct mt76x2_dev *) arg;
-	struct mt76_queue *q = &dev->q_tx[MT_TXQ_PSD];
+	struct mt76_queue *q = &dev->mt76.q_tx[MT_TXQ_PSD];
 	struct beacon_bc_data data = {};
 	struct sk_buff *skb;
 	int i, nframes;
@@ -223,7 +223,7 @@ mt76x2_queue_ps_skb(struct mt76x2_dev *dev, struct ieee80211_sta *sta,
 {
 	struct mt76x2_sta *msta = (struct mt76x2_sta *) sta->drv_priv;
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	struct mt76_queue *hwq = &dev->q_tx[MT_TXQ_PSD];
+	struct mt76_queue *hwq = &dev->mt76.q_tx[MT_TXQ_PSD];
 	struct mt76_wcid *wcid = &msta->wcid;
 
 	info->control.flags |= IEEE80211_TX_CTRL_PS_RESPONSE;
@@ -242,7 +242,7 @@ mt76x2_release_buffered_frames(struct ieee80211_hw *hw, struct ieee80211_sta *st
 {
 	struct mt76x2_dev *dev = hw->priv;
 	struct sk_buff *last_skb = NULL;
-	struct mt76_queue *hwq = &dev->q_tx[MT_TXQ_PSD];
+	struct mt76_queue *hwq = &dev->mt76.q_tx[MT_TXQ_PSD];
 	int i;
 
 	for (i = 0; tids && nframes; i++, tids >>= 1) {
@@ -425,7 +425,7 @@ void mt76x2_txq_init(struct mt76x2_dev *dev, struct ieee80211_txq *txq)
 	INIT_LIST_HEAD(&mtxq->list);
 	skb_queue_head_init(&mtxq->retry_q);
 
-	mtxq->hwq = &dev->q_tx[mt76x2_txq_get_qid(txq)];
+	mtxq->hwq = &dev->mt76.q_tx[mt76x2_txq_get_qid(txq)];
 
 	if (txq->sta) {
 		struct mt76x2_sta *sta = (struct mt76x2_sta *) txq->sta->drv_priv;

@@ -35,6 +35,18 @@ struct mt76_bus_ops {
 	void (*copy)(struct mt76_dev *dev, u32 offset, const void *data, int len);
 };
 
+enum mt76_txq_id {
+	MT_TXQ_VO = IEEE80211_AC_VO,
+	MT_TXQ_VI = IEEE80211_AC_VI,
+	MT_TXQ_BE = IEEE80211_AC_BE,
+	MT_TXQ_BK = IEEE80211_AC_BK,
+	MT_TXQ_PSD,
+	MT_TXQ_MCU,
+	MT_TXQ_BEACON,
+	MT_TXQ_CAB,
+	__MT_TXQ_MAX
+};
+
 struct mt76_queue_entry {
 	struct sk_buff *skb;
 	union {
@@ -125,6 +137,7 @@ struct mt76_dev {
 	void __iomem *regs;
 	struct device *dev;
 
+	struct mt76_queue q_tx[__MT_TXQ_MAX];
 	const struct mt76_queue_ops *queue_ops;
 
 	u32 rev;

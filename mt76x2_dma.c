@@ -129,10 +129,10 @@ mt76x2_dma_rx_fill(struct mt76x2_dev *dev, struct mt76_queue *q)
 }
 
 int
-mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76x2_txq_id qid,
+mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76_txq_id qid,
 		    struct sk_buff *skb, int cmd, int seq)
 {
-	struct mt76_queue *q = &dev->q_tx[qid];
+	struct mt76_queue *q = &dev->mt76.q_tx[qid];
 	dma_addr_t addr;
 	u32 tx_info;
 	int idx;
@@ -249,6 +249,9 @@ mt76x2_rx_cleanup(struct mt76x2_dev *dev, struct mt76_queue *q)
 static void
 mt76_tx_cleanup(struct mt76x2_dev *dev, struct mt76_queue *q, bool flush)
 {
+	if (!q->desc)
+		return;
+
 	spin_lock_bh(&q->lock);
 	mt76_queue_cleanup(dev, q, flush, mt76x2_tx_cleanup_entry);
 	if (!flush)
@@ -365,8 +368,8 @@ mt76x2_tx_tasklet(unsigned long data)
 
 	mt76x2_mac_process_tx_status_fifo(dev);
 
-	for (i = ARRAY_SIZE(dev->q_tx) - 1; i >= 0; i--)
-		mt76_tx_cleanup(dev, &dev->q_tx[i], false);
+	for (i = ARRAY_SIZE(dev->mt76.q_tx) - 1; i >= 0; i--)
+		mt76_tx_cleanup(dev, &dev->mt76.q_tx[i], false);
 
 	mt76x2_mac_poll_tx_status(dev, false);
 	mt76x2_irq_enable(dev, MT_INT_TX_DONE_ALL);
@@ -423,18 +426,18 @@ int mt76x2_dma_init(struct mt76x2_dev *dev)
 	mt76_wr(dev, MT_WPDMA_RST_IDX, ~0);
 
 	for (i = 0; i < ARRAY_SIZE(wmm_queue_map); i++) {
-		ret = mt76x2_init_tx_queue(dev, &dev->q_tx[i], wmm_queue_map[i],
+		ret = mt76x2_init_tx_queue(dev, &dev->mt76.q_tx[i], wmm_queue_map[i],
 					 MT_TX_RING_SIZE, false);
 		if (ret)
 			return ret;
 	}
 
-	ret = mt76x2_init_tx_queue(dev, &dev->q_tx[MT_TXQ_PSD],
+	ret = mt76x2_init_tx_queue(dev, &dev->mt76.q_tx[MT_TXQ_PSD],
 				 MT_TX_HW_QUEUE_MGMT, MT_TX_RING_SIZE, false);
 	if (ret)
 		return ret;
 
-	ret = mt76x2_init_tx_queue(dev, &dev->q_tx[MT_TXQ_MCU],
+	ret = mt76x2_init_tx_queue(dev, &dev->mt76.q_tx[MT_TXQ_MCU],
 				 MT_TX_HW_QUEUE_MCU, MT_MCU_RING_SIZE, true);
 	if (ret)
 		return ret;
@@ -462,8 +465,8 @@ void mt76x2_dma_cleanup(struct mt76x2_dev *dev)
 
 	tasklet_kill(&dev->tx_tasklet);
 	tasklet_kill(&dev->rx_tasklet);
-	for (i = 0; i < ARRAY_SIZE(dev->q_tx); i++)
-		mt76_tx_cleanup(dev, &dev->q_tx[i], true);
+	for (i = 0; i < ARRAY_SIZE(dev->mt76.q_tx); i++)
+		mt76_tx_cleanup(dev, &dev->mt76.q_tx[i], true);
 	mt76x2_rx_cleanup(dev, &dev->q_rx);
 	mt76x2_rx_cleanup(dev, &dev->mcu.q_rx);
 

@@ -36,18 +36,6 @@ enum mt7603_bw {
 	MT_BW_80,
 };
 
-enum mt7603_txq_id {
-	MT_TXQ_VO = IEEE80211_AC_VO,
-	MT_TXQ_VI = IEEE80211_AC_VI,
-	MT_TXQ_BE = IEEE80211_AC_BE,
-	MT_TXQ_BK = IEEE80211_AC_BK,
-	MT_TXQ_PSD,
-	MT_TXQ_MCU,
-	MT_TXQ_BEACON,
-	MT_TXQ_CAB,
-	__MT_TXQ_MAX
-};
-
 struct mt7603_mcu {
 	struct mutex mutex;
 
@@ -79,7 +67,6 @@ struct mt7603_dev {
 
 	struct mt7603_mcu mcu;
 	struct mt76_queue q_rx;
-	struct mt76_queue q_tx[__MT_TXQ_MAX];
 
 	struct net_device napi_dev;
 	struct napi_struct napi;
@@ -100,7 +87,7 @@ int mt7603_register_device(struct mt7603_dev *dev);
 int mt7603_dma_init(struct mt7603_dev *dev);
 void mt7603_dma_cleanup(struct mt7603_dev *dev);
 int mt7603_mcu_init(struct mt7603_dev *dev);
-int mt7603_tx_queue_mcu(struct mt7603_dev *dev, enum mt7603_txq_id qid,
+int mt7603_tx_queue_mcu(struct mt7603_dev *dev, enum mt76_txq_id qid,
 			struct sk_buff *skb);
 
 void mt7603_set_irq_mask(struct mt7603_dev *dev, u32 clear, u32 set);

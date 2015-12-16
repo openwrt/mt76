@@ -59,7 +59,7 @@ irqreturn_t mt7603_irq_handler(int irq, void *dev_instance)
 
 	/* send buffered multicast frames now */
 	if (intr & MT_INT_TBTT)
-		mt76_queue_kick(dev, &dev->q_tx[MT_TXQ_PSD]);
+		mt76_queue_kick(dev, &dev->mt76.q_tx[MT_TXQ_PSD]);
 #endif
 
 	return IRQ_HANDLED;
