@@ -12,6 +12,7 @@
  */
 
 #include "mt7603.h"
+#include "mt7603_eeprom.h"
 
 void mt7603_set_irq_mask(struct mt7603_dev *dev, u32 clear, u32 set)
 {
@@ -76,6 +77,7 @@ u32 mt7603_reg_map(struct mt7603_dev *dev, u32 addr)
 
 int mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 {
+	u8 *rssi_data = (u8 *) dev->mt76.eeprom.data;
 	int idx, ret;
 
 	u8 bw = MT_BW_20;
@@ -88,7 +90,16 @@ int mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 	if (ret)
 		return ret;
 
-	idx = def->chan->band == IEEE80211_BAND_5GHZ;
+	if (def->chan->band == IEEE80211_BAND_5GHZ) {
+		idx = 1;
+		rssi_data += MT_EE_RSSI_OFFSET_5G;
+	} else {
+		idx = 0;
+		rssi_data += MT_EE_RSSI_OFFSET_2G;
+	}
+
+	memcpy(dev->rssi_offset, rssi_data, sizeof(dev->rssi_offset));
+
 	idx |= (def->chan - mt76_hw(dev)->wiphy->bands[def->chan->band]->channels) << 1;
 	mt76_set(dev, MT_WF_RMAC_CH_FREQ, idx);
 	mt7603_mac_start(dev);

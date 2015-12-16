@@ -215,8 +215,15 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 				    MT76_GET(MT_RXV1_HT_STBC, rxd[0]);
 
 		status->rate_idx = i;
-		rxd += 6;
 
+		status->chains = BIT(0) | BIT(1);
+		status->chain_signal[0] = MT76_GET(MT_RXV4_IB_RSSI0, rxd[3]) +
+					  dev->rssi_offset[0];
+		status->chain_signal[1] = MT76_GET(MT_RXV4_IB_RSSI1, rxd[3]) +
+					  dev->rssi_offset[1];
+		status->signal = max(status->chain_signal[0], status->chain_signal[1]);
+
+		rxd += 6;
 		if ((u8 *) rxd - skb->data >= skb->len)
 			return -EINVAL;
 	}
