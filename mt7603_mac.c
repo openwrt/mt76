@@ -141,6 +141,7 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 	struct ieee80211_supported_band *sband;
 	__le32 *rxd = (__le32 *) skb->data;
 	u32 rxd0 = le32_to_cpu(rxd[0]);
+	bool remove_pad;
 	int i;
 
 	memset(status, 0, sizeof(*status));
@@ -160,6 +161,8 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 	if (MT76_GET(MT_RXD2_NORMAL_SEC_MODE, rxd[2]) != 0 &&
 	    !(rxd[2] & (MT_RXD2_NORMAL_CLM | MT_RXD2_NORMAL_CM)))
 		status->rx_flags |= RX_FLAG_DECRYPTED;
+
+	remove_pad = rxd[1] & MT_RXD1_NORMAL_HDR_OFFSET;
 
 	if (rxd[2] & MT_RXD2_NORMAL_MAX_LEN_ERROR)
 		return -EINVAL;
@@ -218,7 +221,7 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 			return -EINVAL;
 	}
 
-	skb_pull(skb, (u8 *) rxd - skb->data);
+	skb_pull(skb, (u8 *) rxd - skb->data + 2 * remove_pad);
 
 	return 0;
 }
