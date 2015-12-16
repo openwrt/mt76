@@ -151,6 +151,16 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 	if (i < sband->n_channels)
 		status->freq = sband->channels[i].center_freq;
 
+	if (rxd[2] & MT_RXD2_NORMAL_FCS_ERR)
+		status->rx_flags |= RX_FLAG_FAILED_FCS_CRC;
+
+	if (rxd[2] & MT_RXD2_NORMAL_TKIP_MIC_ERR)
+		status->rx_flags |= RX_FLAG_MMIC_ERROR;
+
+	if (MT76_GET(MT_RXD2_NORMAL_SEC_MODE, rxd[2]) != 0 &&
+	    !(rxd[2] & (MT_RXD2_NORMAL_CLM | MT_RXD2_NORMAL_CM)))
+		status->rx_flags |= RX_FLAG_DECRYPTED;
+
 	if (WARN_ON_ONCE(!sband->channels))
 		return -EINVAL;
 
