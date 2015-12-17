@@ -100,6 +100,7 @@ mt76_dma_cleanup(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
 	struct mt76_queue_entry entry;
 	int last;
 
+	spin_lock_bh(&q->lock);
 	if (flush)
 		last = -1;
 	else
@@ -120,6 +121,9 @@ mt76_dma_cleanup(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
 		if (q->tail == last)
 		    last = ioread32(&q->regs->dma_idx);
 	}
+	if (!flush)
+		mt76_txq_schedule(dev, q);
+	spin_unlock_bh(&q->lock);
 }
 
 static void *

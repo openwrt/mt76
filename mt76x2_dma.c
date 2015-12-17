@@ -117,11 +117,7 @@ mt76_tx_cleanup(struct mt76x2_dev *dev, struct mt76_queue *q, bool flush)
 	if (!q->desc)
 		return;
 
-	spin_lock_bh(&q->lock);
 	mt76_queue_cleanup(dev, q, flush, mt76x2_tx_cleanup_entry);
-	if (!flush)
-		mt76_txq_schedule(&dev->mt76, q);
-	spin_unlock_bh(&q->lock);
 }
 
 static int
