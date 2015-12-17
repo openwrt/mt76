@@ -145,12 +145,10 @@ mt76x2_mac_tx_rate_val(struct mt76x2_dev *dev, const struct ieee80211_tx_rate *r
 void mt76x2_mac_wcid_set_rate(struct mt76x2_dev *dev, struct mt76_wcid *wcid,
 			    const struct ieee80211_tx_rate *rate)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&dev->lock, flags);
+	spin_lock_bh(&dev->lock);
 	wcid->tx_rate = mt76x2_mac_tx_rate_val(dev, rate, &wcid->tx_rate_nss);
 	wcid->tx_rate_set = true;
-	spin_unlock_irqrestore(&dev->lock, flags);
+	spin_unlock_bh(&dev->lock);
 }
 
 void mt76x2_mac_write_txwi(struct mt76x2_dev *dev, void *txwi_ptr,
@@ -160,7 +158,6 @@ void mt76x2_mac_write_txwi(struct mt76x2_dev *dev, void *txwi_ptr,
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_tx_rate *rate = &info->control.rates[0];
 	struct mt76x2_txwi *txwi = txwi_ptr;
-	unsigned long flags;
 	u16 rate_ht_mask = MT76_SET(MT_RXWI_RATE_PHY, BIT(1) | BIT(2));
 	u16 txwi_flags = 0;
 	u8 nss;
@@ -174,14 +171,14 @@ void mt76x2_mac_write_txwi(struct mt76x2_dev *dev, void *txwi_ptr,
 
 	txwi->pktid = 1;
 
-	spin_lock_irqsave(&dev->lock, flags);
+	spin_lock_bh(&dev->lock);
 	if (rate->idx < 0 || !rate->count) {
 		txwi->rate = wcid->tx_rate;
 		nss = wcid->tx_rate_nss;
 	} else {
 		txwi->rate = mt76x2_mac_tx_rate_val(dev, rate, &nss);
 	}
-	spin_unlock_irqrestore(&dev->lock, flags);
+	spin_unlock_bh(&dev->lock);
 
 	if (mt76xx_rev(dev) >= MT76XX_REV_E4)
 		txwi->txstream = 0x13;
