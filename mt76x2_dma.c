@@ -15,7 +15,7 @@
 #include "mt76x2_dma.h"
 
 struct mt76x2_txwi_cache {
-	struct mt76x2_txwi txwi;
+	u32 txwi[6];
 	dma_addr_t dma_addr;
 	struct list_head list;
 };
@@ -135,7 +135,7 @@ mt76x2_tx_queue_skb(struct mt76_dev *cdev, struct mt76_queue *q,
 	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE)
 		qsel = 0;
 
-	len = skb->len + sizeof(t->txwi);
+	len = skb->len + sizeof(struct mt76x2_txwi);
 	len += mt76x2_mac_skb_tx_overhead(dev, skb);
 	tx_info = MT76_SET(MT_TXD_INFO_LEN, len) |
 		  MT76_SET(MT_TXD_INFO_QSEL, qsel) |
@@ -148,7 +148,7 @@ mt76x2_tx_queue_skb(struct mt76_dev *cdev, struct mt76_queue *q,
 	if (dma_mapping_error(dev->mt76.dev, addr))
 		goto put_txwi;
 
-	idx = mt76_queue_add_buf(dev, q, t->dma_addr, sizeof(t->txwi),
+	idx = mt76_queue_add_buf(dev, q, t->dma_addr, sizeof(struct mt76x2_txwi),
 				 addr, skb->len, tx_info);
 	q->entry[idx].skb = skb;
 	q->entry[idx].txwi = t;
@@ -409,6 +409,7 @@ void mt76x2_dma_cleanup(struct mt76x2_dev *dev)
 	struct mt76x2_txwi_cache *t;
 	int i;
 
+	BUILD_BUG_ON(sizeof(t->txwi) < sizeof(struct mt76x2_txwi));
 	BUILD_BUG_ON(MT_RX_HEADROOM < sizeof(struct mt76x2_rxwi));
 	dev->q_rx.buf_offset = MT_RX_HEADROOM - sizeof(struct mt76x2_rxwi);
 	dev->mcu.q_rx.buf_offset = MT_RX_HEADROOM - sizeof(struct mt76x2_rxwi);

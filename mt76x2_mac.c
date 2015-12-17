@@ -153,12 +153,13 @@ void mt76x2_mac_wcid_set_rate(struct mt76x2_dev *dev, struct mt76_wcid *wcid,
 	spin_unlock_irqrestore(&dev->lock, flags);
 }
 
-void mt76x2_mac_write_txwi(struct mt76x2_dev *dev, struct mt76x2_txwi *txwi,
+void mt76x2_mac_write_txwi(struct mt76x2_dev *dev, void *txwi_ptr,
 			 struct sk_buff *skb, struct mt76_wcid *wcid,
 			 struct ieee80211_sta *sta)
 {
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_tx_rate *rate = &info->control.rates[0];
+	struct mt76x2_txwi *txwi = txwi_ptr;
 	unsigned long flags;
 	u16 rate_ht_mask = MT76_SET(MT_RXWI_RATE_PHY, BIT(1) | BIT(2));
 	u16 txwi_flags = 0;
@@ -441,9 +442,10 @@ void mt76x2_mac_poll_tx_status(struct mt76x2_dev *dev, bool irq)
 }
 
 void mt76x2_mac_queue_txdone(struct mt76x2_dev *dev, struct sk_buff *skb,
-			   struct mt76x2_txwi *txwi)
+			     void *txwi_ptr)
 {
 	struct mt76x2_tx_info *txi = mt76x2_skb_tx_info(skb);
+	struct mt76x2_txwi *txwi = txwi_ptr;
 
 	mt76x2_mac_poll_tx_status(dev, false);
 
