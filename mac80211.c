@@ -166,6 +166,9 @@ int mt76_register_device(struct mt76_dev *dev, bool vht,
 	struct wiphy *wiphy = hw->wiphy;
 	int ret;
 
+	spin_lock_init(&dev->lock);
+	INIT_LIST_HEAD(&dev->txwi_cache);
+
 	SET_IEEE80211_DEV(hw, dev->dev);
 
 	wiphy->interface_modes =
@@ -203,3 +206,12 @@ int mt76_register_device(struct mt76_dev *dev, bool vht,
 	return ieee80211_register_hw(hw);
 }
 EXPORT_SYMBOL_GPL(mt76_register_device);
+
+void mt76_unregister_device(struct mt76_dev *dev)
+{
+	struct ieee80211_hw *hw = dev->hw;
+
+	mt76_tx_free(dev);
+	ieee80211_unregister_hw(hw);
+}
+EXPORT_SYMBOL_GPL(mt76_unregister_device);

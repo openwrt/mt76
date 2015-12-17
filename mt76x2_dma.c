@@ -14,68 +14,6 @@
 #include "mt76x2.h"
 #include "mt76x2_dma.h"
 
-struct mt76x2_txwi_cache {
-	u32 txwi[6];
-	dma_addr_t dma_addr;
-	struct list_head list;
-};
-
-static struct mt76x2_txwi_cache *
-mt76x2_alloc_txwi(struct mt76x2_dev *dev)
-{
-	struct mt76x2_txwi_cache *t;
-	dma_addr_t addr;
-	int size;
-
-	size = (sizeof(*t) + L1_CACHE_BYTES - 1) & ~(L1_CACHE_BYTES - 1);
-	t = devm_kzalloc(dev->mt76.dev, size, GFP_ATOMIC);
-	if (!t)
-		return NULL;
-
-	addr = dma_map_single(dev->mt76.dev, &t->txwi, sizeof(t->txwi), DMA_TO_DEVICE);
-	t->dma_addr = addr;
-
-	return t;
-}
-
-static struct mt76x2_txwi_cache *
-__mt76x2_get_txwi(struct mt76x2_dev *dev)
-{
-	struct mt76x2_txwi_cache *t = NULL;
-
-	spin_lock_bh(&dev->lock);
-	if (!list_empty(&dev->txwi_cache)) {
-		t = list_first_entry(&dev->txwi_cache, struct mt76x2_txwi_cache,
-				     list);
-		list_del(&t->list);
-	}
-	spin_unlock_bh(&dev->lock);
-
-	return t;
-}
-
-static struct mt76x2_txwi_cache *
-mt76x2_get_txwi(struct mt76x2_dev *dev)
-{
-	struct mt76x2_txwi_cache *t = __mt76x2_get_txwi(dev);
-
-	if (t)
-		return t;
-
-	return mt76x2_alloc_txwi(dev);
-}
-
-static void
-mt76x2_put_txwi(struct mt76x2_dev *dev, struct mt76x2_txwi_cache *t)
-{
-	if (!t)
-		return;
-
-	spin_lock_bh(&dev->lock);
-	list_add(&t->list, &dev->txwi_cache);
-	spin_unlock_bh(&dev->lock);
-}
-
 int
 mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76_txq_id qid,
 		    struct sk_buff *skb, int cmd, int seq)
@@ -106,31 +44,19 @@ mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76_txq_id qid,
 
 int
 mt76x2_tx_queue_skb(struct mt76_dev *cdev, struct mt76_queue *q,
-		    struct sk_buff *skb, struct mt76_wcid *wcid,
-		    struct ieee80211_sta *sta)
+		    struct sk_buff *skb, struct mt76_txwi_cache *t,
+			struct mt76_wcid *wcid, struct ieee80211_sta *sta)
 {
 	struct mt76x2_dev *dev = container_of(cdev, struct mt76x2_dev, mt76);
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	struct mt76x2_txwi_cache *t;
 	dma_addr_t addr;
 	u32 tx_info = 0;
 	int idx, ret, len;
 	int qsel = MT_QSEL_EDCA;
 
-	ret = -ENOMEM;
-	t = mt76x2_get_txwi(dev);
-	if (!t)
-		goto free;
-
-	dma_sync_single_for_cpu(dev->mt76.dev, t->dma_addr, sizeof(t->txwi),
-				DMA_TO_DEVICE);
-	mt76x2_mac_write_txwi(dev, &t->txwi, skb, wcid, sta);
-	dma_sync_single_for_device(dev->mt76.dev, t->dma_addr, sizeof(t->txwi),
-				   DMA_TO_DEVICE);
-
 	ret = mt76_insert_hdr_pad(skb);
 	if (ret)
-		goto put_txwi;
+		return ret;
 
 	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE)
 		qsel = 0;
@@ -146,7 +72,7 @@ mt76x2_tx_queue_skb(struct mt76_dev *cdev, struct mt76_queue *q,
 
 	addr = dma_map_single(dev->mt76.dev, skb->data, skb->len, DMA_TO_DEVICE);
 	if (dma_mapping_error(dev->mt76.dev, addr))
-		goto put_txwi;
+		return -ENOMEM;
 
 	idx = mt76_queue_add_buf(dev, q, t->dma_addr, sizeof(struct mt76x2_txwi),
 				 addr, skb->len, tx_info);
@@ -154,12 +80,6 @@ mt76x2_tx_queue_skb(struct mt76_dev *cdev, struct mt76_queue *q,
 	q->entry[idx].txwi = t;
 
 	return idx;
-
-put_txwi:
-	mt76x2_put_txwi(dev, t);
-free:
-	ieee80211_free_txskb(mt76_hw(dev), skb);
-	return ret;
 }
 
 static void
@@ -170,7 +90,6 @@ mt76x2_tx_cleanup_entry(struct mt76_dev *mdev, struct mt76_queue *q,
 
 	if (e->txwi) {
 		mt76x2_mac_queue_txdone(dev, e->skb, &e->txwi->txwi);
-		mt76x2_put_txwi(dev, e->txwi);
 	} else {
 		dev_kfree_skb_any(e->skb);
 	}
@@ -406,7 +325,7 @@ int mt76x2_dma_init(struct mt76x2_dev *dev)
 
 void mt76x2_dma_cleanup(struct mt76x2_dev *dev)
 {
-	struct mt76x2_txwi_cache *t;
+	struct mt76_txwi_cache __maybe_unused *t;
 	int i;
 
 	BUILD_BUG_ON(sizeof(t->txwi) < sizeof(struct mt76x2_txwi));
@@ -420,8 +339,4 @@ void mt76x2_dma_cleanup(struct mt76x2_dev *dev)
 		mt76_tx_cleanup(dev, &dev->mt76.q_tx[i], true);
 	mt76x2_rx_cleanup(dev, &dev->q_rx);
 	mt76x2_rx_cleanup(dev, &dev->mcu.q_rx);
-
-	while ((t = __mt76x2_get_txwi(dev)) != NULL)
-		dma_unmap_single(dev->mt76.dev, t->dma_addr, sizeof(t->txwi),
-				 DMA_TO_DEVICE);
 }

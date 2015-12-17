@@ -111,6 +111,8 @@ mt76_dma_cleanup(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
 			q->swq_queued--;
 
 		done(dev, q, &entry);
+		if (entry.txwi)
+			mt76_put_txwi(dev, entry.txwi);
 
 		q->tail = (q->tail + 1) % q->ndesc;
 		q->queued--;

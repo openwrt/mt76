@@ -51,7 +51,7 @@ struct mt76_queue_entry {
 	struct sk_buff *skb;
 	union {
 		void *buf;
-		struct mt76x2_txwi_cache *txwi;
+		struct mt76_txwi_cache *txwi;
 	};
 	bool schedule;
 };
@@ -122,6 +122,12 @@ struct mt76_txq {
 	bool aggr;
 };
 
+struct mt76_txwi_cache {
+	u32 txwi[6];
+	dma_addr_t dma_addr;
+	struct list_head list;
+};
+
 enum {
 	MT76_STATE_INITIALIZED,
 	MT76_STATE_RUNNING,
@@ -134,19 +140,25 @@ struct mt76_hw_cap {
 };
 
 struct mt76_driver_ops {
+	int (*fill_txwi)(struct mt76_dev *dev, void *txwi_ptr,
+			 struct sk_buff *skb, struct mt76_wcid *wcid,
+			 struct ieee80211_sta *sta);
+
 	int (*tx_queue_skb)(struct mt76_dev *dev, struct mt76_queue *q,
-			    struct sk_buff *skb, struct mt76_wcid *wcid,
-			    struct ieee80211_sta *sta);
+			    struct sk_buff *skb, struct mt76_txwi_cache *txwi,
+			    struct mt76_wcid *wcid, struct ieee80211_sta *sta);
 };
 
 struct mt76_dev {
 	struct ieee80211_hw *hw;
 
+	spinlock_t lock;
 	const struct mt76_bus_ops *bus;
 	const struct mt76_driver_ops *drv;
 	void __iomem *regs;
 	struct device *dev;
 
+	struct list_head txwi_cache;
 	struct mt76_queue q_tx[__MT_TXQ_MAX];
 	const struct mt76_queue_ops *queue_ops;
 
@@ -211,10 +223,9 @@ static inline u16 mt76_rev(struct mt76_dev *dev)
 #define mt76_queue_rx_fill(dev, ...)	(dev)->mt76.queue_ops->rx_fill(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_kick(dev, ...)	(dev)->mt76.queue_ops->kick(&((dev)->mt76), __VA_ARGS__)
 
-#define mt76_tx_queue_skb(dev, ...) (dev)->drv->tx_queue_skb(dev, __VA_ARGS__)
-
 int mt76_register_device(struct mt76_dev *dev, bool vht,
 			 struct ieee80211_rate *rates, int n_rates);
+void mt76_unregister_device(struct mt76_dev *dev);
 
 struct dentry *mt76_register_debugfs(struct mt76_dev *dev);
 
@@ -236,6 +247,10 @@ mtxq_to_txq(struct mt76_txq *mtxq)
 	return container_of(ptr, struct ieee80211_txq, drv_priv);
 }
 
+int mt76_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
+		      struct sk_buff *skb, struct mt76_wcid *wcid,
+		      struct ieee80211_sta *sta);
+
 void mt76_tx(struct mt76_dev *dev, struct ieee80211_sta *sta,
 	     struct mt76_wcid *wcid, struct sk_buff *skb);
 void mt76_txq_init(struct mt76_dev *dev, struct ieee80211_txq *txq);
@@ -248,5 +263,9 @@ void mt76_release_buffered_frames(struct ieee80211_hw *hw,
 				  u16 tids, int nframes,
 				  enum ieee80211_frame_release_type reason,
 				  bool more_data);
+
+/* internal */
+void mt76_tx_free(struct mt76_dev *dev);
+void mt76_put_txwi(struct mt76_dev *dev, struct mt76_txwi_cache *t);
 
 #endif

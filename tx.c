@@ -13,6 +13,71 @@
 
 #include "mt76.h"
 
+static struct mt76_txwi_cache *
+mt76_alloc_txwi(struct mt76_dev *dev)
+{
+	struct mt76_txwi_cache *t;
+	dma_addr_t addr;
+	int size;
+
+	size = (sizeof(*t) + L1_CACHE_BYTES - 1) & ~(L1_CACHE_BYTES - 1);
+	t = devm_kzalloc(dev->dev, size, GFP_ATOMIC);
+	if (!t)
+		return NULL;
+
+	addr = dma_map_single(dev->dev, &t->txwi, sizeof(t->txwi), DMA_TO_DEVICE);
+	t->dma_addr = addr;
+
+	return t;
+}
+
+static struct mt76_txwi_cache *
+__mt76_get_txwi(struct mt76_dev *dev)
+{
+	struct mt76_txwi_cache *t = NULL;
+
+	spin_lock_bh(&dev->lock);
+	if (!list_empty(&dev->txwi_cache)) {
+		t = list_first_entry(&dev->txwi_cache, struct mt76_txwi_cache,
+				     list);
+		list_del(&t->list);
+	}
+	spin_unlock_bh(&dev->lock);
+
+	return t;
+}
+
+static struct mt76_txwi_cache *
+mt76_get_txwi(struct mt76_dev *dev)
+{
+	struct mt76_txwi_cache *t = __mt76_get_txwi(dev);
+
+	if (t)
+		return t;
+
+	return mt76_alloc_txwi(dev);
+}
+
+void
+mt76_put_txwi(struct mt76_dev *dev, struct mt76_txwi_cache *t)
+{
+	if (!t)
+		return;
+
+	spin_lock_bh(&dev->lock);
+	list_add(&t->list, &dev->txwi_cache);
+	spin_unlock_bh(&dev->lock);
+}
+
+void mt76_tx_free(struct mt76_dev *dev)
+{
+	struct mt76_txwi_cache *t;
+
+	while ((t = __mt76_get_txwi(dev)) != NULL)
+		dma_unmap_single(dev->dev, t->dma_addr, sizeof(t->txwi),
+				 DMA_TO_DEVICE);
+}
+
 static int
 mt76_txq_get_qid(struct ieee80211_txq *txq)
 {
@@ -21,6 +86,39 @@ mt76_txq_get_qid(struct ieee80211_txq *txq)
 
 	return txq->ac;
 }
+
+int mt76_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
+		      struct sk_buff *skb, struct mt76_wcid *wcid,
+		      struct ieee80211_sta *sta)
+{
+	struct mt76_txwi_cache *t;
+	int ret = -ENOMEM;
+
+	t = mt76_get_txwi(dev);
+	if (!t)
+		goto free;
+
+	dma_sync_single_for_cpu(dev->dev, t->dma_addr, sizeof(t->txwi),
+				DMA_TO_DEVICE);
+	ret = dev->drv->fill_txwi(dev, &t->txwi, skb, wcid, sta);
+	dma_sync_single_for_device(dev->dev, t->dma_addr, sizeof(t->txwi),
+				   DMA_TO_DEVICE);
+	if (ret < 0)
+		goto free_txwi;
+
+	ret = dev->drv->tx_queue_skb(dev, q, skb, t, wcid, sta);
+	if (ret < 0)
+		goto free_txwi;
+
+	return ret;
+
+free_txwi:
+	mt76_put_txwi(dev, t);
+free:
+	ieee80211_free_txskb(dev->hw, skb);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mt76_tx_queue_skb);
 
 void
 mt76_tx(struct mt76_dev *dev, struct ieee80211_sta *sta,

@@ -104,7 +104,6 @@ struct mt76x2_dev {
 	u8 txdone_seq;
 	DECLARE_KFIFO_PTR(txstatus_fifo, struct mt76x2_tx_status);
 
-	struct list_head txwi_cache;
 	struct mt76x2_mcu mcu;
 	struct mt76_queue q_rx;
 
@@ -121,7 +120,6 @@ struct mt76x2_dev {
 
 	struct mt76_wcid __rcu *wcid[254 - 8];
 
-	spinlock_t lock;
 	spinlock_t irq_lock;
 	u32 irqmask;
 
@@ -219,9 +217,9 @@ void mt76x2_dma_cleanup(struct mt76x2_dev *dev);
 void mt76x2_cleanup(struct mt76x2_dev *dev);
 void mt76x2_rx(struct mt76x2_dev *dev, struct sk_buff *skb);
 
-int mt76x2_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
-			struct sk_buff *skb, struct mt76_wcid *wcid,
-			struct ieee80211_sta *sta);
+int mt76x2_tx_queue_skb(struct mt76_dev *cdev, struct mt76_queue *q,
+			struct sk_buff *skb, struct mt76_txwi_cache *t,
+			struct mt76_wcid *wcid, struct ieee80211_sta *sta);
 int mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76_txq_id qid,
 			struct sk_buff *skb, int cmd, int seq);
 void mt76x2_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,

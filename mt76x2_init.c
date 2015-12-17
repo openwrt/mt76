@@ -561,6 +561,7 @@ void mt76x2_cleanup(struct mt76x2_dev *dev)
 struct mt76x2_dev *mt76x2_alloc_device(struct device *pdev)
 {
 	static const struct mt76_driver_ops drv_ops = {
+		.fill_txwi = mt76x2_mac_write_txwi,
 		.tx_queue_skb = mt76x2_tx_queue_skb
 	};
 	struct ieee80211_hw *hw;
@@ -575,7 +576,6 @@ struct mt76x2_dev *mt76x2_alloc_device(struct device *pdev)
 	dev->mt76.hw = hw;
 	dev->mt76.drv = &drv_ops;
 	mutex_init(&dev->mutex);
-	spin_lock_init(&dev->lock);
 	spin_lock_init(&dev->irq_lock);
 
 	return dev;
@@ -681,7 +681,6 @@ int mt76x2_register_device(struct mt76x2_dev *dev)
 	wiphy->iface_combinations = if_comb;
 	wiphy->n_iface_combinations = ARRAY_SIZE(if_comb);
 
-	INIT_LIST_HEAD(&dev->txwi_cache);
 	INIT_DELAYED_WORK(&dev->cal_work, mt76x2_phy_calibrate);
 	INIT_DELAYED_WORK(&dev->mac_work, mt76x2_mac_work);
 
