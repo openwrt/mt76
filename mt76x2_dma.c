@@ -14,16 +14,16 @@
 #include "mt76x2.h"
 #include "mt76x2_dma.h"
 
-struct mt76_txwi_cache {
-	struct mt76_txwi txwi;
+struct mt76x2_txwi_cache {
+	struct mt76x2_txwi txwi;
 	dma_addr_t dma_addr;
 	struct list_head list;
 };
 
-static struct mt76_txwi_cache *
+static struct mt76x2_txwi_cache *
 mt76x2_alloc_txwi(struct mt76x2_dev *dev)
 {
-	struct mt76_txwi_cache *t;
+	struct mt76x2_txwi_cache *t;
 	dma_addr_t addr;
 	int size;
 
@@ -38,14 +38,14 @@ mt76x2_alloc_txwi(struct mt76x2_dev *dev)
 	return t;
 }
 
-static struct mt76_txwi_cache *
+static struct mt76x2_txwi_cache *
 __mt76x2_get_txwi(struct mt76x2_dev *dev)
 {
-	struct mt76_txwi_cache *t = NULL;
+	struct mt76x2_txwi_cache *t = NULL;
 
 	spin_lock_bh(&dev->lock);
 	if (!list_empty(&dev->txwi_cache)) {
-		t = list_first_entry(&dev->txwi_cache, struct mt76_txwi_cache,
+		t = list_first_entry(&dev->txwi_cache, struct mt76x2_txwi_cache,
 				     list);
 		list_del(&t->list);
 	}
@@ -54,10 +54,10 @@ __mt76x2_get_txwi(struct mt76x2_dev *dev)
 	return t;
 }
 
-static struct mt76_txwi_cache *
+static struct mt76x2_txwi_cache *
 mt76x2_get_txwi(struct mt76x2_dev *dev)
 {
-	struct mt76_txwi_cache *t = __mt76x2_get_txwi(dev);
+	struct mt76x2_txwi_cache *t = __mt76x2_get_txwi(dev);
 
 	if (t)
 		return t;
@@ -66,7 +66,7 @@ mt76x2_get_txwi(struct mt76x2_dev *dev)
 }
 
 static void
-mt76x2_put_txwi(struct mt76x2_dev *dev, struct mt76_txwi_cache *t)
+mt76x2_put_txwi(struct mt76x2_dev *dev, struct mt76x2_txwi_cache *t)
 {
 	if (!t)
 		return;
@@ -111,7 +111,7 @@ mt76x2_tx_queue_skb(struct mt76_dev *cdev, struct mt76_queue *q,
 {
 	struct mt76x2_dev *dev = container_of(cdev, struct mt76x2_dev, mt76);
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	struct mt76_txwi_cache *t;
+	struct mt76x2_txwi_cache *t;
 	dma_addr_t addr;
 	u32 tx_info = 0;
 	int idx, ret, len;
@@ -406,7 +406,7 @@ int mt76x2_dma_init(struct mt76x2_dev *dev)
 
 void mt76x2_dma_cleanup(struct mt76x2_dev *dev)
 {
-	struct mt76_txwi_cache *t;
+	struct mt76x2_txwi_cache *t;
 	int i;
 
 	BUILD_BUG_ON(MT_RX_HEADROOM < sizeof(struct mt76x2_rxwi));

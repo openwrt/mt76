@@ -51,7 +51,7 @@ struct mt76_queue_entry {
 	struct sk_buff *skb;
 	union {
 		void *buf;
-		struct mt76_txwi_cache *txwi;
+		struct mt76x2_txwi_cache *txwi;
 	};
 	bool schedule;
 };
