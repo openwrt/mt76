@@ -277,6 +277,29 @@ static struct ieee80211_rate mt7603_rates[] = {
 	OFDM_RATE(12, 540),
 };
 
+static const struct ieee80211_iface_limit if_limits[] = {
+	{
+		.max = 1,
+		.types = BIT(NL80211_IFTYPE_ADHOC)
+	}, {
+		.max = 4,
+		.types = BIT(NL80211_IFTYPE_STATION) |
+#ifdef CONFIG_MAC80211_MESH
+			 BIT(NL80211_IFTYPE_MESH_POINT) |
+#endif
+			 BIT(NL80211_IFTYPE_AP)
+	 },
+};
+
+static const struct ieee80211_iface_combination if_comb[] = {
+	{
+		.limits = if_limits,
+		.n_limits = ARRAY_SIZE(if_limits),
+		.max_interfaces = 4,
+		.num_different_channels = 1,
+		.beacon_int_infra_match = true,
+	}
+};
 
 int mt7603_register_device(struct mt7603_dev *dev)
 {
@@ -301,6 +324,9 @@ int mt7603_register_device(struct mt7603_dev *dev)
 	hw->extra_tx_headroom = 2;
 
 	SET_IEEE80211_PERM_ADDR(hw, dev->macaddr);
+
+	wiphy->iface_combinations = if_comb;
+	wiphy->n_iface_combinations = ARRAY_SIZE(if_comb);
 
 	ret = mt76_register_device(&dev->mt76, true, mt7603_rates,
 				   ARRAY_SIZE(mt7603_rates));

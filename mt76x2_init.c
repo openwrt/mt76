@@ -609,6 +609,30 @@ static struct ieee80211_rate mt76x2_rates[] = {
 	OFDM_RATE(7, 540),
 };
 
+static const struct ieee80211_iface_limit if_limits[] = {
+	{
+		.max = 1,
+		.types = BIT(NL80211_IFTYPE_ADHOC)
+	}, {
+		.max = 8,
+		.types = BIT(NL80211_IFTYPE_STATION) |
+#ifdef CONFIG_MAC80211_MESH
+			 BIT(NL80211_IFTYPE_MESH_POINT) |
+#endif
+			 BIT(NL80211_IFTYPE_AP)
+	 },
+};
+
+static const struct ieee80211_iface_combination if_comb[] = {
+	{
+		.limits = if_limits,
+		.n_limits = ARRAY_SIZE(if_limits),
+		.max_interfaces = 8,
+		.num_different_channels = 1,
+		.beacon_int_infra_match = true,
+	}
+};
+
 int mt76x2_register_device(struct mt76x2_dev *dev)
 {
 	struct ieee80211_hw *hw = mt76_hw(dev);
@@ -653,6 +677,9 @@ int mt76x2_register_device(struct mt76x2_dev *dev)
 	}
 	wiphy->addresses = dev->macaddr_list;
 	wiphy->n_addresses = ARRAY_SIZE(dev->macaddr_list);
+
+	wiphy->iface_combinations = if_comb;
+	wiphy->n_iface_combinations = ARRAY_SIZE(if_comb);
 
 	INIT_LIST_HEAD(&dev->txwi_cache);
 	INIT_DELAYED_WORK(&dev->cal_work, mt76x2_phy_calibrate);

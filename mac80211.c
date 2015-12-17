@@ -159,30 +159,6 @@ mt76_init_sband_5g(struct mt76_dev *dev, struct ieee80211_rate *rates,
 			       rates, n_rates, vht);
 }
 
-static const struct ieee80211_iface_limit if_limits[] = {
-	{
-		.max = 1,
-		.types = BIT(NL80211_IFTYPE_ADHOC)
-	}, {
-		.max = 8,
-		.types = BIT(NL80211_IFTYPE_STATION) |
-#ifdef CONFIG_MAC80211_MESH
-			 BIT(NL80211_IFTYPE_MESH_POINT) |
-#endif
-			 BIT(NL80211_IFTYPE_AP)
-	 },
-};
-
-static const struct ieee80211_iface_combination if_comb[] = {
-	{
-		.limits = if_limits,
-		.n_limits = ARRAY_SIZE(if_limits),
-		.max_interfaces = 8,
-		.num_different_channels = 1,
-		.beacon_int_infra_match = true,
-	}
-};
-
 int mt76_register_device(struct mt76_dev *dev, bool vht,
 			 struct ieee80211_rate *rates, int n_rates)
 {
@@ -199,9 +175,6 @@ int mt76_register_device(struct mt76_dev *dev, bool vht,
 		BIT(NL80211_IFTYPE_MESH_POINT) |
 #endif
 		BIT(NL80211_IFTYPE_ADHOC);
-
-	wiphy->iface_combinations = if_comb;
-	wiphy->n_iface_combinations = ARRAY_SIZE(if_comb);
 
 	wiphy->features |= NL80211_FEATURE_ACTIVE_MONITOR;
 
