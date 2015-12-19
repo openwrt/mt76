@@ -12,7 +12,7 @@
  */
 
 #include "mt7603.h"
-#include "mt7603_dma.h"
+#include "mt7603_mac.h"
 
 #define MT_PSE_PAGE_SIZE	128
 

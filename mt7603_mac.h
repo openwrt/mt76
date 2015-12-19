@@ -11,10 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MT7603_DMA_H
-#define __MT7603_DMA_H
-
-#include "dma.h"
+#ifndef __MT7603_MAC_H
+#define __MT7603_MAC_H
 
 #define MT_RXD0_LENGTH			GENMASK(15, 0)
 #define MT_RXD0_PKT_TYPE		GENMASK(31, 29)

@@ -12,7 +12,8 @@
  */
 
 #include "mt7603.h"
-#include "mt7603_dma.h"
+#include "mt7603_mac.h"
+#include "dma.h"
 
 int
 mt7603_tx_queue_mcu(struct mt7603_dev *dev, enum mt76_txq_id qid,
