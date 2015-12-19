@@ -89,6 +89,9 @@ void mt7603_dma_cleanup(struct mt7603_dev *dev);
 int mt7603_mcu_init(struct mt7603_dev *dev);
 int mt7603_tx_queue_mcu(struct mt7603_dev *dev, enum mt76_txq_id qid,
 			struct sk_buff *skb);
+int mt7603_tx_queue_skb(struct mt76_dev *cdev, struct mt76_queue *q,
+			struct sk_buff *skb, struct mt76_txwi_cache *t,
+			struct mt76_wcid *wcid, struct ieee80211_sta *sta);
 
 void mt7603_set_irq_mask(struct mt7603_dev *dev, u32 clear, u32 set);
 
@@ -114,5 +117,9 @@ int mt7603_mcu_exit(struct mt7603_dev *dev);
 
 void mt7603_wtbl_init(struct mt7603_dev *dev, int idx, const u8 *addr);
 void mt7603_wtbl_clear(struct mt7603_dev *dev, int idx);
+
+int mt7603_mac_write_txwi(struct mt76_dev *mdev, void *txwi_ptr,
+			  struct sk_buff *skb, struct mt76_wcid *wcid,
+			  struct ieee80211_sta *sta);
 
 #endif

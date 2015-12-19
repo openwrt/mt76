@@ -129,6 +129,15 @@ enum rx_pkt_type {
 #define MT_RXV6_NF1			GENMASK(15, 8)
 #define MT_RXV6_NF0			GENMASK(7, 0)
 
+enum mt7603_tx_header_format {
+    MT_HDR_FORMAT_802_3,
+    MT_HDR_FORMAT_CMD,
+    MT_HDR_FORMAT_802_11,
+    MT_HDR_FORMAT_802_11_EXT,
+};
+
+#define MT_TXD_SIZE			(8 * 4)
+
 #define MT_TXD0_P_IDX			BIT(31)
 #define MT_TXD0_Q_IDX			GENMASK(30, 27)
 #define MT_TXD0_UTXB			BIT(26)
@@ -143,7 +152,7 @@ enum rx_pkt_type {
 #define MT_TXD1_TID			GENMASK(22, 20)
 #define MT_TXD1_NO_ACK			BIT(19)
 #define MT_TXD1_HDR_PAD			GENMASK(18, 16)
-#define MT_TXD1_FT			BIT(15)
+#define MT_TXD1_LONG_FORMAT		BIT(15)
 #define MT_TXD1_HDR_FORMAT		GENMASK(14, 13)
 #define MT_TXD1_HDR_INFO		GENMASK(12, 8)
 #define MT_TXD1_WLAN_IDX		GENMASK(7, 0)
@@ -190,8 +199,14 @@ enum rx_pkt_type {
 #define MT_TXD6_DYN_BW			BIT(15)
 #define MT_TXD6_ANT_PRI			GENMASK(14, 12)
 #define MT_TXD6_SPE_EN			BIT(11)
-#define MT_TXD6_BW			GENMASK(10, 8)
+#define MT_TXD6_FIXED_BW		BIT(10)
+#define MT_TXD6_BW			GENMASK(9, 8)
 #define MT_TXD6_ANT_ID			GENMASK(7, 2)
 #define MT_TXD6_FIXED_RATE		BIT(0)
+
+#define MT_TX_RATE_STBC			BIT(11)
+#define MT_TX_RATE_NSS			GENAMSK(10, 9)
+#define MT_TX_RATE_MODE			GENMASK(8, 6)
+#define MT_TX_RATE_IDX			GENMASK(5, 0)
 
 #endif

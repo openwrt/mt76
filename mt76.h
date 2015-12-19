@@ -123,7 +123,7 @@ struct mt76_txq {
 };
 
 struct mt76_txwi_cache {
-	u32 txwi[6];
+	u32 txwi[8];
 	dma_addr_t dma_addr;
 	struct list_head list;
 };

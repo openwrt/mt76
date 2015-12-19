@@ -18,6 +18,10 @@
 
 struct mt7603_dev *mt7603_alloc_device(struct device *pdev)
 {
+	static const struct mt76_driver_ops drv_ops = {
+		.fill_txwi = mt7603_mac_write_txwi,
+		.tx_queue_skb = mt7603_tx_queue_skb,
+	};
 	struct ieee80211_hw *hw;
 	struct mt7603_dev *dev;
 
@@ -28,6 +32,7 @@ struct mt7603_dev *mt7603_alloc_device(struct device *pdev)
 	dev = hw->priv;
 	dev->mt76.dev = pdev;
 	dev->mt76.hw = hw;
+	dev->mt76.drv = &drv_ops;
 
 	return dev;
 }

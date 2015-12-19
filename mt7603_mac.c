@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/etherdevice.h>
 #include "mt7603.h"
 #include "mt7603_mac.h"
 
@@ -229,6 +230,122 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 	}
 
 	skb_pull(skb, (u8 *) rxd - skb->data + 2 * remove_pad);
+
+	return 0;
+}
+
+static u16
+mt7603_mac_tx_rate_val(struct mt7603_dev *dev,
+		       const struct ieee80211_tx_rate *rate, u8 *nss, u8 *bw)
+{
+	u8 phy, rate_idx;
+
+	*nss = 1;
+	*bw = 0;
+	if (rate->flags & IEEE80211_TX_RC_MCS) {
+		rate_idx = rate->idx;
+		*nss = 1 + (rate->idx >> 3);
+		phy = MT_PHY_TYPE_HT;
+		if (rate->flags & IEEE80211_TX_RC_GREEN_FIELD)
+			phy = MT_PHY_TYPE_HT_GF;
+		if (rate->flags & IEEE80211_TX_RC_40_MHZ_WIDTH)
+			*bw = 1;
+	} else {
+		const struct ieee80211_rate *r;
+		int band = dev->chandef.chan->band;
+		u16 val;
+
+		r = &mt76_hw(dev)->wiphy->bands[band]->bitrates[rate->idx];
+		if (rate->flags & IEEE80211_TX_RC_USE_SHORT_PREAMBLE)
+			val = r->hw_value_short;
+		else
+			val = r->hw_value;
+
+		phy = val >> 8;
+		rate_idx = val & 0xff;
+	}
+
+	return (MT76_SET(MT_TX_RATE_IDX, rate_idx) |
+		MT76_SET(MT_TX_RATE_MODE, phy));
+}
+
+int mt7603_mac_write_txwi(struct mt76_dev *mdev, void *txwi_ptr,
+			  struct sk_buff *skb, struct mt76_wcid *wcid,
+			  struct ieee80211_sta *sta)
+{
+	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+	struct ieee80211_tx_rate *rate = &info->control.rates[0];
+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
+	__le32 *txwi = txwi_ptr;
+	int wlan_idx;
+	int hdr_len = ieee80211_get_hdrlen_from_skb(skb);
+	u8 frame_type, frame_subtype;
+	u8 nss, bw;
+
+	if (wcid)
+		wlan_idx = wcid->idx;
+	else
+		wlan_idx = MT7603_WTBL_RESERVED;
+
+	frame_type = MT76_GET(IEEE80211_FCTL_FTYPE,
+			      le16_to_cpu(hdr->frame_control));
+	frame_subtype = MT76_GET(IEEE80211_FCTL_STYPE,
+				 le16_to_cpu(hdr->frame_control));
+
+	txwi[0] = cpu_to_le32(
+		MT76_SET(MT_TXD0_TX_BYTES, skb->len + MT_TXD_SIZE) |
+		MT76_SET(MT_TXD0_Q_IDX, skb_get_queue_mapping(skb))
+	);
+	txwi[1] = cpu_to_le32(
+		MT_TXD1_LONG_FORMAT |
+		MT76_SET(MT_TXD1_OWN_MAC, 0) |
+		MT76_SET(MT_TXD1_TID, skb->priority &
+				      IEEE80211_QOS_CTL_TID_MASK) |
+		MT76_SET(MT_TXD1_HDR_FORMAT, MT_HDR_FORMAT_802_11) |
+		MT76_SET(MT_TXD1_HDR_INFO, hdr_len / 2) |
+		MT76_SET(MT_TXD1_WLAN_IDX, wlan_idx)
+	);
+
+	if (info->flags & IEEE80211_TX_CTL_NO_ACK)
+		txwi[1] |= cpu_to_le32(MT_TXD1_NO_ACK);
+
+	txwi[2] = cpu_to_le32(
+		MT76_SET(MT_TXD2_FRAME_TYPE, frame_type) |
+		MT76_SET(MT_TXD2_SUB_TYPE, frame_subtype) |
+		MT76_SET(MT_TXD2_MULTICAST, is_multicast_ether_addr(hdr->addr1))
+	);
+	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE)
+		txwi[2] |= cpu_to_le32(MT_TXD2_BA_DISABLE);
+
+	txwi[3] = cpu_to_le32(MT76_SET(MT_TXD3_REM_TX_COUNT, 0xf));
+	txwi[4] = 0;
+	txwi[5] = cpu_to_le32(MT_TXD5_TX_STATUS_HOST | MT_TXD5_SW_POWER_MGMT);
+	txwi[6] = 0;
+
+	spin_lock_bh(&dev->mt76.lock);
+	if (rate->idx >= 0 && !rate->count) {
+		u16 rateval = mt7603_mac_tx_rate_val(dev, rate, &nss, &bw);
+
+		if ((info->flags & IEEE80211_TX_CTL_STBC) && nss == 1)
+			rateval |= MT_TX_RATE_STBC;
+
+		txwi[6] |= cpu_to_le32(
+			MT_TXD6_FIXED_RATE |
+			MT_TXD6_FIXED_BW |
+			MT76_SET(MT_TXD6_BW, bw) |
+			MT76_SET(MT_TXD6_TX_RATE, rateval)
+		);
+
+		if (rate->flags & IEEE80211_TX_RC_SHORT_GI)
+			txwi[6] |= cpu_to_le32(MT_TXD6_SGI);
+	}
+	spin_unlock_bh(&dev->mt76.lock);
+
+	if (info->flags & IEEE80211_TX_CTL_LDPC)
+		txwi[6] |= cpu_to_le32(MT_TXD6_LDPC);
+
+	txwi[7] = 0;
 
 	return 0;
 }
