@@ -84,11 +84,9 @@ mt7603_rx_cleanup(struct mt7603_dev *dev, struct mt76_queue *q)
 }
 
 static void
-mt76_tx_cleanup(struct mt7603_dev *dev, struct mt76_queue *q, bool flush)
+mt7603_tx_cleanup(struct mt7603_dev *dev, struct mt76_queue *q, bool flush)
 {
-	spin_lock_bh(&q->lock);
 	mt76_queue_cleanup(dev, q, flush, mt7603_tx_cleanup_entry);
-	spin_unlock_bh(&q->lock);
 }
 
 static int
@@ -193,7 +191,7 @@ mt7603_tx_tasklet(unsigned long data)
 	int i;
 
 	for (i = ARRAY_SIZE(dev->mt76.q_tx) - 1; i >= 0; i--)
-		mt76_tx_cleanup(dev, &dev->mt76.q_tx[i], false);
+		mt7603_tx_cleanup(dev, &dev->mt76.q_tx[i], false);
 
 	mt7603_irq_enable(dev, MT_INT_TX_DONE_ALL);
 }
@@ -311,7 +309,7 @@ void mt7603_dma_cleanup(struct mt7603_dev *dev)
 	tasklet_kill(&dev->tx_tasklet);
 	tasklet_kill(&dev->rx_tasklet);
 	for (i = 0; i < ARRAY_SIZE(dev->mt76.q_tx); i++)
-		mt76_tx_cleanup(dev, &dev->mt76.q_tx[i], true);
+		mt7603_tx_cleanup(dev, &dev->mt76.q_tx[i], true);
 	mt7603_rx_cleanup(dev, &dev->q_rx);
 	mt7603_rx_cleanup(dev, &dev->mcu.q_rx);
 }
