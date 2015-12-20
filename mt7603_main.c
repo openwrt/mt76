@@ -31,6 +31,26 @@ mt7603_stop(struct ieee80211_hw *hw)
 	mt7603_mac_stop(dev);
 }
 
+static void
+mt7603_txq_init(struct mt7603_dev *dev, struct ieee80211_txq *txq)
+{
+	struct mt76_txq *mtxq;
+
+	if (!txq)
+		return;
+
+	mtxq = (struct mt76_txq *) txq->drv_priv;
+	if (txq->sta) {
+		struct mt7603_sta *sta = (struct mt7603_sta *) txq->sta->drv_priv;
+		mtxq->wcid = &sta->wcid;
+	} else {
+		struct mt7603_vif *mvif = (struct mt7603_vif *) txq->vif->drv_priv;
+		mtxq->wcid = &mvif->group_wcid;
+	}
+
+	mt76_txq_init(&dev->mt76, txq);
+}
+
 static int
 mt7603_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
@@ -47,6 +67,9 @@ mt7603_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	}
 
 	dev->vif_mask |= BIT(mvif->idx);
+	mvif->group_wcid.idx = MT7603_WTBL_RESERVED - 1 - mvif->idx;
+	mvif->group_wcid.hw_key_idx = -1;
+	mt7603_txq_init(dev, vif->txq);
 
 out:
 	mutex_unlock(&dev->mutex);
@@ -59,6 +82,8 @@ mt7603_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
 	struct mt7603_vif *mvif = (struct mt7603_vif *) vif->drv_priv;
 	struct mt7603_dev *dev = hw->priv;
+
+	mt76_txq_remove(&dev->mt76, vif->txq);
 
 	mutex_lock(&dev->mutex);
 	dev->vif_mask &= ~BIT(mvif->idx);
@@ -121,7 +146,6 @@ mt7603_configure_filter(struct ieee80211_hw *hw, unsigned int changed_flags,
 
 	*total_flags = flags;
 	mt76_wr(dev, MT_WF_RFCR, dev->rxfilter);
-
 }
 
 static void
@@ -210,18 +234,13 @@ static void mt7603_set_coverage_class(struct ieee80211_hw *hw,
 static void mt7603_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
 		      struct sk_buff *skb)
 {
-}
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+	struct ieee80211_vif *vif = info->control.vif;
+	struct mt7603_vif *mvif = (struct mt7603_vif *) vif->drv_priv;
+	struct mt76_wcid *wcid = &mvif->group_wcid;
+	struct mt7603_dev *dev = hw->priv;
 
-static void mt7603_wake_tx_queue(struct ieee80211_hw *hw, struct ieee80211_txq *txq)
-{
-}
-
-static void
-mt7603_release_buffered_frames(struct ieee80211_hw *hw, struct ieee80211_sta *sta,
-			     u16 tids, int nframes,
-			     enum ieee80211_frame_release_type reason,
-			     bool more_data)
-{
+	mt76_tx(&dev->mt76, control->sta, wcid, skb);
 }
 
 const struct ieee80211_ops mt7603_ops = {
@@ -243,8 +262,8 @@ const struct ieee80211_ops mt7603_ops = {
 	.flush = mt7603_flush,
 	.ampdu_action = mt7603_ampdu_action,
 	.get_txpower = mt7603_get_txpower,
-	.wake_tx_queue = mt7603_wake_tx_queue,
+	.wake_tx_queue = mt76_wake_tx_queue,
 	.sta_rate_tbl_update = mt7603_sta_rate_tbl_update,
-	.release_buffered_frames = mt7603_release_buffered_frames,
+	.release_buffered_frames = mt76_release_buffered_frames,
 	.set_coverage_class = mt7603_set_coverage_class,
 };
