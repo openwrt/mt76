@@ -287,7 +287,7 @@ static const struct ieee80211_iface_limit if_limits[] = {
 		.max = 1,
 		.types = BIT(NL80211_IFTYPE_ADHOC)
 	}, {
-		.max = 4,
+		.max = MT7603_MAX_INTERFACES,
 		.types = BIT(NL80211_IFTYPE_STATION) |
 #ifdef CONFIG_MAC80211_MESH
 			 BIT(NL80211_IFTYPE_MESH_POINT) |
@@ -327,6 +327,9 @@ int mt7603_register_device(struct mt7603_dev *dev)
 	hw->max_report_rates = 7;
 	hw->max_rate_tries = 1;
 	hw->extra_tx_headroom = 2;
+
+	hw->sta_data_size = sizeof(struct mt7603_sta);
+	hw->vif_data_size = sizeof(struct mt7603_vif);
 
 	SET_IEEE80211_PERM_ADDR(hw, dev->macaddr);
 

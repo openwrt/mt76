@@ -34,12 +34,35 @@ mt7603_stop(struct ieee80211_hw *hw)
 static int
 mt7603_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
-	return -EINVAL;
+	struct mt7603_vif *mvif = (struct mt7603_vif *) vif->drv_priv;
+	struct mt7603_dev *dev = hw->priv;
+	int ret = 0;
+
+	mutex_lock(&dev->mutex);
+
+	mvif->idx = ffs(~dev->vif_mask) - 1;
+	if (mvif->idx >= MT7603_MAX_INTERFACES) {
+		ret = -ENOSPC;
+		goto out;
+	}
+
+	dev->vif_mask |= BIT(mvif->idx);
+
+out:
+	mutex_unlock(&dev->mutex);
+
+	return ret;
 }
 
 static void
 mt7603_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
+	struct mt7603_vif *mvif = (struct mt7603_vif *) vif->drv_priv;
+	struct mt7603_dev *dev = hw->priv;
+
+	mutex_lock(&dev->mutex);
+	dev->vif_mask &= ~BIT(mvif->idx);
+	mutex_unlock(&dev->mutex);
 }
 
 static int

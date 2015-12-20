@@ -17,6 +17,7 @@
 #include "mt76.h"
 #include "mt7603_regs.h"
 
+#define MT7603_MAX_INTERFACES	4
 #define MT7603_WTBL_SIZE	128
 #define MT7603_WTBL_RESERVED	(MT7603_WTBL_SIZE - 1)
 
@@ -48,6 +49,16 @@ struct mt7603_mcu {
 	bool running;
 };
 
+struct mt7603_vif {
+	u8 idx;
+
+	struct mt76_wcid group_wcid;
+};
+
+struct mt7603_sta {
+	struct mt76_wcid wcid; /* must be first */
+};
+
 struct mt7603_dev {
 	struct mt76_dev mt76; /* must be first */
 
@@ -58,6 +69,9 @@ struct mt7603_dev {
 	spinlock_t irq_lock;
 
 	u32 rxfilter;
+
+	u8 vif_mask;
+	unsigned long wcid_mask[MT7603_WTBL_SIZE / BITS_PER_LONG];
 
 	u8 rx_chains;
 	u8 tx_chains;
