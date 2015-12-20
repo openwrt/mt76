@@ -189,28 +189,6 @@ mt76x2_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 }
 
 static int
-mt76_wcid_alloc(struct mt76x2_dev *dev)
-{
-	int i, idx = 0;
-
-	for (i = 0; i < ARRAY_SIZE(dev->wcid_mask); i++) {
-		idx = ffs(~dev->wcid_mask[i]);
-		if (!idx)
-			continue;
-
-		idx--;
-		dev->wcid_mask[i] |= BIT(idx);
-		break;
-	}
-
-	idx = i * BITS_PER_LONG + idx;
-	if (idx > 247)
-		return -1;
-
-	return idx;
-}
-
-static int
 mt76x2_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	     struct ieee80211_sta *sta)
 {
@@ -223,7 +201,7 @@ mt76x2_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	mutex_lock(&dev->mutex);
 
-	idx = mt76_wcid_alloc(dev);
+	idx = mt76_wcid_alloc(dev->wcid_mask, ARRAY_SIZE(dev->wcid));
 	if (idx < 0) {
 		ret = -ENOSPC;
 		goto out;

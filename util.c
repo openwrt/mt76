@@ -79,4 +79,26 @@ bool __mt76_poll_msec(struct mt76_dev *dev, u32 offset, u32 mask, u32 val,
 }
 EXPORT_SYMBOL_GPL(__mt76_poll_msec);
 
+int mt76_wcid_alloc(unsigned long *mask, int size)
+{
+	int i, idx = 0, cur;
+
+	for (i = 0; i < size / BITS_PER_LONG; i++) {
+		idx = ffs(~mask[i]);
+		if (!idx)
+			continue;
+
+		idx--;
+		cur = i * BITS_PER_LONG + idx;
+		if (cur >= size)
+			break;
+
+		mask[i] |= BIT(idx);
+		return cur;
+	}
+
+	return -1;
+}
+EXPORT_SYMBOL_GPL(mt76_wcid_alloc);
+
 MODULE_LICENSE("GPL");
