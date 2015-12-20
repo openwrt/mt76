@@ -154,7 +154,6 @@ struct mt76x2_sta {
 
 	struct mt76x2_tx_status status;
 	int n_frames;
-	bool sleeping;
 };
 
 struct mt76x2_reg_pair {

@@ -275,13 +275,11 @@ mt76x2_sta_notify(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	switch (cmd) {
 	case STA_NOTIFY_SLEEP:
-		msta->sleeping = true;
 		mt76_set(dev, MT_WCID_DROP(idx), MT_WCID_DROP_MASK(idx));
 		mt76_stop_tx_queues(&dev->mt76, sta);
 		break;
 	case STA_NOTIFY_AWAKE:
 		mt76_clear(dev, MT_WCID_DROP(idx), MT_WCID_DROP_MASK(idx));
-		msta->sleeping = false;
 		break;
 	}
 }
