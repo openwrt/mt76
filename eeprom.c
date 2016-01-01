@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 #include <linux/of.h>
+#include <linux/of_net.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
 #include <linux/etherdevice.h>
@@ -77,6 +78,7 @@ mt76_eeprom_override(struct mt76_dev *dev)
 #ifdef CONFIG_OF
 	struct device_node *np = dev->dev->of_node;
 	const __be32 *val;
+	const u8 *mac;
 	int size;
 
 	if (!np)
@@ -89,6 +91,10 @@ mt76_eeprom_override(struct mt76_dev *dev)
 	val = of_get_property(np, "mediatek,5ghz", &size);
 	if (val)
 		dev->cap.has_5ghz = be32_to_cpup(val);
+
+	mac = of_get_mac_address(np);
+	if (mac)
+		memcpy(dev->macaddr, mac, ETH_ALEN);
 #endif
 
 	if (!is_valid_ether_addr(dev->macaddr)) {
