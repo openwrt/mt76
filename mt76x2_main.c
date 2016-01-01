@@ -61,7 +61,7 @@ mt76x2_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	int ret = 0;
 
 	if (vif->addr[0] & BIT(1))
-		idx = 1 + (((dev->macaddr[0] ^ vif->addr[0]) >> 2) & 7);
+		idx = 1 + (((dev->mt76.macaddr[0] ^ vif->addr[0]) >> 2) & 7);
 
 	/*
 	 * Client mode typically only has one configurable BSSID register,

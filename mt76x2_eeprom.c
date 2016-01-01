@@ -11,7 +11,6 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/etherdevice.h>
 #include <asm/unaligned.h>
 #include "mt76x2.h"
 #include "mt76x2_eeprom.h"
@@ -34,7 +33,7 @@ mt76x2_eeprom_get_macaddr(struct mt76x2_dev *dev)
 {
 	void *src = dev->mt76.eeprom.data + MT_EE_MAC_ADDR;
 
-	memcpy(dev->macaddr, src, ETH_ALEN);
+	memcpy(dev->mt76.macaddr, src, ETH_ALEN);
 	return 0;
 }
 
@@ -617,15 +616,8 @@ int mt76x2_eeprom_init(struct mt76x2_dev *dev)
 		return ret;
 
 	mt76x2_eeprom_parse_hw_cap(dev);
-	mt76_eeprom_override(&dev->mt76);
-
 	mt76x2_eeprom_get_macaddr(dev);
-	if (!is_valid_ether_addr(dev->macaddr)) {
-		eth_random_addr(dev->macaddr);
-		dev_printk(KERN_INFO, dev->mt76.dev,
-			   "Invalid MAC address, using random address %pM\n",
-			   dev->macaddr);
-	}
+	mt76_eeprom_override(&dev->mt76);
 
 	return 0;
 }

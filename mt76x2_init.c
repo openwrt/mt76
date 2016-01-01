@@ -185,6 +185,7 @@ mt76x2_init_beacon_offsets(struct mt76x2_dev *dev)
 int mt76x2_mac_reset(struct mt76x2_dev *dev, bool hard)
 {
 	static const u8 null_addr[ETH_ALEN] = {};
+	const u8 *macaddr = dev->mt76.macaddr;
 	u32 val;
 	int i, k;
 
@@ -224,11 +225,11 @@ int mt76x2_mac_reset(struct mt76x2_dev *dev, bool hard)
 	mt76_wr(dev, MT_MCU_CLOCK_CTL, 0x1401);
 	mt76_clear(dev, MT_FCE_L2_STUFF, MT_FCE_L2_STUFF_WR_MPDU_LEN_EN);
 
-	mt76_wr(dev, MT_MAC_ADDR_DW0, get_unaligned_le32(dev->macaddr));
-	mt76_wr(dev, MT_MAC_ADDR_DW1, get_unaligned_le16(dev->macaddr + 4));
+	mt76_wr(dev, MT_MAC_ADDR_DW0, get_unaligned_le32(macaddr));
+	mt76_wr(dev, MT_MAC_ADDR_DW1, get_unaligned_le16(macaddr + 4));
 
-	mt76_wr(dev, MT_MAC_BSSID_DW0, get_unaligned_le32(dev->macaddr));
-	mt76_wr(dev, MT_MAC_BSSID_DW1, get_unaligned_le16(dev->macaddr + 4) |
+	mt76_wr(dev, MT_MAC_BSSID_DW0, get_unaligned_le32(macaddr));
+	mt76_wr(dev, MT_MAC_BSSID_DW1, get_unaligned_le16(macaddr + 4) |
 		MT76_SET(MT_MAC_BSSID_DW1_MBSS_MODE, 3) | /* 8 beacons */
 		MT_MAC_BSSID_DW1_MBSS_LOCAL_BIT);
 
@@ -662,12 +663,9 @@ int mt76x2_register_device(struct mt76x2_dev *dev)
 	hw->sta_data_size = sizeof(struct mt76x2_sta);
 	hw->vif_data_size = sizeof(struct mt76x2_vif);
 
-	dev->macaddr[0] &= ~BIT(1);
-	SET_IEEE80211_PERM_ADDR(hw, dev->macaddr);
-
 	for (i = 0; i < ARRAY_SIZE(dev->macaddr_list); i++) {
 		u8 *addr = dev->macaddr_list[i].addr;
-		memcpy(addr, dev->macaddr, ETH_ALEN);
+		memcpy(addr, dev->mt76.macaddr, ETH_ALEN);
 
 		if (!i)
 			continue;

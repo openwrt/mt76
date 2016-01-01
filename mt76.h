@@ -162,6 +162,7 @@ struct mt76_dev {
 	struct mt76_queue q_tx[__MT_TXQ_MAX];
 	const struct mt76_queue_ops *queue_ops;
 
+	u8 macaddr[ETH_ALEN];
 	u32 rev;
 	unsigned long state;
 
@@ -229,16 +230,8 @@ void mt76_unregister_device(struct mt76_dev *dev);
 
 struct dentry *mt76_register_debugfs(struct mt76_dev *dev);
 
-
-#ifdef CONFIG_OF
-void mt76_eeprom_override(struct mt76_dev *dev);
-#else
-static inline void mt76_eeprom_override(struct mt76_dev *dev)
-{
-}
-#endif
-
 int mt76_eeprom_init(struct mt76_dev *dev, int len);
+void mt76_eeprom_override(struct mt76_dev *dev);
 
 static inline struct ieee80211_txq *
 mtxq_to_txq(struct mt76_txq *mtxq)

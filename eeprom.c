@@ -13,6 +13,7 @@
 #include <linux/of.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
+#include <linux/etherdevice.h>
 #include "mt76.h"
 
 static int
@@ -70,10 +71,10 @@ mt76_get_of_eeprom(struct mt76_dev *dev, int len)
 #endif
 }
 
-#ifdef CONFIG_OF
 void
 mt76_eeprom_override(struct mt76_dev *dev)
 {
+#ifdef CONFIG_OF
 	struct device_node *np = dev->dev->of_node;
 	const __be32 *val;
 	int size;
@@ -88,9 +89,17 @@ mt76_eeprom_override(struct mt76_dev *dev)
 	val = of_get_property(np, "mediatek,5ghz", &size);
 	if (val)
 		dev->cap.has_5ghz = be32_to_cpup(val);
+#endif
+
+	if (!is_valid_ether_addr(dev->macaddr)) {
+		eth_random_addr(dev->macaddr);
+		dev_printk(KERN_INFO, dev->dev,
+			   "Invalid MAC address, using random address %pM\n",
+			   dev->macaddr);
+	}
+
 }
 EXPORT_SYMBOL_GPL(mt76_eeprom_override);
-#endif
 
 int
 mt76_eeprom_init(struct mt76_dev *dev, int len)

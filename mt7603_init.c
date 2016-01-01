@@ -229,7 +229,9 @@ mt7603_init_hardware(struct mt7603_dev *dev)
 		return ret;
 
 	dev->mt76.cap.has_2ghz = true;
-	memcpy(dev->macaddr, dev->mt76.eeprom.data + MT_EE_MAC_ADDR, ETH_ALEN);
+	memcpy(dev->mt76.macaddr, dev->mt76.eeprom.data + MT_EE_MAC_ADDR,
+	       ETH_ALEN);
+	mt76_eeprom_override(&dev->mt76);
 
 	ret = mt7603_dma_init(dev);
 	if (ret)
@@ -330,8 +332,6 @@ int mt7603_register_device(struct mt7603_dev *dev)
 
 	hw->sta_data_size = sizeof(struct mt7603_sta);
 	hw->vif_data_size = sizeof(struct mt7603_vif);
-
-	SET_IEEE80211_PERM_ADDR(hw, dev->macaddr);
 
 	wiphy->iface_combinations = if_comb;
 	wiphy->n_iface_combinations = ARRAY_SIZE(if_comb);

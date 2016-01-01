@@ -170,6 +170,7 @@ int mt76_register_device(struct mt76_dev *dev, bool vht,
 	INIT_LIST_HEAD(&dev->txwi_cache);
 
 	SET_IEEE80211_DEV(hw, dev->dev);
+	SET_IEEE80211_PERM_ADDR(hw, dev->macaddr);
 
 	wiphy->interface_modes =
 		BIT(NL80211_IFTYPE_STATION) |
