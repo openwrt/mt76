@@ -339,6 +339,7 @@ void mt76x2_read_rx_gain(struct mt76x2_dev *dev)
 	struct ieee80211_channel *chan = dev->chandef.chan;
 	int channel = chan->hw_value;
 	s8 lna_5g[3], lna_2g;
+	u8 lna;
 	u16 val;
 
 	if (chan->band == IEEE80211_BAND_2GHZ)
@@ -386,14 +387,18 @@ void mt76x2_read_rx_gain(struct mt76x2_dev *dev)
 		memset(lna_5g, 0, sizeof(lna_5g));
 
 	if (chan->band == IEEE80211_BAND_2GHZ)
-		dev->cal.rx.lna_gain = lna_2g;
+		lna = lna_2g;
 	else if (channel <= 64)
-		dev->cal.rx.lna_gain = lna_5g[0];
+		lna = lna_5g[0];
 	else if (channel <= 128)
-		dev->cal.rx.lna_gain = lna_5g[1];
+		lna = lna_5g[1];
 	else
-		dev->cal.rx.lna_gain = lna_5g[2];
+		lna = lna_5g[2];
 
+	if (lna == 0xff)
+		lna = 0;
+
+	dev->cal.rx.lna_gain = mt76x2_sign_extend(lna, 8);
 }
 
 static s8
