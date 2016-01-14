@@ -30,8 +30,8 @@ int mt76_insert_hdr_pad(struct sk_buff *skb)
 	if (len % 4 == 0)
 		return 0;
 
-	ret = skb_cow(skb, 2);
-	if (ret)
+	if (skb_headroom(skb) < 2 &&
+	    (ret = pskb_expand_head(skb, 2, 0, GFP_ATOMIC)) != 0)
 		return ret;
 
 	skb_push(skb, 2);
