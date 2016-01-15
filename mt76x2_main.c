@@ -374,14 +374,16 @@ mt76x2_get_txpower(struct ieee80211_hw *hw, struct ieee80211_vif *vif, int *dbm)
 
 static int
 mt76x2_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-		  enum ieee80211_ampdu_mlme_action action,
-		  struct ieee80211_sta *sta,u16 tid, u16 *ssn, u8 buf_size,
-		  bool amsdu)
+		    struct ieee80211_ampdu_params *params)
 {
+	enum ieee80211_ampdu_mlme_action action = params->action;
+	struct ieee80211_sta *sta = params->sta;
 	struct mt76x2_dev *dev = hw->priv;
 	struct mt76x2_sta *msta = (struct mt76x2_sta *) sta->drv_priv;
-	struct ieee80211_txq *txq = sta->txq[tid];
+	struct ieee80211_txq *txq = sta->txq[params->tid];
 	struct mt76_txq *mtxq = (struct mt76_txq *) txq->drv_priv;
+	u16 tid = params->tid;
+	u16 *ssn = &params->ssn;
 
 	if (!txq)
 		return -EINVAL;
