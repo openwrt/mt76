@@ -272,6 +272,10 @@ int mt76x2_dma_init(struct mt76x2_dev *dev)
 	};
 	int ret;
 	int i;
+	struct mt76_txwi_cache __maybe_unused *t;
+
+	BUILD_BUG_ON(sizeof(t->txwi) < sizeof(struct mt76x2_txwi));
+	BUILD_BUG_ON(sizeof(struct mt76x2_rxwi) > MT_RX_HEADROOM);
 
 	mt76_dma_init(&dev->mt76);
 
@@ -303,6 +307,9 @@ int mt76x2_dma_init(struct mt76x2_dev *dev)
 	if (ret)
 		return ret;
 
+	dev->q_rx.buf_offset = MT_RX_HEADROOM - sizeof(struct mt76x2_rxwi);
+	dev->mcu.q_rx.buf_offset = MT_RX_HEADROOM - sizeof(struct mt76x2_rxwi);
+
 	ret = mt76x2_init_rx_queue(dev, &dev->mcu.q_rx, 1, MT_MCU_RING_SIZE,
 				 MT_RX_BUF_SIZE);
 	if (ret)
@@ -321,13 +328,7 @@ int mt76x2_dma_init(struct mt76x2_dev *dev)
 
 void mt76x2_dma_cleanup(struct mt76x2_dev *dev)
 {
-	struct mt76_txwi_cache __maybe_unused *t;
 	int i;
-
-	BUILD_BUG_ON(sizeof(t->txwi) < sizeof(struct mt76x2_txwi));
-	BUILD_BUG_ON(MT_RX_HEADROOM < sizeof(struct mt76x2_rxwi));
-	dev->q_rx.buf_offset = MT_RX_HEADROOM - sizeof(struct mt76x2_rxwi);
-	dev->mcu.q_rx.buf_offset = MT_RX_HEADROOM - sizeof(struct mt76x2_rxwi);
 
 	tasklet_kill(&dev->tx_tasklet);
 	tasklet_kill(&dev->rx_tasklet);
