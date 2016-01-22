@@ -122,7 +122,7 @@ mt76_tx_cleanup(struct mt76x2_dev *dev, struct mt76_queue *q, bool flush)
 
 static int
 mt76x2_init_tx_queue(struct mt76x2_dev *dev, struct mt76_queue *q,
-		   int idx, int n_desc, bool mcu)
+		   int idx, int n_desc)
 {
 	int ret;
 
@@ -292,18 +292,18 @@ int mt76x2_dma_init(struct mt76x2_dev *dev)
 
 	for (i = 0; i < ARRAY_SIZE(wmm_queue_map); i++) {
 		ret = mt76x2_init_tx_queue(dev, &dev->mt76.q_tx[i], wmm_queue_map[i],
-					 MT_TX_RING_SIZE, false);
+					 MT_TX_RING_SIZE);
 		if (ret)
 			return ret;
 	}
 
 	ret = mt76x2_init_tx_queue(dev, &dev->mt76.q_tx[MT_TXQ_PSD],
-				 MT_TX_HW_QUEUE_MGMT, MT_TX_RING_SIZE, false);
+				 MT_TX_HW_QUEUE_MGMT, MT_TX_RING_SIZE);
 	if (ret)
 		return ret;
 
 	ret = mt76x2_init_tx_queue(dev, &dev->mt76.q_tx[MT_TXQ_MCU],
-				 MT_TX_HW_QUEUE_MCU, MT_MCU_RING_SIZE, true);
+				 MT_TX_HW_QUEUE_MCU, MT_MCU_RING_SIZE);
 	if (ret)
 		return ret;
 
