@@ -65,6 +65,24 @@ mt76x2_mac_pbf_init(struct mt76x2_dev *dev)
 static void
 mt76_write_mac_initvals(struct mt76x2_dev *dev)
 {
+#define DEFAULT_PROT_CFG				\
+	(MT76_SET(MT_PROT_CFG_RATE, 0x2004) |		\
+	 MT76_SET(MT_PROT_CFG_NAV, 1) |			\
+	 MT76_SET(MT_PROT_CFG_TXOP_ALLOW, 0x3f) |	\
+	 MT_PROT_CFG_RTS_THRESH)
+
+#define DEFAULT_PROT_CFG_20				\
+	(MT76_SET(MT_PROT_CFG_RATE, 0x2004) |		\
+	 MT76_SET(MT_PROT_CFG_CTRL, 1) |		\
+	 MT76_SET(MT_PROT_CFG_NAV, 1) |			\
+	 MT76_SET(MT_PROT_CFG_TXOP_ALLOW, 0x17))
+
+#define DEFAULT_PROT_CFG_40				\
+	(MT76_SET(MT_PROT_CFG_RATE, 0x2084) |		\
+	 MT76_SET(MT_PROT_CFG_CTRL, 1) |		\
+	 MT76_SET(MT_PROT_CFG_NAV, 1) |			\
+	 MT76_SET(MT_PROT_CFG_TXOP_ALLOW, 0x3f))
+
 	static const struct mt76x2_reg_pair vals[] = {
 		/* Copied from MediaTek reference source */
 		{ MT_PBF_SYS_CTRL,		0x00080c00 },
@@ -83,7 +101,7 @@ mt76_write_mac_initvals(struct mt76x2_dev *dev)
 		{ MT_TX_SW_CFG1,		0x00010000 },
 		{ MT_TX_SW_CFG2,		0x00000000 },
 		{ MT_TXOP_CTRL_CFG,		0x0400583f },
-		{ MT_TX_RTS_CFG,		0x00092b20 },
+		{ MT_TX_RTS_CFG,		0x00100020 },
 		{ MT_TX_TIMEOUT_CFG,		0x000a2290 },
 		{ MT_TX_RETRY_CFG,		0x47f01f0f },
 		{ MT_EXP_ACK_TIME,		0x002c00dc },
@@ -121,8 +139,17 @@ mt76_write_mac_initvals(struct mt76x2_dev *dev)
 		{ MT_PROT_AUTO_TX_CFG,		0x00830083 },
 		{ MT_HT_CTRL_CFG,		0x000001ff },
 	};
+	struct mt76x2_reg_pair prot_vals[] = {
+		{ MT_CCK_PROT_CFG,		DEFAULT_PROT_CFG },
+		{ MT_OFDM_PROT_CFG,		DEFAULT_PROT_CFG },
+		{ MT_MM20_PROT_CFG,		DEFAULT_PROT_CFG_20 },
+		{ MT_MM40_PROT_CFG,		DEFAULT_PROT_CFG_40 },
+		{ MT_GF20_PROT_CFG,		DEFAULT_PROT_CFG_20 },
+		{ MT_GF40_PROT_CFG,		DEFAULT_PROT_CFG_40 },
+	};
 
 	mt76_write_reg_pairs(dev, vals, ARRAY_SIZE(vals));
+	mt76_write_reg_pairs(dev, prot_vals, ARRAY_SIZE(prot_vals));
 }
 
 static void
