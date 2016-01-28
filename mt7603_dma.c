@@ -126,6 +126,7 @@ mt7603_process_rx_queue(struct mt7603_dev *dev, struct mt76_queue *q, int budget
 	unsigned char *data;
 	int len;
 	int done = 0;
+	bool napi = q == &dev->q_rx;
 
 	while (done < budget) {
 		data = mt76_queue_dequeue(dev, q, false, &len, NULL);
@@ -148,7 +149,7 @@ mt7603_process_rx_queue(struct mt7603_dev *dev, struct mt76_queue *q, int budget
 		done++;
 	}
 
-	mt76_queue_rx_fill(dev, q, true);
+	mt76_queue_rx_fill(dev, q, napi);
 	return done;
 }
 

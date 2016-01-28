@@ -157,6 +157,7 @@ mt76x2_process_rx_queue(struct mt76x2_dev *dev, struct mt76_queue *q, int budget
 	unsigned char *data;
 	int len;
 	int done = 0;
+	bool napi = q == &dev->q_rx;
 
 	while (done < budget) {
 		u32 info;
@@ -182,7 +183,7 @@ mt76x2_process_rx_queue(struct mt76x2_dev *dev, struct mt76_queue *q, int budget
 		done++;
 	}
 
-	mt76_queue_rx_fill(dev, q, true);
+	mt76_queue_rx_fill(dev, q, napi);
 	return done;
 }
 
