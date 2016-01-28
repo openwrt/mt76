@@ -175,7 +175,7 @@ mt76_dma_kick_queue(struct mt76_dev *dev, struct mt76_queue *q)
 }
 
 static int
-mt76_dma_rx_fill(struct mt76_dev *dev, struct mt76_queue *q)
+mt76_dma_rx_fill(struct mt76_dev *dev, struct mt76_queue *q, bool napi)
 {
 	dma_addr_t addr;
 	void *buf;
@@ -183,17 +183,23 @@ mt76_dma_rx_fill(struct mt76_dev *dev, struct mt76_queue *q)
 	int len = SKB_WITH_OVERHEAD(q->buf_size);
 	int offset = q->buf_offset;
 	int idx;
+	void *(*alloc)(unsigned int fragsz);
+
+	if (napi)
+		alloc = napi_alloc_frag;
+	else
+		alloc = netdev_alloc_frag;
 
 	spin_lock_bh(&q->lock);
 
 	while (q->queued < q->ndesc - 1) {
-		buf = kzalloc(q->buf_size, GFP_ATOMIC);
+		buf = alloc(q->buf_size);
 		if (!buf)
 			break;
 
 		addr = dma_map_single(dev->dev, buf, len, DMA_FROM_DEVICE);
 		if (dma_mapping_error(dev->dev, addr)) {
-			kfree(buf);
+			skb_free_frag(buf);
 			break;
 		}
 

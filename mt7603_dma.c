@@ -78,7 +78,7 @@ mt7603_rx_cleanup(struct mt7603_dev *dev, struct mt76_queue *q)
 		if (!buf)
 			break;
 
-		kfree(buf);
+		skb_free_frag(buf);
 	} while (1);
 	spin_unlock_bh(&q->lock);
 }
@@ -145,9 +145,9 @@ mt7603_process_rx_queue(struct mt7603_dev *dev, struct mt76_queue *q, int budget
 		if (!data)
 			break;
 
-		skb = build_skb(data, 0);
+		skb = build_skb(data, q->buf_size);
 		if (!skb) {
-			kfree(data);
+			skb_free_frag(data);
 			continue;
 		}
 
@@ -161,7 +161,7 @@ mt7603_process_rx_queue(struct mt7603_dev *dev, struct mt76_queue *q, int budget
 		done++;
 	}
 
-	mt76_queue_rx_fill(dev, q);
+	mt76_queue_rx_fill(dev, q, true);
 	return done;
 }
 
@@ -289,8 +289,8 @@ int mt7603_dma_init(struct mt7603_dev *dev)
 	if (ret)
 		return ret;
 
-	mt76_queue_rx_fill(dev, &dev->q_rx);
-	mt76_queue_rx_fill(dev, &dev->mcu.q_rx);
+	mt76_queue_rx_fill(dev, &dev->q_rx, false);
+	mt76_queue_rx_fill(dev, &dev->mcu.q_rx, false);
 
 	mt76_wr(dev, MT_DELAY_INT_CFG, 0);
 

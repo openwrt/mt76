@@ -96,7 +96,7 @@ struct mt76_queue_ops {
 			void (*done)(struct mt76_dev *dev, struct mt76_queue *q,
 				     struct mt76_queue_entry *e));
 
-	int (*rx_fill)(struct mt76_dev *dev, struct mt76_queue *q);
+	int (*rx_fill)(struct mt76_dev *dev, struct mt76_queue *q, bool napi);
 
 	void (*kick)(struct mt76_dev *dev, struct mt76_queue *q);
 };
