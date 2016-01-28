@@ -64,7 +64,10 @@ mt7603_tx_cleanup_entry(struct mt76_dev *mdev, struct mt76_queue *q,
 	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
 
 	(void) dev;
-	dev_kfree_skb_any(e->skb);
+	if (e->txwi)
+		ieee80211_free_txskb(mdev->hw, e->skb);
+	else
+		dev_kfree_skb_any(e->skb);
 }
 
 static void
