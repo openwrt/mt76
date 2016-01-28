@@ -93,7 +93,7 @@ mt76_dma_tx_cleanup_idx(struct mt76_dev *dev, struct mt76_queue *q, int idx,
 }
 
 static void
-mt76_dma_cleanup(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
+mt76_dma_tx_cleanup(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
 		 void (*done)(struct mt76_dev *dev, struct mt76_queue *q,
 			      struct mt76_queue_entry *e))
 {
@@ -216,12 +216,29 @@ mt76_dma_rx_fill(struct mt76_dev *dev, struct mt76_queue *q, bool napi)
 	return frames;
 }
 
+static void
+mt76_dma_rx_cleanup(struct mt76_dev *dev, struct mt76_queue *q)
+{
+	void *buf;
+
+	spin_lock_bh(&q->lock);
+	do {
+		buf = mt76_dma_dequeue(dev, q, true, NULL, NULL);
+		if (!buf)
+			break;
+
+		skb_free_frag(buf);
+	} while (1);
+	spin_unlock_bh(&q->lock);
+}
+
 static const struct mt76_queue_ops mt76_dma_ops = {
 	.alloc = mt76_dma_alloc_queue,
 	.add_buf = mt76_dma_add_buf,
 	.rx_fill = mt76_dma_rx_fill,
 	.dequeue = mt76_dma_dequeue,
-	.cleanup = mt76_dma_cleanup,
+	.tx_cleanup = mt76_dma_tx_cleanup,
+	.rx_cleanup = mt76_dma_rx_cleanup,
 	.kick = mt76_dma_kick_queue,
 };
 

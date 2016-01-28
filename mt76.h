@@ -92,11 +92,13 @@ struct mt76_queue_ops {
 	void *(*dequeue)(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
 			 int *len, u32 *info);
 
-	void (*cleanup)(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
-			void (*done)(struct mt76_dev *dev, struct mt76_queue *q,
-				     struct mt76_queue_entry *e));
+	void (*tx_cleanup)(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
+			   void (*done)(struct mt76_dev *dev, struct mt76_queue *q,
+					struct mt76_queue_entry *e));
 
 	int (*rx_fill)(struct mt76_dev *dev, struct mt76_queue *q, bool napi);
+
+	void (*rx_cleanup)(struct mt76_dev *dev, struct mt76_queue *q);
 
 	void (*kick)(struct mt76_dev *dev, struct mt76_queue *q);
 };
@@ -220,7 +222,8 @@ static inline u16 mt76_rev(struct mt76_dev *dev)
 #define mt76_queue_alloc(dev, ...)	(dev)->mt76.queue_ops->alloc(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_add_buf(dev, ...)	(dev)->mt76.queue_ops->add_buf(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_dequeue(dev, ...)	(dev)->mt76.queue_ops->dequeue(&((dev)->mt76), __VA_ARGS__)
-#define mt76_queue_cleanup(dev, ...)	(dev)->mt76.queue_ops->cleanup(&((dev)->mt76), __VA_ARGS__)
+#define mt76_queue_tx_cleanup(dev, ...)	(dev)->mt76.queue_ops->tx_cleanup(&((dev)->mt76), __VA_ARGS__)
+#define mt76_queue_rx_cleanup(dev, ...)	(dev)->mt76.queue_ops->rx_cleanup(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_rx_fill(dev, ...)	(dev)->mt76.queue_ops->rx_fill(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_kick(dev, ...)	(dev)->mt76.queue_ops->kick(&((dev)->mt76), __VA_ARGS__)
 
