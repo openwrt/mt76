@@ -104,6 +104,10 @@ mt7603_process_rx_skb(struct mt7603_dev *dev, struct mt76_queue *q,
 	type = MT76_GET(MT_RXD0_PKT_TYPE, le32_to_cpu(rxd[0]));
 
 	switch(type) {
+	case PKT_TYPE_TXS:
+		mt7603_mac_add_txs(dev, &rxd[1]);
+		dev_kfree_skb(skb);
+		break;
 	case PKT_TYPE_RX_EVENT:
 		skb_queue_tail(&dev->mcu.res_q, skb);
 		wake_up(&dev->mcu.wait);
@@ -116,6 +120,7 @@ mt7603_process_rx_skb(struct mt7603_dev *dev, struct mt76_queue *q,
 		/* fall through */
 	default:
 		dev_kfree_skb(skb);
+		break;
 	}
 }
 

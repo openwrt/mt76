@@ -57,6 +57,8 @@ struct mt7603_vif {
 
 struct mt7603_sta {
 	struct mt76_wcid wcid; /* must be first */
+	int ampdu_count;
+	int ampdu_acked;
 };
 
 struct mt7603_dev {
@@ -72,6 +74,7 @@ struct mt7603_dev {
 
 	u8 vif_mask;
 	unsigned long wcid_mask[MT7603_WTBL_SIZE / BITS_PER_LONG];
+	struct mt76_wcid __rcu *wcid[MT7603_WTBL_SIZE];
 
 	u8 rx_chains;
 	u8 tx_chains;
@@ -121,6 +124,7 @@ static inline void mt7603_irq_disable(struct mt7603_dev *dev, u32 mask)
 void mt7603_mac_start(struct mt7603_dev *dev);
 void mt7603_mac_stop(struct mt7603_dev *dev);
 int mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb);
+void mt7603_mac_add_txs(struct mt7603_dev *dev, void *data);
 
 int mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def);
 int mt7603_mcu_set_channel(struct mt7603_dev *dev);
@@ -134,5 +138,4 @@ void mt7603_wtbl_clear(struct mt7603_dev *dev, int idx);
 int mt7603_mac_write_txwi(struct mt76_dev *mdev, void *txwi_ptr,
 			  struct sk_buff *skb, struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta);
-
 #endif

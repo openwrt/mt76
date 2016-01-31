@@ -282,6 +282,7 @@ int mt7603_mac_write_txwi(struct mt76_dev *mdev, void *txwi_ptr,
 	int hdr_len = ieee80211_get_hdrlen_from_skb(skb);
 	u8 frame_type, frame_subtype;
 	u8 nss, bw;
+	u8 pid = 0;
 
 	if (wcid)
 		wlan_idx = wcid->idx;
@@ -307,8 +308,10 @@ int mt7603_mac_write_txwi(struct mt76_dev *mdev, void *txwi_ptr,
 		MT76_SET(MT_TXD1_WLAN_IDX, wlan_idx)
 	);
 
-	if (info->flags & IEEE80211_TX_CTL_NO_ACK)
+	if (info->flags & IEEE80211_TX_CTL_NO_ACK) {
 		txwi[1] |= cpu_to_le32(MT_TXD1_NO_ACK);
+		pid |= BIT(7);
+	}
 
 	txwi[2] = cpu_to_le32(
 		MT76_SET(MT_TXD2_FRAME_TYPE, frame_type) |
@@ -320,7 +323,10 @@ int mt7603_mac_write_txwi(struct mt76_dev *mdev, void *txwi_ptr,
 
 	txwi[3] = cpu_to_le32(MT76_SET(MT_TXD3_REM_TX_COUNT, 0xf));
 	txwi[4] = 0;
-	txwi[5] = cpu_to_le32(MT_TXD5_TX_STATUS_HOST | MT_TXD5_SW_POWER_MGMT);
+	txwi[5] = cpu_to_le32(
+		MT_TXD5_TX_STATUS_HOST | MT_TXD5_SW_POWER_MGMT |
+		MT76_SET(MT_TXD5_PID, pid)
+	);
 	txwi[6] = 0;
 
 	spin_lock_bh(&dev->mt76.lock);
@@ -348,6 +354,67 @@ int mt7603_mac_write_txwi(struct mt76_dev *mdev, void *txwi_ptr,
 	txwi[7] = 0;
 
 	return 0;
+}
+
+void mt7603_mac_add_txs(struct mt7603_dev *dev, void *data)
+{
+	struct ieee80211_tx_info info = {};
+	struct ieee80211_sta *sta = NULL;
+	struct mt7603_sta *msta = NULL;
+	struct mt76_wcid *wcid;
+	__le32 *txs_data = data;
+	void *priv;
+	bool final_mpdu;
+	bool ampdu;
+	u32 txs;
+	u8 wcidx;
+	u8 pid;
+
+	txs = le32_to_cpu(txs_data[4]);
+	pid = MT76_GET(MT_TXS4_PID, txs);
+	if (pid & BIT(7)) /* No-ACK */
+		return;
+
+	final_mpdu = txs & MT_TXS4_ACKED_MPDU;
+	ampdu = txs & MT_TXS4_AMPDU;
+
+	txs = le32_to_cpu(txs_data[3]);
+	wcidx = MT76_GET(MT_TXS3_WCID, txs);
+
+	if (wcidx >= ARRAY_SIZE(dev->wcid))
+		return;
+
+	rcu_read_lock();
+
+	wcid = rcu_dereference(dev->wcid[wcidx]);
+	if (!wcid)
+		goto out;
+
+	priv = msta = container_of(wcid, struct mt7603_sta, wcid);
+	sta = container_of(priv, struct ieee80211_sta, drv_priv);
+
+	txs = le32_to_cpu(txs_data[0]);
+	if (!(txs & MT_TXS0_ACK_ERROR_MASK)) {
+		msta->ampdu_acked++;
+		info.flags |= IEEE80211_TX_STAT_ACK;
+	}
+
+	msta->ampdu_count++;
+	if (ampdu) {
+		if (!final_mpdu)
+			return;
+
+		info.flags |= IEEE80211_TX_CTL_AMPDU | IEEE80211_TX_STAT_AMPDU;
+		info.status.ampdu_len = msta->ampdu_count;
+		info.status.ampdu_ack_len = msta->ampdu_acked;
+	}
+
+	ieee80211_tx_status_noskb(mt76_hw(dev), sta, &info);
+	msta->ampdu_count = 0;
+	msta->ampdu_acked = 0;
+
+out:
+	rcu_read_unlock();
 }
 
 void mt7603_mac_start(struct mt7603_dev *dev)
