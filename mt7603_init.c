@@ -215,6 +215,11 @@ mt7603_mac_init(struct mt7603_dev *dev)
 	mt76_wr(dev, MT_MAC_ADDR0(0), get_unaligned_le32(dev_addr));
 	mt76_wr(dev, MT_MAC_ADDR1(0),
 		get_unaligned_le16(dev_addr + 4) | MT_MAC_ADDR1_VALID);
+
+	mt76_wr(dev, MT_AGG_ARUCR, 0);
+	mt76_wr(dev, MT_AGG_ARDCR, ~0);
+	mt76_wr(dev, MT_AGG_ARCR, (MT_AGG_ARCR_INIT_RATE1 |
+				   MT76_SET(MT_AGG_ARCR_RTS_RATE_THR, 2)));
 }
 
 static int
