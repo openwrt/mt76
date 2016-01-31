@@ -242,15 +242,15 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 
 static u16
 mt7603_mac_tx_rate_val(struct mt7603_dev *dev,
-		       const struct ieee80211_tx_rate *rate, u8 *nss, u8 *bw)
+		       const struct ieee80211_tx_rate *rate, bool stbc, u8 *bw)
 {
-	u8 phy, rate_idx;
+	u8 phy, nss, rate_idx;
+	u16 rateval;
 
-	*nss = 1;
 	*bw = 0;
 	if (rate->flags & IEEE80211_TX_RC_MCS) {
 		rate_idx = rate->idx;
-		*nss = 1 + (rate->idx >> 3);
+		nss = 1 + (rate->idx >> 3);
 		phy = MT_PHY_TYPE_HT;
 		if (rate->flags & IEEE80211_TX_RC_GREEN_FIELD)
 			phy = MT_PHY_TYPE_HT_GF;
@@ -261,6 +261,7 @@ mt7603_mac_tx_rate_val(struct mt7603_dev *dev,
 		int band = dev->chandef.chan->band;
 		u16 val;
 
+		nss = 1;
 		r = &mt76_hw(dev)->wiphy->bands[band]->bitrates[rate->idx];
 		if (rate->flags & IEEE80211_TX_RC_USE_SHORT_PREAMBLE)
 			val = r->hw_value_short;
@@ -271,8 +272,13 @@ mt7603_mac_tx_rate_val(struct mt7603_dev *dev,
 		rate_idx = val & 0xff;
 	}
 
-	return (MT76_SET(MT_TX_RATE_IDX, rate_idx) |
-		MT76_SET(MT_TX_RATE_MODE, phy));
+	rateval = (MT76_SET(MT_TX_RATE_IDX, rate_idx) |
+		   MT76_SET(MT_TX_RATE_MODE, phy));
+
+	if (stbc && nss == 1)
+		rateval |= MT_TX_RATE_STBC;
+
+	return rateval;
 }
 
 void mt7603_mac_wtbl_set_rates(struct mt7603_dev *dev, int wcid,
@@ -280,24 +286,25 @@ void mt7603_mac_wtbl_set_rates(struct mt7603_dev *dev, int wcid,
 			       int n_rates)
 {
 	u32 addr = mt7603_wtbl2_addr(wcid);
-	u8 nss, bw;
+	bool stbc = false;
+	u8 bw;
 	u16 val;
 	int i;
 
 	for (i = n_rates; i < 4; i++)
 		rates[i] = rates[n_rates - 1];
 
-	val = mt7603_mac_tx_rate_val(dev, &rates[0], &nss, &bw);
+	val = mt7603_mac_tx_rate_val(dev, &rates[0], stbc, &bw);
 	mt76_rmw_field(dev, addr + 10 * 4, MT_WTBL2_W10_RATE1, val);
 
-	val = mt7603_mac_tx_rate_val(dev, &rates[1], &nss, &bw);
+	val = mt7603_mac_tx_rate_val(dev, &rates[1], stbc, &bw);
 	mt76_rmw_field(dev, addr + 10 * 4, MT_WTBL2_W10_RATE2, val);
 
-	val = mt7603_mac_tx_rate_val(dev, &rates[2], &nss, &bw);
+	val = mt7603_mac_tx_rate_val(dev, &rates[2], stbc, &bw);
 	mt76_rmw_field(dev, addr + 10 * 4, MT_WTBL2_W10_RATE3_LO, val);
 	mt76_rmw_field(dev, addr + 11 * 4, MT_WTBL2_W11_RATE3_HI, val >> 4);
 
-	val = mt7603_mac_tx_rate_val(dev, &rates[3], &nss, &bw);
+	val = mt7603_mac_tx_rate_val(dev, &rates[3], stbc, &bw);
 	mt76_rmw_field(dev, addr + 11 * 4, MT_WTBL2_W11_RATE4, val);
 }
 
@@ -313,8 +320,8 @@ int mt7603_mac_write_txwi(struct mt76_dev *mdev, void *txwi_ptr,
 	int wlan_idx;
 	int hdr_len = ieee80211_get_hdrlen_from_skb(skb);
 	u8 frame_type, frame_subtype;
-	u8 nss, bw;
 	u8 pid = 0;
+	u8 bw;
 
 	if (wcid)
 		wlan_idx = wcid->idx;
@@ -363,10 +370,8 @@ int mt7603_mac_write_txwi(struct mt76_dev *mdev, void *txwi_ptr,
 
 	spin_lock_bh(&dev->mt76.lock);
 	if (rate->idx >= 0 && rate->count) {
-		u16 rateval = mt7603_mac_tx_rate_val(dev, rate, &nss, &bw);
-
-		if ((info->flags & IEEE80211_TX_CTL_STBC) && nss == 1)
-			rateval |= MT_TX_RATE_STBC;
+		bool stbc = info->flags & IEEE80211_TX_CTL_STBC;
+		u16 rateval = mt7603_mac_tx_rate_val(dev, rate, stbc, &bw);
 
 		txwi[6] |= cpu_to_le32(
 			MT_TXD6_FIXED_RATE |
