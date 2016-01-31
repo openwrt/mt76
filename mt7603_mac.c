@@ -297,9 +297,9 @@ mt7603_mac_tx_rate_val(struct mt7603_dev *dev,
 	return rateval;
 }
 
-void mt7603_mac_wtbl_set_rates(struct mt7603_dev *dev, int wcid,
-			       struct ieee80211_tx_rate *rates,
-			       int n_rates)
+void mt7603_wtbl_set_rates(struct mt7603_dev *dev, int wcid,
+			   struct ieee80211_tx_rate *rates,
+			   int n_rates)
 {
 	u32 addr = mt7603_wtbl2_addr(wcid);
 	bool stbc = false;
