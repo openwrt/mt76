@@ -287,7 +287,7 @@ void mt7603_mac_wtbl_set_rates(struct mt7603_dev *dev, int wcid,
 {
 	u32 addr = mt7603_wtbl2_addr(wcid);
 	bool stbc = false;
-	u8 bw;
+	u8 bw, bw_prev, bw_idx = 0;
 	u16 val;
 	int i;
 
@@ -295,17 +295,30 @@ void mt7603_mac_wtbl_set_rates(struct mt7603_dev *dev, int wcid,
 		rates[i] = rates[n_rates - 1];
 
 	val = mt7603_mac_tx_rate_val(dev, &rates[0], stbc, &bw);
+	mt76_rmw_field(dev, addr + 9 * 4, MT_WTBL2_W9_BW_CAP, bw);
 	mt76_rmw_field(dev, addr + 10 * 4, MT_WTBL2_W10_RATE1, val);
 
+	bw_prev = bw;
 	val = mt7603_mac_tx_rate_val(dev, &rates[1], stbc, &bw);
 	mt76_rmw_field(dev, addr + 10 * 4, MT_WTBL2_W10_RATE2, val);
+	if (bw_prev < bw && !bw_idx)
+		bw_idx = 1;
 
+	bw_prev = bw;
 	val = mt7603_mac_tx_rate_val(dev, &rates[2], stbc, &bw);
 	mt76_rmw_field(dev, addr + 10 * 4, MT_WTBL2_W10_RATE3_LO, val);
 	mt76_rmw_field(dev, addr + 11 * 4, MT_WTBL2_W11_RATE3_HI, val >> 4);
+	if (bw_prev < bw && !bw_idx)
+		bw_idx = 2;
 
+	bw_prev = bw;
 	val = mt7603_mac_tx_rate_val(dev, &rates[3], stbc, &bw);
 	mt76_rmw_field(dev, addr + 11 * 4, MT_WTBL2_W11_RATE4, val);
+	if (bw_prev < bw && !bw_idx)
+		bw_idx = 3;
+
+	mt76_rmw_field(dev, addr + 9 * 4, MT_WTBL2_W9_CHANGE_BW_RATE,
+		       bw_idx ? bw_idx - 1 : 7);
 }
 
 int mt7603_mac_write_txwi(struct mt76_dev *mdev, void *txwi_ptr,
