@@ -125,6 +125,9 @@ void mt7603_mac_start(struct mt7603_dev *dev);
 void mt7603_mac_stop(struct mt7603_dev *dev);
 int mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb);
 void mt7603_mac_add_txs(struct mt7603_dev *dev, void *data);
+void mt7603_mac_wtbl_set_rates(struct mt7603_dev *dev, int wcid,
+			       struct ieee80211_tx_rate *rates,
+			       int n_rates);
 
 int mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def);
 int mt7603_mcu_set_channel(struct mt7603_dev *dev);

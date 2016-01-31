@@ -50,6 +50,13 @@ mt7603_wtbl_update(struct mt7603_dev *dev, int idx, u32 mask)
 	mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000);
 }
 
+static u32
+mt7603_wtbl2_addr(int idx)
+{
+	/* Mapped to WTBL2 */
+	return MT_PCIE_REMAP_BASE_1 + idx * MT_WTBL2_SIZE;
+}
+
 void mt7603_wtbl_init(struct mt7603_dev *dev, int idx, const u8 *mac_addr)
 {
 	const void *_mac = mac_addr;
@@ -92,8 +99,7 @@ void mt7603_wtbl_clear(struct mt7603_dev *dev, int idx)
 
 	mt76_clear(dev, MT_WTBL1_OR, MT_WTBL1_OR_PSM_WRITE);
 
-	/* Mapped to WTBL2 */
-	addr = MT_PCIE_REMAP_BASE_1 + idx * MT_WTBL2_SIZE;
+	addr = mt7603_wtbl2_addr(idx);
 
 	/* Clear BA information */
 	mt76_wr(dev, addr + (15 * 4), 0);
@@ -267,6 +273,32 @@ mt7603_mac_tx_rate_val(struct mt7603_dev *dev,
 
 	return (MT76_SET(MT_TX_RATE_IDX, rate_idx) |
 		MT76_SET(MT_TX_RATE_MODE, phy));
+}
+
+void mt7603_mac_wtbl_set_rates(struct mt7603_dev *dev, int wcid,
+			       struct ieee80211_tx_rate *rates,
+			       int n_rates)
+{
+	u32 addr = mt7603_wtbl2_addr(wcid);
+	u8 nss, bw;
+	u16 val;
+	int i;
+
+	for (i = n_rates; i < 4; i++)
+		rates[i] = rates[n_rates - 1];
+
+	val = mt7603_mac_tx_rate_val(dev, &rates[0], &nss, &bw);
+	mt76_rmw_field(dev, addr + 10 * 4, MT_WTBL2_W10_RATE1, val);
+
+	val = mt7603_mac_tx_rate_val(dev, &rates[1], &nss, &bw);
+	mt76_rmw_field(dev, addr + 10 * 4, MT_WTBL2_W10_RATE2, val);
+
+	val = mt7603_mac_tx_rate_val(dev, &rates[2], &nss, &bw);
+	mt76_rmw_field(dev, addr + 10 * 4, MT_WTBL2_W10_RATE3_LO, val);
+	mt76_rmw_field(dev, addr + 11 * 4, MT_WTBL2_W11_RATE3_HI, val >> 4);
+
+	val = mt7603_mac_tx_rate_val(dev, &rates[3], &nss, &bw);
+	mt76_rmw_field(dev, addr + 11 * 4, MT_WTBL2_W11_RATE4, val);
 }
 
 int mt7603_mac_write_txwi(struct mt76_dev *mdev, void *txwi_ptr,
