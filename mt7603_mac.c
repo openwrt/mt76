@@ -362,7 +362,7 @@ int mt7603_mac_write_txwi(struct mt76_dev *mdev, void *txwi_ptr,
 	txwi[6] = 0;
 
 	spin_lock_bh(&dev->mt76.lock);
-	if (rate->idx >= 0 && !rate->count) {
+	if (rate->idx >= 0 && rate->count) {
 		u16 rateval = mt7603_mac_tx_rate_val(dev, rate, &nss, &bw);
 
 		if ((info->flags & IEEE80211_TX_CTL_STBC) && nss == 1)
