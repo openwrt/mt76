@@ -115,6 +115,22 @@ void mt7603_wtbl_clear(struct mt7603_dev *dev, int idx)
 	mt7603_wtbl_update(dev, idx, MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
 }
 
+void mt7603_wtbl_update_cap(struct mt7603_dev *dev, struct ieee80211_sta *sta)
+{
+	struct mt7603_sta *msta = (struct mt7603_sta *) sta->drv_priv;
+	u32 addr = mt7603_wtbl2_addr(msta->wcid.idx);
+	u32 val;
+
+	val = mt76_rr(dev, addr + 9 * 4);
+	val &= ~(MT_WTBL2_W9_SHORT_GI_20 | MT_WTBL2_W9_SHORT_GI_40 |
+		 MT_WTBL2_W9_SHORT_GI_80);
+	if (sta->ht_cap.cap & IEEE80211_HT_CAP_SGI_20)
+		val |= MT_WTBL2_W9_SHORT_GI_20;
+	if (sta->ht_cap.cap & IEEE80211_HT_CAP_SGI_40)
+		val |= MT_WTBL2_W9_SHORT_GI_40;
+	mt76_wr(dev, addr + 9 * 4, val);
+}
+
 static int
 mt7603_get_rate(struct mt7603_dev *dev, struct ieee80211_supported_band *sband,
 		int idx, bool cck)

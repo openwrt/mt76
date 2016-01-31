@@ -158,14 +158,44 @@ static int
 mt7603_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	     struct ieee80211_sta *sta)
 {
-	return -EINVAL;
+	struct mt7603_dev *dev = hw->priv;
+	struct mt7603_sta *msta = (struct mt7603_sta *) sta->drv_priv;
+	int ret, idx;
+
+	mutex_lock(&dev->mutex);
+
+	idx = mt76_wcid_alloc(dev->wcid_mask, ARRAY_SIZE(dev->wcid) - 1);
+	if (idx < 0) {
+		ret = -ENOSPC;
+		goto out;
+	}
+
+	msta->wcid.idx = idx;
+	mt7603_wtbl_update_cap(dev, sta);
+
+	mt7603_wtbl_init(dev, idx, sta->addr);
+	rcu_assign_pointer(dev->wcid[idx], &msta->wcid);
+
+out:
+	mutex_unlock(&dev->mutex);
+
+	return ret;
 }
 
 static int
 mt7603_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		struct ieee80211_sta *sta)
 {
-	return -EINVAL;
+	struct mt7603_dev *dev = hw->priv;
+	struct mt7603_sta *msta = (struct mt7603_sta *) sta->drv_priv;
+	int idx = msta->wcid.idx;
+
+	mutex_lock(&dev->mutex);
+	rcu_assign_pointer(dev->wcid[idx], NULL);
+	mt7603_wtbl_clear(dev, idx);
+	mutex_unlock(&dev->mutex);
+
+	return 0;
 }
 
 static void
