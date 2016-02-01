@@ -126,13 +126,10 @@ static void
 mt76x2_process_rx_skb(struct mt76x2_dev *dev, struct mt76_queue *q,
 		    struct sk_buff *skb, u32 info)
 {
-	void *rxwi = skb->data - sizeof(struct mt76x2_rxwi);
+	void *rxwi = skb->data;
 
 	if (q == &dev->mcu.q_rx) {
 		u32 *rxfce;
-
-		/* No RXWI header, data starts with payload */
-		skb_push(skb, sizeof(struct mt76x2_rxwi));
 
 		rxfce = (u32 *) skb->cb;
 		*rxfce = info;
@@ -142,6 +139,7 @@ mt76x2_process_rx_skb(struct mt76x2_dev *dev, struct mt76_queue *q,
 		return;
 	}
 
+	skb_pull(skb, sizeof(struct mt76x2_rxwi));
 	if (mt76x2_mac_process_rx(dev, skb, rxwi)) {
 	    dev_kfree_skb(skb);
 	    return;
@@ -173,7 +171,7 @@ mt76x2_process_rx_queue(struct mt76x2_dev *dev, struct mt76_queue *q, int budget
 			continue;
 		}
 
-		skb_reserve(skb, MT_RX_HEADROOM);
+		skb_reserve(skb, q->buf_offset);
 		if (skb->tail + len > skb->end) {
 			dev_kfree_skb(skb);
 			continue;
