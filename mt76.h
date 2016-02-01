@@ -81,6 +81,7 @@ struct mt76_queue {
 	int buf_offset;
 
 	dma_addr_t desc_dma;
+	struct sk_buff *rx_head;
 };
 
 struct mt76_queue_ops {
@@ -90,7 +91,7 @@ struct mt76_queue_ops {
 		       u32 buf0, int len0, u32 buf1, int len1, u32 info);
 
 	void *(*dequeue)(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
-			 int *len, u32 *info);
+			 int *len, u32 *info, bool *more);
 
 	void (*tx_cleanup)(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
 			   void (*done)(struct mt76_dev *dev, struct mt76_queue *q,

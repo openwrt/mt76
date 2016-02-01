@@ -158,11 +158,12 @@ mt76x2_process_rx_queue(struct mt76x2_dev *dev, struct mt76_queue *q, int budget
 	int len;
 	int done = 0;
 	bool napi = q == &dev->q_rx;
+	bool more;
 
 	while (done < budget) {
 		u32 info;
 
-		data = mt76_queue_dequeue(dev, q, false, &len, &info);
+		data = mt76_queue_dequeue(dev, q, false, &len, &info, &more);
 		if (!data)
 			break;
 

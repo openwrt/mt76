@@ -128,7 +128,7 @@ mt76_dma_tx_cleanup(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
 
 static void *
 mt76_dma_get_buf(struct mt76_dev *dev, struct mt76_queue *q, int idx,
-		 int *len, u32 *info)
+		 int *len, u32 *info, bool *more)
 {
 	struct mt76_queue_entry *e = &q->entry[idx];
 	struct mt76_desc *desc = &q->desc[idx];
@@ -140,7 +140,9 @@ mt76_dma_get_buf(struct mt76_dev *dev, struct mt76_queue *q, int idx,
 	if (len) {
 		u32 ctl = ACCESS_ONCE(desc->ctrl);
 		*len = MT76_GET(MT_DMA_CTL_SD_LEN0, ctl);
+		*more = !(ctl & MT_DMA_CTL_LAST_SEC0);
 	}
+
 	if (info)
 		*info = le32_to_cpu(desc->info);
 
@@ -152,10 +154,11 @@ mt76_dma_get_buf(struct mt76_dev *dev, struct mt76_queue *q, int idx,
 
 static void *
 mt76_dma_dequeue(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
-		 int *len, u32 *info)
+		 int *len, u32 *info, bool *more)
 {
 	int idx = q->tail;
 
+	*more = false;
 	if (!q->queued)
 		return NULL;
 
@@ -165,7 +168,7 @@ mt76_dma_dequeue(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
 	q->tail = (q->tail + 1) % q->ndesc;
 	q->queued--;
 
-	return mt76_dma_get_buf(dev, q, idx, len, info);
+	return mt76_dma_get_buf(dev, q, idx, len, info, more);
 }
 
 static void
@@ -220,10 +223,11 @@ static void
 mt76_dma_rx_cleanup(struct mt76_dev *dev, struct mt76_queue *q)
 {
 	void *buf;
+	bool more;
 
 	spin_lock_bh(&q->lock);
 	do {
-		buf = mt76_dma_dequeue(dev, q, true, NULL, NULL);
+		buf = mt76_dma_dequeue(dev, q, true, NULL, NULL, &more);
 		if (!buf)
 			break;
 
