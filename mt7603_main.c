@@ -160,7 +160,7 @@ mt7603_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 {
 	struct mt7603_dev *dev = hw->priv;
 	struct mt7603_sta *msta = (struct mt7603_sta *) sta->drv_priv;
-	int ret, idx;
+	int i, ret, idx;
 
 	mutex_lock(&dev->mutex);
 
@@ -169,6 +169,9 @@ mt7603_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		ret = -ENOSPC;
 		goto out;
 	}
+
+	for (i = 0; i < ARRAY_SIZE(sta->txq); i++)
+		mt7603_txq_init(dev, sta->txq[i]);
 
 	msta->wcid.idx = idx;
 	mt7603_wtbl_update_cap(dev, sta);
@@ -189,10 +192,15 @@ mt7603_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct mt7603_dev *dev = hw->priv;
 	struct mt7603_sta *msta = (struct mt7603_sta *) sta->drv_priv;
 	int idx = msta->wcid.idx;
+	int i;
 
 	mutex_lock(&dev->mutex);
 	rcu_assign_pointer(dev->wcid[idx], NULL);
 	mt7603_wtbl_clear(dev, idx);
+
+	for (i = 0; i < ARRAY_SIZE(sta->txq); i++)
+		mt76_txq_remove(&dev->mt76, sta->txq[i]);
+
 	mutex_unlock(&dev->mutex);
 
 	return 0;
