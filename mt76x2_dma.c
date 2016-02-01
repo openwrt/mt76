@@ -124,16 +124,11 @@ mt76x2_init_tx_queue(struct mt76x2_dev *dev, struct mt76_queue *q,
 
 static void
 mt76x2_process_rx_skb(struct mt76x2_dev *dev, struct mt76_queue *q,
-		    struct sk_buff *skb, u32 info)
+		    struct sk_buff *skb)
 {
 	void *rxwi = skb->data;
 
 	if (q == &dev->mcu.q_rx) {
-		u32 *rxfce;
-
-		rxfce = (u32 *) skb->cb;
-		*rxfce = info;
-
 		skb_queue_tail(&dev->mcu.res_q, skb);
 		wake_up(&dev->mcu.wait);
 		return;
@@ -146,6 +141,23 @@ mt76x2_process_rx_skb(struct mt76x2_dev *dev, struct mt76_queue *q,
 	}
 
 	mt76x2_rx(dev, skb);
+}
+
+static void
+mt76x2_add_fragment(struct mt76x2_dev *dev, struct mt76_queue *q, void *data,
+		    int len, bool more)
+{
+	struct page *page = virt_to_head_page(data);
+	int offset = data - page_address(page);
+	struct sk_buff *skb = q->rx_head;
+
+	skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page, offset, len,
+			q->buf_size);
+
+	if (!more) {
+		q->rx_head = NULL;
+		mt76x2_process_rx_skb(dev, q, skb);
+	}
 }
 
 static int
@@ -165,6 +177,11 @@ mt76x2_process_rx_queue(struct mt76x2_dev *dev, struct mt76_queue *q, int budget
 		if (!data)
 			break;
 
+		if (q->rx_head) {
+			mt76x2_add_fragment(dev, q, data, len, more);
+			continue;
+		}
+
 		skb = build_skb(data, q->buf_size);
 		if (!skb) {
 			skb_free_frag(data);
@@ -177,9 +194,20 @@ mt76x2_process_rx_queue(struct mt76x2_dev *dev, struct mt76_queue *q, int budget
 			continue;
 		}
 
+		if (q == &dev->mcu.q_rx) {
+			u32 * rxfce = (u32 *) skb->cb;
+			*rxfce = info;
+		}
+
 		__skb_put(skb, len);
-		mt76x2_process_rx_skb(dev, q, skb, info);
 		done++;
+
+		if (more) {
+			q->rx_head = skb;
+			continue;
+		}
+
+		mt76x2_process_rx_skb(dev, q, skb);
 	}
 
 	mt76_queue_rx_fill(dev, q, napi);

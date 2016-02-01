@@ -104,6 +104,7 @@ struct mt76x2_dev {
 	DECLARE_KFIFO_PTR(txstatus_fifo, struct mt76x2_tx_status);
 
 	struct mt76x2_mcu mcu;
+	struct sk_buff *rx_head;
 	struct mt76_queue q_rx;
 
 	struct net_device napi_dev;
