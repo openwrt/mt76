@@ -413,13 +413,13 @@ void mt76x2_mac_poll_tx_status(struct mt76x2_dev *dev, bool irq)
 		u32 stat1, stat2;
 
 		spin_lock_irqsave(&dev->irq_lock, flags);
+		stat2 = mt76_rr(dev, MT_TX_STAT_FIFO_EXT);
 		stat1 = mt76_rr(dev, MT_TX_STAT_FIFO);
 		if (!(stat1 & MT_TX_STAT_FIFO_VALID)) {
 			spin_unlock_irqrestore(&dev->irq_lock, flags);
 			break;
 		}
 
-		stat2 = mt76_rr(dev, MT_TX_STAT_FIFO_EXT);
 		spin_unlock_irqrestore(&dev->irq_lock, flags);
 
 		stat.valid = 1;
