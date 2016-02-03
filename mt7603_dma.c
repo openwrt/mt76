@@ -131,7 +131,7 @@ mt7603_process_rx_queue(struct mt7603_dev *dev, struct mt76_queue *q, int budget
 	unsigned char *data;
 	int len;
 	int done = 0;
-	bool napi = q == &dev->q_rx;
+	bool napi = q == &dev->mt76.q_rx[MT_RXQ_MAIN];
 	bool more;
 
 	while (done < budget) {
@@ -196,7 +196,7 @@ mt7603_dma_rx_poll(struct napi_struct *napi, int budget)
 	struct mt7603_dev *dev = container_of(napi, struct mt7603_dev, napi);
 	int done;
 
-	done = mt7603_process_rx_queue(dev, &dev->q_rx, budget);
+	done = mt7603_process_rx_queue(dev, &dev->mt76.q_rx[MT_RXQ_MAIN], budget);
 
 	if (done < budget) {
 		napi_complete(napi);
@@ -210,8 +210,9 @@ static void
 mt7603_rx_tasklet(unsigned long data)
 {
 	struct mt7603_dev *dev = (struct mt7603_dev *) data;
+	struct mt76_queue *q = &dev->mt76.q_rx[MT_RXQ_MCU];
 
-	mt7603_process_rx_queue(dev, &dev->mcu.q_rx, dev->mcu.q_rx.ndesc);
+	mt7603_process_rx_queue(dev, q, q->ndesc);
 	mt7603_irq_enable(dev, MT_INT_RX_DONE(1));
 }
 
@@ -273,18 +274,18 @@ int mt7603_dma_init(struct mt7603_dev *dev)
 	if (ret)
 		return ret;
 
-	ret = mt7603_init_rx_queue(dev, &dev->mcu.q_rx, 1, MT_MCU_RING_SIZE,
-				   MT_RX_BUF_SIZE);
+	ret = mt7603_init_rx_queue(dev, &dev->mt76.q_rx[MT_RXQ_MCU], 1,
+				   MT_MCU_RING_SIZE, MT_RX_BUF_SIZE);
 	if (ret)
 		return ret;
 
-	ret = mt7603_init_rx_queue(dev, &dev->q_rx, 0,
+	ret = mt7603_init_rx_queue(dev, &dev->mt76.q_rx[MT_RXQ_MAIN], 0,
 				   MT_RX_RING_SIZE, MT_RX_BUF_SIZE);
 	if (ret)
 		return ret;
 
-	mt76_queue_rx_fill(dev, &dev->q_rx, false);
-	mt76_queue_rx_fill(dev, &dev->mcu.q_rx, false);
+	for (i = 0; i < ARRAY_SIZE(dev->mt76.q_rx); i++)
+		mt76_queue_rx_fill(dev, &dev->mt76.q_rx[i], false);
 
 	mt76_wr(dev, MT_DELAY_INT_CFG, 0);
 
@@ -304,6 +305,6 @@ void mt7603_dma_cleanup(struct mt7603_dev *dev)
 	tasklet_kill(&dev->rx_tasklet);
 	for (i = 0; i < ARRAY_SIZE(dev->mt76.q_tx); i++)
 		mt7603_tx_cleanup(dev, &dev->mt76.q_tx[i], true);
-	mt76_queue_rx_cleanup(dev, &dev->q_rx);
-	mt76_queue_rx_cleanup(dev, &dev->mcu.q_rx);
+	for (i = 0; i < ARRAY_SIZE(dev->mt76.q_rx); i++)
+		mt76_queue_rx_cleanup(dev, &dev->mt76.q_rx[i]);
 }
