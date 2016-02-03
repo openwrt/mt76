@@ -242,7 +242,6 @@ static const struct mt76_queue_ops mt76_dma_ops = {
 	.rx_fill = mt76_dma_rx_fill,
 	.dequeue = mt76_dma_dequeue,
 	.tx_cleanup = mt76_dma_tx_cleanup,
-	.rx_cleanup = mt76_dma_rx_cleanup,
 	.kick = mt76_dma_kick_queue,
 };
 
