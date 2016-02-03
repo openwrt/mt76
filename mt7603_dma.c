@@ -36,27 +36,6 @@ mt7603_tx_queue_mcu(struct mt7603_dev *dev, enum mt76_txq_id qid,
 	return 0;
 }
 
-int
-mt7603_tx_queue_skb(struct mt76_dev *cdev, struct mt76_queue *q,
-		    struct sk_buff *skb, struct mt76_txwi_cache *t,
-		    struct mt76_wcid *wcid, struct ieee80211_sta *sta)
-{
-	struct mt7603_dev *dev = container_of(cdev, struct mt7603_dev, mt76);
-	dma_addr_t addr;
-	int idx;
-
-	addr = dma_map_single(dev->mt76.dev, skb->data, skb->len, DMA_TO_DEVICE);
-	if (dma_mapping_error(dev->mt76.dev, addr))
-		return -ENOMEM;
-
-	idx = mt76_queue_add_buf(dev, q, t->dma_addr, MT_TXD_SIZE,
-				 addr, skb->len, 0);
-	q->entry[idx].skb = skb;
-	q->entry[idx].txwi = t;
-
-	return idx;
-}
-
 static void
 mt7603_tx_cleanup_entry(struct mt76_dev *mdev, struct mt76_queue *q,
 			struct mt76_queue_entry *e)

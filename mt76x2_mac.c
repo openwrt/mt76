@@ -151,14 +151,12 @@ void mt76x2_mac_wcid_set_rate(struct mt76x2_dev *dev, struct mt76_wcid *wcid,
 	spin_unlock_bh(&dev->mt76.lock);
 }
 
-int mt76x2_mac_write_txwi(struct mt76_dev *mdev, void *txwi_ptr,
-			  struct sk_buff *skb, struct mt76_wcid *wcid,
-			  struct ieee80211_sta *sta)
+void mt76x2_mac_write_txwi(struct mt76x2_dev *dev, struct mt76x2_txwi *txwi,
+			   struct sk_buff *skb, struct mt76_wcid *wcid,
+			   struct ieee80211_sta *sta)
 {
-	struct mt76x2_dev *dev = container_of(mdev, struct mt76x2_dev, mt76);
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_tx_rate *rate = &info->control.rates[0];
-	struct mt76x2_txwi *txwi = txwi_ptr;
 	u16 rate_ht_mask = MT76_SET(MT_RXWI_RATE_PHY, BIT(1) | BIT(2));
 	u16 txwi_flags = 0;
 	u8 nss;
@@ -212,8 +210,6 @@ int mt76x2_mac_write_txwi(struct mt76_dev *mdev, void *txwi_ptr,
 
 	txwi->flags |= cpu_to_le16(txwi_flags);
 	txwi->len_ctl = cpu_to_le16(skb->len);
-
-	return 0;
 }
 
 int mt76x2_mac_process_rx(struct mt76x2_dev *dev, struct sk_buff *skb, void *rxi)
@@ -595,7 +591,7 @@ mt76_write_beacon(struct mt76x2_dev *dev, int offset, struct sk_buff *skb)
 	if (WARN_ON_ONCE(beacon_len < skb->len + sizeof(struct mt76x2_txwi)))
 		return -ENOSPC;
 
-	mt76x2_mac_write_txwi(&dev->mt76, &txwi, skb, NULL, NULL);
+	mt76x2_mac_write_txwi(dev, &txwi, skb, NULL, NULL);
 	txwi.flags |= cpu_to_le16(MT_TXWI_FLAGS_TS);
 
 	mt76_wr_copy(dev, offset, &txwi, sizeof(txwi));

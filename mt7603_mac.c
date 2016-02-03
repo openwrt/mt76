@@ -337,15 +337,14 @@ void mt7603_wtbl_set_rates(struct mt7603_dev *dev, int wcid,
 		       bw_idx ? bw_idx - 1 : 7);
 }
 
-int mt7603_mac_write_txwi(struct mt76_dev *mdev, void *txwi_ptr,
-			  struct sk_buff *skb, struct mt76_wcid *wcid,
-			  struct ieee80211_sta *sta)
+static int
+mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
+		      struct sk_buff *skb, struct mt76_wcid *wcid,
+		      struct ieee80211_sta *sta)
 {
-	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_tx_rate *rate = &info->control.rates[0];
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
-	__le32 *txwi = txwi_ptr;
 	int wlan_idx;
 	int hdr_len = ieee80211_get_hdrlen_from_skb(skb);
 	u8 frame_type, frame_subtype;
@@ -419,6 +418,15 @@ int mt7603_mac_write_txwi(struct mt76_dev *mdev, void *txwi_ptr,
 
 	txwi[7] = 0;
 
+	return 0;
+}
+
+int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
+			  struct sk_buff *skb, struct mt76_wcid *wcid,
+			  struct ieee80211_sta *sta, u32 *tx_info)
+{
+	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
+	mt7603_mac_write_txwi(dev, txwi_ptr, skb, wcid, sta);
 	return 0;
 }
 

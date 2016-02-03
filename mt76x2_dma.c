@@ -42,46 +42,6 @@ mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76_txq_id qid,
 	return 0;
 }
 
-int
-mt76x2_tx_queue_skb(struct mt76_dev *cdev, struct mt76_queue *q,
-		    struct sk_buff *skb, struct mt76_txwi_cache *t,
-			struct mt76_wcid *wcid, struct ieee80211_sta *sta)
-{
-	struct mt76x2_dev *dev = container_of(cdev, struct mt76x2_dev, mt76);
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	dma_addr_t addr;
-	u32 tx_info = 0;
-	int idx, ret, len;
-	int qsel = MT_QSEL_EDCA;
-
-	ret = mt76_insert_hdr_pad(skb);
-	if (ret)
-		return ret;
-
-	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE)
-		qsel = 0;
-
-	len = skb->len + sizeof(struct mt76x2_txwi);
-	len += mt76x2_mac_skb_tx_overhead(dev, skb);
-	tx_info = MT76_SET(MT_TXD_INFO_LEN, len) |
-		  MT76_SET(MT_TXD_INFO_QSEL, qsel) |
-		  MT_TXD_INFO_80211;
-
-	if (!wcid || wcid->hw_key_idx == 0xff)
-		tx_info |= MT_TXD_INFO_WIV;
-
-	addr = dma_map_single(dev->mt76.dev, skb->data, skb->len, DMA_TO_DEVICE);
-	if (dma_mapping_error(dev->mt76.dev, addr))
-		return -ENOMEM;
-
-	idx = mt76_queue_add_buf(dev, q, t->dma_addr, sizeof(struct mt76x2_txwi),
-				 addr, skb->len, tx_info);
-	q->entry[idx].skb = skb;
-	q->entry[idx].txwi = t;
-
-	return idx;
-}
-
 static void
 mt76x2_tx_cleanup_entry(struct mt76_dev *mdev, struct mt76_queue *q,
 			struct mt76_queue_entry *e)

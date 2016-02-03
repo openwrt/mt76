@@ -147,13 +147,11 @@ struct mt76_hw_cap {
 };
 
 struct mt76_driver_ops {
-	int (*fill_txwi)(struct mt76_dev *dev, void *txwi_ptr,
-			 struct sk_buff *skb, struct mt76_wcid *wcid,
-			 struct ieee80211_sta *sta);
+	u16 txwi_size;
 
-	int (*tx_queue_skb)(struct mt76_dev *dev, struct mt76_queue *q,
-			    struct sk_buff *skb, struct mt76_txwi_cache *txwi,
-			    struct mt76_wcid *wcid, struct ieee80211_sta *sta);
+	int (*tx_prepare_skb)(struct mt76_dev *dev, void *txwi_ptr,
+			      struct sk_buff *skb, struct mt76_wcid *wcid,
+			      struct ieee80211_sta *sta, u32 *tx_info);
 
 	void (*rx_skb)(struct mt76_dev *dev, enum mt76_rxq_id q,
 		       struct sk_buff *skb);
