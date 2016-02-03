@@ -94,7 +94,7 @@ mt7603_init_tx_queue(struct mt7603_dev *dev, struct mt76_queue *q,
 	return 0;
 }
 
-void mt7603_queue_rx_skb(struct mt76_dev *mdev, struct mt76_queue *q,
+void mt7603_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 			 struct sk_buff *skb)
 {
 	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);

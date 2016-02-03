@@ -262,7 +262,7 @@ mt76_add_fragment(struct mt76_dev *dev, struct mt76_queue *q, void *data,
 		return;
 
 	q->rx_head = NULL;
-	dev->drv->rx_skb(dev, q, skb);
+	dev->drv->rx_skb(dev, q - dev->q_rx, skb);
 }
 
 static int
@@ -312,7 +312,7 @@ mt76_dma_rx_process(struct mt76_dev *dev, struct mt76_queue *q, int budget)
 			continue;
 		}
 
-		dev->drv->rx_skb(dev, q, skb);
+		dev->drv->rx_skb(dev, q - dev->q_rx, skb);
 	}
 
 	mt76_dma_rx_fill(dev, q, napi);

@@ -143,7 +143,7 @@ int mt7603_mac_write_txwi(struct mt76_dev *mdev, void *txwi_ptr,
 			  struct sk_buff *skb, struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta);
 
-void mt7603_queue_rx_skb(struct mt76_dev *dev, struct mt76_queue *q,
+void mt7603_queue_rx_skb(struct mt76_dev *dev, enum mt76_rxq_id q,
 			 struct sk_buff *skb);
 
 #endif

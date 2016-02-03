@@ -157,7 +157,7 @@ struct mt76_driver_ops {
 			    struct sk_buff *skb, struct mt76_txwi_cache *txwi,
 			    struct mt76_wcid *wcid, struct ieee80211_sta *sta);
 
-	void (*rx_skb)(struct mt76_dev *mdev, struct mt76_queue *q,
+	void (*rx_skb)(struct mt76_dev *dev, enum mt76_rxq_id q,
 		       struct sk_buff *skb);
 };
 
