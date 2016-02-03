@@ -341,12 +341,7 @@ int mt76x2_dma_init(struct mt76x2_dev *dev)
 
 void mt76x2_dma_cleanup(struct mt76x2_dev *dev)
 {
-	int i;
-
 	tasklet_kill(&dev->tx_tasklet);
 	tasklet_kill(&dev->rx_tasklet);
-	for (i = 0; i < ARRAY_SIZE(dev->mt76.q_tx); i++)
-		mt76x2_tx_cleanup(dev, &dev->mt76.q_tx[i], true);
-	for (i = 0; i < ARRAY_SIZE(dev->mt76.q_rx); i++)
-		mt76_queue_rx_cleanup(dev, &dev->mt76.q_rx[i]);
+	mt76_dma_cleanup(&dev->mt76);
 }

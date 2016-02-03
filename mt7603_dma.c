@@ -294,8 +294,6 @@ int mt7603_dma_init(struct mt7603_dev *dev)
 
 void mt7603_dma_cleanup(struct mt7603_dev *dev)
 {
-	int i;
-
 	mt76_clear(dev, MT_WPDMA_GLO_CFG,
 		   MT_WPDMA_GLO_CFG_TX_DMA_EN |
 		   MT_WPDMA_GLO_CFG_RX_DMA_EN |
@@ -303,8 +301,5 @@ void mt7603_dma_cleanup(struct mt7603_dev *dev)
 
 	tasklet_kill(&dev->tx_tasklet);
 	tasklet_kill(&dev->rx_tasklet);
-	for (i = 0; i < ARRAY_SIZE(dev->mt76.q_tx); i++)
-		mt7603_tx_cleanup(dev, &dev->mt76.q_tx[i], true);
-	for (i = 0; i < ARRAY_SIZE(dev->mt76.q_rx); i++)
-		mt76_queue_rx_cleanup(dev, &dev->mt76.q_rx[i]);
+	mt76_dma_cleanup(&dev->mt76);
 }

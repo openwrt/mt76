@@ -252,3 +252,25 @@ int mt76_dma_init(struct mt76_dev *dev)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mt76_dma_init);
+
+static void
+mt76_tx_cleanup_entry(struct mt76_dev *dev, struct mt76_queue *q,
+			struct mt76_queue_entry *e)
+{
+	if (e->txwi)
+		ieee80211_free_txskb(dev->hw, e->skb);
+	else
+		dev_kfree_skb_any(e->skb);
+}
+
+void mt76_dma_cleanup(struct mt76_dev *dev)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(dev->q_tx); i++)
+		mt76_dma_tx_cleanup(dev, &dev->q_tx[i], true,
+				    mt76_tx_cleanup_entry);
+	for (i = 0; i < ARRAY_SIZE(dev->q_rx); i++)
+		mt76_dma_rx_cleanup(dev, &dev->q_rx[i]);
+}
+EXPORT_SYMBOL_GPL(mt76_dma_cleanup);
