@@ -182,7 +182,6 @@ int mt76x2_apply_calibration_data(struct mt76x2_dev *dev, int channel);
 void mt76x2_set_tx_ackto(struct mt76x2_dev *dev);
 
 int mt76x2_phy_start(struct mt76x2_dev *dev);
-int mt76x2_set_channel(struct mt76x2_dev *dev, struct cfg80211_chan_def *chandef);
 int mt76x2_phy_set_channel(struct mt76x2_dev *dev,
 			 struct cfg80211_chan_def *chandef);
 int mt76x2_phy_get_rssi(struct mt76x2_dev *dev, s8 rssi, int chain);

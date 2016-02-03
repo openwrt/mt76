@@ -94,6 +94,22 @@ mt76x2_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 }
 
 static int
+mt76x2_set_channel(struct mt76x2_dev *dev, struct cfg80211_chan_def *chandef)
+{
+	int ret;
+
+	tasklet_disable(&dev->pre_tbtt_tasklet);
+	cancel_delayed_work_sync(&dev->cal_work);
+
+	mt76x2_mac_stop(dev, true);
+	ret = mt76x2_phy_set_channel(dev, chandef);
+	mt76x2_mac_resume(dev);
+	tasklet_enable(&dev->pre_tbtt_tasklet);
+
+	return ret;
+}
+
+static int
 mt76x2_config(struct ieee80211_hw *hw, u32 changed)
 {
 	struct mt76x2_dev *dev = hw->priv;
