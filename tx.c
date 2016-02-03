@@ -372,6 +372,9 @@ void mt76_txq_schedule(struct mt76_dev *dev, struct mt76_queue *hwq)
 {
 	int len;
 
+	if (test_bit(MT76_SCANNING, &dev->state))
+		return;
+
 	do {
 		if (hwq->swq_queued >= 4 || list_empty(&hwq->swq))
 			break;
@@ -380,6 +383,15 @@ void mt76_txq_schedule(struct mt76_dev *dev, struct mt76_queue *hwq)
 	} while (len > 0);
 }
 EXPORT_SYMBOL_GPL(mt76_txq_schedule);
+
+void mt76_txq_schedule_all(struct mt76_dev *dev)
+{
+	int i;
+
+	for (i = 0; i <= MT_TXQ_BK; i++)
+		mt76_txq_schedule(dev, &dev->q_tx[i]);
+}
+EXPORT_SYMBOL_GPL(mt76_txq_schedule_all);
 
 void mt76_stop_tx_queues(struct mt76_dev *dev, struct ieee80211_sta *sta)
 {

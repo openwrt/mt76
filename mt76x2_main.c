@@ -369,6 +369,7 @@ mt76x2_sw_scan_complete(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 	clear_bit(MT76_SCANNING, &dev->mt76.state);
 	tasklet_enable(&dev->pre_tbtt_tasklet);
+	mt76_txq_schedule_all(&dev->mt76);
 }
 
 static void
