@@ -236,7 +236,19 @@ mt76_dma_rx_cleanup(struct mt76_dev *dev, struct mt76_queue *q)
 	spin_unlock_bh(&q->lock);
 }
 
+static int
+mt76_dma_init(struct mt76_dev *dev)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(dev->q_rx); i++)
+		mt76_dma_rx_fill(dev, &dev->q_rx[i], false);
+
+	return 0;
+}
+
 static const struct mt76_queue_ops mt76_dma_ops = {
+	.init = mt76_dma_init,
 	.alloc = mt76_dma_alloc_queue,
 	.add_buf = mt76_dma_add_buf,
 	.rx_fill = mt76_dma_rx_fill,

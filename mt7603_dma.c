@@ -284,12 +284,8 @@ int mt7603_dma_init(struct mt7603_dev *dev)
 	if (ret)
 		return ret;
 
-	for (i = 0; i < ARRAY_SIZE(dev->mt76.q_rx); i++)
-		mt76_queue_rx_fill(dev, &dev->mt76.q_rx[i], false);
-
 	mt76_wr(dev, MT_DELAY_INT_CFG, 0);
-
-	return 0;
+	return mt76_init_queues(dev);
 }
 
 void mt7603_dma_cleanup(struct mt7603_dev *dev)

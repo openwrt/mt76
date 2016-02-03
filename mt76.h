@@ -91,6 +91,8 @@ struct mt76_queue {
 };
 
 struct mt76_queue_ops {
+	int (*init)(struct mt76_dev *dev);
+
 	int (*alloc)(struct mt76_dev *dev, struct mt76_queue *q);
 
 	int (*add_buf)(struct mt76_dev *dev, struct mt76_queue *q,
@@ -225,6 +227,7 @@ static inline u16 mt76_rev(struct mt76_dev *dev)
 
 #define mt76xx_rev(dev) mt76_rev(&((dev)->mt76))
 
+#define mt76_init_queues(dev)		(dev)->mt76.queue_ops->init(&((dev)->mt76))
 #define mt76_queue_alloc(dev, ...)	(dev)->mt76.queue_ops->alloc(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_add_buf(dev, ...)	(dev)->mt76.queue_ops->add_buf(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_dequeue(dev, ...)	(dev)->mt76.queue_ops->dequeue(&((dev)->mt76), __VA_ARGS__)

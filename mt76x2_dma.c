@@ -333,10 +333,7 @@ int mt76x2_dma_init(struct mt76x2_dev *dev)
 	if (ret)
 		return ret;
 
-	for (i = 0; i < ARRAY_SIZE(dev->mt76.q_rx); i++)
-		mt76_queue_rx_fill(dev, &dev->mt76.q_rx[i], false);
-
-	return 0;
+	return mt76_init_queues(dev);
 }
 
 void mt76x2_dma_cleanup(struct mt76x2_dev *dev)
