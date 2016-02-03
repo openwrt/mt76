@@ -29,7 +29,7 @@ struct mt76_desc {
 	__le32 info;
 } __packed __aligned(4);
 
-int mt76_dma_init(struct mt76_dev *dev);
+int mt76_dma_attach(struct mt76_dev *dev);
 void mt76_dma_cleanup(struct mt76_dev *dev);
 
 #endif

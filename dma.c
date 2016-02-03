@@ -246,12 +246,12 @@ static const struct mt76_queue_ops mt76_dma_ops = {
 	.kick = mt76_dma_kick_queue,
 };
 
-int mt76_dma_init(struct mt76_dev *dev)
+int mt76_dma_attach(struct mt76_dev *dev)
 {
 	dev->queue_ops = &mt76_dma_ops;
 	return 0;
 }
-EXPORT_SYMBOL_GPL(mt76_dma_init);
+EXPORT_SYMBOL_GPL(mt76_dma_attach);
 
 static void
 mt76_tx_cleanup_entry(struct mt76_dev *dev, struct mt76_queue *q,

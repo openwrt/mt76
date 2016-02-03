@@ -227,7 +227,7 @@ int mt7603_dma_init(struct mt7603_dev *dev)
 	int ret;
 	int i;
 
-	mt76_dma_init(&dev->mt76);
+	mt76_dma_attach(&dev->mt76);
 
 	init_waitqueue_head(&dev->mcu.wait);
 	skb_queue_head_init(&dev->mcu.res_q);

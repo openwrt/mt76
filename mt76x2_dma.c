@@ -291,7 +291,7 @@ int mt76x2_dma_init(struct mt76x2_dev *dev)
 	BUILD_BUG_ON(sizeof(t->txwi) < sizeof(struct mt76x2_txwi));
 	BUILD_BUG_ON(sizeof(struct mt76x2_rxwi) > MT_RX_HEADROOM);
 
-	mt76_dma_init(&dev->mt76);
+	mt76_dma_attach(&dev->mt76);
 
 	init_waitqueue_head(&dev->mcu.wait);
 	skb_queue_head_init(&dev->mcu.res_q);
