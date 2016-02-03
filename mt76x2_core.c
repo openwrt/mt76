@@ -15,16 +15,6 @@
 #include "mt76x2.h"
 #include "mt76x2_trace.h"
 
-void mt76_write_reg_pairs(struct mt76x2_dev *dev,
-			  const struct mt76x2_reg_pair *data, int len)
-{
-	while (len > 0) {
-		mt76_wr(dev, data->reg, data->value);
-		len--;
-		data++;
-	}
-}
-
 void mt76x2_set_irq_mask(struct mt76x2_dev *dev, u32 clear, u32 set)
 {
 	unsigned long flags;

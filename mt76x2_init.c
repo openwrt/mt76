@@ -16,6 +16,11 @@
 #include "mt76x2_eeprom.h"
 #include "mt76x2_mcu.h"
 
+struct mt76x2_reg_pair {
+	u32 reg;
+	u32 value;
+};
+
 static bool
 mt76x2_wait_for_mac(struct mt76x2_dev *dev)
 {
@@ -60,6 +65,17 @@ mt76x2_mac_pbf_init(struct mt76x2_dev *dev)
 
 	mt76_wr(dev, MT_PBF_TX_MAX_PCNT, 0xefef3f1f);
 	mt76_wr(dev, MT_PBF_RX_MAX_PCNT, 0xfebf);
+}
+
+static void
+mt76x2_write_reg_pairs(struct mt76x2_dev *dev,
+		       const struct mt76x2_reg_pair *data, int len)
+{
+	while (len > 0) {
+		mt76_wr(dev, data->reg, data->value);
+		len--;
+		data++;
+	}
 }
 
 static void
@@ -148,8 +164,8 @@ mt76_write_mac_initvals(struct mt76x2_dev *dev)
 		{ MT_GF40_PROT_CFG,		DEFAULT_PROT_CFG_40 },
 	};
 
-	mt76_write_reg_pairs(dev, vals, ARRAY_SIZE(vals));
-	mt76_write_reg_pairs(dev, prot_vals, ARRAY_SIZE(prot_vals));
+	mt76x2_write_reg_pairs(dev, vals, ARRAY_SIZE(vals));
+	mt76x2_write_reg_pairs(dev, prot_vals, ARRAY_SIZE(prot_vals));
 }
 
 static void

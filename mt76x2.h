@@ -150,14 +150,6 @@ struct mt76x2_sta {
 	int n_frames;
 };
 
-struct mt76x2_reg_pair {
-	u32 reg;
-	u32 value;
-};
-
-void mt76_write_reg_pairs(struct mt76x2_dev *dev,
-			  const struct mt76x2_reg_pair *data, int len);
-
 static inline bool is_mt7612(struct mt76x2_dev *dev)
 {
 	return (dev->rev >> 16) == 0x7612;
