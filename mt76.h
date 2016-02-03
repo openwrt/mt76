@@ -47,6 +47,12 @@ enum mt76_txq_id {
 	__MT_TXQ_MAX
 };
 
+enum mt76_rxq_id {
+	MT_RXQ_MAIN,
+	MT_RXQ_MCU,
+	__MT_RXQ_MAX
+};
+
 struct mt76_queue_entry {
 	struct sk_buff *skb;
 	union {
@@ -163,6 +169,7 @@ struct mt76_dev {
 
 	struct list_head txwi_cache;
 	struct mt76_queue q_tx[__MT_TXQ_MAX];
+	struct mt76_queue q_rx[__MT_RXQ_MAX];
 	const struct mt76_queue_ops *queue_ops;
 
 	u8 macaddr[ETH_ALEN];

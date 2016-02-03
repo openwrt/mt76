@@ -45,7 +45,6 @@ struct mt76x2_mcu {
 	wait_queue_head_t wait;
 	struct sk_buff_head res_q;
 
-	struct mt76_queue q_rx;
 	u32 msg_seq;
 };
 
@@ -105,7 +104,6 @@ struct mt76x2_dev {
 
 	struct mt76x2_mcu mcu;
 	struct sk_buff *rx_head;
-	struct mt76_queue q_rx;
 
 	struct net_device napi_dev;
 	struct napi_struct napi;
