@@ -107,6 +107,8 @@ struct mt76_queue_ops {
 
 	int (*rx_fill)(struct mt76_dev *dev, struct mt76_queue *q, bool napi);
 
+	int (*rx_process)(struct mt76_dev *dev, struct mt76_queue *q, int budget);
+
 	void (*kick)(struct mt76_dev *dev, struct mt76_queue *q);
 };
 
@@ -156,6 +158,9 @@ struct mt76_driver_ops {
 	int (*tx_queue_skb)(struct mt76_dev *dev, struct mt76_queue *q,
 			    struct sk_buff *skb, struct mt76_txwi_cache *txwi,
 			    struct mt76_wcid *wcid, struct ieee80211_sta *sta);
+
+	void (*rx_skb)(struct mt76_dev *mdev, struct mt76_queue *q,
+		       struct sk_buff *skb);
 };
 
 struct mt76_dev {
@@ -233,6 +238,7 @@ static inline u16 mt76_rev(struct mt76_dev *dev)
 #define mt76_queue_dequeue(dev, ...)	(dev)->mt76.queue_ops->dequeue(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_tx_cleanup(dev, ...)	(dev)->mt76.queue_ops->tx_cleanup(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_rx_fill(dev, ...)	(dev)->mt76.queue_ops->rx_fill(&((dev)->mt76), __VA_ARGS__)
+#define mt76_queue_rx_process(dev, ...)	(dev)->mt76.queue_ops->rx_process(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_kick(dev, ...)	(dev)->mt76.queue_ops->kick(&((dev)->mt76), __VA_ARGS__)
 
 int mt76_register_device(struct mt76_dev *dev, bool vht,

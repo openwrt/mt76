@@ -247,6 +247,78 @@ mt76_dma_init(struct mt76_dev *dev)
 	return 0;
 }
 
+static void
+mt76_add_fragment(struct mt76_dev *dev, struct mt76_queue *q, void *data,
+		    int len, bool more)
+{
+	struct page *page = virt_to_head_page(data);
+	int offset = data - page_address(page);
+	struct sk_buff *skb = q->rx_head;
+
+	skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page, offset, len,
+			q->buf_size);
+
+	if (more)
+		return;
+
+	q->rx_head = NULL;
+	dev->drv->rx_skb(dev, q, skb);
+}
+
+static int
+mt76_dma_rx_process(struct mt76_dev *dev, struct mt76_queue *q, int budget)
+{
+	struct sk_buff *skb;
+	unsigned char *data;
+	int len;
+	int done = 0;
+	bool napi = q == &dev->q_rx[MT_RXQ_MAIN];
+	bool more;
+
+	while (done < budget) {
+		u32 info;
+
+		data = mt76_dma_dequeue(dev, q, false, &len, &info, &more);
+		if (!data)
+			break;
+
+		if (q->rx_head) {
+			mt76_add_fragment(dev, q, data, len, more);
+			continue;
+		}
+
+		skb = build_skb(data, q->buf_size);
+		if (!skb) {
+			skb_free_frag(data);
+			continue;
+		}
+
+		skb_reserve(skb, q->buf_offset);
+		if (skb->tail + len > skb->end) {
+			dev_kfree_skb(skb);
+			continue;
+		}
+
+		if (q == &dev->q_rx[MT_RXQ_MCU]) {
+			u32 * rxfce = (u32 *) skb->cb;
+			*rxfce = info;
+		}
+
+		__skb_put(skb, len);
+		done++;
+
+		if (more) {
+			q->rx_head = skb;
+			continue;
+		}
+
+		dev->drv->rx_skb(dev, q, skb);
+	}
+
+	mt76_dma_rx_fill(dev, q, napi);
+	return done;
+}
+
 static const struct mt76_queue_ops mt76_dma_ops = {
 	.init = mt76_dma_init,
 	.alloc = mt76_dma_alloc_queue,
@@ -255,6 +327,7 @@ static const struct mt76_queue_ops mt76_dma_ops = {
 	.dequeue = mt76_dma_dequeue,
 	.tx_cleanup = mt76_dma_tx_cleanup,
 	.kick = mt76_dma_kick_queue,
+	.rx_process = mt76_dma_rx_process,
 };
 
 int mt76_dma_attach(struct mt76_dev *dev)

@@ -227,4 +227,7 @@ void mt76x2_pre_tbtt_tasklet(unsigned long data);
 
 void mt76x2_txq_init(struct mt76x2_dev *dev, struct ieee80211_txq *txq);
 
+void mt76x2_queue_rx_skb(struct mt76_dev *mdev, struct mt76_queue *q,
+			 struct sk_buff *skb);
+
 #endif

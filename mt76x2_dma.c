@@ -122,13 +122,13 @@ mt76x2_init_tx_queue(struct mt76x2_dev *dev, struct mt76_queue *q,
 	return 0;
 }
 
-static void
-mt76x2_process_rx_skb(struct mt76x2_dev *dev, struct mt76_queue *q,
-		    struct sk_buff *skb)
+void mt76x2_queue_rx_skb(struct mt76_dev *mdev, struct mt76_queue *q,
+			 struct sk_buff *skb)
 {
+	struct mt76x2_dev *dev = container_of(mdev, struct mt76x2_dev, mt76);
 	void *rxwi = skb->data;
 
-	if (q == &dev->mt76.q_rx[MT_RXQ_MCU]) {
+	if (q == &mdev->q_rx[MT_RXQ_MCU]) {
 		skb_queue_tail(&dev->mcu.res_q, skb);
 		wake_up(&dev->mcu.wait);
 		return;
@@ -141,77 +141,6 @@ mt76x2_process_rx_skb(struct mt76x2_dev *dev, struct mt76_queue *q,
 	}
 
 	mt76x2_rx(dev, skb);
-}
-
-static void
-mt76x2_add_fragment(struct mt76x2_dev *dev, struct mt76_queue *q, void *data,
-		    int len, bool more)
-{
-	struct page *page = virt_to_head_page(data);
-	int offset = data - page_address(page);
-	struct sk_buff *skb = q->rx_head;
-
-	skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page, offset, len,
-			q->buf_size);
-
-	if (!more) {
-		q->rx_head = NULL;
-		mt76x2_process_rx_skb(dev, q, skb);
-	}
-}
-
-static int
-mt76x2_process_rx_queue(struct mt76x2_dev *dev, struct mt76_queue *q, int budget)
-{
-	struct sk_buff *skb;
-	unsigned char *data;
-	int len;
-	int done = 0;
-	bool napi = q == &dev->mt76.q_rx[MT_RXQ_MAIN];
-	bool more;
-
-	while (done < budget) {
-		u32 info;
-
-		data = mt76_queue_dequeue(dev, q, false, &len, &info, &more);
-		if (!data)
-			break;
-
-		if (q->rx_head) {
-			mt76x2_add_fragment(dev, q, data, len, more);
-			continue;
-		}
-
-		skb = build_skb(data, q->buf_size);
-		if (!skb) {
-			skb_free_frag(data);
-			continue;
-		}
-
-		skb_reserve(skb, q->buf_offset);
-		if (skb->tail + len > skb->end) {
-			dev_kfree_skb(skb);
-			continue;
-		}
-
-		if (q == &dev->mt76.q_rx[MT_RXQ_MCU]) {
-			u32 * rxfce = (u32 *) skb->cb;
-			*rxfce = info;
-		}
-
-		__skb_put(skb, len);
-		done++;
-
-		if (more) {
-			q->rx_head = skb;
-			continue;
-		}
-
-		mt76x2_process_rx_skb(dev, q, skb);
-	}
-
-	mt76_queue_rx_fill(dev, q, napi);
-	return done;
 }
 
 static int
@@ -254,7 +183,7 @@ mt76x2_dma_rx_poll(struct napi_struct *napi, int budget)
 	struct mt76x2_dev *dev = container_of(napi, struct mt76x2_dev, napi);
 	int done;
 
-	done = mt76x2_process_rx_queue(dev, &dev->mt76.q_rx[MT_RXQ_MAIN], budget);
+	done = mt76_queue_rx_process(dev, &dev->mt76.q_rx[MT_RXQ_MAIN], budget);
 
 	if (done < budget) {
 		napi_complete(napi);
@@ -270,7 +199,7 @@ mt76x2_rx_tasklet(unsigned long data)
 	struct mt76x2_dev *dev = (struct mt76x2_dev *) data;
 	struct mt76_queue *q = &dev->mt76.q_rx[MT_RXQ_MCU];
 
-	mt76x2_process_rx_queue(dev, q, q->ndesc);
+	mt76_queue_rx_process(dev, q, q->ndesc);
 
 	mt76x2_irq_enable(dev, MT_INT_RX_DONE(1));
 }
