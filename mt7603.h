@@ -122,7 +122,6 @@ void mt7603_mac_stop(struct mt7603_dev *dev);
 int mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb);
 void mt7603_mac_add_txs(struct mt7603_dev *dev, void *data);
 
-int mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def);
 int mt7603_mcu_set_channel(struct mt7603_dev *dev);
 int mt7603_mcu_reg_read(struct mt7603_dev *dev, u32 reg, u32 *val, bool rf);
 int mt7603_mcu_set_eeprom(struct mt7603_dev *dev);
