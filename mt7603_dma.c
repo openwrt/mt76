@@ -155,32 +155,6 @@ mt7603_tx_tasklet(unsigned long data)
 	mt7603_irq_enable(dev, MT_INT_TX_DONE_ALL);
 }
 
-static int
-mt7603_dma_rx_poll(struct napi_struct *napi, int budget)
-{
-	struct mt7603_dev *dev = container_of(napi, struct mt7603_dev, napi);
-	int done;
-
-	done = mt76_queue_rx_process(dev, &dev->mt76.q_rx[MT_RXQ_MAIN], budget);
-
-	if (done < budget) {
-		napi_complete(napi);
-		mt7603_irq_enable(dev, MT_INT_RX_DONE(0));
-	}
-
-	return done;
-}
-
-static void
-mt7603_rx_tasklet(unsigned long data)
-{
-	struct mt7603_dev *dev = (struct mt7603_dev *) data;
-	struct mt76_queue *q = &dev->mt76.q_rx[MT_RXQ_MCU];
-
-	mt76_queue_rx_process(dev, q, q->ndesc);
-	mt7603_irq_enable(dev, MT_INT_RX_DONE(1));
-}
-
 int mt7603_dma_init(struct mt7603_dev *dev)
 {
 	static const u8 wmm_queue_map[] = {
@@ -197,12 +171,7 @@ int mt7603_dma_init(struct mt7603_dev *dev)
 	init_waitqueue_head(&dev->mcu.wait);
 	skb_queue_head_init(&dev->mcu.res_q);
 
-	init_dummy_netdev(&dev->napi_dev);
-	netif_napi_add(&dev->napi_dev, &dev->napi, mt7603_dma_rx_poll, 64);
-	napi_enable(&dev->napi);
-
 	tasklet_init(&dev->tx_tasklet, mt7603_tx_tasklet, (unsigned long) dev);
-	tasklet_init(&dev->rx_tasklet, mt7603_rx_tasklet, (unsigned long) dev);
 
 	mt76_clear(dev, MT_WPDMA_GLO_CFG,
 		   MT_WPDMA_GLO_CFG_TX_DMA_EN |
@@ -261,6 +230,5 @@ void mt7603_dma_cleanup(struct mt7603_dev *dev)
 		   MT_WPDMA_GLO_CFG_TX_WRITEBACK_DONE);
 
 	tasklet_kill(&dev->tx_tasklet);
-	tasklet_kill(&dev->rx_tasklet);
 	mt76_dma_cleanup(&dev->mt76);
 }

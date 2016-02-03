@@ -177,33 +177,6 @@ mt76x2_tx_tasklet(unsigned long data)
 	mt76x2_irq_enable(dev, MT_INT_TX_DONE_ALL);
 }
 
-static int
-mt76x2_dma_rx_poll(struct napi_struct *napi, int budget)
-{
-	struct mt76x2_dev *dev = container_of(napi, struct mt76x2_dev, napi);
-	int done;
-
-	done = mt76_queue_rx_process(dev, &dev->mt76.q_rx[MT_RXQ_MAIN], budget);
-
-	if (done < budget) {
-		napi_complete(napi);
-		mt76x2_irq_enable(dev, MT_INT_RX_DONE(0));
-	}
-
-	return done;
-}
-
-static void
-mt76x2_rx_tasklet(unsigned long data)
-{
-	struct mt76x2_dev *dev = (struct mt76x2_dev *) data;
-	struct mt76_queue *q = &dev->mt76.q_rx[MT_RXQ_MCU];
-
-	mt76_queue_rx_process(dev, q, q->ndesc);
-
-	mt76x2_irq_enable(dev, MT_INT_RX_DONE(1));
-}
-
 int mt76x2_dma_init(struct mt76x2_dev *dev)
 {
 	static const u8 wmm_queue_map[] = {
@@ -225,11 +198,7 @@ int mt76x2_dma_init(struct mt76x2_dev *dev)
 	init_waitqueue_head(&dev->mcu.wait);
 	skb_queue_head_init(&dev->mcu.res_q);
 
-	init_dummy_netdev(&dev->napi_dev);
-	netif_napi_add(&dev->napi_dev, &dev->napi, mt76x2_dma_rx_poll, 64);
-
 	tasklet_init(&dev->tx_tasklet, mt76x2_tx_tasklet, (unsigned long) dev);
-	tasklet_init(&dev->rx_tasklet, mt76x2_rx_tasklet, (unsigned long) dev);
 
 	mt76_wr(dev, MT_WPDMA_RST_IDX, ~0);
 
@@ -268,6 +237,5 @@ int mt76x2_dma_init(struct mt76x2_dev *dev)
 void mt76x2_dma_cleanup(struct mt76x2_dev *dev)
 {
 	tasklet_kill(&dev->tx_tasklet);
-	tasklet_kill(&dev->rx_tasklet);
 	mt76_dma_cleanup(&dev->mt76);
 }

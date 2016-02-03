@@ -105,8 +105,6 @@ struct mt76_queue_ops {
 			   void (*done)(struct mt76_dev *dev, struct mt76_queue *q,
 					struct mt76_queue_entry *e));
 
-	int (*rx_process)(struct mt76_dev *dev, struct mt76_queue *q, int budget);
-
 	void (*kick)(struct mt76_dev *dev, struct mt76_queue *q);
 };
 
@@ -159,6 +157,8 @@ struct mt76_driver_ops {
 
 	void (*rx_skb)(struct mt76_dev *dev, enum mt76_rxq_id q,
 		       struct sk_buff *skb);
+
+	void (*rx_poll_complete)(struct mt76_dev *dev, enum mt76_rxq_id q);
 };
 
 struct mt76_dev {
@@ -169,6 +169,9 @@ struct mt76_dev {
 	const struct mt76_driver_ops *drv;
 	void __iomem *regs;
 	struct device *dev;
+
+	struct net_device napi_dev;
+	struct napi_struct napi[__MT_RXQ_MAX];
 
 	struct list_head txwi_cache;
 	struct mt76_queue q_tx[__MT_TXQ_MAX];
@@ -234,7 +237,6 @@ static inline u16 mt76_rev(struct mt76_dev *dev)
 #define mt76_queue_alloc(dev, ...)	(dev)->mt76.queue_ops->alloc(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_add_buf(dev, ...)	(dev)->mt76.queue_ops->add_buf(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_tx_cleanup(dev, ...)	(dev)->mt76.queue_ops->tx_cleanup(&((dev)->mt76), __VA_ARGS__)
-#define mt76_queue_rx_process(dev, ...)	(dev)->mt76.queue_ops->rx_process(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_kick(dev, ...)	(dev)->mt76.queue_ops->kick(&((dev)->mt76), __VA_ARGS__)
 
 int mt76_register_device(struct mt76_dev *dev, bool vht,

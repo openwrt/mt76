@@ -84,11 +84,7 @@ struct mt7603_dev {
 	struct mt7603_mcu mcu;
 	struct mt76_queue q_rx;
 
-	struct net_device napi_dev;
-	struct napi_struct napi;
-
 	struct tasklet_struct tx_tasklet;
-	struct tasklet_struct rx_tasklet;
 	struct tasklet_struct pre_tbtt_tasklet;
 };
 
@@ -145,5 +141,6 @@ int mt7603_mac_write_txwi(struct mt76_dev *mdev, void *txwi_ptr,
 
 void mt7603_queue_rx_skb(struct mt76_dev *dev, enum mt76_rxq_id q,
 			 struct sk_buff *skb);
+void mt7603_rx_poll_complete(struct mt76_dev *mdev, enum mt76_rxq_id q);
 
 #endif

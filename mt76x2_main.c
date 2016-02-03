@@ -31,7 +31,6 @@ mt76x2_start(struct ieee80211_hw *hw)
 
 	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mac_work,
 				     MT_CALIBRATE_INTERVAL);
-	napi_enable(&dev->napi);
 
 	set_bit(MT76_STATE_RUNNING, &dev->mt76.state);
 
@@ -46,7 +45,6 @@ mt76x2_stop(struct ieee80211_hw *hw)
 	struct mt76x2_dev *dev = hw->priv;
 
 	mutex_lock(&dev->mutex);
-	napi_disable(&dev->napi);
 	clear_bit(MT76_STATE_RUNNING, &dev->mt76.state);
 	mt76x2_stop_hardware(dev);
 	mutex_unlock(&dev->mutex);

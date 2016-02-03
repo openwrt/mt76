@@ -105,11 +105,7 @@ struct mt76x2_dev {
 	struct mt76x2_mcu mcu;
 	struct sk_buff *rx_head;
 
-	struct net_device napi_dev;
-	struct napi_struct napi;
-
 	struct tasklet_struct tx_tasklet;
-	struct tasklet_struct rx_tasklet;
 	struct tasklet_struct pre_tbtt_tasklet;
 	struct delayed_work cal_work;
 	struct delayed_work mac_work;
@@ -227,6 +223,8 @@ void mt76x2_pre_tbtt_tasklet(unsigned long data);
 
 void mt76x2_txq_init(struct mt76x2_dev *dev, struct ieee80211_txq *txq);
 
+
+void mt76x2_rx_poll_complete(struct mt76_dev *dev, enum mt76_rxq_id q);
 void mt76x2_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 			 struct sk_buff *skb);
 

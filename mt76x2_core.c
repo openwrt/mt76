@@ -36,6 +36,12 @@ void mt76x2_set_irq_mask(struct mt76x2_dev *dev, u32 clear, u32 set)
 	spin_unlock_irqrestore(&dev->irq_lock, flags);
 }
 
+void mt76x2_rx_poll_complete(struct mt76_dev *mdev, enum mt76_rxq_id q)
+{
+	struct mt76x2_dev *dev = container_of(mdev, struct mt76x2_dev, mt76);
+	mt76x2_irq_enable(dev, MT_INT_RX_DONE(q));
+}
+
 irqreturn_t mt76x2_irq_handler(int irq, void *dev_instance)
 {
 	struct mt76x2_dev *dev = dev_instance;
@@ -58,12 +64,12 @@ irqreturn_t mt76x2_irq_handler(int irq, void *dev_instance)
 
 	if (intr & MT_INT_RX_DONE(0)) {
 		mt76x2_irq_disable(dev, MT_INT_RX_DONE(0));
-		napi_schedule(&dev->napi);
+		napi_schedule(&dev->mt76.napi[0]);
 	}
 
 	if (intr & MT_INT_RX_DONE(1)) {
 		mt76x2_irq_disable(dev, MT_INT_RX_DONE(1));
-		tasklet_schedule(&dev->rx_tasklet);
+		napi_schedule(&dev->mt76.napi[1]);
 	}
 
 	if (intr & MT_INT_PRE_TBTT)

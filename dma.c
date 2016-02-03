@@ -236,17 +236,6 @@ mt76_dma_rx_cleanup(struct mt76_dev *dev, struct mt76_queue *q)
 	spin_unlock_bh(&q->lock);
 }
 
-static int
-mt76_dma_init(struct mt76_dev *dev)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(dev->q_rx); i++)
-		mt76_dma_rx_fill(dev, &dev->q_rx[i], false);
-
-	return 0;
-}
-
 static void
 mt76_add_fragment(struct mt76_dev *dev, struct mt76_queue *q, void *data,
 		    int len, bool more)
@@ -272,7 +261,6 @@ mt76_dma_rx_process(struct mt76_dev *dev, struct mt76_queue *q, int budget)
 	unsigned char *data;
 	int len;
 	int done = 0;
-	bool napi = q == &dev->q_rx[MT_RXQ_MAIN];
 	bool more;
 
 	while (done < budget) {
@@ -315,8 +303,42 @@ mt76_dma_rx_process(struct mt76_dev *dev, struct mt76_queue *q, int budget)
 		dev->drv->rx_skb(dev, q - dev->q_rx, skb);
 	}
 
-	mt76_dma_rx_fill(dev, q, napi);
+	mt76_dma_rx_fill(dev, q, true);
 	return done;
+}
+
+static int
+mt76_dma_rx_poll(struct napi_struct *napi, int budget)
+{
+	struct mt76_dev *dev;
+	int qid, done;
+
+	dev = container_of(napi->dev, struct mt76_dev, napi_dev);
+	qid = napi - dev->napi;
+
+	done = mt76_dma_rx_process(dev, &dev->q_rx[qid], budget);
+	if (done < budget) {
+		napi_complete(napi);
+		dev->drv->rx_poll_complete(dev, qid);
+	}
+
+	return done;
+}
+
+static int
+mt76_dma_init(struct mt76_dev *dev)
+{
+	int i;
+
+	init_dummy_netdev(&dev->napi_dev);
+
+	for (i = 0; i < ARRAY_SIZE(dev->q_rx); i++) {
+		netif_napi_add(&dev->napi_dev, &dev->napi[i], mt76_dma_rx_poll, 64);
+		mt76_dma_rx_fill(dev, &dev->q_rx[i], false);
+		napi_enable(&dev->napi[i]);
+	}
+
+	return 0;
 }
 
 static const struct mt76_queue_ops mt76_dma_ops = {
@@ -325,7 +347,6 @@ static const struct mt76_queue_ops mt76_dma_ops = {
 	.add_buf = mt76_dma_add_buf,
 	.tx_cleanup = mt76_dma_tx_cleanup,
 	.kick = mt76_dma_kick_queue,
-	.rx_process = mt76_dma_rx_process,
 };
 
 int mt76_dma_attach(struct mt76_dev *dev)
@@ -352,7 +373,10 @@ void mt76_dma_cleanup(struct mt76_dev *dev)
 	for (i = 0; i < ARRAY_SIZE(dev->q_tx); i++)
 		mt76_dma_tx_cleanup(dev, &dev->q_tx[i], true,
 				    mt76_tx_cleanup_entry);
-	for (i = 0; i < ARRAY_SIZE(dev->q_rx); i++)
+
+	for (i = 0; i < ARRAY_SIZE(dev->q_rx); i++) {
+		netif_napi_del(&dev->napi[i]);
 		mt76_dma_rx_cleanup(dev, &dev->q_rx[i]);
+	}
 }
 EXPORT_SYMBOL_GPL(mt76_dma_cleanup);
