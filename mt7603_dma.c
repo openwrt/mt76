@@ -94,10 +94,10 @@ mt7603_init_tx_queue(struct mt7603_dev *dev, struct mt76_queue *q,
 	return 0;
 }
 
-static void
-mt7603_process_rx_skb(struct mt7603_dev *dev, struct mt76_queue *q,
-		    struct sk_buff *skb)
+void mt7603_queue_rx_skb(struct mt76_dev *mdev, struct mt76_queue *q,
+			 struct sk_buff *skb)
 {
+	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
 	__le32 *rxd = (__le32 *) skb->data;
 	enum rx_pkt_type type;
 
@@ -122,41 +122,6 @@ mt7603_process_rx_skb(struct mt7603_dev *dev, struct mt76_queue *q,
 		dev_kfree_skb(skb);
 		break;
 	}
-}
-
-static int
-mt7603_process_rx_queue(struct mt7603_dev *dev, struct mt76_queue *q, int budget)
-{
-	struct sk_buff *skb;
-	unsigned char *data;
-	int len;
-	int done = 0;
-	bool napi = q == &dev->mt76.q_rx[MT_RXQ_MAIN];
-	bool more;
-
-	while (done < budget) {
-		data = mt76_queue_dequeue(dev, q, false, &len, NULL, &more);
-		if (!data)
-			break;
-
-		skb = build_skb(data, q->buf_size);
-		if (!skb) {
-			skb_free_frag(data);
-			continue;
-		}
-
-		if (skb->tail + len > skb->end) {
-			dev_kfree_skb(skb);
-			continue;
-		}
-
-		__skb_put(skb, len);
-		mt7603_process_rx_skb(dev, q, skb);
-		done++;
-	}
-
-	mt76_queue_rx_fill(dev, q, napi);
-	return done;
 }
 
 static int
@@ -196,7 +161,7 @@ mt7603_dma_rx_poll(struct napi_struct *napi, int budget)
 	struct mt7603_dev *dev = container_of(napi, struct mt7603_dev, napi);
 	int done;
 
-	done = mt7603_process_rx_queue(dev, &dev->mt76.q_rx[MT_RXQ_MAIN], budget);
+	done = mt76_queue_rx_process(dev, &dev->mt76.q_rx[MT_RXQ_MAIN], budget);
 
 	if (done < budget) {
 		napi_complete(napi);
@@ -212,7 +177,7 @@ mt7603_rx_tasklet(unsigned long data)
 	struct mt7603_dev *dev = (struct mt7603_dev *) data;
 	struct mt76_queue *q = &dev->mt76.q_rx[MT_RXQ_MCU];
 
-	mt7603_process_rx_queue(dev, q, q->ndesc);
+	mt76_queue_rx_process(dev, q, q->ndesc);
 	mt7603_irq_enable(dev, MT_INT_RX_DONE(1));
 }
 

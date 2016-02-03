@@ -142,4 +142,8 @@ void mt7603_wtbl_set_rates(struct mt7603_dev *dev, int wcid,
 int mt7603_mac_write_txwi(struct mt76_dev *mdev, void *txwi_ptr,
 			  struct sk_buff *skb, struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta);
+
+void mt7603_queue_rx_skb(struct mt76_dev *dev, struct mt76_queue *q,
+			 struct sk_buff *skb);
+
 #endif
