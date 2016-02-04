@@ -92,9 +92,12 @@ int mt76_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 		      struct ieee80211_sta *sta)
 {
 	struct mt76_txwi_cache *t;
+	struct mt76_queue_buf buf[32];
+	struct sk_buff *iter;
 	dma_addr_t addr;
+	int len;
 	u32 tx_info = 0;
-	int ret;
+	int n, ret;
 
 	t = mt76_get_txwi(dev);
 	if (!t) {
@@ -110,21 +113,40 @@ int mt76_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 	if (ret < 0)
 		goto free_txwi;
 
-	addr = dma_map_single(dev->dev, skb->data, skb->len, DMA_TO_DEVICE);
+	len = skb->len - skb->data_len;
+	addr = dma_map_single(dev->dev, skb->data, len, DMA_TO_DEVICE);
 	if (dma_mapping_error(dev->dev, addr)) {
 		ret = -ENOMEM;
 		goto free_txwi;
 	}
 
-	ret = dev->queue_ops->add_buf(dev, q, t->dma_addr, dev->drv->txwi_size,
-				      addr, skb->len, tx_info);
-	if (ret < 0)
-		return ret;
+	n = 0;
+	buf[n].addr = t->dma_addr;
+	buf[n++].len = dev->drv->txwi_size;
+	buf[n].addr = addr;
+	buf[n++].len = len;
 
-	q->entry[ret].skb = skb;
-	q->entry[ret].txwi = t;
+	skb_walk_frags(skb, iter) {
+		if (n == ARRAY_SIZE(buf))
+			goto unmap;
 
-	return ret;
+		addr = dma_map_single(dev->dev, iter->data, iter->len, DMA_TO_DEVICE);
+		if (dma_mapping_error(dev->dev, addr))
+			goto unmap;
+
+		buf[n].addr = addr;
+		buf[n++].len = iter->len;
+	}
+
+	if (q->queued + (n + 1) / 2 >= q->ndesc)
+		goto unmap;
+
+	return dev->queue_ops->add_buf(dev, q, buf, n, tx_info, skb, t);
+
+unmap:
+	ret = -ENOMEM;
+	for (n--; n > 0; n--)
+		dma_unmap_single(dev->dev, buf[n].addr, buf[n].len, DMA_TO_DEVICE);
 
 free_txwi:
 	mt76_put_txwi(dev, t);

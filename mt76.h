@@ -53,12 +53,17 @@ enum mt76_rxq_id {
 	__MT_RXQ_MAX
 };
 
+struct mt76_queue_buf {
+	dma_addr_t addr;
+	int len;
+};
+
 struct mt76_queue_entry {
-	struct sk_buff *skb;
 	union {
 		void *buf;
-		struct mt76_txwi_cache *txwi;
+		struct sk_buff *skb;
 	};
+	struct mt76_txwi_cache *txwi;
 	bool schedule;
 };
 
@@ -96,7 +101,8 @@ struct mt76_queue_ops {
 	int (*alloc)(struct mt76_dev *dev, struct mt76_queue *q);
 
 	int (*add_buf)(struct mt76_dev *dev, struct mt76_queue *q,
-		       u32 buf0, int len0, u32 buf1, int len1, u32 info);
+		       struct mt76_queue_buf *buf, int nbufs, u32 info,
+		       struct sk_buff *skb, void *txwi);
 
 	void *(*dequeue)(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
 			 int *len, u32 *info, bool *more);

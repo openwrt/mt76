@@ -19,6 +19,7 @@ mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76_txq_id qid,
 		    struct sk_buff *skb, int cmd, int seq)
 {
 	struct mt76_queue *q = &dev->mt76.q_tx[qid];
+	struct mt76_queue_buf buf;
 	dma_addr_t addr;
 	u32 tx_info;
 	int idx;
@@ -33,9 +34,10 @@ mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76_txq_id qid,
 	if (dma_mapping_error(dev->mt76.dev, addr))
 		return -ENOMEM;
 
+	buf.addr = addr;
+	buf.len = skb->len;
 	spin_lock_bh(&q->lock);
-	idx = mt76_queue_add_buf(dev, q, addr, skb->len, 0, 0, tx_info);
-	q->entry[idx].skb = skb;
+	idx = mt76_queue_add_buf(dev, q, &buf, 1, tx_info, skb, NULL);
 	mt76_queue_kick(dev, q);
 	spin_unlock_bh(&q->lock);
 

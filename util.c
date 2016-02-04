@@ -39,7 +39,7 @@ int mt76_insert_hdr_pad(struct sk_buff *skb)
 
 	skb->data[len] = 0;
 	skb->data[len + 1] = 0;
-	return 0;
+	return 2;
 }
 EXPORT_SYMBOL_GPL(mt76_insert_hdr_pad);
 

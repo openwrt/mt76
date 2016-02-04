@@ -64,23 +64,20 @@ int mt76x2_tx_prepare_skb(struct mt76_dev *mdev, void *txwi,
 {
 	struct mt76x2_dev *dev = container_of(mdev, struct mt76x2_dev, mt76);
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	int len, qsel = MT_QSEL_EDCA;
+	int qsel = MT_QSEL_EDCA;
 	int ret;
 
 	mt76x2_mac_write_txwi(dev, txwi, skb, wcid, sta);
 
 	ret = mt76_insert_hdr_pad(skb);
-	if (ret)
+	if (ret < 0)
 		return ret;
 
 	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE)
 		qsel = 0;
 
-	len = skb->len + sizeof(struct mt76x2_txwi);
-	len += mt76x2_mac_skb_tx_overhead(dev, skb);
-	*tx_info = MT76_SET(MT_TXD_INFO_LEN, len) |
-		  MT76_SET(MT_TXD_INFO_QSEL, qsel) |
-		  MT_TXD_INFO_80211;
+	*tx_info = MT76_SET(MT_TXD_INFO_QSEL, qsel) |
+		   MT_TXD_INFO_80211;
 
 	if (!wcid || wcid->hw_key_idx == 0xff)
 		*tx_info |= MT_TXD_INFO_WIV;
