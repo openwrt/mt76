@@ -32,6 +32,25 @@ mt76_reg_get(void *data, u64 *val)
 
 DEFINE_SIMPLE_ATTRIBUTE(fops_regval, mt76_reg_get, mt76_reg_set, "0x%08llx\n");
 
+static int
+mt76_queues_read(struct seq_file *s, void *data)
+{
+	struct mt76_dev *dev = dev_get_drvdata(s->private);
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(dev->q_tx); i++) {
+		struct mt76_queue *q = &dev->q_tx[i];
+
+		if (!q->ndesc)
+			continue;
+
+		seq_printf(s,
+			   "%d:	queued=%d head=%d tail=%d swq_queued=%d\n",
+			   i, q->queued, q->head, q->tail, q->swq_queued);
+	}
+
+	return 0;
+}
 
 struct dentry *mt76_register_debugfs(struct mt76_dev *dev)
 {
@@ -44,6 +63,7 @@ struct dentry *mt76_register_debugfs(struct mt76_dev *dev)
 	debugfs_create_u32("regidx", S_IRUSR | S_IWUSR, dir, &dev->debugfs_reg);
 	debugfs_create_file("regval", S_IRUSR | S_IWUSR, dir, dev, &fops_regval);
 	debugfs_create_blob("eeprom", S_IRUSR, dir, &dev->eeprom);
+	debugfs_create_devm_seqfile(dev->dev, "queues", dir, mt76_queues_read);
 
 	return dir;
 }
