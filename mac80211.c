@@ -166,6 +166,8 @@ int mt76_register_device(struct mt76_dev *dev, bool vht,
 	struct wiphy *wiphy = hw->wiphy;
 	int ret;
 
+	dev_set_drvdata(dev->dev, dev);
+
 	spin_lock_init(&dev->lock);
 	INIT_LIST_HEAD(&dev->txwi_cache);
 

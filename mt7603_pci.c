@@ -48,8 +48,6 @@ mt76pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	mt76_mmio_init(&dev->mt76, pcim_iomap_table(pdev)[0]);
 
-	pci_set_drvdata(pdev, dev);
-
 	dev->mt76.rev = (mt76_rr(dev, MT_HW_CHIPID) << 16) |
 			(mt76_rr(dev, MT_HW_REV) & 0xff);
 	dev_printk(KERN_INFO, dev->mt76.dev, "ASIC revision: %04x\n", dev->mt76.rev);
@@ -72,7 +70,8 @@ error:
 static void
 mt76pci_remove(struct pci_dev *pdev)
 {
-	struct mt7603_dev *dev = pci_get_drvdata(pdev);
+	struct mt76_dev *mdev = pci_get_drvdata(pdev);
+	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
 
 	mt76_unregister_device(&dev->mt76);
 	mt7603_mcu_exit(dev);
