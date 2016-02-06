@@ -633,10 +633,14 @@ void mt7603_mac_add_txs(struct mt7603_dev *dev, void *data)
 	sta = container_of(priv, struct ieee80211_sta, drv_priv);
 
 	pid &= MT_PID_INDEX;
-	if (!mt7603_mac_add_txs_skb(dev, msta, pid, txs_data)) {
-		mt7603_fill_txs(dev, msta, &info, txs_data);
-		ieee80211_tx_status_noskb(mt76_hw(dev), sta, &info);
-	}
+	if (mt7603_mac_add_txs_skb(dev, msta, pid, txs_data))
+		goto out;
+
+	if (wcidx >= MT7603_WTBL_STA)
+		goto out;
+
+	mt7603_fill_txs(dev, msta, &info, txs_data);
+	ieee80211_tx_status_noskb(mt76_hw(dev), sta, &info);
 
 out:
 	rcu_read_unlock();
