@@ -660,7 +660,8 @@ void mt7603_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 	}
 
 	/* will be freed by tx status handling codepath */
-	if (info->flags & IEEE80211_TX_CTL_REQ_TX_STATUS) {
+	if (info->flags & (IEEE80211_TX_CTL_REQ_TX_STATUS |
+			   IEEE80211_TX_CTL_RATE_CTRL_PROBE)) {
 		spin_lock_bh(&dev->status_lock);
 		if (!flush) {
 			mt7603_skb_done(dev, e->skb, MT7603_CB_DMA_DONE);
