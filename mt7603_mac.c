@@ -41,6 +41,20 @@ mt76_start_tx_ac(struct mt7603_dev *dev, u32 mask)
 	mt76_set(dev, MT_WF_ARB_TX_START_0, mt7603_ac_queue_mask0(mask));
 }
 
+void mt7603_mac_set_timing(struct mt7603_dev *dev)
+{
+	u32 cck = MT76_SET(MT_TIMEOUT_VAL_PLCP, 231) |
+		  MT76_SET(MT_TIMEOUT_VAL_CCA, 48);
+	u32 ofdm = MT76_SET(MT_TIMEOUT_VAL_PLCP, 60) |
+		   MT76_SET(MT_TIMEOUT_VAL_CCA, 24);
+	int offset = 3 * dev->coverage_class;
+	u32 reg_offset = MT76_SET(MT_TIMEOUT_VAL_PLCP, offset) |
+			 MT76_SET(MT_TIMEOUT_VAL_CCA, offset);
+
+	mt76_wr(dev, MT_TIMEOUT_CCK, cck + reg_offset);
+	mt76_wr(dev, MT_TIMEOUT_OFDM, ofdm + reg_offset);
+}
+
 static void
 mt7603_wtbl_update(struct mt7603_dev *dev, int idx, u32 mask)
 {

@@ -99,6 +99,8 @@ struct mt7603_dev {
 
 	u8 rssi_offset[3];
 
+	s16 coverage_class;
+
 	struct mt7603_mcu mcu;
 	struct mt76_queue q_rx;
 
@@ -151,6 +153,7 @@ static inline void mt7603_irq_disable(struct mt7603_dev *dev, u32 mask)
 
 void mt7603_mac_start(struct mt7603_dev *dev);
 void mt7603_mac_stop(struct mt7603_dev *dev);
+void mt7603_mac_set_timing(struct mt7603_dev *dev);
 int mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb);
 void mt7603_mac_add_txs(struct mt7603_dev *dev, void *data);
 struct sk_buff *mt7603_mac_status_skb(struct mt7603_dev *dev,

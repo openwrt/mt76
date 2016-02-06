@@ -217,6 +217,11 @@
 #define MT_WMM_TXOP_SHIFT(_n)		((_n & 1) * 16)
 #define MT_WMM_TXOP_MASK		GENMASK(15, 0)
 
+#define MT_TIMEOUT_CCK			MT_WF_TMAC(0x090)
+#define MT_TIMEOUT_OFDM			MT_WF_TMAC(0x094)
+#define MT_TIMEOUT_VAL_PLCP		GENMASK(15, 0)
+#define MT_TIMEOUT_VAL_CCA		GENMASK(31, 16)
+
 #define MT_WF_RMAC_BASE			0x21800
 #define MT_WF_RMAC(ofs)			(MT_WF_RMAC_BASE + (ofs))
 
