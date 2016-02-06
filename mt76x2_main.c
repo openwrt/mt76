@@ -50,6 +50,26 @@ mt76x2_stop(struct ieee80211_hw *hw)
 	mutex_unlock(&dev->mutex);
 }
 
+static void
+mt76x2_txq_init(struct mt76x2_dev *dev, struct ieee80211_txq *txq)
+{
+	struct mt76_txq *mtxq;
+
+	if (!txq)
+		return;
+
+	mtxq = (struct mt76_txq *) txq->drv_priv;
+	if (txq->sta) {
+		struct mt76x2_sta *sta = (struct mt76x2_sta *) txq->sta->drv_priv;
+		mtxq->wcid = &sta->wcid;
+	} else {
+		struct mt76x2_vif *mvif = (struct mt76x2_vif *) txq->vif->drv_priv;
+		mtxq->wcid = &mvif->group_wcid;
+	}
+
+	mt76_txq_init(&dev->mt76, txq);
+}
+
 static int
 mt76x2_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
