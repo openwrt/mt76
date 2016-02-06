@@ -54,6 +54,9 @@ struct mt7603_mcu {
 struct mt7603_sta {
 	struct mt76_wcid wcid; /* must be first */
 
+	struct ieee80211_tx_rate rates[4];
+	int n_rates;
+
 	int pid;
 
 	int ampdu_count;
@@ -170,9 +173,7 @@ int mt7603_mcu_exit(struct mt7603_dev *dev);
 void mt7603_wtbl_init(struct mt7603_dev *dev, int idx, const u8 *addr);
 void mt7603_wtbl_clear(struct mt7603_dev *dev, int idx);
 void mt7603_wtbl_update_cap(struct mt7603_dev *dev, struct ieee80211_sta *sta);
-void mt7603_wtbl_set_rates(struct mt7603_dev *dev, int wcid,
-			   struct ieee80211_tx_rate *rates,
-			   int n_rates);
+void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta);
 
 int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  struct sk_buff *skb, struct mt76_wcid *wcid,

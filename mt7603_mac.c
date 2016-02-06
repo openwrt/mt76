@@ -326,12 +326,13 @@ mt7603_mac_tx_rate_val(struct mt7603_dev *dev,
 	return rateval;
 }
 
-void mt7603_wtbl_set_rates(struct mt7603_dev *dev, int wcid,
-			   struct ieee80211_tx_rate *rates,
-			   int n_rates)
+void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta)
 {
+	struct ieee80211_tx_rate *rates = sta->rates;
+	int wcid = sta->wcid.idx;
 	u32 addr = mt7603_wtbl2_addr(wcid);
 	bool stbc = false;
+	int n_rates = sta->n_rates;
 	u8 bw, bw_prev, bw_idx = 0;
 	u16 val;
 	int i;
@@ -376,8 +377,14 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
 	int wlan_idx;
 	int hdr_len = ieee80211_get_hdrlen_from_skb(skb);
+	int tx_count = 8;
 	u8 frame_type, frame_subtype;
 	u8 bw;
+
+	if (sta) {
+		struct mt7603_sta *msta = (struct mt7603_sta *) sta->drv_priv;
+		tx_count = msta->n_rates * MT7603_RATE_RETRY;
+	}
 
 	if (wcid)
 		wlan_idx = wcid->idx;
@@ -416,7 +423,6 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE)
 		txwi[2] |= cpu_to_le32(MT_TXD2_BA_DISABLE);
 
-	txwi[3] = cpu_to_le32(MT76_SET(MT_TXD3_REM_TX_COUNT, 0xf));
 	txwi[4] = 0;
 	txwi[5] = cpu_to_le32(
 		MT_TXD5_TX_STATUS_HOST | MT_TXD5_SW_POWER_MGMT |
@@ -438,8 +444,12 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 
 		if (rate->flags & IEEE80211_TX_RC_SHORT_GI)
 			txwi[6] |= cpu_to_le32(MT_TXD6_SGI);
+
+		tx_count = rate->count;
 	}
 	spin_unlock_bh(&dev->mt76.lock);
+
+	txwi[3] = cpu_to_le32(MT76_SET(MT_TXD3_REM_TX_COUNT, tx_count));
 
 	if (info->flags & IEEE80211_TX_CTL_LDPC)
 		txwi[6] |= cpu_to_le32(MT_TXD6_LDPC);
@@ -493,6 +503,7 @@ mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 	int count;
 	u32 txs;
 	u8 pid;
+	int i;
 
 	txs = le32_to_cpu(txs_data[4]);
 	final_mpdu = txs & MT_TXS4_ACKED_MPDU;
@@ -505,6 +516,16 @@ mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 		if (ampdu)
 			sta->ampdu_acked++;
 		info->flags |= IEEE80211_TX_STAT_ACK;
+	}
+
+	if (info->status.rates[0].count) {
+		info->status.rates[0].count = count;
+		info->status.rates[1].count = 0;
+	} else {
+		for (i = 0; i < 4 && count > 0; i++, count -= MT7603_RATE_RETRY) {
+			info->status.rates[i] = sta->rates[i];
+			info->status.rates[i].count = min_t(int, count, 2);
+		}
 	}
 
 	if (ampdu) {

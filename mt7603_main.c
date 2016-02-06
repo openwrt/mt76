@@ -363,18 +363,18 @@ mt7603_sta_rate_tbl_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct mt7603_dev *dev = hw->priv;
 	struct mt7603_sta *msta = (struct mt7603_sta *) sta->drv_priv;
 	struct ieee80211_sta_rates *sta_rates = rcu_dereference(sta->rates);
-	struct ieee80211_tx_rate rates[IEEE80211_TX_MAX_RATES] = {};
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(rates); i++) {
-		rates[i].idx = sta_rates->rate[i].idx;
-		rates[i].count = sta_rates->rate[i].count;
-		rates[i].flags = sta_rates->rate[i].flags;
-		if (rates[i].idx < 0 || !rates[i].count)
+	for (i = 0; i < ARRAY_SIZE(msta->rates); i++) {
+		msta->rates[i].idx = sta_rates->rate[i].idx;
+		msta->rates[i].count = sta_rates->rate[i].count;
+		msta->rates[i].flags = sta_rates->rate[i].flags;
+
+		if (msta->rates[i].idx < 0 || !msta->rates[i].count)
 			break;
 	}
-
-	mt7603_wtbl_set_rates(dev, msta->wcid.idx, rates, i);
+	msta->n_rates = i;
+	mt7603_wtbl_set_rates(dev, msta);
 }
 
 static void mt7603_set_coverage_class(struct ieee80211_hw *hw,
