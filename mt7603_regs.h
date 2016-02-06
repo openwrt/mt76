@@ -159,6 +159,19 @@
 #define MT_WF_ARB_BASE			0x21400
 #define MT_WF_ARB(ofs)			(MT_WF_ARB_BASE + (ofs))
 
+#define MT_WMM_AIFSN			MT_WF_ARB(0x020)
+#define MT_WMM_AIFSN_MASK		GENMASK(3, 0)
+#define MT_WMM_AIFSN_SHIFT(_n)		((_n) * 4)
+
+#define MT_WMM_CWMAX_BASE		MT_WF_ARB(0x028)
+#define MT_WMM_CWMAX(_n)		(MT_WMM_CWMAX_BASE + (((_n) / 2) << 2))
+#define MT_WMM_CWMAX_SHIFT(_n)		(((_n) & 1) * 16)
+#define MT_WMM_CWMAX_MASK		GENMASK(15, 0)
+
+#define MT_WMM_CWMIN			MT_WF_ARB(0x040)
+#define MT_WMM_CWMIN_MASK		GENMASK(7, 0)
+#define MT_WMM_CWMIN_SHIFT(_n)		((_n) * 8)
+
 #define MT_WF_ARB_RQCR			MT_WF_ARB(0x070)
 #define MT_WF_ARB_RQCR_RX_START		BIT(0)
 #define MT_WF_ARB_RQCR_RXV_START	BIT(4)
@@ -198,6 +211,11 @@
 #define MT_WF_TMAC_RDG_RESP		BIT(29)
 #define MT_WF_TMAC_RDG_GRANT_NO_PENDING	BIT(30)
 #define MT_WF_TMAC_SMOOTHING		BIT(31)
+
+#define MT_WMM_TXOP_BASE		MT_WF_TMAC(0x010)
+#define MT_WMM_TXOP(_n)			(MT_WMM_TXOP_BASE + (((_n) / 2) << 2))
+#define MT_WMM_TXOP_SHIFT(_n)		((_n & 1) * 16)
+#define MT_WMM_TXOP_MASK		GENMASK(15, 0)
 
 #define MT_WF_RMAC_BASE			0x21800
 #define MT_WF_RMAC(ofs)			(MT_WF_RMAC_BASE + (ofs))

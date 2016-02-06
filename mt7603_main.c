@@ -263,7 +263,43 @@ static int
 mt7603_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif, u16 queue,
 	     const struct ieee80211_tx_queue_params *params)
 {
-	return -EINVAL;
+	struct mt7603_dev *dev = hw->priv;
+	u16 cw_min = (1 << 5) - 1;
+	u16 cw_max = (1 << 10) - 1;
+	u32 val;
+
+	if (params->cw_min)
+		cw_min = params->cw_min;
+	if (params->cw_max)
+		cw_max = params->cw_max;
+
+	mutex_lock(&dev->mutex);
+	mt7603_mac_stop(dev);
+
+	val = mt76_rr(dev, MT_WMM_TXOP(queue));
+	val &= ~(MT_WMM_TXOP_MASK << MT_WMM_TXOP_SHIFT(queue));
+	val |= params->txop << MT_WMM_TXOP_SHIFT(queue);
+	mt76_wr(dev, MT_WMM_TXOP(queue), val);
+
+	val = mt76_rr(dev, MT_WMM_AIFSN);
+	val &= ~(MT_WMM_AIFSN_MASK << MT_WMM_AIFSN_SHIFT(queue));
+	val |= params->aifs << MT_WMM_AIFSN_SHIFT(queue);
+	mt76_wr(dev, MT_WMM_AIFSN, val);
+
+	val = mt76_rr(dev, MT_WMM_CWMIN);
+	val &= ~(MT_WMM_CWMIN_MASK << MT_WMM_CWMIN_SHIFT(queue));
+	val |= cw_min << MT_WMM_CWMIN_SHIFT(queue);
+	mt76_wr(dev, MT_WMM_CWMIN, val);
+
+	val = mt76_rr(dev, MT_WMM_CWMAX(queue));
+	val &= ~(MT_WMM_CWMAX_MASK << MT_WMM_CWMAX_SHIFT(queue));
+	val |= cw_max << MT_WMM_CWMAX_SHIFT(queue);
+	mt76_wr(dev, MT_WMM_CWMAX(queue), val);
+
+	mt7603_mac_start(dev);
+	mutex_unlock(&dev->mutex);
+
+	return 0;
 }
 
 static void
