@@ -123,12 +123,13 @@ mt76_dma_tx_cleanup_idx(struct mt76_dev *dev, struct mt76_queue *q, int idx,
 }
 
 static void
-mt76_dma_tx_cleanup(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
-		 void (*done)(struct mt76_dev *dev, struct mt76_queue *q,
-			      struct mt76_queue_entry *e))
+mt76_dma_tx_cleanup(struct mt76_dev *dev, struct mt76_queue *q, bool flush)
 {
 	struct mt76_queue_entry entry;
 	int last;
+
+	if (!q->ndesc)
+		return;
 
 	spin_lock_bh(&q->lock);
 	if (flush)
@@ -142,7 +143,7 @@ mt76_dma_tx_cleanup(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
 			q->swq_queued--;
 
 		if (entry.skb)
-			done(dev, q, &entry);
+			dev->drv->tx_complete_skb(dev, q, &entry, flush);
 
 		if (entry.txwi)
 			mt76_put_txwi(dev, entry.txwi);
@@ -391,23 +392,12 @@ int mt76_dma_attach(struct mt76_dev *dev)
 }
 EXPORT_SYMBOL_GPL(mt76_dma_attach);
 
-static void
-mt76_tx_cleanup_entry(struct mt76_dev *dev, struct mt76_queue *q,
-			struct mt76_queue_entry *e)
-{
-	if (e->txwi)
-		ieee80211_free_txskb(dev->hw, e->skb);
-	else
-		dev_kfree_skb_any(e->skb);
-}
-
 void mt76_dma_cleanup(struct mt76_dev *dev)
 {
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(dev->q_tx); i++)
-		mt76_dma_tx_cleanup(dev, &dev->q_tx[i], true,
-				    mt76_tx_cleanup_entry);
+		mt76_dma_tx_cleanup(dev, &dev->q_tx[i], true);
 
 	for (i = 0; i < ARRAY_SIZE(dev->q_rx); i++) {
 		netif_napi_del(&dev->napi[i]);

@@ -107,9 +107,7 @@ struct mt76_queue_ops {
 	void *(*dequeue)(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
 			 int *len, u32 *info, bool *more);
 
-	void (*tx_cleanup)(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
-			   void (*done)(struct mt76_dev *dev, struct mt76_queue *q,
-					struct mt76_queue_entry *e));
+	void (*tx_cleanup)(struct mt76_dev *dev, struct mt76_queue *q, bool flush);
 
 	void (*kick)(struct mt76_dev *dev, struct mt76_queue *q);
 };
@@ -158,6 +156,9 @@ struct mt76_driver_ops {
 	int (*tx_prepare_skb)(struct mt76_dev *dev, void *txwi_ptr,
 			      struct sk_buff *skb, struct mt76_wcid *wcid,
 			      struct ieee80211_sta *sta, u32 *tx_info);
+
+	void (*tx_complete_skb)(struct mt76_dev *dev, struct mt76_queue *q,
+			        struct mt76_queue_entry *e, bool flush);
 
 	void (*rx_skb)(struct mt76_dev *dev, enum mt76_rxq_id q,
 		       struct sk_buff *skb);

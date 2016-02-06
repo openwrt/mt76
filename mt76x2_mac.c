@@ -446,8 +446,9 @@ void mt76x2_mac_poll_tx_status(struct mt76x2_dev *dev, bool irq)
 	}
 }
 
-void mt76x2_mac_queue_txdone(struct mt76x2_dev *dev, struct sk_buff *skb,
-			     void *txwi_ptr)
+static void
+mt76x2_mac_queue_txdone(struct mt76x2_dev *dev, struct sk_buff *skb,
+			void *txwi_ptr)
 {
 	struct mt76x2_tx_info *txi = mt76x2_skb_tx_info(skb);
 	struct mt76x2_txwi *txwi = txwi_ptr;
@@ -469,6 +470,18 @@ void mt76x2_mac_process_tx_status_fifo(struct mt76x2_dev *dev)
 
 	while (kfifo_get(&dev->txstatus_fifo, &stat))
 		mt76x2_send_tx_status(dev, &stat, &update);
+}
+
+void mt76x2_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
+			    struct mt76_queue_entry *e, bool flush)
+{
+	struct mt76x2_dev *dev = container_of(mdev, struct mt76x2_dev, mt76);
+
+	if (e->txwi) {
+		mt76x2_mac_queue_txdone(dev, e->skb, &e->txwi->txwi);
+	} else {
+		dev_kfree_skb_any(e->skb);
+	}
 }
 
 static enum mt76x2_cipher_type

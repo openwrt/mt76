@@ -135,6 +135,9 @@ int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  struct sk_buff *skb, struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta, u32 *tx_info);
 
+void mt7603_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
+			    struct mt76_queue_entry *e, bool flush);
+
 void mt7603_queue_rx_skb(struct mt76_dev *dev, enum mt76_rxq_id q,
 			 struct sk_buff *skb);
 void mt7603_rx_poll_complete(struct mt76_dev *mdev, enum mt76_rxq_id q);

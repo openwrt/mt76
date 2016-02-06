@@ -176,9 +176,6 @@ int mt76x2_mac_skb_tx_overhead(struct mt76x2_dev *dev, struct sk_buff *skb);
 int mt76x2_mac_set_beacon(struct mt76x2_dev *dev, u8 vif_idx, struct sk_buff *skb);
 void mt76x2_mac_set_beacon_enable(struct mt76x2_dev *dev, u8 vif_idx, bool val);
 
-void mt76x2_mac_queue_txdone(struct mt76x2_dev *dev, struct sk_buff *skb,
-			     void *txwi_ptr);
-
 void mt76x2_mac_poll_tx_status(struct mt76x2_dev *dev, bool irq);
 void mt76x2_mac_process_tx_status_fifo(struct mt76x2_dev *dev);
 

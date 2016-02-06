@@ -44,28 +44,6 @@ mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76_txq_id qid,
 	return 0;
 }
 
-static void
-mt76x2_tx_cleanup_entry(struct mt76_dev *mdev, struct mt76_queue *q,
-			struct mt76_queue_entry *e)
-{
-	struct mt76x2_dev *dev = container_of(mdev, struct mt76x2_dev, mt76);
-
-	if (e->txwi) {
-		mt76x2_mac_queue_txdone(dev, e->skb, &e->txwi->txwi);
-	} else {
-		dev_kfree_skb_any(e->skb);
-	}
-}
-
-static void
-mt76x2_tx_cleanup(struct mt76x2_dev *dev, struct mt76_queue *q, bool flush)
-{
-	if (!q->desc)
-		return;
-
-	mt76_queue_tx_cleanup(dev, q, flush, mt76x2_tx_cleanup_entry);
-}
-
 static int
 mt76x2_init_tx_queue(struct mt76x2_dev *dev, struct mt76_queue *q,
 		   int idx, int n_desc)
@@ -133,7 +111,7 @@ mt76x2_tx_tasklet(unsigned long data)
 	mt76x2_mac_process_tx_status_fifo(dev);
 
 	for (i = ARRAY_SIZE(dev->mt76.q_tx) - 1; i >= 0; i--)
-		mt76x2_tx_cleanup(dev, &dev->mt76.q_tx[i], false);
+		mt76_queue_tx_cleanup(dev, &dev->mt76.q_tx[i], false);
 
 	mt76x2_mac_poll_tx_status(dev, false);
 	mt76x2_irq_enable(dev, MT_INT_TX_DONE_ALL);

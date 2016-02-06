@@ -38,25 +38,6 @@ mt7603_tx_queue_mcu(struct mt7603_dev *dev, enum mt76_txq_id qid,
 	return 0;
 }
 
-static void
-mt7603_tx_cleanup_entry(struct mt76_dev *mdev, struct mt76_queue *q,
-			struct mt76_queue_entry *e)
-{
-	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
-
-	(void) dev;
-	if (e->txwi)
-		ieee80211_free_txskb(mdev->hw, e->skb);
-	else
-		dev_kfree_skb_any(e->skb);
-}
-
-static void
-mt7603_tx_cleanup(struct mt7603_dev *dev, struct mt76_queue *q, bool flush)
-{
-	mt76_queue_tx_cleanup(dev, q, flush, mt7603_tx_cleanup_entry);
-}
-
 static int
 mt7603_init_tx_queue(struct mt7603_dev *dev, struct mt76_queue *q,
 		   int idx, int n_desc)
@@ -131,7 +112,7 @@ mt7603_tx_tasklet(unsigned long data)
 	int i;
 
 	for (i = ARRAY_SIZE(dev->mt76.q_tx) - 1; i >= 0; i--)
-		mt7603_tx_cleanup(dev, &dev->mt76.q_tx[i], false);
+		mt76_queue_tx_cleanup(dev, &dev->mt76.q_tx[i], false);
 
 	mt7603_irq_enable(dev, MT_INT_TX_DONE_ALL);
 }

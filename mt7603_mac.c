@@ -491,6 +491,15 @@ out:
 	rcu_read_unlock();
 }
 
+void mt7603_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
+			    struct mt76_queue_entry *e, bool flush)
+{
+	if (e->txwi)
+		ieee80211_free_txskb(mdev->hw, e->skb);
+	else
+		dev_kfree_skb_any(e->skb);
+}
+
 void mt7603_mac_start(struct mt7603_dev *dev)
 {
 	mt76_clear(dev, MT_WF_ARB_SCR, MT_WF_ARB_TX_DISABLE | MT_WF_ARB_RX_DISABLE);
