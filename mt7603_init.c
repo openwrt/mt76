@@ -327,6 +327,7 @@ int mt7603_register_device(struct mt7603_dev *dev)
 
 	dev->rx_chains = 2;
 	dev->tx_chains = 2;
+	dev->slottime = 9;
 
 	ret = mt7603_init_hardware(dev);
 	if (ret)

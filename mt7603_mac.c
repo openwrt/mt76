@@ -50,9 +50,24 @@ void mt7603_mac_set_timing(struct mt7603_dev *dev)
 	int offset = 3 * dev->coverage_class;
 	u32 reg_offset = MT76_SET(MT_TIMEOUT_VAL_PLCP, offset) |
 			 MT76_SET(MT_TIMEOUT_VAL_CCA, offset);
+	int sifs;
+	u32 val;
+
+	if (dev->chandef.chan->band == IEEE80211_BAND_5GHZ)
+		sifs = 16;
+	else
+		sifs = 10;
+
+	mt7603_mac_stop(dev);
 
 	mt76_wr(dev, MT_TIMEOUT_CCK, cck + reg_offset);
 	mt76_wr(dev, MT_TIMEOUT_OFDM, ofdm + reg_offset);
+	val = MT76_SET(MT_IFS_EIFS, 360) |
+	      MT76_SET(MT_IFS_RIFS, 2) |
+	      MT76_SET(MT_IFS_SIFS, sifs) |
+	      MT76_SET(MT_IFS_SLOT, dev->slottime);
+
+	mt7603_mac_start(dev);
 }
 
 static void

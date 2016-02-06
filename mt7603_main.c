@@ -145,6 +145,7 @@ mt7603_config(struct ieee80211_hw *hw, u32 changed)
 
 	if (changed & IEEE80211_CONF_CHANGE_CHANNEL) {
 		ret = mt7603_set_channel(dev, &hw->conf.chandef);
+		mt7603_mac_set_timing(dev);
 	}
 
 	mutex_unlock(&dev->mutex);
@@ -197,6 +198,12 @@ static void
 mt7603_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		      struct ieee80211_bss_conf *info, u32 changed)
 {
+	struct mt7603_dev *dev = hw->priv;
+
+	if (changed & BSS_CHANGED_ERP_SLOT) {
+		dev->slottime = info->use_short_slot ? 9 : 20;
+		mt7603_mac_set_timing(dev);
+	}
 }
 
 static int

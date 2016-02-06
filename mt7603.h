@@ -99,6 +99,7 @@ struct mt7603_dev {
 
 	u8 rssi_offset[3];
 
+	u8 slottime;
 	s16 coverage_class;
 
 	struct mt7603_mcu mcu;

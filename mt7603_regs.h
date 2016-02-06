@@ -222,6 +222,12 @@
 #define MT_TIMEOUT_VAL_PLCP		GENMASK(15, 0)
 #define MT_TIMEOUT_VAL_CCA		GENMASK(31, 16)
 
+#define MT_IFS				MT_WF_TMAC(0x0a4)
+#define MT_IFS_EIFS			GENMASK(8, 0)
+#define MT_IFS_RIFS			GENMASK(14, 10)
+#define MT_IFS_SIFS			GENMASK(22, 16)
+#define MT_IFS_SLOT			GENMASK(30, 24)
+
 #define MT_WF_RMAC_BASE			0x21800
 #define MT_WF_RMAC(ofs)			(MT_WF_RMAC_BASE + (ofs))
 
