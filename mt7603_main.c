@@ -68,6 +68,12 @@ mt7603_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 		goto out;
 	}
 
+	mt76_wr(dev, MT_MAC_ADDR0(mvif->idx),
+		get_unaligned_le32(vif->addr));
+	mt76_wr(dev, MT_MAC_ADDR1(mvif->idx),
+		(get_unaligned_le16(vif->addr + 4) |
+		 MT_MAC_ADDR1_VALID));
+
 	idx = MT7603_WTBL_RESERVED - 1 - mvif->idx;
 	dev->vif_mask |= BIT(mvif->idx);
 	mvif->sta.wcid.idx = idx;
