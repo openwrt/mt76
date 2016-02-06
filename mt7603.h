@@ -49,16 +49,29 @@ struct mt7603_mcu {
 	bool running;
 };
 
+struct mt7603_sta {
+	struct mt76_wcid wcid; /* must be first */
+
+	int pid;
+
+	int ampdu_count;
+	int ampdu_acked;
+};
+
 struct mt7603_vif {
 	u8 idx;
 
-	struct mt76_wcid group_wcid;
+	struct mt7603_sta sta;
 };
 
-struct mt7603_sta {
-	struct mt76_wcid wcid; /* must be first */
-	int ampdu_count;
-	int ampdu_acked;
+#define MT7603_CB_DMA_DONE	BIT(0)
+#define MT7603_CB_TXS_DONE	BIT(1)
+
+struct mt7603_cb {
+	struct list_head list;
+	u8 wcid;
+	u8 pktid;
+	u8 flags;
 };
 
 struct mt7603_dev {
@@ -76,6 +89,11 @@ struct mt7603_dev {
 	unsigned long wcid_mask[MT7603_WTBL_SIZE / BITS_PER_LONG];
 	struct mt76_wcid __rcu *wcid[MT7603_WTBL_SIZE];
 
+	spinlock_t status_lock;
+	struct list_head status_list;
+
+	struct mt7603_sta global_sta;
+
 	u8 rx_chains;
 	u8 tx_chains;
 
@@ -90,12 +108,29 @@ struct mt7603_dev {
 
 extern const struct ieee80211_ops mt7603_ops;
 
+static inline struct mt7603_cb *mt7603_skb_cb(struct sk_buff *skb)
+{
+	return (void *) IEEE80211_SKB_CB(skb)->rate_driver_data;
+}
+
+static inline struct sk_buff *mt7603_cb_skb(struct mt7603_cb *cb)
+{
+	struct ieee80211_tx_info *info;
+	void *ptr = cb;
+
+	BUILD_BUG_ON(sizeof(*cb) > sizeof(info->rate_driver_data));
+	info = container_of(ptr, struct ieee80211_tx_info, rate_driver_data);
+	ptr = info;
+	return container_of(ptr, struct sk_buff, cb);
+}
+
 u32 mt7603_reg_map(struct mt7603_dev *dev, u32 addr);
 
 struct mt7603_dev *mt7603_alloc_device(struct device *pdev);
 irqreturn_t mt7603_irq_handler(int irq, void *dev_instance);
 
 int mt7603_register_device(struct mt7603_dev *dev);
+void mt7603_unregister_device(struct mt7603_dev *dev);
 int mt7603_dma_init(struct mt7603_dev *dev);
 void mt7603_dma_cleanup(struct mt7603_dev *dev);
 int mt7603_mcu_init(struct mt7603_dev *dev);
@@ -118,6 +153,8 @@ void mt7603_mac_start(struct mt7603_dev *dev);
 void mt7603_mac_stop(struct mt7603_dev *dev);
 int mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb);
 void mt7603_mac_add_txs(struct mt7603_dev *dev, void *data);
+struct sk_buff *mt7603_mac_status_skb(struct mt7603_dev *dev,
+				      struct mt7603_sta *sta, int pktid);
 
 int mt7603_mcu_set_channel(struct mt7603_dev *dev);
 int mt7603_mcu_reg_read(struct mt7603_dev *dev, u32 reg, u32 *val, bool rf);

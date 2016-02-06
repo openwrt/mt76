@@ -46,7 +46,7 @@ mt7603_txq_init(struct mt7603_dev *dev, struct ieee80211_txq *txq)
 		mtxq->wcid = &sta->wcid;
 	} else {
 		struct mt7603_vif *mvif = (struct mt7603_vif *) txq->vif->drv_priv;
-		mtxq->wcid = &mvif->group_wcid;
+		mtxq->wcid = &mvif->sta.wcid;
 	}
 
 	mt76_txq_init(&dev->mt76, txq);
@@ -57,6 +57,7 @@ mt7603_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
 	struct mt7603_vif *mvif = (struct mt7603_vif *) vif->drv_priv;
 	struct mt7603_dev *dev = hw->priv;
+	int idx;
 	int ret = 0;
 
 	mutex_lock(&dev->mutex);
@@ -67,9 +68,11 @@ mt7603_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 		goto out;
 	}
 
+	idx = MT7603_WTBL_RESERVED - 1 - mvif->idx;
 	dev->vif_mask |= BIT(mvif->idx);
-	mvif->group_wcid.idx = MT7603_WTBL_RESERVED - 1 - mvif->idx;
-	mvif->group_wcid.hw_key_idx = -1;
+	mvif->sta.wcid.idx = idx;
+	mvif->sta.wcid.hw_key_idx = -1;
+	rcu_assign_pointer(dev->wcid[idx], &mvif->sta.wcid);
 	mt7603_txq_init(dev, vif->txq);
 
 out:
@@ -83,7 +86,9 @@ mt7603_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
 	struct mt7603_vif *mvif = (struct mt7603_vif *) vif->drv_priv;
 	struct mt7603_dev *dev = hw->priv;
+	int idx = mvif->sta.wcid.idx;
 
+	rcu_assign_pointer(dev->wcid[idx], NULL);
 	mt76_txq_remove(&dev->mt76, vif->txq);
 
 	mutex_lock(&dev->mutex);
@@ -326,11 +331,8 @@ static void mt7603_set_coverage_class(struct ieee80211_hw *hw,
 static void mt7603_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
 		      struct sk_buff *skb)
 {
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	struct ieee80211_vif *vif = info->control.vif;
-	struct mt7603_vif *mvif = (struct mt7603_vif *) vif->drv_priv;
-	struct mt76_wcid *wcid = &mvif->group_wcid;
 	struct mt7603_dev *dev = hw->priv;
+	struct mt76_wcid *wcid = &dev->global_sta.wcid;
 
 	mt76_tx(&dev->mt76, control->sta, wcid, skb);
 }
