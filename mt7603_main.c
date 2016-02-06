@@ -200,10 +200,14 @@ mt7603_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 {
 	struct mt7603_dev *dev = hw->priv;
 
+	mutex_lock(&dev->mutex);
+
 	if (changed & BSS_CHANGED_ERP_SLOT) {
 		dev->slottime = info->use_short_slot ? 9 : 20;
 		mt7603_mac_set_timing(dev);
 	}
+
+	mutex_unlock(&dev->mutex);
 }
 
 static int
