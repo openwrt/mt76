@@ -221,7 +221,7 @@ mt7603_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	mutex_lock(&dev->mutex);
 
-	idx = mt76_wcid_alloc(dev->wcid_mask, ARRAY_SIZE(dev->wcid) - 1);
+	idx = mt76_wcid_alloc(dev->wcid_mask, MT7603_WTBL_STA - 1);
 	if (idx < 0) {
 		ret = -ENOSPC;
 		goto out;
