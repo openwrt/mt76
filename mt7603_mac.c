@@ -467,7 +467,7 @@ int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct mt7603_sta *msta = container_of(wcid, struct mt7603_sta, wcid);
 	struct mt7603_cb *cb = mt7603_skb_cb(skb);
-	int pid = -1;
+	int pid = 0;
 
 	if (!wcid)
 		wcid = &dev->global_sta.wcid;
