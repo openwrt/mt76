@@ -199,7 +199,8 @@ mt7603_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 {
 	struct mt7603_dev *dev = hw->priv;
 	struct mt7603_sta *msta = (struct mt7603_sta *) sta->drv_priv;
-	int i, ret, idx;
+	int i, idx;
+	int ret = 0;
 
 	mutex_lock(&dev->mutex);
 
