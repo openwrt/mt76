@@ -358,6 +358,7 @@ mt76_dma_rx_poll(struct napi_struct *napi, int budget)
 		napi_complete(napi);
 		dev->drv->rx_poll_complete(dev, qid);
 	}
+	mt76_rx_complete(dev, qid);
 
 	return done;
 }
@@ -372,6 +373,7 @@ mt76_dma_init(struct mt76_dev *dev)
 	for (i = 0; i < ARRAY_SIZE(dev->q_rx); i++) {
 		netif_napi_add(&dev->napi_dev, &dev->napi[i], mt76_dma_rx_poll, 64);
 		mt76_dma_rx_fill(dev, &dev->q_rx[i], false);
+		skb_queue_head_init(&dev->rx_skb[i]);
 		napi_enable(&dev->napi[i]);
 	}
 

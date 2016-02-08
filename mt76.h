@@ -177,6 +177,7 @@ struct mt76_dev {
 
 	struct net_device napi_dev;
 	struct napi_struct napi[__MT_RXQ_MAX];
+	struct sk_buff_head rx_skb[__MT_RXQ_MAX];
 
 	struct list_head txwi_cache;
 	struct mt76_queue q_tx[__MT_TXQ_MAX];
@@ -282,5 +283,6 @@ void mt76_release_buffered_frames(struct ieee80211_hw *hw,
 /* internal */
 void mt76_tx_free(struct mt76_dev *dev);
 void mt76_put_txwi(struct mt76_dev *dev, struct mt76_txwi_cache *t);
+void mt76_rx_complete(struct mt76_dev *dev, enum mt76_rxq_id q);
 
 #endif
