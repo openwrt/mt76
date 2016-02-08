@@ -232,14 +232,7 @@ int mt76x2_mac_process_rx(struct mt76x2_dev *dev, struct sk_buff *skb, void *rxi
 	if (WARN_ON_ONCE(len > skb->len))
 		return -EINVAL;
 
-	if (skb_is_nonlinear(skb)) {
-		struct skb_shared_info *sh = skb_shinfo(skb);
-		sh->frags[sh->nr_frags].size -= skb->len - len;
-		skb->len -= 2;
-	} else {
-		skb_trim(skb, len);
-	}
-
+	pskb_trim(skb, len);
 	status->chains = BIT(0) | BIT(1);
 	status->chain_signal[0] = mt76x2_phy_get_rssi(dev, rxwi->rssi[0], 0);
 	status->chain_signal[1] = mt76x2_phy_get_rssi(dev, rxwi->rssi[1], 1);
