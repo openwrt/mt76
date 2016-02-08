@@ -199,7 +199,6 @@ int mt76x2_dma_init(struct mt76x2_dev *dev);
 void mt76x2_dma_cleanup(struct mt76x2_dev *dev);
 
 void mt76x2_cleanup(struct mt76x2_dev *dev);
-void mt76x2_rx(struct mt76x2_dev *dev, struct sk_buff *skb);
 
 int mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76_txq_id qid,
 			struct sk_buff *skb, int cmd, int seq);

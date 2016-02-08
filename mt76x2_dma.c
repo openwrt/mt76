@@ -80,7 +80,7 @@ void mt76x2_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 	    return;
 	}
 
-	mt76x2_rx(dev, skb);
+	mt76_rx(&dev->mt76, q, skb);
 }
 
 static int

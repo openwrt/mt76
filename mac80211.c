@@ -223,3 +223,14 @@ void mt76_unregister_device(struct mt76_dev *dev)
 	ieee80211_unregister_hw(hw);
 }
 EXPORT_SYMBOL_GPL(mt76_unregister_device);
+
+void mt76_rx(struct mt76_dev *dev, enum mt76_rxq_id q, struct sk_buff *skb)
+{
+	if (!test_bit(MT76_STATE_RUNNING, &dev->state)) {
+		dev_kfree_skb(skb);
+		return;
+	}
+
+	ieee80211_rx_napi(dev->hw, skb, &dev->napi[q]);
+}
+EXPORT_SYMBOL_GPL(mt76_rx);

@@ -76,7 +76,7 @@ void mt7603_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 		return;
 	case PKT_TYPE_NORMAL:
 		if (mt7603_mac_fill_rx(dev, skb) == 0) {
-			ieee80211_rx(mt76_hw(dev), skb);
+			mt76_rx(&dev->mt76, q, skb);
 			return;
 		}
 		/* fall through */

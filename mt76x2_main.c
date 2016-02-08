@@ -505,13 +505,3 @@ const struct ieee80211_ops mt76x2_ops = {
 	.set_coverage_class = mt76x2_set_coverage_class,
 };
 
-void mt76x2_rx(struct mt76x2_dev *dev, struct sk_buff *skb)
-{
-	if (!test_bit(MT76_STATE_RUNNING, &dev->mt76.state)) {
-		dev_kfree_skb(skb);
-		return;
-	}
-
-	ieee80211_rx(mt76_hw(dev), skb);
-}
-
