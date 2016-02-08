@@ -185,7 +185,7 @@ int mt76_register_device(struct mt76_dev *dev, bool vht,
 	wiphy->features |= NL80211_FEATURE_ACTIVE_MONITOR;
 
 	hw->txq_data_size = sizeof(struct mt76_txq);
-	hw->max_tx_amsdu_subframes = 16;
+	hw->max_tx_fragments = 16;
 
 	ieee80211_hw_set(hw, SIGNAL_DBM);
 	ieee80211_hw_set(hw, PS_NULLFUNC_STACK);
