@@ -20,6 +20,7 @@ mt7603_start(struct ieee80211_hw *hw)
 	struct mt7603_dev *dev = hw->priv;
 
 	mt7603_mac_start(dev);
+	set_bit(MT76_STATE_RUNNING, &dev->mt76.state);
 
 	return 0;
 }
@@ -29,6 +30,7 @@ mt7603_stop(struct ieee80211_hw *hw)
 {
 	struct mt7603_dev *dev = hw->priv;
 
+	clear_bit(MT76_STATE_RUNNING, &dev->mt76.state);
 	mt7603_mac_stop(dev);
 }
 
