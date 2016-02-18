@@ -412,7 +412,7 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 
 	if (info->flags & IEEE80211_TX_CTL_NO_ACK) {
 		txwi[1] |= cpu_to_le32(MT_TXD1_NO_ACK);
-		pid |= MT_PID_NOACK;
+		pid = MT_PID_NOACK;
 	}
 
 	txwi[2] = cpu_to_le32(
@@ -476,8 +476,8 @@ int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 		spin_lock_bh(&dev->status_lock);
 
 		msta->pid = (msta->pid + 1) & MT_PID_INDEX;
-		if (!msta->pid)
-		    msta->pid++;
+		if (!msta->pid || msta->pid == MT_PID_NOACK)
+		    msta->pid = 1;
 
 		pid = msta->pid;
 		cb->wcid = wcid->idx;
@@ -617,7 +617,7 @@ void mt7603_mac_add_txs(struct mt7603_dev *dev, void *data)
 	txs = le32_to_cpu(txs_data[3]);
 	wcidx = MT76_GET(MT_TXS3_WCID, txs);
 
-	if (pid & BIT(7)) /* No-ACK */
+	if (pid == MT_PID_NOACK)
 		return;
 
 	if (wcidx >= ARRAY_SIZE(dev->wcid))
