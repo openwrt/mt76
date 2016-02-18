@@ -653,7 +653,6 @@ void mt7603_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 			    struct mt76_queue_entry *e, bool flush)
 {
 	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(e->skb);
 	struct mt7603_cb *cb = mt7603_skb_cb(e->skb);
 	bool free = true;
 
@@ -663,8 +662,7 @@ void mt7603_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 	}
 
 	/* will be freed by tx status handling codepath */
-	if (info->flags & (IEEE80211_TX_CTL_REQ_TX_STATUS |
-			   IEEE80211_TX_CTL_RATE_CTRL_PROBE)) {
+	if (!list_empty(&cb->list)) {
 		spin_lock_bh(&dev->status_lock);
 		if (!flush) {
 			mt7603_skb_done(dev, e->skb, MT7603_CB_DMA_DONE);
