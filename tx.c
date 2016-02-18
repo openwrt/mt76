@@ -263,10 +263,10 @@ mt76_release_buffered_frames(struct ieee80211_hw *hw, struct ieee80211_sta *sta,
 				mt76_check_agg_ssn(mtxq, skb);
 
 			nframes--;
-			if (last_skb) {
+			if (last_skb)
 				mt76_queue_ps_skb(dev, sta, last_skb, false);
-				last_skb = skb;
-			}
+
+			last_skb = skb;
 		} while (nframes);
 	}
 
