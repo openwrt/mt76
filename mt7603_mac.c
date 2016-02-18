@@ -432,7 +432,6 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 	);
 	txwi[6] = 0;
 
-	spin_lock_bh(&dev->mt76.lock);
 	if (rate->idx >= 0 && rate->count) {
 		bool stbc = info->flags & IEEE80211_TX_CTL_STBC;
 		u16 rateval = mt7603_mac_tx_rate_val(dev, rate, stbc, &bw);
@@ -449,7 +448,6 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 
 		tx_count = rate->count;
 	}
-	spin_unlock_bh(&dev->mt76.lock);
 
 	txwi[3] = cpu_to_le32(MT76_SET(MT_TXD3_REM_TX_COUNT, tx_count));
 
