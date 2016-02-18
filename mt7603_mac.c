@@ -201,6 +201,8 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 	i = MT76_GET(MT_RXD1_NORMAL_CH_FREQ, rxd[1]);
 	sband = (i & 1) ? &dev->mt76.sband_5g : &dev->mt76.sband_2g;
 	i >>= 1;
+
+	status->band = sband->band;
 	if (i < sband->n_channels)
 		status->freq = sband->channels[i].center_freq;
 
