@@ -160,6 +160,15 @@ void mt7603_wtbl_update_cap(struct mt7603_dev *dev, struct ieee80211_sta *sta)
 	mt76_wr(dev, addr + 9 * 4, val);
 }
 
+void mt7603_mac_rx_ba_reset(struct mt7603_dev *dev, void *addr, u8 tid)
+{
+	mt76_wr(dev, MT_BA_CONTROL_0, get_unaligned_le32(addr));
+	mt76_wr(dev, MT_BA_CONTROL_1,
+		(get_unaligned_le16(addr + 4) |
+		 MT76_SET(MT_BA_CONTROL_1_TID, tid) |
+		 MT_BA_CONTROL_1_RESET));
+}
+
 static int
 mt7603_get_rate(struct mt7603_dev *dev, struct ieee80211_supported_band *sband,
 		int idx, bool cck)

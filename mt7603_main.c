@@ -366,6 +366,7 @@ mt7603_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		    struct ieee80211_ampdu_params *params)
 {
 	enum ieee80211_ampdu_mlme_action action = params->action;
+	struct mt7603_dev *dev = hw->priv;
 	struct ieee80211_sta *sta = params->sta;
 	struct ieee80211_txq *txq = sta->txq[params->tid];
 	struct mt76_txq *mtxq = (struct mt76_txq *) txq->drv_priv;
@@ -377,6 +378,7 @@ mt7603_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	switch (action) {
 	case IEEE80211_AMPDU_RX_START:
+		mt7603_mac_rx_ba_reset(dev, sta->addr, tid);
 		break;
 	case IEEE80211_AMPDU_RX_STOP:
 		break;
