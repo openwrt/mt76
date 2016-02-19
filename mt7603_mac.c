@@ -555,7 +555,7 @@ int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 		pid = msta->pid;
 		cb->wcid = wcid->idx;
 		cb->pktid = pid;
-		list_add(&cb->list, &dev->status_list);
+		list_add_tail(&cb->list, &dev->status_list);
 
 		spin_unlock_bh(&dev->status_lock);
 	} else {
