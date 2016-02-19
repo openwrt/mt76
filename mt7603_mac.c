@@ -601,15 +601,15 @@ mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 		}
 	}
 
-	if (ampdu) {
-		sta->ampdu_count++;
-		if (!final_mpdu)
-			return;
+	sta->ampdu_count++;
+	if (ampdu && !final_mpdu)
+		return;
 
-		info->flags |= IEEE80211_TX_CTL_AMPDU | IEEE80211_TX_STAT_AMPDU;
-		info->status.ampdu_len = sta->ampdu_count;
-		info->status.ampdu_ack_len = sta->ampdu_acked;
-	}
+	info->status.ampdu_len = sta->ampdu_count;
+	info->status.ampdu_ack_len = sta->ampdu_acked;
+
+	if (info->flags & IEEE80211_TX_CTL_AMPDU)
+		info->flags |= IEEE80211_TX_STAT_AMPDU;
 
 	sta->ampdu_count = 0;
 	sta->ampdu_acked = 0;
