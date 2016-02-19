@@ -198,11 +198,19 @@ mt7603_configure_filter(struct ieee80211_hw *hw, unsigned int changed_flags,
 
 static void
 mt7603_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-		      struct ieee80211_bss_conf *info, u32 changed)
+			struct ieee80211_bss_conf *info, u32 changed)
 {
 	struct mt7603_dev *dev = hw->priv;
+	struct mt7603_vif *mvif = (struct mt7603_vif *) vif->drv_priv;
 
 	mutex_lock(&dev->mutex);
+
+	if (changed & BSS_CHANGED_ASSOC) {
+		mt76_wr(dev, MT_BSSID0(mvif->idx),
+			get_unaligned_le32(info->bssid));
+		mt76_wr(dev, MT_BSSID1(mvif->idx),
+			get_unaligned_le16(info->bssid + 4));
+	}
 
 	if (changed & BSS_CHANGED_ERP_SLOT) {
 		dev->slottime = info->use_short_slot ? 9 : 20;

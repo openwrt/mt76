@@ -254,10 +254,13 @@
 #define MT_WF_RFCR_DROP_NDPA		BIT(20)
 #define MT_WF_RFCR_DROP_UNWANTED_CTL	BIT(21)
 
-#define MT_MAC_ADDR0(idx)			MT_WF_RMAC(0x24 + idx * 8)
-#define MT_MAC_ADDR1(idx)			MT_WF_RMAC(0x28 + idx * 8)
-#define MT_MAC_ADDR1_ADDR			GENMASK(15, 0)
-#define MT_MAC_ADDR1_VALID			BIT(16)
+#define MT_BSSID0(idx)			MT_WF_RMAC(0x04 + idx * 8)
+#define MT_BSSID1(idx)			MT_WF_RMAC(0x08 + idx * 8)
+
+#define MT_MAC_ADDR0(idx)		MT_WF_RMAC(0x24 + idx * 8)
+#define MT_MAC_ADDR1(idx)		MT_WF_RMAC(0x28 + idx * 8)
+#define MT_MAC_ADDR1_ADDR		GENMASK(15, 0)
+#define MT_MAC_ADDR1_VALID		BIT(16)
 
 #define MT_WF_RMACDR			MT_WF_RMAC(0x078)
 #define MT_WF_RMACDR_TSF_PROBERSP_DIS	BIT(0)
