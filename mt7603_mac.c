@@ -207,14 +207,14 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 		status->freq = sband->channels[i].center_freq;
 
 	if (rxd[2] & MT_RXD2_NORMAL_FCS_ERR)
-		status->rx_flags |= RX_FLAG_FAILED_FCS_CRC;
+		status->flag |= RX_FLAG_FAILED_FCS_CRC;
 
 	if (rxd[2] & MT_RXD2_NORMAL_TKIP_MIC_ERR)
-		status->rx_flags |= RX_FLAG_MMIC_ERROR;
+		status->flag |= RX_FLAG_MMIC_ERROR;
 
 	if (MT76_GET(MT_RXD2_NORMAL_SEC_MODE, rxd[2]) != 0 &&
 	    !(rxd[2] & (MT_RXD2_NORMAL_CLM | MT_RXD2_NORMAL_CM)))
-		status->rx_flags |= RX_FLAG_DECRYPTED;
+		status->flag |= RX_FLAG_DECRYPTED;
 
 	remove_pad = rxd[1] & MT_RXD1_NORMAL_HDR_OFFSET;
 
@@ -253,19 +253,19 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 			break;
 		case MT_PHY_TYPE_HT_GF:
 		case MT_PHY_TYPE_HT:
-			status->rx_flags |= RX_FLAG_HT;
+			status->flag |= RX_FLAG_HT;
 			break;
 		case MT_PHY_TYPE_VHT:
-			status->rx_flags |= RX_FLAG_VHT;
+			status->flag |= RX_FLAG_VHT;
 			break;
 		default:
 			WARN_ON(1);
 		}
 
 		if (rxd[0] & MT_RXV1_HT_SHORT_GI)
-			status->rx_flags |= RX_FLAG_SHORT_GI;
+			status->flag |= RX_FLAG_SHORT_GI;
 
-		status->rx_flags |= RX_FLAG_STBC_MASK *
+		status->flag |= RX_FLAG_STBC_MASK *
 				    MT76_GET(MT_RXV1_HT_STBC, rxd[0]);
 
 		status->rate_idx = i;
