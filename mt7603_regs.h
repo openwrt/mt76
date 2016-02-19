@@ -141,6 +141,10 @@
 #define MT_AGG_ARxCR_LIMIT(_n)		GENMASK(3 + MT_AGG_ARxCR_LIMIT_SHIFT(_n), \
 						MT_AGG_ARxCR_LIMIT_SHIFT(_n))
 
+#define MT_AGG_LIMIT			MT_WF_AGG(0x040)
+#define MT_AGG_LIMIT_1			MT_WF_AGG(0x044)
+#define MT_AGG_LIMIT_AC(n)		GENMASK(((n) + 1) * 8 - 1, (n) * 8)
+
 #define MT_AGG_BA_SIZE_LIMIT_0		MT_WF_AGG(0x048)
 #define MT_AGG_BA_SIZE_LIMIT_1		MT_WF_AGG(0x04c)
 #define MT_AGG_BA_SIZE_LIMIT_SHIFT	8
