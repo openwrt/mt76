@@ -85,6 +85,12 @@ void mt76_remove_hdr_pad(struct sk_buff *skb);
 int mt76_wcid_alloc(unsigned long *mask, int size);
 
 static inline void
+mt76_wcid_free(unsigned long *mask, int idx)
+{
+	mask[idx / BITS_PER_LONG] &= ~BIT(idx % BITS_PER_LONG);
+}
+
+static inline void
 mt76_skb_set_moredata(struct sk_buff *skb, bool enable)
 {
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;

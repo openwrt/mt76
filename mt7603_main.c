@@ -260,6 +260,8 @@ mt7603_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	for (i = 0; i < ARRAY_SIZE(sta->txq); i++)
 		mt76_txq_remove(&dev->mt76, sta->txq[i]);
 
+	mt76_wcid_free(dev->wcid_mask, idx);
+
 	mutex_unlock(&dev->mutex);
 
 	return 0;
