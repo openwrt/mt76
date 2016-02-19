@@ -29,6 +29,8 @@
 
 #define MT7603_EEPROM_SIZE	1024
 
+#define MT_AGG_SIZE_LIMIT(n)	((4 + 2 * (n & 1)) << (n / 2))
+
 enum {
 	MT7603_REV_E1 = 0x00,
 	MT7603_REV_E2 = 0x10
@@ -166,6 +168,8 @@ void mt7603_mac_add_txs(struct mt7603_dev *dev, void *data);
 struct sk_buff *mt7603_mac_status_skb(struct mt7603_dev *dev,
 				      struct mt7603_sta *sta, int pktid);
 void mt7603_mac_rx_ba_reset(struct mt7603_dev *dev, void *addr, u8 tid);
+void mt7603_mac_tx_ba_reset(struct mt7603_dev *dev, int wcid, int tid, int ssn,
+			    int ba_size);
 
 int mt7603_mcu_set_channel(struct mt7603_dev *dev);
 int mt7603_mcu_reg_read(struct mt7603_dev *dev, u32 reg, u32 *val, bool rf);

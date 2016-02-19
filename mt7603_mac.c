@@ -169,6 +169,69 @@ void mt7603_mac_rx_ba_reset(struct mt7603_dev *dev, void *addr, u8 tid)
 		 MT_BA_CONTROL_1_RESET));
 }
 
+void mt7603_mac_tx_ba_reset(struct mt7603_dev *dev, int wcid, int tid, int ssn,
+			    int ba_size)
+{
+	u32 addr = mt7603_wtbl2_addr(wcid);
+	u32 tid_mask = MT76_SET(MT_WTBL2_W15_BA_EN_TIDS, BIT(tid)) |
+		       (MT_WTBL2_W15_BA_WIN_SIZE <<
+			(tid * MT_WTBL2_W15_BA_WIN_SIZE_SHIFT));
+	u32 tid_val;
+	int i;
+
+	if (ba_size < 0) {
+		/* disable */
+		mt76_clear(dev, addr + (15 * 4), tid_mask);
+		return;
+	}
+
+	mt7603_mac_stop(dev);
+	switch (tid) {
+	case 0:
+		mt76_rmw_field(dev, addr + (2 * 4), MT_WTBL2_W2_TID0_SN, ssn);
+		break;
+	case 1:
+		mt76_rmw_field(dev, addr + (2 * 4), MT_WTBL2_W2_TID1_SN, ssn);
+		break;
+	case 2:
+		mt76_rmw_field(dev, addr + (2 * 4), MT_WTBL2_W2_TID2_SN_LO,
+			       ssn);
+		mt76_rmw_field(dev, addr + (3 * 4), MT_WTBL2_W3_TID2_SN_HI,
+			       ssn >> 8);
+		break;
+	case 3:
+		mt76_rmw_field(dev, addr + (3 * 4), MT_WTBL2_W3_TID3_SN, ssn);
+		break;
+	case 4:
+		mt76_rmw_field(dev, addr + (3 * 4), MT_WTBL2_W3_TID4_SN, ssn);
+		break;
+	case 5:
+		mt76_rmw_field(dev, addr + (3 * 4), MT_WTBL2_W3_TID5_SN_LO,
+			       ssn);
+		mt76_rmw_field(dev, addr + (4 * 4), MT_WTBL2_W4_TID5_SN_HI,
+			       ssn >> 4);
+		break;
+	case 6:
+		mt76_rmw_field(dev, addr + (4 * 4), MT_WTBL2_W4_TID6_SN, ssn);
+		break;
+	case 7:
+		mt76_rmw_field(dev, addr + (4 * 4), MT_WTBL2_W4_TID7_SN, ssn);
+		break;
+	}
+	mt7603_wtbl_update(dev, wcid, MT_WTBL_UPDATE_WTBL2);
+	mt7603_mac_start(dev);
+
+	for (i = 7; i > 0; i--) {
+		if (ba_size >= MT_AGG_SIZE_LIMIT(i))
+			break;
+	}
+
+	tid_val = MT76_SET(MT_WTBL2_W15_BA_EN_TIDS, BIT(tid)) |
+		  i << (tid * MT_WTBL2_W15_BA_WIN_SIZE_SHIFT);
+
+	mt76_rmw(dev, addr + (15 * 4), tid_mask, tid_val);
+}
+
 static int
 mt7603_get_rate(struct mt7603_dev *dev, struct ieee80211_supported_band *sband,
 		int idx, bool cck)

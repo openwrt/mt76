@@ -369,9 +369,11 @@ mt7603_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct mt7603_dev *dev = hw->priv;
 	struct ieee80211_sta *sta = params->sta;
 	struct ieee80211_txq *txq = sta->txq[params->tid];
+	struct mt7603_sta *msta = (struct mt7603_sta *) sta->drv_priv;
 	struct mt76_txq *mtxq = (struct mt76_txq *) txq->drv_priv;
 	u16 tid = params->tid;
 	u16 *ssn = &params->ssn;
+	u8 ba_size = params->buf_size;
 
 	if (!txq)
 		return -EINVAL;
@@ -385,18 +387,21 @@ mt7603_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	case IEEE80211_AMPDU_TX_OPERATIONAL:
 		mtxq->aggr = true;
 		mtxq->send_bar = false;
-		ieee80211_send_bar(vif, sta->addr, tid, mtxq->agg_ssn);
+		mt7603_mac_tx_ba_reset(dev, msta->wcid.idx, tid, *ssn, ba_size);
 		break;
 	case IEEE80211_AMPDU_TX_STOP_FLUSH:
 	case IEEE80211_AMPDU_TX_STOP_FLUSH_CONT:
 		mtxq->aggr = false;
 		ieee80211_send_bar(vif, sta->addr, tid, mtxq->agg_ssn);
+		mt7603_mac_tx_ba_reset(dev, msta->wcid.idx, tid, *ssn, -1);
 		break;
 	case IEEE80211_AMPDU_TX_START:
 		mtxq->agg_ssn = *ssn << 4;
 		ieee80211_start_tx_ba_cb_irqsafe(vif, sta->addr, tid);
 		break;
 	case IEEE80211_AMPDU_TX_STOP_CONT:
+		mtxq->aggr = false;
+		mt7603_mac_tx_ba_reset(dev, msta->wcid.idx, tid, *ssn, -1);
 		ieee80211_stop_tx_ba_cb_irqsafe(vif, sta->addr, tid);
 		break;
 	}
