@@ -119,9 +119,13 @@ struct mt7603_dev {
 
 extern const struct ieee80211_ops mt7603_ops;
 
+/* need offset to prevent conflict with ampdu_ack_len */
+#define MT_RATE_DRIVER_DATA_OFFSET	4
+
 static inline struct mt7603_cb *mt7603_skb_cb(struct sk_buff *skb)
 {
-	return (void *) IEEE80211_SKB_CB(skb)->rate_driver_data;
+	return ((void *) IEEE80211_SKB_CB(skb)->rate_driver_data) +
+	       MT_RATE_DRIVER_DATA_OFFSET;
 }
 
 static inline struct sk_buff *mt7603_cb_skb(struct mt7603_cb *cb)
@@ -129,8 +133,13 @@ static inline struct sk_buff *mt7603_cb_skb(struct mt7603_cb *cb)
 	struct ieee80211_tx_info *info;
 	void *ptr = cb;
 
-	BUILD_BUG_ON(sizeof(*cb) > sizeof(info->rate_driver_data));
-	info = container_of(ptr, struct ieee80211_tx_info, rate_driver_data);
+	BUILD_BUG_ON(offsetof(struct ieee80211_tx_info, status.ampdu_len) >=
+		     (offsetof(struct ieee80211_tx_info, rate_driver_data) +
+		      MT_RATE_DRIVER_DATA_OFFSET));
+	BUILD_BUG_ON(sizeof(*cb) + MT_RATE_DRIVER_DATA_OFFSET >
+		     sizeof(info->rate_driver_data));
+	info = container_of(ptr - MT_RATE_DRIVER_DATA_OFFSET,
+			    struct ieee80211_tx_info, rate_driver_data);
 	ptr = info;
 	return container_of(ptr, struct sk_buff, cb);
 }
