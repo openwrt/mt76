@@ -72,8 +72,9 @@ struct mt7603_vif {
 	struct mt7603_sta sta;
 };
 
-#define MT7603_CB_DMA_DONE	BIT(0)
-#define MT7603_CB_TXS_DONE	BIT(1)
+#define MT7603_CB_DMA_DONE		BIT(0)
+#define MT7603_CB_TXS_DONE		BIT(1)
+#define MT7603_CB_TXS_FAILED	BIT(2)
 
 struct mt7603_cb {
 	struct list_head list;

@@ -615,6 +615,24 @@ mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 	sta->ampdu_acked = 0;
 }
 
+static void
+mt7603_skb_done(struct mt7603_dev *dev, struct sk_buff *skb, u8 flags)
+{
+	struct mt7603_cb *cb = mt7603_skb_cb(skb);
+	u8 done = MT7603_CB_DMA_DONE | MT7603_CB_TXS_DONE;
+
+	flags |= cb->flags;
+	cb->flags = flags;
+
+	if ((flags & done) != done)
+		return;
+
+	if (flags & MT7603_CB_TXS_FAILED)
+		ieee80211_free_txskb(mt76_hw(dev), skb);
+	else
+		ieee80211_tx_status(mt76_hw(dev), skb);
+}
+
 struct sk_buff *
 mt7603_mac_status_skb(struct mt7603_dev *dev, struct mt7603_sta *sta, int pktid)
 {
@@ -631,25 +649,12 @@ mt7603_mac_status_skb(struct mt7603_dev *dev, struct mt7603_sta *sta, int pktid)
 		if (cb->pktid == pktid)
 			break;
 
-		ieee80211_free_txskb(mt76_hw(dev), skb);
+		mt7603_skb_done(dev, skb,
+				MT7603_CB_TXS_FAILED | MT7603_CB_TXS_DONE);
 		skb = NULL;
 	}
 
 	return skb;
-}
-
-static void
-mt7603_skb_done(struct mt7603_dev *dev, struct sk_buff *skb, u8 flags)
-{
-	struct mt7603_cb *cb = mt7603_skb_cb(skb);
-
-	flags |= cb->flags;
-	cb->flags = flags;
-
-	if (flags != (MT7603_CB_DMA_DONE | MT7603_CB_TXS_DONE))
-		return;
-
-	ieee80211_tx_status(mt76_hw(dev), skb);
 }
 
 static bool
