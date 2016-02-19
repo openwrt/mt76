@@ -203,6 +203,11 @@ mt7603_mac_init(struct mt7603_dev *dev)
 		MT76_SET(MT_AGG_LIMIT_AC(2), 21) |
 		MT76_SET(MT_AGG_LIMIT_AC(3), 21));
 
+	mt76_wr(dev, MT_AGG_CONTROL,
+		MT76_SET(MT_AGG_CONTROL_BAR_RATE, 0x80) |
+		MT76_SET(MT_AGG_CONTROL_CFEND_RATE, 0x69) |
+		MT_AGG_CONTROL_NO_BA_AR_RULE);
+
 	mt76_rmw(dev, MT_DMA_DCR0, ~0xfffc, MT_RX_BUF_SIZE);
 
 	mt76_rmw(dev, MT_DMA_VCFR0, BIT(0), BIT(13));
