@@ -494,8 +494,6 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 		MT76_SET(MT_TXD2_SUB_TYPE, frame_subtype) |
 		MT76_SET(MT_TXD2_MULTICAST, is_multicast_ether_addr(hdr->addr1))
 	);
-	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE)
-		txwi[2] |= cpu_to_le32(MT_TXD2_BA_DISABLE);
 
 	txwi[4] = 0;
 	txwi[5] = cpu_to_le32(
