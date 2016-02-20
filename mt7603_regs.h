@@ -349,7 +349,10 @@
 
 #define MT_WTBL1_SIZE			(8 * 4)
 #define MT_WTBL2_SIZE			(16 * 4)
+#define MT_WTBL3_OFFSET			(MT7603_WTBL_SIZE * MT_WTBL2_SIZE)
 #define MT_WTBL3_SIZE			(16 * 4)
+#define MT_WTBL4_OFFSET			(MT7603_WTBL_SIZE * MT_WTBL3_SIZE + \
+					 MT_WTBL3_OFFSET)
 #define MT_WTBL4_SIZE			(8 * 4)
 
 #define MT_WTBL1_W0_ADDR_HI		GENMASK(15, 0)
