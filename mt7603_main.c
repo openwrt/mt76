@@ -286,7 +286,26 @@ mt7603_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	     struct ieee80211_vif *vif, struct ieee80211_sta *sta,
 	     struct ieee80211_key_conf *key)
 {
-	return -EINVAL;
+	struct mt7603_dev *dev = hw->priv;
+	struct mt7603_vif *mvif = (struct mt7603_vif *) vif->drv_priv;
+	struct mt7603_sta *msta = sta ? (struct mt7603_sta *) sta->drv_priv : NULL;
+	struct mt76_wcid *wcid = msta ? &msta->wcid : &mvif->sta.wcid;
+	int idx = key->keyidx;
+
+	if (cmd == SET_KEY) {
+		key->hw_key_idx = wcid->idx;
+		wcid->hw_key_idx = idx;
+	} else {
+		if (idx == wcid->hw_key_idx)
+			wcid->hw_key_idx = -1;
+
+		key = NULL;
+	}
+
+	if (!msta)
+		return -EINVAL;
+
+	return mt7603_wtbl_set_key(dev, msta->wcid.idx, key);
 }
 
 static int

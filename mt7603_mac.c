@@ -80,6 +80,12 @@ mt7603_wtbl_update(struct mt7603_dev *dev, int idx, u32 mask)
 }
 
 static u32
+mt7603_wtbl1_addr(int idx)
+{
+	return MT_WTBL1_BASE + idx * MT_WTBL1_SIZE;
+}
+
+static u32
 mt7603_wtbl2_addr(int idx)
 {
 	/* Mapped to WTBL2 */
@@ -87,9 +93,10 @@ mt7603_wtbl2_addr(int idx)
 }
 
 static u32
-mt7603_wtbl1_addr(int idx)
+mt7603_wtbl3_addr(int idx)
 {
-	return MT_WTBL1_BASE + idx * MT_WTBL1_SIZE;
+	u32 base = mt7603_wtbl2_addr(MT7603_WTBL_SIZE);
+	return base + idx * MT_WTBL3_SIZE;
 }
 
 void mt7603_wtbl_init(struct mt7603_dev *dev, int idx, const u8 *mac_addr)
@@ -165,9 +172,11 @@ void mt7603_wtbl_update_cap(struct mt7603_dev *dev, struct ieee80211_sta *sta)
 
 	addr = mt7603_wtbl1_addr(idx);
 
-	val = MT76_SET(MT_WTBL1_W2_AMPDU_FACTOR, sta->ht_cap.ampdu_factor) |
-	      MT76_SET(MT_WTBL1_W2_MPDU_DENSITY, sta->ht_cap.ampdu_density) |
-	      MT_WTBL1_W2_TXS_BAF_REPORT;
+	val = mt76_rr(dev, addr + 2 * 4);
+	val &= MT_WTBL1_W2_KEY_TYPE | MT_WTBL1_W2_ADMISSION_CONTROL;
+	val |= MT76_SET(MT_WTBL1_W2_AMPDU_FACTOR, sta->ht_cap.ampdu_factor) |
+	       MT76_SET(MT_WTBL1_W2_MPDU_DENSITY, sta->ht_cap.ampdu_density) |
+	       MT_WTBL1_W2_TXS_BAF_REPORT;
 
 	if (sta->ht_cap.cap)
 		val |= MT_WTBL1_W2_HT;
@@ -314,8 +323,10 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 		status->flag |= RX_FLAG_MMIC_ERROR;
 
 	if (MT76_GET(MT_RXD2_NORMAL_SEC_MODE, rxd[2]) != 0 &&
-	    !(rxd[2] & (MT_RXD2_NORMAL_CLM | MT_RXD2_NORMAL_CM)))
+	    !(rxd[2] & (MT_RXD2_NORMAL_CLM | MT_RXD2_NORMAL_CM))) {
 		status->flag |= RX_FLAG_DECRYPTED;
+		status->flag |= RX_FLAG_IV_STRIPPED | RX_FLAG_MMIC_STRIPPED;
+	}
 
 	remove_pad = rxd[1] & MT_RXD1_NORMAL_HDR_OFFSET;
 
@@ -470,10 +481,75 @@ void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta)
 		       bw_idx ? bw_idx - 1 : 7);
 }
 
+static enum mt7603_cipher_type
+mt7603_mac_get_key_info(struct ieee80211_key_conf *key, u8 *key_data)
+{
+	memset(key_data, 0, 32);
+	if (!key)
+		return MT_CIPHER_NONE;
+
+	if (key->keylen > 32)
+		return MT_CIPHER_NONE;
+
+	memcpy(key_data, key->key, key->keylen);
+
+	switch(key->cipher) {
+	case WLAN_CIPHER_SUITE_WEP40:
+		return MT_CIPHER_WEP40;
+	case WLAN_CIPHER_SUITE_WEP104:
+		return MT_CIPHER_WEP104;
+	case WLAN_CIPHER_SUITE_TKIP:
+		return MT_CIPHER_TKIP;
+	case WLAN_CIPHER_SUITE_CCMP:
+		return MT_CIPHER_AES_CCMP;
+	default:
+		return MT_CIPHER_NONE;
+	}
+}
+
+int mt7603_wtbl_set_key(struct mt7603_dev *dev, int wcid,
+			struct ieee80211_key_conf *key)
+{
+	enum mt7603_cipher_type cipher;
+	u32 addr = mt7603_wtbl3_addr(wcid);
+	u8 key_data[32];
+	u8 iv_data[8];
+	int key_len = sizeof(key_data);
+
+	cipher = mt7603_mac_get_key_info(key, key_data);
+	if (cipher == MT_CIPHER_NONE && key)
+		return -EINVAL;
+
+	memset(iv_data, 0, sizeof(iv_data));
+	if (key) {
+		if (cipher == MT_CIPHER_WEP40 || cipher == MT_CIPHER_WEP104) {
+			addr += key->keyidx * 16;
+			key_len = 16;
+		}
+
+		iv_data[3] = key->keyidx << 6;
+		if (cipher >= MT_CIPHER_TKIP)
+			iv_data[3] |= 0x20;
+	}
+
+	mt76_wr_copy(dev, addr, key_data, key_len);
+
+	if (cipher != MT_CIPHER_WEP40 && cipher != MT_CIPHER_WEP104)
+		mt76_wr_copy(dev, addr + 32, iv_data, sizeof(iv_data));
+
+	addr = mt7603_wtbl1_addr(wcid);
+	mt76_rmw_field(dev, addr + 2 * 4, MT_WTBL1_W2_KEY_TYPE, cipher);
+	if (key)
+		mt76_rmw_field(dev, addr, MT_WTBL1_W0_KEY_IDX, key->keyidx);
+	mt76_rmw_field(dev, addr, MT_WTBL1_W0_RX_KEY_VALID, !!key);
+
+	return 0;
+}
+
 static int
 mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 		      struct sk_buff *skb, struct mt76_wcid *wcid,
-		      struct ieee80211_sta *sta, int pid)
+		      struct ieee80211_sta *sta, int pid, bool key)
 {
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_tx_rate *rate = &info->control.rates[0];
@@ -510,7 +586,8 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 				      IEEE80211_QOS_CTL_TID_MASK) |
 		MT76_SET(MT_TXD1_HDR_FORMAT, MT_HDR_FORMAT_802_11) |
 		MT76_SET(MT_TXD1_HDR_INFO, hdr_len / 2) |
-		MT76_SET(MT_TXD1_WLAN_IDX, wlan_idx)
+		MT76_SET(MT_TXD1_WLAN_IDX, wlan_idx) |
+		MT76_SET(MT_TXD1_PROTECTED, key)
 	);
 
 	if (info->flags & IEEE80211_TX_CTL_NO_ACK) {
@@ -566,6 +643,7 @@ int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct mt7603_sta *msta = container_of(wcid, struct mt7603_sta, wcid);
 	struct mt7603_cb *cb = mt7603_skb_cb(skb);
+	bool key = info->control.hw_key;
 	int pid = 0;
 
 	if (!wcid)
@@ -589,7 +667,7 @@ int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 		INIT_LIST_HEAD(&cb->list);
 	}
 
-	mt7603_mac_write_txwi(dev, txwi_ptr, skb, wcid, sta, pid);
+	mt7603_mac_write_txwi(dev, txwi_ptr, skb, wcid, sta, pid, key);
 
 	return 0;
 }
