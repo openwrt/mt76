@@ -628,7 +628,10 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 		tx_count = rate->count;
 	}
 
-	txwi[3] = cpu_to_le32(MT76_SET(MT_TXD3_REM_TX_COUNT, tx_count));
+	txwi[3] = cpu_to_le32(
+		MT76_SET(MT_TXD3_REM_TX_COUNT, tx_count) |
+		MT76_SET(MT_TXD3_SEQ, le16_to_cpu(hdr->seq_ctrl))
+	);
 
 	if (info->flags & IEEE80211_TX_CTL_LDPC)
 		txwi[6] |= cpu_to_le32(MT_TXD6_LDPC);
