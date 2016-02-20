@@ -86,10 +86,16 @@ mt7603_wtbl2_addr(int idx)
 	return MT_PCIE_REMAP_BASE_1 + idx * MT_WTBL2_SIZE;
 }
 
+static u32
+mt7603_wtbl1_addr(int idx)
+{
+	return MT_WTBL1_BASE + idx * MT_WTBL1_SIZE;
+}
+
 void mt7603_wtbl_init(struct mt7603_dev *dev, int idx, const u8 *mac_addr)
 {
 	const void *_mac = mac_addr;
-	u32 addr = MT_WTBL1_BASE + idx * MT_WTBL1_SIZE;
+	u32 addr = mt7603_wtbl1_addr(idx);
 
 	mt76_set(dev, addr + 0 * 4,
 		 MT76_SET(MT_WTBL1_W0_ADDR_HI, get_unaligned_le16(_mac + 4)));
@@ -147,9 +153,26 @@ void mt7603_wtbl_clear(struct mt7603_dev *dev, int idx)
 void mt7603_wtbl_update_cap(struct mt7603_dev *dev, struct ieee80211_sta *sta)
 {
 	struct mt7603_sta *msta = (struct mt7603_sta *) sta->drv_priv;
-	u32 addr = mt7603_wtbl2_addr(msta->wcid.idx);
+	int idx = msta->wcid.idx;
+	u32 addr;
 	u32 val;
 
+	addr = mt7603_wtbl1_addr(idx);
+
+	val = MT76_SET(MT_WTBL1_W2_AMPDU_FACTOR, sta->ht_cap.ampdu_factor) |
+	      MT76_SET(MT_WTBL1_W2_MPDU_DENSITY, sta->ht_cap.ampdu_density) |
+	      MT_WTBL1_W2_TXS_BAF_REPORT;
+
+	if (sta->ht_cap.cap)
+		val |= MT_WTBL1_W2_HT;
+	if (sta->vht_cap.cap)
+		val |= MT_WTBL1_W2_VHT;
+	if (sta->ht_cap.cap & IEEE80211_HT_CAP_LDPC_CODING)
+		val |= MT_WTBL1_W2_LDPC;
+
+	mt76_wr(dev, addr + 2 * 4, val);
+
+	addr = mt7603_wtbl2_addr(idx);
 	val = mt76_rr(dev, addr + 9 * 4);
 	val &= ~(MT_WTBL2_W9_SHORT_GI_20 | MT_WTBL2_W9_SHORT_GI_40 |
 		 MT_WTBL2_W9_SHORT_GI_80);
