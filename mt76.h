@@ -191,6 +191,7 @@ struct mt76_dev {
 	struct ieee80211_supported_band sband_2g;
 	struct ieee80211_supported_band sband_5g;
 	struct debugfs_blob_wrapper eeprom;
+	struct debugfs_blob_wrapper otp;
 	struct mt76_hw_cap cap;
 
 	u32 debugfs_reg;

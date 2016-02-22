@@ -223,12 +223,12 @@ mt76x2_eeprom_load(struct mt76x2_dev *dev)
 	if (found)
 		found = !mt76x2_check_eeprom(dev);
 
-	dev->otp.data = devm_kzalloc(dev->mt76.dev, len, GFP_KERNEL);
-	dev->otp.size = len;
-	if (!dev->otp.data)
+	dev->mt76.otp.data = devm_kzalloc(dev->mt76.dev, len, GFP_KERNEL);
+	dev->mt76.otp.size = len;
+	if (!dev->mt76.otp.data)
 		return -ENOMEM;
 
-	efuse = dev->otp.data;
+	efuse = dev->mt76.otp.data;
 
 	if (mt76x2_get_efuse_data(dev, efuse, len))
 		goto out;

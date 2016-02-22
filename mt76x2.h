@@ -127,7 +127,6 @@ struct mt76x2_dev {
 	u16 chainmask;
 
 	struct mt76x2_calibration cal;
-	struct debugfs_blob_wrapper otp;
 
 	s8 target_power;
 	s8 target_power_delta[2];
