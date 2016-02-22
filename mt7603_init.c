@@ -231,6 +231,10 @@ mt7603_mac_init(struct mt7603_dev *dev)
 	/* Enable RX group to MCU */
 	mt76_set(dev, MT_DMA_DCR1, GENMASK(13, 11));
 
+	mt76_rmw_field(dev, MT_AGG_PCR, MT_AGG_PCR_RTS_PKT_THR, 3);
+	mt76_set(dev, MT_TMAC_PCR, MT_TMAC_PCR_SPE_EN);
+	mt76_wr(dev, MT_RXREQ, 4);
+
 	/* Configure all rx packets to HIF */
 	mt76_wr(dev, MT_DMA_RCFR0, 0xc0200000);
 
