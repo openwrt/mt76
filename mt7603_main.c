@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/etherdevice.h>
 #include "mt7603.h"
 #include "mt7603_eeprom.h"
 
@@ -59,6 +60,7 @@ mt7603_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
 	struct mt7603_vif *mvif = (struct mt7603_vif *) vif->drv_priv;
 	struct mt7603_dev *dev = hw->priv;
+	u8 bc_addr[ETH_ALEN];
 	int idx;
 	int ret = 0;
 
@@ -80,6 +82,10 @@ mt7603_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	dev->vif_mask |= BIT(mvif->idx);
 	mvif->sta.wcid.idx = idx;
 	mvif->sta.wcid.hw_key_idx = -1;
+
+	eth_broadcast_addr(bc_addr);
+	mt7603_wtbl_init(dev, idx, bc_addr);
+
 	rcu_assign_pointer(dev->wcid[idx], &mvif->sta.wcid);
 	mt7603_txq_init(dev, vif->txq);
 
@@ -302,10 +308,7 @@ mt7603_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 		key = NULL;
 	}
 
-	if (!msta)
-		return -EINVAL;
-
-	return mt7603_wtbl_set_key(dev, msta->wcid.idx, key);
+	return mt7603_wtbl_set_key(dev, wcid->idx, key);
 }
 
 static int
