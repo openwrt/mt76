@@ -15,6 +15,66 @@
 #include "mt7603_eeprom.h"
 
 static int
+mt7603_efuse_read(struct mt7603_dev *dev, u32 base, u16 addr, u8 *data)
+{
+	u32 val;
+	int i;
+
+	val = mt76_rr(dev, base + MT_EFUSE_CTRL);
+	val &= ~(MT_EFUSE_CTRL_AIN |
+		 MT_EFUSE_CTRL_MODE);
+	val |= MT76_SET(MT_EFUSE_CTRL_AIN, addr & ~0xf);
+	val |= MT_EFUSE_CTRL_KICK;
+	mt76_wr(dev, base + MT_EFUSE_CTRL, val);
+
+	if (!mt76_poll(dev, base + MT_EFUSE_CTRL, MT_EFUSE_CTRL_KICK, 0, 1000))
+		return -ETIMEDOUT;
+
+	udelay(2);
+
+	val = mt76_rr(dev, base + MT_EFUSE_CTRL);
+	if ((val & MT_EFUSE_CTRL_AOUT) == MT_EFUSE_CTRL_AOUT ||
+	    WARN_ON_ONCE(!(val & MT_EFUSE_CTRL_VALID))) {
+		memset(data, 0xff, 16);
+		return 0;
+	}
+
+	for (i = 0; i < 4; i++) {
+	    val = mt76_rr(dev, base + MT_EFUSE_RDATA(i));
+	    put_unaligned_le32(val, data + 4 * i);
+	}
+
+	return 0;
+}
+
+static int
+mt7603_efuse_init(struct mt7603_dev *dev)
+{
+	u32 base = mt7603_reg_map(dev, MT_EFUSE_BASE);
+	int len = MT7603_EEPROM_SIZE;
+	void *buf;
+	int ret, i;
+
+	if (mt76_rr(dev, base + MT_EFUSE_BASE_CTRL) & MT_EFUSE_BASE_CTRL_EMPTY)
+		return 0;
+
+	dev->mt76.otp.data = devm_kzalloc(dev->mt76.dev, len, GFP_KERNEL);
+	dev->mt76.otp.size = len;
+	if (!dev->mt76.otp.data)
+		return -ENOMEM;
+
+	buf = dev->mt76.otp.data;
+	for (i = 0; i + 16 <= len; i += 16) {
+		ret = mt7603_efuse_read(dev, base, i, buf + i);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+
+static int
 mt7603_eeprom_load(struct mt7603_dev *dev)
 {
 	int ret;
@@ -23,7 +83,7 @@ mt7603_eeprom_load(struct mt7603_dev *dev)
 	if (ret < 0)
 		return ret;
 
-	return 0;
+	return mt7603_efuse_init(dev);
 }
 
 int mt7603_eeprom_init(struct mt7603_dev *dev)
