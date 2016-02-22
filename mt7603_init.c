@@ -270,14 +270,9 @@ mt7603_init_hardware(struct mt7603_dev *dev)
 
 	mt76_wr(dev, MT_INT_SOURCE_CSR, ~0);
 
-	ret = mt76_eeprom_init(&dev->mt76, MT7603_EEPROM_SIZE);
+	ret = mt7603_eeprom_init(dev);
 	if (ret < 0)
 		return ret;
-
-	dev->mt76.cap.has_2ghz = true;
-	memcpy(dev->mt76.macaddr, dev->mt76.eeprom.data + MT_EE_MAC_ADDR,
-	       ETH_ALEN);
-	mt76_eeprom_override(&dev->mt76);
 
 	ret = mt7603_dma_init(dev);
 	if (ret)

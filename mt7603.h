@@ -152,6 +152,7 @@ irqreturn_t mt7603_irq_handler(int irq, void *dev_instance);
 
 int mt7603_register_device(struct mt7603_dev *dev);
 void mt7603_unregister_device(struct mt7603_dev *dev);
+int mt7603_eeprom_init(struct mt7603_dev *dev);
 int mt7603_dma_init(struct mt7603_dev *dev);
 void mt7603_dma_cleanup(struct mt7603_dev *dev);
 int mt7603_mcu_init(struct mt7603_dev *dev);
