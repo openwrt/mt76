@@ -73,6 +73,56 @@ mt7603_efuse_init(struct mt7603_dev *dev)
 	return 0;
 }
 
+static bool
+mt7603_has_cal_free_data(struct mt7603_dev *dev, u8 *efuse)
+{
+	if (!efuse[MT_EE_TEMP_SENSOR_CAL])
+		return false;
+
+	if (get_unaligned_le16(efuse + MT_EE_TX_POWER_0_START_2G) == 0)
+		return false;
+
+	if (get_unaligned_le16(efuse + MT_EE_TX_POWER_1_START_2G) == 0)
+		return false;
+
+	if (!efuse[MT_EE_CP_FT_VERSION])
+		return false;
+
+	if (!efuse[MT_EE_XTAL_FREQ_OFFSET])
+		return false;
+
+	if (!efuse[MT_EE_XTAL_WF_RFCAL])
+		return false;
+
+	return true;
+}
+
+
+static void
+mt7603_apply_cal_free_data(struct mt7603_dev *dev, u8 *efuse)
+{
+	static const u8 cal_free_bytes[] = {
+		MT_EE_TEMP_SENSOR_CAL,
+		MT_EE_TX_POWER_0_START_2G,
+		MT_EE_TX_POWER_0_START_2G + 1,
+		MT_EE_TX_POWER_1_START_2G,
+		MT_EE_TX_POWER_1_START_2G + 1,
+		MT_EE_CP_FT_VERSION,
+		MT_EE_XTAL_FREQ_OFFSET,
+		MT_EE_XTAL_WF_RFCAL,
+	};
+	u8 *eeprom = dev->mt76.eeprom.data;
+	int i;
+
+	if (!mt7603_has_cal_free_data(dev, efuse))
+	    return;
+
+	for (i = 0; i < ARRAY_SIZE(cal_free_bytes); i++) {
+	    int offset = cal_free_bytes[i];
+	    eeprom[offset] = efuse[offset];
+	}
+}
+
 
 static int
 mt7603_eeprom_load(struct mt7603_dev *dev)
@@ -98,6 +148,7 @@ int mt7603_eeprom_init(struct mt7603_dev *dev)
 	memcpy(dev->mt76.macaddr, dev->mt76.eeprom.data + MT_EE_MAC_ADDR,
 	       ETH_ALEN);
 
+	mt7603_apply_cal_free_data(dev, dev->mt76.otp.data);
 	mt76_eeprom_override(&dev->mt76);
 
 	return 0;

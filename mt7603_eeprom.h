@@ -79,6 +79,8 @@ enum mt7603_eeprom_field {
 	MT_EE_STEP_NUM_PLUS_5_6 =		0x0d4,
 	MT_EE_STEP_NUM_PLUS_7 =			0x0d6,
 
+	MT_EE_CP_FT_VERSION =			0x0f0,
+
 	MT_EE_XTAL_FREQ_OFFSET =		0x0f4,
 	MT_EE_XTAL_TRIM_2_COMP =		0x0f5,
 	MT_EE_XTAL_TRIM_3_COMP =		0x0f6,
