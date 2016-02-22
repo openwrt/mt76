@@ -158,7 +158,7 @@ static void
 mt7603_phy_init(struct mt7603_dev *dev)
 {
 	int rx_chains = BIT(dev->rx_chains) - 1;
-	int tx_chains = BIT(dev->tx_chains) - 1;
+	int tx_chains = dev->tx_chains - 1;
 
 	mt76_rmw(dev, MT_WF_RMAC_RMCR,
 		 (MT_WF_RMAC_RMCR_SMPS_MODE |
