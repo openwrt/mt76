@@ -129,6 +129,7 @@ void mt7603_wtbl_clear(struct mt7603_dev *dev, int idx)
 	int i;
 
 	mt76_wr(dev, addr + 0 * 4,
+		MT_WTBL1_W0_RX_CHECK_A1 |
 		MT_WTBL1_W0_RX_CHECK_A2 |
 		MT_WTBL1_W0_RX_VALID);
 	mt76_wr(dev, addr + 1 * 4, 0);
