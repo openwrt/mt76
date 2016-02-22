@@ -678,7 +678,7 @@ int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	return 0;
 }
 
-static void
+static bool
 mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 		struct ieee80211_tx_info *info, __le32 *txs_data)
 {
@@ -714,16 +714,17 @@ mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 
 	sta->ampdu_count++;
 	if (ampdu && !final_mpdu)
-		return;
+		return false;
 
 	info->status.ampdu_len = sta->ampdu_count;
 	info->status.ampdu_ack_len = sta->ampdu_acked;
 
-	if (info->flags & IEEE80211_TX_CTL_AMPDU)
-		info->flags |= IEEE80211_TX_STAT_AMPDU;
+	if (ampdu || (info->flags & IEEE80211_TX_CTL_AMPDU))
+		info->flags |= IEEE80211_TX_STAT_AMPDU | IEEE80211_TX_CTL_AMPDU;
 
 	sta->ampdu_count = 0;
 	sta->ampdu_acked = 0;
+	return true;
 }
 
 static void
@@ -828,8 +829,8 @@ void mt7603_mac_add_txs(struct mt7603_dev *dev, void *data)
 	if (wcidx >= MT7603_WTBL_STA)
 		goto out;
 
-	mt7603_fill_txs(dev, msta, &info, txs_data);
-	ieee80211_tx_status_noskb(mt76_hw(dev), sta, &info);
+	if (mt7603_fill_txs(dev, msta, &info, txs_data))
+		ieee80211_tx_status_noskb(mt76_hw(dev), sta, &info);
 
 out:
 	rcu_read_unlock();

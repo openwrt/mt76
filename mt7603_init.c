@@ -238,6 +238,13 @@ mt7603_mac_init(struct mt7603_dev *dev)
 	/* Configure all rx packets to HIF */
 	mt76_wr(dev, MT_DMA_RCFR0, 0xc0200000);
 
+	/* Configure txs selection with aggregation */
+	mt76_wr(dev, MT_DMA_TCFR1,
+		MT76_SET(MT_DMA_TCFR1_TXS_AGGR_TIMEOUT, 1) | /* 32 us */
+		MT_DMA_TCFR1_TXS_AGGR_COUNT | /* Maximum count */
+		MT_DMA_TCFR1_TXS_QUEUE | /* Queue 1 */
+		MT_DMA_TCFR1_TXS_BIT_MAP);
+
 	mt76_wr(dev, MT_MCU_PCIE_REMAP_1, MT_PSE_WTBL_2_PHYS_ADDR);
 
 	for (i = 0; i < MT7603_WTBL_SIZE; i++)

@@ -61,13 +61,15 @@ void mt7603_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 {
 	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
 	__le32 *rxd = (__le32 *) skb->data;
+	__le32 *end = (__le32 *) &skb->data[skb->len];
 	enum rx_pkt_type type;
 
 	type = MT76_GET(MT_RXD0_PKT_TYPE, le32_to_cpu(rxd[0]));
 
 	switch(type) {
 	case PKT_TYPE_TXS:
-		mt7603_mac_add_txs(dev, &rxd[1]);
+		for (rxd++; rxd + 5 <= end; rxd += 5)
+			mt7603_mac_add_txs(dev, rxd);
 		dev_kfree_skb(skb);
 		break;
 	case PKT_TYPE_RX_EVENT:
