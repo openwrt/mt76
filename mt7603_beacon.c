@@ -24,7 +24,6 @@ mt7603_update_beacon_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 {
 	struct mt7603_dev *dev = (struct mt7603_dev *) priv;
 	struct mt7603_vif *mvif = (struct mt7603_vif *) vif->drv_priv;
-	struct ieee80211_tx_info *info;
 	struct sk_buff *skb = NULL;
 
 	if (!(dev->beacon_mask & BIT(mvif->idx)))
@@ -34,9 +33,6 @@ mt7603_update_beacon_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 	if (!skb)
 		return;
 
-	info = IEEE80211_SKB_CB(skb);
-	info->flags |= IEEE80211_TX_CTL_ASSIGN_SEQ;
-	info->control.vif = vif;
 	mt76_tx_queue_skb(&dev->mt76, &dev->mt76.q_tx[MT_TXQ_BEACON], skb,
 			  &mvif->sta.wcid, NULL);
 }
