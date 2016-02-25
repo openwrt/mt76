@@ -43,6 +43,13 @@ irqreturn_t mt7603_irq_handler(int irq, void *dev_instance)
 
 	intr &= dev->irqmask;
 
+	if (intr & MT_INT_MAC_IRQ3) {
+		u32 hwintr = mt76_rr(dev, MT_HW_INT_STATUS(3));
+		mt76_wr(dev, MT_HW_INT_STATUS(3), hwintr);
+		if (hwintr & MT_HW_INT3_PRE_TBTT0)
+			tasklet_schedule(&dev->pre_tbtt_tasklet);
+	}
+
 	if (intr & MT_INT_TX_DONE_ALL) {
 		mt7603_irq_disable(dev, MT_INT_TX_DONE_ALL);
 		tasklet_schedule(&dev->tx_tasklet);
@@ -56,12 +63,6 @@ irqreturn_t mt7603_irq_handler(int irq, void *dev_instance)
 	if (intr & MT_INT_RX_DONE(1)) {
 		mt7603_irq_disable(dev, MT_INT_RX_DONE(1));
 		napi_schedule(&dev->mt76.napi[1]);
-	}
-
-	if (intr & MT_INT_PRE_TBTT) {
-		u32 hwintr = mt76_rr(dev, MT_HW_INT_STATUS(3));
-		mt76_wr(dev, MT_HW_INT_STATUS(3), hwintr);
-		tasklet_schedule(&dev->pre_tbtt_tasklet);
 	}
 
 	return IRQ_HANDLED;

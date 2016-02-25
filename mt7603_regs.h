@@ -43,7 +43,7 @@
 
 #define MT_INT_RX_COHERENT		BIT(20)
 #define MT_INT_TX_COHERENT		BIT(21)
-#define MT_INT_PRE_TBTT			BIT(27)
+#define MT_INT_MAC_IRQ3			BIT(27)
 
 #define MT_INT_MCU_CMD			BIT(30)
 

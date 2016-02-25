@@ -119,7 +119,7 @@ void mt7603_beacon_set_timer(struct mt7603_dev *dev, int idx, int intval)
 		dev->beacon_mask &= BIT(idx);
 
 	if (!dev->beacon_mask) {
-		mt7603_irq_disable(dev, MT_INT_PRE_TBTT);
+		mt7603_irq_disable(dev, MT_INT_MAC_IRQ3);
 		mt76_clear(dev, MT_WF_ARB_SCR, MT_WF_ARB_BCNQ_OPMODE_MASK);
 		mt76_wr(dev, MT_HW_INT_MASK(3), 0);
 		return;
@@ -137,5 +137,5 @@ void mt7603_beacon_set_timer(struct mt7603_dev *dev, int idx, int intval)
 	mt76_set(dev, MT_HW_INT_MASK(3), MT_HW_INT3_PRE_TBTT0);
 
 	mt76_set(dev, MT_WF_ARB_BCN_START, MT_WF_ARB_BCN_START_BSSn(0));
-	mt7603_irq_enable(dev, MT_INT_PRE_TBTT);
+	mt7603_irq_enable(dev, MT_INT_MAC_IRQ3);
 }
