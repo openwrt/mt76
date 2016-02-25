@@ -89,7 +89,9 @@ struct mt76_queue {
 	int ndesc;
 	int queued;
 	int buf_size;
-	int buf_offset;
+
+	u8 buf_offset;
+	u8 hw_idx;
 
 	dma_addr_t desc_dma;
 	struct sk_buff *rx_head;
@@ -154,7 +156,8 @@ struct mt76_driver_ops {
 	u16 txwi_size;
 
 	int (*tx_prepare_skb)(struct mt76_dev *dev, void *txwi_ptr,
-			      struct sk_buff *skb, struct mt76_wcid *wcid,
+			      struct sk_buff *skb, struct mt76_queue *q,
+			      struct mt76_wcid *wcid,
 			      struct ieee80211_sta *sta, u32 *tx_info);
 
 	void (*tx_complete_skb)(struct mt76_dev *dev, struct mt76_queue *q,

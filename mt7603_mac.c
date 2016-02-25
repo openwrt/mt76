@@ -549,8 +549,9 @@ int mt7603_wtbl_set_key(struct mt7603_dev *dev, int wcid,
 
 static int
 mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
-		      struct sk_buff *skb, struct mt76_wcid *wcid,
-		      struct ieee80211_sta *sta, int pid, bool key)
+		      struct sk_buff *skb, struct mt76_queue *q,
+		      struct mt76_wcid *wcid, struct ieee80211_sta *sta,
+		      int pid, bool key)
 {
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_tx_rate *rate = &info->control.rates[0];
@@ -578,7 +579,7 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 
 	txwi[0] = cpu_to_le32(
 		MT76_SET(MT_TXD0_TX_BYTES, skb->len + MT_TXD_SIZE) |
-		MT76_SET(MT_TXD0_Q_IDX, skb_get_queue_mapping(skb))
+		MT76_SET(MT_TXD0_Q_IDX, q->hw_idx)
 	);
 	txwi[1] = cpu_to_le32(
 		MT_TXD1_LONG_FORMAT |
@@ -643,8 +644,9 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 }
 
 int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
-			  struct sk_buff *skb, struct mt76_wcid *wcid,
-			  struct ieee80211_sta *sta, u32 *tx_info)
+			  struct sk_buff *skb, struct mt76_queue *q,
+			  struct mt76_wcid *wcid, struct ieee80211_sta *sta,
+			  u32 *tx_info)
 {
 	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
@@ -674,7 +676,7 @@ int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 		INIT_LIST_HEAD(&cb->list);
 	}
 
-	mt7603_mac_write_txwi(dev, txwi_ptr, skb, wcid, sta, pid, key);
+	mt7603_mac_write_txwi(dev, txwi_ptr, skb, q, wcid, sta, pid, key);
 
 	return 0;
 }

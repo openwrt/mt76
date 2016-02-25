@@ -59,8 +59,9 @@ void mt76x2_tx_complete(struct mt76x2_dev *dev, struct sk_buff *skb)
 }
 
 int mt76x2_tx_prepare_skb(struct mt76_dev *mdev, void *txwi,
-			  struct sk_buff *skb, struct mt76_wcid *wcid,
-			  struct ieee80211_sta *sta, u32 *tx_info)
+			  struct sk_buff *skb, struct mt76_queue *q,
+			  struct mt76_wcid *wcid, struct ieee80211_sta *sta,
+			  u32 *tx_info)
 {
 	struct mt76x2_dev *dev = container_of(mdev, struct mt76x2_dev, mt76);
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);

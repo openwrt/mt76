@@ -107,7 +107,8 @@ int mt76_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 
 	dma_sync_single_for_cpu(dev->dev, t->dma_addr, sizeof(t->txwi),
 				DMA_TO_DEVICE);
-	ret = dev->drv->tx_prepare_skb(dev, &t->txwi, skb, wcid, sta, &tx_info);
+	ret = dev->drv->tx_prepare_skb(dev, &t->txwi, skb, q, wcid, sta,
+				       &tx_info);
 	dma_sync_single_for_device(dev->dev, t->dma_addr, sizeof(t->txwi),
 				   DMA_TO_DEVICE);
 	if (ret < 0)
