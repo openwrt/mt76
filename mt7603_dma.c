@@ -113,7 +113,7 @@ mt7603_tx_tasklet(unsigned long data)
 	struct mt7603_dev *dev = (struct mt7603_dev *) data;
 	int i;
 
-	for (i = ARRAY_SIZE(dev->mt76.q_tx) - 1; i >= 0; i--)
+	for (i = MT_TXQ_MCU; i >= 0; i--)
 		mt76_queue_tx_cleanup(dev, &dev->mt76.q_tx[i], false);
 
 	mt7603_irq_enable(dev, MT_INT_TX_DONE_ALL);

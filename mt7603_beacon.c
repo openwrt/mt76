@@ -107,6 +107,9 @@ void mt7603_pre_tbtt_tasklet(unsigned long arg)
 	}
 	mt76_queue_kick(dev, q);
 	spin_unlock_bh(&q->lock);
+
+	mt76_queue_tx_cleanup(dev, &dev->mt76.q_tx[MT_TXQ_BEACON], false);
+	mt76_queue_tx_cleanup(dev, &dev->mt76.q_tx[MT_TXQ_CAB], false);
 }
 
 void mt7603_beacon_set_timer(struct mt7603_dev *dev, int idx, int intval)
