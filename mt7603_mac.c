@@ -630,6 +630,10 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 		tx_count = rate->count;
 	}
 
+	/* use maximum tx count for beacons */
+	if (q->hw_idx == MT_TX_HW_QUEUE_BCN)
+		tx_count = 0x1f;
+
 	txwi[3] = cpu_to_le32(
 		MT76_SET(MT_TXD3_REM_TX_COUNT, tx_count) |
 		MT76_SET(MT_TXD3_SEQ, le16_to_cpu(hdr->seq_ctrl))
