@@ -91,7 +91,6 @@ mt76x2_update_beacon_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 {
 	struct mt76x2_dev *dev = (struct mt76x2_dev *) priv;
 	struct mt76x2_vif *mvif = (struct mt76x2_vif *) vif->drv_priv;
-	struct ieee80211_tx_info *info;
 	struct sk_buff *skb = NULL;
 
 	if (!(dev->beacon_mask & BIT(mvif->idx)))
@@ -101,8 +100,6 @@ mt76x2_update_beacon_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 	if (!skb)
 		return;
 
-	info = IEEE80211_SKB_CB(skb);
-	info->flags |= IEEE80211_TX_CTL_ASSIGN_SEQ;
 	mt76x2_mac_set_beacon(dev, mvif->idx, skb);
 }
 
