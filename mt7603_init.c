@@ -384,7 +384,7 @@ int mt7603_register_device(struct mt7603_dev *dev)
 	hw->queues = 4;
 	hw->max_rates = 1;
 	hw->max_report_rates = 7;
-	hw->max_rate_tries = 1;
+	hw->max_rate_tries = 11;
 
 	hw->sta_data_size = sizeof(struct mt7603_sta);
 	hw->vif_data_size = sizeof(struct mt7603_vif);
