@@ -58,14 +58,11 @@ irqreturn_t mt7603_irq_handler(int irq, void *dev_instance)
 		napi_schedule(&dev->mt76.napi[1]);
 	}
 
-#if 0
-	if (intr & MT_INT_PRE_TBTT)
+	if (intr & MT_INT_PRE_TBTT) {
+		u32 hwintr = mt76_rr(dev, MT_HW_INT_STATUS(3));
+		mt76_wr(dev, MT_HW_INT_STATUS(3), hwintr);
 		tasklet_schedule(&dev->pre_tbtt_tasklet);
-
-	/* send buffered multicast frames now */
-	if (intr & MT_INT_TBTT)
-		mt76_queue_kick(dev, &dev->mt76.q_tx[MT_TXQ_PSD]);
-#endif
+	}
 
 	return IRQ_HANDLED;
 }

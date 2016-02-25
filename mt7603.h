@@ -31,6 +31,8 @@
 
 #define MT_AGG_SIZE_LIMIT(n)	((4 + 2 * (n & 1)) << (n / 2))
 
+#define MT7603_PRE_TBTT_TIME	5000 /* ms */
+
 enum {
 	MT7603_REV_E1 = 0x00,
 	MT7603_REV_E2 = 0x10
@@ -114,6 +116,8 @@ struct mt7603_dev {
 	struct mt7603_mcu mcu;
 	struct mt76_queue q_rx;
 
+	u8 beacon_mask;
+
 	struct tasklet_struct tx_tasklet;
 	struct tasklet_struct pre_tbtt_tasklet;
 };
@@ -174,6 +178,7 @@ static inline void mt7603_irq_disable(struct mt7603_dev *dev, u32 mask)
 void mt7603_mac_start(struct mt7603_dev *dev);
 void mt7603_mac_stop(struct mt7603_dev *dev);
 void mt7603_mac_set_timing(struct mt7603_dev *dev);
+void mt7603_beacon_set_timer(struct mt7603_dev *dev, int idx, int intval);
 int mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb);
 void mt7603_mac_add_txs(struct mt7603_dev *dev, void *data);
 struct sk_buff *mt7603_mac_status_skb(struct mt7603_dev *dev,
@@ -204,5 +209,7 @@ void mt7603_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 void mt7603_queue_rx_skb(struct mt76_dev *dev, enum mt76_rxq_id q,
 			 struct sk_buff *skb);
 void mt7603_rx_poll_complete(struct mt76_dev *mdev, enum mt76_rxq_id q);
+
+void mt7603_pre_tbtt_tasklet(unsigned long arg);
 
 #endif

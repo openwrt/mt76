@@ -223,6 +223,13 @@ mt7603_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		mt7603_mac_set_timing(dev);
 	}
 
+	if (changed & (BSS_CHANGED_BEACON_ENABLED | BSS_CHANGED_BEACON_INT)) {
+		int beacon_int = !!info->enable_beacon * info->beacon_int;
+		tasklet_disable(&dev->pre_tbtt_tasklet);
+		mt7603_beacon_set_timer(dev, mvif->idx, beacon_int);
+		tasklet_enable(&dev->pre_tbtt_tasklet);
+	}
+
 	mutex_unlock(&dev->mutex);
 }
 

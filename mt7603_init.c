@@ -371,6 +371,8 @@ int mt7603_register_device(struct mt7603_dev *dev)
 	spin_lock_init(&dev->status_lock);
 	INIT_LIST_HEAD(&dev->status_list);
 
+	tasklet_init(&dev->pre_tbtt_tasklet, mt7603_pre_tbtt_tasklet, (unsigned long) dev);
+
 	dev->rx_chains = 2;
 	dev->tx_chains = 2;
 	dev->slottime = 9;
