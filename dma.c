@@ -123,8 +123,9 @@ mt76_dma_tx_cleanup_idx(struct mt76_dev *dev, struct mt76_queue *q, int idx,
 }
 
 static void
-mt76_dma_tx_cleanup(struct mt76_dev *dev, struct mt76_queue *q, bool flush)
+mt76_dma_tx_cleanup(struct mt76_dev *dev, enum mt76_txq_id qid, bool flush)
 {
+	struct mt76_queue *q = &dev->q_tx[qid];
 	struct mt76_queue_entry entry;
 	int last;
 
@@ -400,7 +401,7 @@ void mt76_dma_cleanup(struct mt76_dev *dev)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(dev->q_tx); i++)
-		mt76_dma_tx_cleanup(dev, &dev->q_tx[i], true);
+		mt76_dma_tx_cleanup(dev, i, true);
 
 	for (i = 0; i < ARRAY_SIZE(dev->q_rx); i++) {
 		netif_napi_del(&dev->napi[i]);

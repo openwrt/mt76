@@ -107,7 +107,7 @@ struct mt76_queue_ops {
 	void *(*dequeue)(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
 			 int *len, u32 *info, bool *more);
 
-	void (*tx_cleanup)(struct mt76_dev *dev, struct mt76_queue *q, bool flush);
+	void (*tx_cleanup)(struct mt76_dev *dev, enum mt76_txq_id qid, bool flush);
 
 	void (*kick)(struct mt76_dev *dev, struct mt76_queue *q);
 };

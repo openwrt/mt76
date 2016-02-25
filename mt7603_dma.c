@@ -114,7 +114,7 @@ mt7603_tx_tasklet(unsigned long data)
 	int i;
 
 	for (i = MT_TXQ_MCU; i >= 0; i--)
-		mt76_queue_tx_cleanup(dev, &dev->mt76.q_tx[i], false);
+		mt76_queue_tx_cleanup(dev, i, false);
 
 	mt7603_irq_enable(dev, MT_INT_TX_DONE_ALL);
 }
