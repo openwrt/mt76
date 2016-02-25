@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Felix Fietkau <nbd@openwrt.org>
+ * Copyright (C) 2016 Felix Fietkau <nbd@openwrt.org>
  * Copyright (C) 2004 - 2009 Ivo van Doorn <IvDoorn@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
