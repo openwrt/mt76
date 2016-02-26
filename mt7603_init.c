@@ -222,6 +222,8 @@ mt7603_mac_init(struct mt7603_dev *dev)
 
 	mt76_wr(dev, MT_WF_RFCR1, 0);
 
+	mt76_set(dev, MT_TMAC_TCR, MT_TMAC_TCR_RX_RIFS_MODE);
+
 	mt7603_set_tmac_template(dev);
 
 	/* Enable RX group to HIF */
