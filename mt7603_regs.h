@@ -389,6 +389,7 @@ enum {
 #define MT_WTBL_UPDATE_BUSY		BIT(16)
 
 #define MT_WTBL_RMVTCR			MT_WTBL_OFF(0x008)
+#define MT_WTBL_RMVTCR_RX_MV_MODE	BIT(23)
 
 #define MT_LPON_BASE			0x24000
 #define MT_LPON(n)			(MT_LPON_BASE + (n))

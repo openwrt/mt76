@@ -274,6 +274,8 @@ mt7603_mac_init(struct mt7603_dev *dev)
 
 	mt76_wr(dev, MT_AGG_ARCR, (MT_AGG_ARCR_INIT_RATE1 |
 				   MT76_SET(MT_AGG_ARCR_RTS_RATE_THR, 2)));
+
+	mt76_set(dev, MT_WTBL_RMVTCR, MT_WTBL_RMVTCR_RX_MV_MODE);
 }
 
 static int
