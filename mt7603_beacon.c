@@ -125,7 +125,7 @@ void mt7603_beacon_set_timer(struct mt7603_dev *dev, int idx, int intval)
 
 	if (!dev->beacon_mask) {
 		mt7603_irq_disable(dev, MT_INT_MAC_IRQ3);
-		mt76_clear(dev, MT_WF_ARB_SCR, MT_WF_ARB_BCNQ_OPMODE_MASK);
+		mt76_clear(dev, MT_ARB_SCR, MT_ARB_SCR_BCNQ_OPMODE_MASK);
 		mt76_wr(dev, MT_HW_INT_MASK(3), 0);
 		return;
 	}
@@ -135,7 +135,7 @@ void mt7603_beacon_set_timer(struct mt7603_dev *dev, int idx, int intval)
 
 	mt76_wr(dev, MT_TBTT_TIMER_CFG, 0x99); /* start timer */
 
-	mt76_rmw_field(dev, MT_WF_ARB_SCR, MT_WF_ARB_BCNQ_OPMODE_MASK,
+	mt76_rmw_field(dev, MT_ARB_SCR, MT_ARB_SCR_BCNQ_OPMODE_MASK,
 		       MT_BCNQ_OPMODE_AP);
 	mt76_wr(dev, MT_PRE_TBTT, pre_tbtt);
 

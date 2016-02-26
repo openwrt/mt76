@@ -70,7 +70,7 @@ mt7603_mac_early_init(struct mt7603_dev *dev)
 {
 	mt76_wr(dev, MT_WPDMA_GLO_CFG, 0x52000850);
 
-	mt76_clear(dev, MT_WF_ARB_SCR, MT_WF_ARB_TX_DISABLE | MT_WF_ARB_RX_DISABLE);
+	mt76_clear(dev, MT_ARB_SCR, MT_ARB_SCR_TX_DISABLE | MT_ARB_SCR_RX_DISABLE);
 	mt76_wr(dev, MT_WF_ARB_TX_START_0, ~0);
 	mt76_clear(dev, MT_WF_ARB_RQCR, MT_WF_ARB_RQCR_RX_START);
 
