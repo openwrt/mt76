@@ -102,6 +102,8 @@ mt7603_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	struct mt7603_dev *dev = hw->priv;
 	int idx = mvif->sta.wcid.idx;
 
+	mt7603_beacon_set_timer(dev, mvif->idx, 0);
+
 	rcu_assign_pointer(dev->wcid[idx], NULL);
 	mt76_txq_remove(&dev->mt76, vif->txq);
 
