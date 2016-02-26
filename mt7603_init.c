@@ -166,7 +166,7 @@ mt7603_phy_init(struct mt7603_dev *dev)
 		 (MT76_SET(MT_WF_RMAC_RMCR_SMPS_MODE, 3) |
 		  MT76_SET(MT_WF_RMAC_RMCR_RX_STREAMS, rx_chains)));
 
-	mt76_rmw_field(dev, MT_WF_TMAC_TCR, MT_WF_TMAC_TCR_TX_STREAMS,
+	mt76_rmw_field(dev, MT_TMAC_TCR, MT_TMAC_TCR_TX_STREAMS,
 		       tx_chains);
 }
 
