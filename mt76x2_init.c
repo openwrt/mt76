@@ -730,6 +730,9 @@ int mt76x2_register_device(struct mt76x2_dev *dev)
 	INIT_DELAYED_WORK(&dev->cal_work, mt76x2_phy_calibrate);
 	INIT_DELAYED_WORK(&dev->mac_work, mt76x2_mac_work);
 
+	dev->mt76.sband_2g.ht_cap.cap |= IEEE80211_HT_CAP_LDPC_CODING;
+	dev->mt76.sband_5g.ht_cap.cap |= IEEE80211_HT_CAP_LDPC_CODING;
+
 	ret = mt76_register_device(&dev->mt76, true, mt76x2_rates,
 				   ARRAY_SIZE(mt76x2_rates));
 	if (ret)

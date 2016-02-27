@@ -96,13 +96,12 @@ mt76_init_sband(struct mt76_dev *dev, struct ieee80211_supported_band *sband,
 
 	ht_cap = &sband->ht_cap;
 	ht_cap->ht_supported = true;
-	ht_cap->cap = IEEE80211_HT_CAP_SUP_WIDTH_20_40 |
-		      IEEE80211_HT_CAP_GRN_FLD |
-		      IEEE80211_HT_CAP_SGI_20 |
-		      IEEE80211_HT_CAP_SGI_40 |
-		      IEEE80211_HT_CAP_LDPC_CODING |
-		      IEEE80211_HT_CAP_TX_STBC |
-		      (1 << IEEE80211_HT_CAP_RX_STBC_SHIFT);
+	ht_cap->cap |= IEEE80211_HT_CAP_SUP_WIDTH_20_40 |
+		       IEEE80211_HT_CAP_GRN_FLD |
+		       IEEE80211_HT_CAP_SGI_20 |
+		       IEEE80211_HT_CAP_SGI_40 |
+		       IEEE80211_HT_CAP_TX_STBC |
+		       (1 << IEEE80211_HT_CAP_RX_STBC_SHIFT);
 
 	ht_cap->mcs.rx_mask[0] = 0xff;
 	ht_cap->mcs.rx_mask[1] = 0xff;
@@ -127,10 +126,10 @@ mt76_init_sband(struct mt76_dev *dev, struct ieee80211_supported_band *sband,
 
 	vht_cap->vht_mcs.rx_mcs_map = cpu_to_le16(mcs_map);
 	vht_cap->vht_mcs.tx_mcs_map = cpu_to_le16(mcs_map);
-	vht_cap->cap = IEEE80211_VHT_CAP_RXLDPC |
-		       IEEE80211_VHT_CAP_TXSTBC |
-		       IEEE80211_VHT_CAP_RXSTBC_1 |
-		       IEEE80211_VHT_CAP_SHORT_GI_80;
+	vht_cap->cap |= IEEE80211_VHT_CAP_RXLDPC |
+		        IEEE80211_VHT_CAP_TXSTBC |
+		        IEEE80211_VHT_CAP_RXSTBC_1 |
+		        IEEE80211_VHT_CAP_SHORT_GI_80;
 
 	return 0;
 }
