@@ -99,6 +99,13 @@ mt7603_wtbl3_addr(int idx)
 	return base + idx * MT_WTBL3_SIZE;
 }
 
+static u32
+mt7603_wtbl4_addr(int idx)
+{
+	u32 base = mt7603_wtbl3_addr(MT7603_WTBL_SIZE);
+	return base + idx * MT_WTBL4_SIZE;
+}
+
 void mt7603_wtbl_init(struct mt7603_dev *dev, int idx, const u8 *mac_addr)
 {
 	const void *_mac = mac_addr;
@@ -117,6 +124,10 @@ void mt7603_wtbl_init(struct mt7603_dev *dev, int idx, const u8 *mac_addr)
 
 	addr = mt7603_wtbl3_addr(idx);
 	for (i = 0; i < MT_WTBL3_SIZE; i += 4)
+		mt76_wr(dev, addr + i, 0);
+
+	addr = mt7603_wtbl4_addr(idx);
+	for (i = 0; i < MT_WTBL4_SIZE; i += 4)
 		mt76_wr(dev, addr + i, 0);
 }
 
