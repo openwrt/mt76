@@ -376,6 +376,12 @@ enum {
 #define MT_WF_RFCR1			MT_WF_RMAC(0x0a4)
 #define MT_WF_RMAC_TMR_PA		MT_WF_RMAC(0x0e0)
 
+#define MT_WF_SEC_BASE			0x21a00
+#define MT_WF_SEC(ofs)			(MT_WF_SEC_BASE + (ofs))
+
+#define MT_SEC_SCR			MT_WF_SEC(0x004)
+#define MT_SEC_SCR_MASK_ORDER		GENMASK(1, 0)
+
 #define MT_WTBL_OFF_BASE		0x23000
 #define MT_WTBL_OFF(n)			(MT_WTBL_OFF_BASE + (n))
 
