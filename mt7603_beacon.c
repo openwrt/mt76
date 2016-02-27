@@ -137,8 +137,8 @@ void mt7603_beacon_set_timer(struct mt7603_dev *dev, int idx, int intval)
 
 	mt76_rmw_field(dev, MT_ARB_SCR, MT_ARB_SCR_BCNQ_OPMODE_MASK,
 		       MT_BCNQ_OPMODE_AP);
-	mt76_set(dev, MT_ARB_SCR,
-		 MT_ARB_SCR_TBTT_BCN_PRIO | MT_ARB_SCR_TBTT_BCAST_PRIO);
+	mt76_clear(dev, MT_ARB_SCR,
+		   MT_ARB_SCR_TBTT_BCN_PRIO | MT_ARB_SCR_TBTT_BCAST_PRIO);
 
 	mt76_wr(dev, MT_PRE_TBTT, pre_tbtt);
 
