@@ -833,12 +833,13 @@ mt7603_mac_add_txs_skb(struct mt7603_dev *dev, struct mt7603_sta *sta, int pid,
 
 	spin_lock_bh(&dev->status_lock);
 	skb = mt7603_mac_status_skb(dev, sta, pid);
+	spin_unlock_bh(&dev->status_lock);
+
 	if (skb) {
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 		mt7603_fill_txs(dev, sta, info, txs_data);
 		mt7603_skb_done(dev, skb, MT7603_CB_TXS_DONE);
 	}
-	spin_unlock_bh(&dev->status_lock);
 
 	return !!skb;
 }
