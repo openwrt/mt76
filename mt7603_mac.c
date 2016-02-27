@@ -960,6 +960,7 @@ static void mt7603_mac_reset(struct mt7603_dev *dev)
 	u32 mask = dev->irqmask;
 	int i;
 
+	return; /* FIXME, doesn't work yet */
 	set_bit(MT76_RESET, &dev->mt76.state);
 
 	mt76_clear(dev, MT_WPDMA_GLO_CFG,
