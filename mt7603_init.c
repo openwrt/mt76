@@ -388,7 +388,7 @@ int mt7603_register_device(struct mt7603_dev *dev)
 		return ret;
 
 	hw->queues = 4;
-	hw->max_rates = 4;
+	hw->max_rates = 3;
 	hw->max_report_rates = 7;
 	hw->max_rate_tries = 11;
 
