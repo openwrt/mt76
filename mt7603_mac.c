@@ -751,6 +751,11 @@ mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 		info->status.rates[1].count = 0;
 	} else {
 		for (i = 0; i < ARRAY_SIZE(info->status.rates); i++) {
+			if (!count) {
+				info->status.rates[i].idx = -1;
+				break;
+			}
+
 			info->status.rates[i] = sta->rates[i];
 			info->status.rates[i].count = min_t(int, count, MT7603_RATE_RETRY);
 			count -= MT7603_RATE_RETRY;
