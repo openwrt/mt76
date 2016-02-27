@@ -176,7 +176,6 @@ mt7603_configure_filter(struct ieee80211_hw *hw, unsigned int changed_flags,
 		dev->rxfilter |= !(flags & FIF_##_flag) * (_hw);	\
 	} while (0)
 
-	dev->rxfilter |= MT_WF_RFCR_DROP_STBC_MULTI;
 	dev->rxfilter &= ~(MT_WF_RFCR_DROP_OTHER_BSS |
 			   MT_WF_RFCR_DROP_OTHER_BEACON |
 			   MT_WF_RFCR_DROP_FRAME_REPORT |
@@ -185,7 +184,9 @@ mt7603_configure_filter(struct ieee80211_hw *hw, unsigned int changed_flags,
 			   MT_WF_RFCR_DROP_MCAST |
 			   MT_WF_RFCR_DROP_BCAST |
 			   MT_WF_RFCR_DROP_DUPLICATE |
-			   MT_WF_RFCR_DROP_A2_BSSID);
+			   MT_WF_RFCR_DROP_A2_BSSID |
+			   MT_WF_RFCR_DROP_UNWANTED_CTL |
+			   MT_WF_RFCR_DROP_STBC_MULTI);
 
 	MT76_FILTER(OTHER_BSS, MT_WF_RFCR_DROP_OTHER_UC |
 			       MT_WF_RFCR_DROP_OTHER_TIM |
@@ -194,8 +195,7 @@ mt7603_configure_filter(struct ieee80211_hw *hw, unsigned int changed_flags,
 
 	MT76_FILTER(FCSFAIL, MT_WF_RFCR_DROP_FCSFAIL);
 
-	MT76_FILTER(CONTROL, MT_WF_RFCR_DROP_UNWANTED_CTL |
-			     MT_WF_RFCR_DROP_CTS |
+	MT76_FILTER(CONTROL, MT_WF_RFCR_DROP_CTS |
 			     MT_WF_RFCR_DROP_RTS |
 			     MT_WF_RFCR_DROP_CTL_RSV |
 			     MT_WF_RFCR_DROP_NDPA);
