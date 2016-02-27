@@ -44,7 +44,7 @@ mt76_start_tx_ac(struct mt7603_dev *dev, u32 mask)
 void mt7603_mac_set_timing(struct mt7603_dev *dev)
 {
 	u32 cck = MT76_SET(MT_TIMEOUT_VAL_PLCP, 231) |
-		  MT76_SET(MT_TIMEOUT_VAL_CCA, 30);
+		  MT76_SET(MT_TIMEOUT_VAL_CCA, 48);
 	u32 ofdm = MT76_SET(MT_TIMEOUT_VAL_PLCP, 60) |
 		   MT76_SET(MT_TIMEOUT_VAL_CCA, 24);
 	int offset = 3 * dev->coverage_class;
