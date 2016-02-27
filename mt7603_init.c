@@ -238,7 +238,7 @@ mt7603_mac_init(struct mt7603_dev *dev)
 	mt76_wr(dev, MT_RXREQ, 4);
 
 	/* Configure all rx packets to HIF */
-	mt76_wr(dev, MT_DMA_RCFR0, 0xc0200000);
+	mt76_wr(dev, MT_DMA_RCFR0, 0xc0000000);
 
 	/* Configure txs selection with aggregation */
 	mt76_wr(dev, MT_DMA_TCFR1,
