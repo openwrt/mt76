@@ -152,11 +152,13 @@ mt76_dma_tx_cleanup(struct mt76_dev *dev, enum mt76_txq_id qid, bool flush)
 		q->tail = (q->tail + 1) % q->ndesc;
 		q->queued--;
 
-		if (q->tail == last)
+		if (!flush && q->tail == last)
 		    last = ioread32(&q->regs->dma_idx);
 	}
 	if (!flush)
 		mt76_txq_schedule(dev, q);
+	else
+		iowrite32(q->tail, &q->regs->dma_idx);
 	spin_unlock_bh(&q->lock);
 }
 
