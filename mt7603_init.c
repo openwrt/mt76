@@ -91,7 +91,8 @@ mt7603_mac_early_init(struct mt7603_dev *dev)
 static void
 mt7603_dma_sched_init(struct mt7603_dev *dev)
 {
-	int page_size, page_count;
+	int page_size = 128;
+	int page_count;
 	int max_len = 1792;
 	int max_amsdu_len = 4096;
 	int max_mcu_len = 4096;
@@ -101,9 +102,8 @@ mt7603_dma_sched_init(struct mt7603_dev *dev)
 	int mcu_pages;
 	int i;
 
-	page_size = mt76_get_field(dev, MT_PSE_FC_P0,
-				   MT_PSE_FC_P0_MAX_QUOTA);
-	page_count = 0x1ae;
+	page_count = mt76_get_field(dev, MT_PSE_FC_P0,
+				    MT_PSE_FC_P0_MAX_QUOTA);
 	beacon_pages = max_beacon_len / page_size;
 	mcu_pages = max_mcu_len / page_size;
 
