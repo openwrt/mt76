@@ -122,17 +122,19 @@ void mt7603_wtbl_init(struct mt7603_dev *dev, int idx, const u8 *mac_addr)
 
 void mt7603_wtbl_clear(struct mt7603_dev *dev, int idx)
 {
-	int wtbl2_offset = idx * MT_WTBL2_SIZE;
-	int wtbl2_frame = wtbl2_offset / MT_PSE_PAGE_SIZE;
-	int wtbl2_entry = wtbl2_offset % MT_PSE_PAGE_SIZE;
+	int wtbl2_frame_size = MT_PSE_PAGE_SIZE / MT_WTBL2_SIZE;
+	int wtbl2_frame = idx / wtbl2_frame_size;
+	int wtbl2_entry = idx % wtbl2_frame_size;
 
-	int wtbl3_offset = idx * MT_WTBL3_SIZE + MT_WTBL3_OFFSET;
-	int wtbl3_frame = wtbl3_offset / MT_PSE_PAGE_SIZE;
-	int wtbl3_entry = (wtbl3_offset % MT_PSE_PAGE_SIZE) * 2;
+	int wtbl3_base_frame = MT_WTBL3_OFFSET / MT_PSE_PAGE_SIZE;
+	int wtbl3_frame_size = MT_PSE_PAGE_SIZE / MT_WTBL3_SIZE;
+	int wtbl3_frame = wtbl3_base_frame + idx / wtbl3_frame_size;
+	int wtbl3_entry = (idx % wtbl3_frame_size) * 2;
 
-	int wtbl4_offset = idx * MT_WTBL4_SIZE + MT_WTBL4_OFFSET;
-	int wtbl4_frame = wtbl4_offset / MT_PSE_PAGE_SIZE;
-	int wtbl4_entry = wtbl4_offset % MT_PSE_PAGE_SIZE;
+	int wtbl4_base_frame = MT_WTBL4_OFFSET / MT_PSE_PAGE_SIZE;
+	int wtbl4_frame_size = MT_PSE_PAGE_SIZE / MT_WTBL4_SIZE;
+	int wtbl4_frame = wtbl4_base_frame + idx / wtbl4_frame_size;
+	int wtbl4_entry = idx % wtbl4_frame_size;
 
 	u32 addr = MT_WTBL1_BASE + idx * MT_WTBL1_SIZE;
 	int i;
