@@ -40,15 +40,6 @@ struct mt7603_dev *mt7603_alloc_device(struct device *pdev)
 	return dev;
 }
 
-static bool
-wait_for_wpdma(struct mt7603_dev *dev)
-{
-	return mt76_poll(dev, MT_WPDMA_GLO_CFG,
-			 MT_WPDMA_GLO_CFG_TX_DMA_BUSY |
-			 MT_WPDMA_GLO_CFG_RX_DMA_BUSY,
-			 0, 1000);
-}
-
 static void
 mt7603_set_tmac_template(struct mt7603_dev *dev)
 {
@@ -63,29 +54,6 @@ mt7603_set_tmac_template(struct mt7603_dev *dev)
 	addr += MT_CLIENT_TMAC_INFO_TEMPLATE;
 	for (i = 0; i < ARRAY_SIZE(desc); i++)
 		mt76_wr(dev, addr + 4 * i, desc[i]);
-}
-
-static int
-mt7603_mac_early_init(struct mt7603_dev *dev)
-{
-	mt76_wr(dev, MT_WPDMA_GLO_CFG, 0x52000850);
-
-	mt76_clear(dev, MT_ARB_SCR, MT_ARB_SCR_TX_DISABLE | MT_ARB_SCR_RX_DISABLE);
-	mt76_wr(dev, MT_WF_ARB_TX_START_0, ~0);
-	mt76_clear(dev, MT_WF_ARB_RQCR, MT_WF_ARB_RQCR_RX_START);
-
-	wait_for_wpdma(dev);
-	udelay(50);
-
-	mt76_set(dev, MT_WPDMA_GLO_CFG,
-		 (MT_WPDMA_GLO_CFG_TX_DMA_EN |
-		  MT_WPDMA_GLO_CFG_RX_DMA_EN |
-		  MT76_SET(MT_WPDMA_GLO_CFG_DMA_BURST_SIZE, 3) |
-		  MT_WPDMA_GLO_CFG_TX_WRITEBACK_DONE));
-
-	mt7603_irq_enable(dev, MT_INT_RX_DONE_ALL | MT_INT_TX_DONE_ALL);
-
-	return 0;
 }
 
 static void
@@ -295,10 +263,8 @@ mt7603_init_hardware(struct mt7603_dev *dev)
 	if (ret)
 		return ret;
 
-	ret = mt7603_mac_early_init(dev);
-	if (ret)
-		return ret;
-
+	mt76_wr(dev, MT_WPDMA_GLO_CFG, 0x52000850);
+	mt7603_mac_dma_start(dev);
 	dev->rxfilter = mt76_rr(dev, MT_WF_RFCR);
 	set_bit(MT76_STATE_INITIALIZED, &dev->mt76.state);
 
@@ -377,6 +343,7 @@ int mt7603_register_device(struct mt7603_dev *dev)
 	spin_lock_init(&dev->status_lock);
 	INIT_LIST_HEAD(&dev->status_list);
 
+	INIT_DELAYED_WORK(&dev->mac_work, mt7603_mac_work);
 	tasklet_init(&dev->pre_tbtt_tasklet, mt7603_pre_tbtt_tasklet, (unsigned long) dev);
 
 	dev->rx_chains = 2;

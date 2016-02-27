@@ -409,7 +409,8 @@ void mt76_txq_schedule(struct mt76_dev *dev, struct mt76_queue *hwq)
 {
 	int len;
 
-	if (test_bit(MT76_SCANNING, &dev->state))
+	if (test_bit(MT76_SCANNING, &dev->state) ||
+	    test_bit(MT76_RESET, &dev->state))
 		return;
 
 	do {

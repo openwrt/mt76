@@ -33,6 +33,8 @@
 
 #define MT7603_PRE_TBTT_TIME	5000 /* ms */
 
+#define MT7603_WATCHDOG_TIME	1000 /* ms */
+
 enum {
 	MT7603_REV_E1 = 0x00,
 	MT7603_REV_E2 = 0x10
@@ -113,11 +115,17 @@ struct mt7603_dev {
 	u8 slottime;
 	s16 coverage_class;
 
+	int beacon_int;
+
 	struct mt7603_mcu mcu;
 	struct mt76_queue q_rx;
 
 	u8 beacon_mask;
 
+	u8 tx_check;
+	u8 rx_check;
+
+	struct delayed_work mac_work;
 	struct tasklet_struct tx_tasklet;
 	struct tasklet_struct pre_tbtt_tasklet;
 };
@@ -175,8 +183,10 @@ static inline void mt7603_irq_disable(struct mt7603_dev *dev, u32 mask)
 	mt7603_set_irq_mask(dev, mask, 0);
 }
 
+void mt7603_mac_dma_start(struct mt7603_dev *dev);
 void mt7603_mac_start(struct mt7603_dev *dev);
 void mt7603_mac_stop(struct mt7603_dev *dev);
+void mt7603_mac_work(struct work_struct *work);
 void mt7603_mac_set_timing(struct mt7603_dev *dev);
 void mt7603_beacon_set_timer(struct mt7603_dev *dev, int idx, int intval);
 int mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb);

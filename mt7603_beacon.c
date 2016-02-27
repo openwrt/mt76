@@ -118,18 +118,21 @@ void mt7603_beacon_set_timer(struct mt7603_dev *dev, int idx, int intval)
 {
 	u32 pre_tbtt = MT7603_PRE_TBTT_TIME / 64;
 
-	if (intval)
-		dev->beacon_mask |= BIT(idx);
-	else
-		dev->beacon_mask &= BIT(idx);
+	if (idx >= 0) {
+		if (intval)
+			dev->beacon_mask |= BIT(idx);
+		else
+			dev->beacon_mask &= BIT(idx);
+	}
 
-	if (!dev->beacon_mask) {
+	if (!dev->beacon_mask || (!intval && idx < 0)) {
 		mt7603_irq_disable(dev, MT_INT_MAC_IRQ3);
 		mt76_clear(dev, MT_ARB_SCR, MT_ARB_SCR_BCNQ_OPMODE_MASK);
 		mt76_wr(dev, MT_HW_INT_MASK(3), 0);
 		return;
 	}
 
+	dev->beacon_int = intval;
 	mt76_wr(dev, MT_TBTT,
 		MT76_SET(MT_TBTT_PERIOD, intval) | MT_TBTT_CAL_ENABLE);
 

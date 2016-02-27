@@ -21,6 +21,8 @@ mt7603_start(struct ieee80211_hw *hw)
 	struct mt7603_dev *dev = hw->priv;
 
 	mt7603_mac_start(dev);
+	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mac_work,
+				     MT7603_WATCHDOG_TIME);
 	set_bit(MT76_STATE_RUNNING, &dev->mt76.state);
 
 	return 0;
@@ -32,6 +34,7 @@ mt7603_stop(struct ieee80211_hw *hw)
 	struct mt7603_dev *dev = hw->priv;
 
 	clear_bit(MT76_STATE_RUNNING, &dev->mt76.state);
+	cancel_delayed_work_sync(&dev->mac_work);
 	mt7603_mac_stop(dev);
 }
 
