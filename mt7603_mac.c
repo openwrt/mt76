@@ -793,7 +793,7 @@ struct sk_buff *
 mt7603_mac_status_skb(struct mt7603_dev *dev, struct mt7603_sta *sta, int pktid)
 {
 	struct mt7603_cb *cb, *tmp;
-	struct sk_buff *skb;
+	struct sk_buff *skb = NULL;
 
 	list_for_each_entry_safe(cb, tmp, &dev->status_list, list) {
 		if (sta && cb->wcid != sta->wcid.idx)
