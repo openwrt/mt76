@@ -750,9 +750,12 @@ mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 		info->status.rates[0].count = count;
 		info->status.rates[1].count = 0;
 	} else {
-		for (i = 0; i < 4 && count > 0; i++, count -= MT7603_RATE_RETRY) {
+		for (i = 0; i < ARRAY_SIZE(info->status.rates); i++) {
 			info->status.rates[i] = sta->rates[i];
-			info->status.rates[i].count = min_t(int, count, 2);
+			info->status.rates[i].count = min_t(int, count, MT7603_RATE_RETRY);
+			count -= MT7603_RATE_RETRY;
+			if (count < 0)
+				count = 0;
 		}
 	}
 
