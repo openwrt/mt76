@@ -572,8 +572,12 @@ int mt7603_wtbl_set_key(struct mt7603_dev *dev, int wcid,
 
 	mt76_wr_copy(dev, addr, key_data, key_len);
 
-	if (cipher != MT_CIPHER_WEP40 && cipher != MT_CIPHER_WEP104)
-		mt76_wr_copy(dev, addr + 32, iv_data, sizeof(iv_data));
+	addr = mt7603_wtbl2_addr(wcid);
+	if (cipher != MT_CIPHER_WEP40 && cipher != MT_CIPHER_WEP104) {
+		mt76_wr(dev, addr, get_unaligned_le32(&iv_data[0]));
+		mt76_rmw_field(dev, addr + 4, MT_WTBL2_W1_PN_HI,
+			       get_unaligned_le16(&iv_data[4]));
+	}
 
 	addr = mt7603_wtbl1_addr(wcid);
 	mt76_rmw_field(dev, addr + 2 * 4, MT_WTBL1_W2_KEY_TYPE, cipher);
