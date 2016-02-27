@@ -699,8 +699,9 @@ int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	if (!wcid)
 		wcid = &dev->global_sta.wcid;
 
-	if (info->flags & (IEEE80211_TX_CTL_REQ_TX_STATUS |
-			   IEEE80211_TX_CTL_RATE_CTRL_PROBE)) {
+	if ((info->flags & (IEEE80211_TX_CTL_REQ_TX_STATUS |
+			  IEEE80211_TX_CTL_RATE_CTRL_PROBE)) ||
+	    info->control.rates[0].idx >= 0) {
 		spin_lock_bh(&dev->status_lock);
 
 		msta->pid = (msta->pid + 1) & MT_PID_INDEX;
