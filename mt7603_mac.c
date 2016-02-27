@@ -103,12 +103,21 @@ void mt7603_wtbl_init(struct mt7603_dev *dev, int idx, const u8 *mac_addr)
 {
 	const void *_mac = mac_addr;
 	u32 addr = mt7603_wtbl1_addr(idx);
+	int i;
 
 	mt76_set(dev, addr + 0 * 4,
 		 MT76_SET(MT_WTBL1_W0_ADDR_HI, get_unaligned_le16(_mac + 4)));
 	mt76_set(dev, addr + 1 * 4,
 		 MT76_SET(MT_WTBL1_W1_ADDR_LO, get_unaligned_le32(_mac)));
 	mt76_set(dev, addr + 2 * 4, MT_WTBL1_W2_ADMISSION_CONTROL);
+
+	addr = mt7603_wtbl2_addr(idx);
+	for (i = 0; i < MT_WTBL2_SIZE; i += 4)
+		mt76_wr(dev, addr + i, 0);
+
+	addr = mt7603_wtbl3_addr(idx);
+	for (i = 0; i < MT_WTBL3_SIZE; i += 4)
+		mt76_wr(dev, addr + i, 0);
 }
 
 void mt7603_wtbl_clear(struct mt7603_dev *dev, int idx)
