@@ -131,6 +131,15 @@ void mt7603_wtbl_init(struct mt7603_dev *dev, int idx, const u8 *mac_addr)
 		mt76_wr(dev, addr + i, 0);
 }
 
+void mt7603_wtbl_set_ps(struct mt7603_dev *dev, int idx, bool val)
+{
+	u32 addr = mt7603_wtbl1_addr(idx);
+
+	mt76_set(dev, MT_WTBL1_OR, MT_WTBL1_OR_PSM_WRITE);
+	mt76_rmw_field(dev, addr + 3 * 4, MT_WTBL1_W3_POWER_SAVE, val);
+	mt76_clear(dev, MT_WTBL1_OR, MT_WTBL1_OR_PSM_WRITE);
+}
+
 void mt7603_wtbl_clear(struct mt7603_dev *dev, int idx)
 {
 	int wtbl2_frame_size = MT_PSE_PAGE_SIZE / MT_WTBL2_SIZE;
@@ -162,7 +171,8 @@ void mt7603_wtbl_clear(struct mt7603_dev *dev, int idx)
 	mt76_wr(dev, addr + 3 * 4,
 		MT76_SET(MT_WTBL1_W3_WTBL2_FRAME_ID, wtbl2_frame) |
 		MT76_SET(MT_WTBL1_W3_WTBL2_ENTRY_ID, wtbl2_entry) |
-		MT76_SET(MT_WTBL1_W3_WTBL4_FRAME_ID, wtbl4_frame));
+		MT76_SET(MT_WTBL1_W3_WTBL4_FRAME_ID, wtbl4_frame) |
+		MT_WTBL1_W3_I_PSM | MT_WTBL1_W3_KEEP_I_PSM);
 	mt76_wr(dev, addr + 4 * 4,
 		MT76_SET(MT_WTBL1_W4_WTBL3_FRAME_ID, wtbl3_frame) |
 		MT76_SET(MT_WTBL1_W4_WTBL3_ENTRY_ID, wtbl3_entry) |

@@ -295,12 +295,16 @@ mt7603_sta_notify(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		enum sta_notify_cmd cmd, struct ieee80211_sta *sta)
 {
 	struct mt7603_dev *dev = hw->priv;
+	struct mt7603_sta *msta = (struct mt7603_sta *) sta->drv_priv;
+	int idx = msta->wcid.idx;
 
 	switch (cmd) {
 	case STA_NOTIFY_SLEEP:
+		mt7603_wtbl_set_ps(dev, idx, true);
 		mt76_stop_tx_queues(&dev->mt76, sta);
 		break;
 	case STA_NOTIFY_AWAKE:
+		mt7603_wtbl_set_ps(dev, idx, false);
 		break;
 	}
 }

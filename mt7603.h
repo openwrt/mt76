@@ -198,6 +198,7 @@ void mt7603_wtbl_update_cap(struct mt7603_dev *dev, struct ieee80211_sta *sta);
 void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta);
 int mt7603_wtbl_set_key(struct mt7603_dev *dev, int wcid,
 			struct ieee80211_key_conf *key);
+void mt7603_wtbl_set_ps(struct mt7603_dev *dev, int idx, bool val);
 
 int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  struct sk_buff *skb, struct mt76_queue *q,
