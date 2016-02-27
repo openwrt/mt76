@@ -699,6 +699,7 @@ int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	if (!wcid)
 		wcid = &dev->global_sta.wcid;
 
+	memset(cb, 0, sizeof(*cb));
 	if ((info->flags & (IEEE80211_TX_CTL_REQ_TX_STATUS |
 			  IEEE80211_TX_CTL_RATE_CTRL_PROBE)) ||
 	    info->control.rates[0].idx >= 0) {
