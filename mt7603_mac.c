@@ -551,33 +551,18 @@ int mt7603_wtbl_set_key(struct mt7603_dev *dev, int wcid,
 	enum mt7603_cipher_type cipher;
 	u32 addr = mt7603_wtbl3_addr(wcid);
 	u8 key_data[32];
-	u8 iv_data[8];
 	int key_len = sizeof(key_data);
 
 	cipher = mt7603_mac_get_key_info(key, key_data);
 	if (cipher == MT_CIPHER_NONE && key)
 		return -EINVAL;
 
-	memset(iv_data, 0, sizeof(iv_data));
-	if (key) {
-		if (cipher == MT_CIPHER_WEP40 || cipher == MT_CIPHER_WEP104) {
-			addr += key->keyidx * 16;
-			key_len = 16;
-		}
-
-		iv_data[3] = key->keyidx << 6;
-		if (cipher >= MT_CIPHER_TKIP)
-			iv_data[3] |= 0x20;
+	if (key && (cipher == MT_CIPHER_WEP40 || cipher == MT_CIPHER_WEP104)) {
+		addr += key->keyidx * 16;
+		key_len = 16;
 	}
 
 	mt76_wr_copy(dev, addr, key_data, key_len);
-
-	addr = mt7603_wtbl2_addr(wcid);
-	if (cipher != MT_CIPHER_WEP40 && cipher != MT_CIPHER_WEP104) {
-		mt76_wr(dev, addr, get_unaligned_le32(&iv_data[0]));
-		mt76_rmw_field(dev, addr + 4, MT_WTBL2_W1_PN_HI,
-			       get_unaligned_le16(&iv_data[4]));
-	}
 
 	addr = mt7603_wtbl1_addr(wcid);
 	mt76_rmw_field(dev, addr + 2 * 4, MT_WTBL1_W2_KEY_TYPE, cipher);
@@ -592,7 +577,7 @@ static int
 mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 		      struct sk_buff *skb, struct mt76_queue *q,
 		      struct mt76_wcid *wcid, struct ieee80211_sta *sta,
-		      int pid, bool key)
+		      int pid, struct ieee80211_key_conf *key)
 {
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_tx_rate *rate = &info->control.rates[0];
@@ -630,7 +615,7 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 		MT76_SET(MT_TXD1_HDR_FORMAT, MT_HDR_FORMAT_802_11) |
 		MT76_SET(MT_TXD1_HDR_INFO, hdr_len / 2) |
 		MT76_SET(MT_TXD1_WLAN_IDX, wlan_idx) |
-		MT76_SET(MT_TXD1_PROTECTED, key)
+		MT76_SET(MT_TXD1_PROTECTED, !!key)
 	);
 
 	if (info->flags & IEEE80211_TX_CTL_NO_ACK) {
@@ -680,6 +665,13 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 		MT76_SET(MT_TXD3_SEQ, le16_to_cpu(hdr->seq_ctrl))
 	);
 
+	if (key) {
+		u64 pn = atomic64_inc_return(&key->tx_pn);
+		txwi[3] |= cpu_to_le32(MT_TXD3_PN_VALID);
+		txwi[4] = pn & GENMASK(31, 0);
+		txwi[5] |= MT76_SET(MT_TXD5_PN_HIGH, pn >> 32);
+	}
+
 	if (info->flags & IEEE80211_TX_CTL_LDPC)
 		txwi[6] |= cpu_to_le32(MT_TXD6_LDPC);
 
@@ -697,7 +689,7 @@ int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct mt7603_sta *msta = container_of(wcid, struct mt7603_sta, wcid);
 	struct mt7603_cb *cb = mt7603_skb_cb(skb);
-	bool key = info->control.hw_key;
+	struct ieee80211_key_conf *key = info->control.hw_key;
 	int pid = 0;
 
 	if (!wcid)
