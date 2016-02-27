@@ -34,7 +34,7 @@
 
 #define MT_INT_SOURCE_CSR		MT_HIF(0x200)
 #define MT_INT_MASK_CSR			MT_HIF(0x204)
-#define MT_DELAY_INT_CFG		MT_HIF(0x204)
+#define MT_DELAY_INT_CFG		MT_HIF(0x210)
 
 #define MT_INT_RX_DONE(_n)		BIT(_n)
 #define MT_INT_RX_DONE_ALL		GENMASK(1, 0)
