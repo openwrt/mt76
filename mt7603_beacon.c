@@ -94,7 +94,7 @@ void mt7603_pre_tbtt_tasklet(unsigned long arg)
 	mt76_queue_kick(dev, q);
 	spin_unlock_bh(&q->lock);
 
-	mt76_queue_tx_cleanup(dev, MT_TXQ_CAB, true);
+	mt76_queue_tx_cleanup(dev, MT_TXQ_CAB, false);
 
 	q = &dev->mt76.q_tx[MT_TXQ_CAB];
 	do {
