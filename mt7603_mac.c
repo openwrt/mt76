@@ -1017,6 +1017,18 @@ static void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 	mt7603_beacon_set_timer(dev, -1, beacon_int);
 }
 
+static bool mt7603_rx_dma_busy(struct mt7603_dev *dev)
+{
+	u32 val;
+
+	if (!(mt76_rr(dev, MT_WPDMA_GLO_CFG) & MT_WPDMA_GLO_CFG_RX_DMA_BUSY))
+		return false;
+
+	mt76_wr(dev, 0x4244, 0x98000000);
+	val = mt76_rr(dev, 0x4244);
+	return !!(val & BIT(9));
+}
+
 static bool mt7603_tx_dma_busy(struct mt7603_dev *dev)
 {
 	u32 val;
@@ -1101,12 +1113,15 @@ void mt7603_mac_work(struct work_struct *work)
 
 	if (WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->tx_check,
 					       mt7603_tx_dma_busy)) ||
+	    WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->rx_dma_check,
+					       mt7603_rx_dma_busy)) ||
 	    WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->txrx_check,
 					       mt7603_tx_rx_dma_busy)) ||
 	    WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->rx_pse_check,
 					       mt7603_rx_pse_busy))) {
 		dev->tx_check = 0;
 		dev->txrx_check = 0;
+		dev->rx_dma_check = 0;
 		dev->rx_pse_check = 0;
 		dev->rx_dma_idx = ~0;
 		memset(dev->tx_dma_idx, 0xff, sizeof(dev->tx_dma_idx));
