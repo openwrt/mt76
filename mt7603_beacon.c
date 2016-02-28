@@ -16,7 +16,7 @@
 struct beacon_bc_data {
 	struct mt7603_dev *dev;
 	struct sk_buff_head q;
-	struct sk_buff *tail[8];
+	struct sk_buff *tail[MT7603_MAX_INTERFACES];
 };
 
 static void
