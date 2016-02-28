@@ -1021,10 +1021,11 @@ void mt7603_mac_work(struct work_struct *work)
 
 	mutex_lock(&dev->mutex);
 
-	if (mt7603_tx_dma_busy(dev)) {
+	if (mt7603_tx_dma_busy(dev) ||
+	    dev->tx_check >= MT7603_WATCHDOG_TIMEOUT) {
 		time = MT7603_WATCHDOG_TIME / 10;
 
-		if (WARN_ON_ONCE(++dev->tx_check == 10)) {
+		if (WARN_ON_ONCE(++dev->tx_check >= MT7603_WATCHDOG_TIMEOUT)) {
 			mt7603_mac_reset(dev);
 			goto out;
 		}

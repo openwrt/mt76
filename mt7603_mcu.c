@@ -112,6 +112,7 @@ mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd, int qu
 		skb = mt7603_mcu_get_response(dev, expires);
 		if (!skb) {
 			printk("MCU message %d (seq %d) timed out\n", cmd, seq);
+			dev->tx_check = MT7603_WATCHDOG_TIMEOUT;
 			ret = -ETIMEDOUT;
 			break;
 		}

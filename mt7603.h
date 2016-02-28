@@ -34,6 +34,7 @@
 #define MT7603_PRE_TBTT_TIME	5000 /* ms */
 
 #define MT7603_WATCHDOG_TIME	1000 /* ms */
+#define MT7603_WATCHDOG_TIMEOUT	10 /* number of checks */
 
 enum {
 	MT7603_REV_E1 = 0x00,
