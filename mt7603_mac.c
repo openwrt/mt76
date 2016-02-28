@@ -215,8 +215,6 @@ void mt7603_wtbl_update_cap(struct mt7603_dev *dev, struct ieee80211_sta *sta)
 		val |= MT_WTBL1_W2_HT;
 	if (sta->vht_cap.cap)
 		val |= MT_WTBL1_W2_VHT;
-	if (sta->ht_cap.cap & IEEE80211_HT_CAP_LDPC_CODING)
-		val |= MT_WTBL1_W2_LDPC;
 
 	mt76_wr(dev, addr + 2 * 4, val);
 
@@ -671,9 +669,6 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 		txwi[4] = pn & GENMASK(31, 0);
 		txwi[5] |= MT76_SET(MT_TXD5_PN_HIGH, pn >> 32);
 	}
-
-	if (info->flags & IEEE80211_TX_CTL_LDPC)
-		txwi[6] |= cpu_to_le32(MT_TXD6_LDPC);
 
 	txwi[7] = 0;
 
