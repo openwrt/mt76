@@ -125,6 +125,7 @@ struct mt7603_dev {
 
 	u8 tx_check;
 	u8 txrx_check;
+	u8 rx_pse_check;
 
 	u16 tx_dma_idx[4];
 	u16 rx_dma_idx;

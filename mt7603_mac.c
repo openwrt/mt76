@@ -1065,6 +1065,33 @@ static bool mt7603_tx_rx_dma_busy(struct mt7603_dev *dev)
 	return MT76_GET(MT_FC_SP2_Q0Q1_SRC_COUNT_Q0, val) > 0x20;
 }
 
+static bool mt7603_rx_pse_busy(struct mt7603_dev *dev)
+{
+	u32 addr, val;
+
+	mt76_wr(dev, 0x4244, 0x98000000);
+	if (mt76_rr(dev, 0x4244) & BIT(8))
+		return false;
+
+	addr = mt7603_reg_map(dev, MT_CLIENT_BASE_PHYS_ADDR + MT_CLIENT_STATUS);
+	mt76_wr(dev, addr, 3);
+	val = mt76_rr(dev, addr) >> 16;
+
+	return (val & 0x8001) == 0x8001 || (val & 0xe001) == 0xe001;
+}
+
+static bool
+mt7603_watchdog_check(struct mt7603_dev *dev, u8 *counter,
+		      bool (*check)(struct mt7603_dev *dev))
+{
+	if (!check(dev) && *counter < MT7603_WATCHDOG_TIMEOUT) {
+		*counter = 0;
+		return false;
+	}
+
+	return ++(*counter) >= MT7603_WATCHDOG_TIMEOUT;
+}
+
 void mt7603_mac_work(struct work_struct *work)
 {
 	struct mt7603_dev *dev = container_of(work, struct mt7603_dev, mac_work.work);
@@ -1072,35 +1099,22 @@ void mt7603_mac_work(struct work_struct *work)
 
 	mutex_lock(&dev->mutex);
 
-	if (mt7603_tx_dma_busy(dev) ||
-	    dev->tx_check >= MT7603_WATCHDOG_TIMEOUT) {
-
-		if (WARN_ON_ONCE(++dev->tx_check >= MT7603_WATCHDOG_TIMEOUT))
-			goto reset;
-	} else {
+	if (WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->tx_check,
+					       mt7603_tx_dma_busy)) ||
+	    WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->txrx_check,
+					       mt7603_tx_rx_dma_busy)) ||
+	    WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->rx_pse_check,
+					       mt7603_rx_pse_busy))) {
 		dev->tx_check = 0;
-	}
-
-	if (mt7603_tx_rx_dma_busy(dev) ||
-	    dev->txrx_check >= MT7603_WATCHDOG_TIMEOUT) {
-
-		if (WARN_ON_ONCE(++dev->txrx_check >= MT7603_WATCHDOG_TIMEOUT))
-			goto reset;
-	} else {
 		dev->txrx_check = 0;
+		dev->rx_pse_check = 0;
+		dev->rx_dma_idx = ~0;
+		memset(dev->tx_dma_idx, 0xff, sizeof(dev->tx_dma_idx));
+		mt7603_mac_watchdog_reset(dev);
 	}
 
-out:
 	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mac_work,
 				     msecs_to_jiffies(time));
 	mutex_unlock(&dev->mutex);
 	return;
-
-reset:
-	dev->tx_check = 0;
-	dev->txrx_check = 0;
-	dev->rx_dma_idx = ~0;
-	memset(dev->tx_dma_idx, 0xff, sizeof(dev->tx_dma_idx));
-	mt7603_mac_watchdog_reset(dev);
-	goto out;
 }
