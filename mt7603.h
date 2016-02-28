@@ -184,6 +184,7 @@ static inline void mt7603_irq_disable(struct mt7603_dev *dev, u32 mask)
 	mt7603_set_irq_mask(dev, mask, 0);
 }
 
+void mt7603_mac_reset(struct mt7603_dev *dev);
 void mt7603_mac_dma_start(struct mt7603_dev *dev);
 void mt7603_mac_start(struct mt7603_dev *dev);
 void mt7603_mac_stop(struct mt7603_dev *dev);

@@ -919,6 +919,32 @@ wait_for_wpdma(struct mt7603_dev *dev)
 			 0, 1000);
 }
 
+void mt7603_mac_reset(struct mt7603_dev *dev)
+{
+	u32 addr = mt7603_reg_map(dev, MT_CLIENT_BASE_PHYS_ADDR);
+
+	/* Reset PSE */
+	mt76_set(dev, MT_PSE_RESET, MT_PSE_RESET_SW);
+	mt76_poll_msec(dev, MT_PSE_RESET, MT_PSE_RESET_SW_S,
+		       MT_PSE_RESET_SW_S, 500);
+	mt76_clear(dev, MT_PSE_RESET, MT_PSE_RESET_SW_S);
+
+	mt76_set(dev, addr + MT_CLIENT_RESET_TX, MT_CLIENT_RESET_TX_R_E_1);
+	mt76_poll_msec(dev, addr + MT_CLIENT_RESET_TX,
+		       MT_CLIENT_RESET_TX_R_E_1_S,
+		       MT_CLIENT_RESET_TX_R_E_1_S, 500);
+
+	mt76_set(dev, MT_WPDMA_GLO_CFG, MT_WPDMA_GLO_CFG_SW_RESET);
+
+	mt76_set(dev, addr + MT_CLIENT_RESET_TX, MT_CLIENT_RESET_TX_R_E_2);
+	mt76_poll_msec(dev, addr + MT_CLIENT_RESET_TX,
+		       MT_CLIENT_RESET_TX_R_E_2_S,
+		       MT_CLIENT_RESET_TX_R_E_2_S, 500);
+
+	mt76_clear(dev, addr + MT_CLIENT_RESET_TX,
+		   MT_CLIENT_RESET_TX_R_E_1 | MT_CLIENT_RESET_TX_R_E_2);
+}
+
 void mt7603_mac_dma_start(struct mt7603_dev *dev)
 {
 	mt7603_mac_start(dev);
@@ -949,13 +975,12 @@ void mt7603_mac_stop(struct mt7603_dev *dev)
 	mt76_clear(dev, MT_WF_ARB_RQCR, MT_WF_ARB_RQCR_RX_START);
 }
 
-static void mt7603_mac_reset(struct mt7603_dev *dev)
+static void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 {
 	int beacon_int = dev->beacon_int;
 	u32 mask = dev->irqmask;
 	int i;
 
-	return; /* FIXME, doesn't work yet */
 	set_bit(MT76_RESET, &dev->mt76.state);
 
 	mt76_clear(dev, MT_WPDMA_GLO_CFG,
@@ -973,29 +998,17 @@ static void mt7603_mac_reset(struct mt7603_dev *dev)
 	dev->rx_check = 0;
 
 	mt7603_beacon_set_timer(dev, -1, 0);
-
 	mt76_set(dev, MT_WPDMA_GLO_CFG, MT_WPDMA_GLO_CFG_FORCE_TX_EOF);
 
-	mt76_set(dev, MT_PSE_RESET, MT_PSE_RESET_TX_R_E_1);
-	mt76_poll_msec(dev, MT_PSE_RESET, MT_PSE_RESET_TX_R_E_1_S,
-		       MT_PSE_RESET_TX_R_E_1_S, 500);
-
-	mt76_set(dev, MT_PSE_RESET, MT_PSE_RESET_TX_R_E_2);
-	mt76_set(dev, MT_WPDMA_GLO_CFG, MT_WPDMA_GLO_CFG_SW_RESET);
-	mt76_poll_msec(dev, MT_PSE_RESET, MT_PSE_RESET_TX_R_E_2_S,
-		       MT_PSE_RESET_TX_R_E_2_S, 500);
-
-	mt76_clear(dev, MT_PSE_RESET,
-		   MT_PSE_RESET_TX_R_E_1 | MT_PSE_RESET_TX_R_E_2);
+	mt7603_mac_reset(dev);
 
 	for (i = 0; i < ARRAY_SIZE(dev->mt76.q_tx); i++)
 		mt76_queue_tx_cleanup(dev, i, true);
 
-	mt76_clear(dev, MT_WPDMA_GLO_CFG,
-		   MT_WPDMA_GLO_CFG_FORCE_TX_EOF |
-		   MT_WPDMA_GLO_CFG_SW_RESET);
+	for (i = 0; i < ARRAY_SIZE(dev->mt76.q_rx); i++)
+		mt76_queue_rx_reset(dev, i);
+
 	mt7603_mac_dma_start(dev);
-	mt7603_beacon_set_timer(dev, -1, beacon_int);
 
 	tasklet_enable(&dev->tx_tasklet);
 	tasklet_enable(&dev->pre_tbtt_tasklet);
@@ -1003,15 +1016,20 @@ static void mt7603_mac_reset(struct mt7603_dev *dev)
 	napi_enable(&dev->mt76.napi[1]);
 	mt7603_irq_enable(dev, mask);
 	clear_bit(MT76_RESET, &dev->mt76.state);
+
+	mt7603_beacon_set_timer(dev, -1, beacon_int);
 }
 
 static bool mt7603_tx_dma_busy(struct mt7603_dev *dev)
 {
+	u32 val;
+
 	if (!(mt76_rr(dev, MT_WPDMA_GLO_CFG) & MT_WPDMA_GLO_CFG_TX_DMA_BUSY))
 		return false;
 
-	mt76_wr(dev, 0x4244, 0x28000000);
-	return mt76_rr(dev, 0x4244) & BIT(8);
+	mt76_wr(dev, 0x4244, 0x98000000);
+	val = mt76_rr(dev, 0x4244);
+	return (val & BIT(8)) && (val & 0xf) != 0xf;
 }
 
 void mt7603_mac_work(struct work_struct *work)
@@ -1026,7 +1044,7 @@ void mt7603_mac_work(struct work_struct *work)
 		time = MT7603_WATCHDOG_TIME / 10;
 
 		if (WARN_ON_ONCE(++dev->tx_check >= MT7603_WATCHDOG_TIMEOUT)) {
-			mt7603_mac_reset(dev);
+			mt7603_mac_watchdog_reset(dev);
 			goto out;
 		}
 	} else {

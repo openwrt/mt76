@@ -259,6 +259,7 @@ mt7603_init_hardware(struct mt7603_dev *dev)
 	if (ret < 0)
 		return ret;
 
+	mt7603_mac_reset(dev);
 	ret = mt7603_dma_init(dev);
 	if (ret)
 		return ret;
