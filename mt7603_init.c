@@ -102,7 +102,7 @@ mt7603_dma_sched_init(struct mt7603_dev *dev)
 
 	mt76_wr(dev, MT_RSV_MAX_THRESH, page_count);
 
-	if (mt76xx_rev(dev) < MT7603_REV_E2) {
+	if (is_mt7603(dev) && mt76xx_rev(dev) < MT7603_REV_E2) {
 		mt76_wr(dev, MT_GROUP_THRESH(0), page_count);
 		mt76_wr(dev, MT_BMAP_0, 0xffff);
 	} else {

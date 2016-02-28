@@ -12,6 +12,7 @@
  */
 
 #include <linux/etherdevice.h>
+#include <linux/platform_device.h>
 #include <linux/pci.h>
 #include "mt7603.h"
 #include "mt7603_eeprom.h"
@@ -527,12 +528,26 @@ MODULE_LICENSE("GPL");
 
 static int __init mt7603_init(void)
 {
-	return pci_register_driver(&mt7603_pci_driver);
+	int ret;
+
+	ret = platform_driver_register(&mt76_wmac_driver);
+	if (ret)
+		return ret;
+
+#ifdef CONFIG_PCI
+	ret = pci_register_driver(&mt7603_pci_driver);
+	if (ret)
+		platform_driver_unregister(&mt76_wmac_driver);
+#endif
+	return ret;
 }
 
 static void __exit mt7603_exit(void)
 {
+#ifdef CONFIG_PCI
 	pci_unregister_driver(&mt7603_pci_driver);
+#endif
+	platform_driver_unregister(&mt76_wmac_driver);
 }
 
 module_init(mt7603_init);

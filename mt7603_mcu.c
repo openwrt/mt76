@@ -211,10 +211,17 @@ mt7603_load_firmware(struct mt7603_dev *dev)
 	u32 addr, val;
 	int ret;
 
-	if (mt76xx_rev(dev) < MT7603_REV_E2)
-		firmware = MT7603_FIRMWARE_E1;
-	else
-		firmware = MT7603_FIRMWARE_E2;
+	if (is_mt7628(dev)) {
+		if (mt76xx_rev(dev) == MT7628_REV_E1)
+			firmware = MT7628_FIRMWARE_E1;
+		else
+			firmware = MT7628_FIRMWARE_E2;
+	} else {
+		if (mt76xx_rev(dev) < MT7603_REV_E2)
+			firmware = MT7603_FIRMWARE_E1;
+		else
+			firmware = MT7603_FIRMWARE_E2;
+	}
 
 	ret = request_firmware(&fw, firmware, dev->mt76.dev);
 	if (ret)

@@ -26,6 +26,8 @@
 
 #define MT7603_FIRMWARE_E1	"mt7603_e1.bin"
 #define MT7603_FIRMWARE_E2	"mt7603_e2.bin"
+#define MT7628_FIRMWARE_E1	"mt7628_e1.bin"
+#define MT7628_FIRMWARE_E2	"mt7628_e2.bin"
 
 #define MT7603_EEPROM_SIZE	1024
 
@@ -38,7 +40,8 @@
 
 enum {
 	MT7603_REV_E1 = 0x00,
-	MT7603_REV_E2 = 0x10
+	MT7603_REV_E2 = 0x10,
+	MT7628_REV_E1 = 0x8a00,
 };
 
 enum mt7603_bw {
@@ -138,6 +141,17 @@ struct mt7603_dev {
 
 extern const struct ieee80211_ops mt7603_ops;
 extern struct pci_driver mt7603_pci_driver;
+extern struct platform_driver mt76_wmac_driver;
+
+static inline bool is_mt7603(struct mt7603_dev *dev)
+{
+	return mt76xx_chip(dev) == 0x7603;
+}
+
+static inline bool is_mt7628(struct mt7603_dev *dev)
+{
+	return mt76xx_chip(dev) == 0x7628;
+}
 
 /* need offset to prevent conflict with ampdu_ack_len */
 #define MT_RATE_DRIVER_DATA_OFFSET	4

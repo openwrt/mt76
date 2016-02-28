@@ -239,11 +239,17 @@ bool __mt76_poll_msec(struct mt76_dev *dev, u32 offset, u32 mask, u32 val,
 
 void mt76_mmio_init(struct mt76_dev *dev, void __iomem *regs);
 
+static inline u16 mt76_chip(struct mt76_dev *dev)
+{
+	return dev->rev >> 16;
+}
+
 static inline u16 mt76_rev(struct mt76_dev *dev)
 {
 	return dev->rev & 0xffff;
 }
 
+#define mt76xx_chip(dev) mt76_chip(&((dev)->mt76))
 #define mt76xx_rev(dev) mt76_rev(&((dev)->mt76))
 
 #define mt76_init_queues(dev)		(dev)->mt76.queue_ops->init(&((dev)->mt76))
