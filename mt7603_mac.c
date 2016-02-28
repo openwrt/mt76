@@ -1010,7 +1010,7 @@ static bool mt7603_tx_dma_busy(struct mt7603_dev *dev)
 	if (!(mt76_rr(dev, MT_WPDMA_GLO_CFG) & MT_WPDMA_GLO_CFG_TX_DMA_BUSY))
 		return false;
 
-	mt76_wr(dev, 0x4244, 0x98000000);
+	mt76_wr(dev, 0x4244, 0x28000000);
 	return mt76_rr(dev, 0x4244) & BIT(8);
 }
 
