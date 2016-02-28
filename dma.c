@@ -123,6 +123,13 @@ mt76_dma_tx_cleanup_idx(struct mt76_dev *dev, struct mt76_queue *q, int idx,
 }
 
 static void
+mt76_dma_sync_idx(struct mt76_dev *dev, struct mt76_queue *q)
+{
+	q->tail = q->head = ioread32(&q->regs->dma_idx);
+	iowrite32(q->head, &q->regs->cpu_idx);
+}
+
+static void
 mt76_dma_tx_cleanup(struct mt76_dev *dev, enum mt76_txq_id qid, bool flush)
 {
 	struct mt76_queue *q = &dev->q_tx[qid];
@@ -155,12 +162,12 @@ mt76_dma_tx_cleanup(struct mt76_dev *dev, enum mt76_txq_id qid, bool flush)
 		if (!flush && q->tail == last)
 		    last = ioread32(&q->regs->dma_idx);
 	}
-	if (!flush) {
+
+	if (!flush)
 		mt76_txq_schedule(dev, q);
-	} else {
-		iowrite32(q->tail, &q->regs->dma_idx);
-		iowrite32(q->head, &q->regs->cpu_idx);
-	}
+	else
+		mt76_dma_sync_idx(dev, q);
+
 	spin_unlock_bh(&q->lock);
 }
 
@@ -278,6 +285,20 @@ mt76_dma_rx_cleanup(struct mt76_dev *dev, struct mt76_queue *q)
 }
 
 static void
+mt76_dma_rx_reset(struct mt76_dev *dev, enum mt76_rxq_id qid)
+{
+	struct mt76_queue *q = &dev->q_rx[qid];
+	int i;
+
+	for (i = 0; i < q->ndesc; i++)
+		q->desc[i].ctrl &= ~cpu_to_le32(MT_DMA_CTL_DMA_DONE);
+
+	mt76_dma_rx_cleanup(dev, q);
+	mt76_dma_sync_idx(dev, q);
+	mt76_dma_rx_fill(dev, q, false);
+}
+
+static void
 mt76_add_fragment(struct mt76_dev *dev, struct mt76_queue *q, void *data,
 		    int len, bool more)
 {
@@ -390,6 +411,7 @@ static const struct mt76_queue_ops mt76_dma_ops = {
 	.alloc = mt76_dma_alloc_queue,
 	.add_buf = mt76_dma_add_buf,
 	.tx_cleanup = mt76_dma_tx_cleanup,
+	.rx_reset = mt76_dma_rx_reset,
 	.kick = mt76_dma_kick_queue,
 };
 
