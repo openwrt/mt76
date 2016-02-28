@@ -33,7 +33,7 @@
 
 #define MT7603_PRE_TBTT_TIME	5000 /* ms */
 
-#define MT7603_WATCHDOG_TIME	1000 /* ms */
+#define MT7603_WATCHDOG_TIME	100 /* ms */
 #define MT7603_WATCHDOG_TIMEOUT	10 /* number of checks */
 
 enum {
@@ -124,7 +124,10 @@ struct mt7603_dev {
 	u8 beacon_mask;
 
 	u8 tx_check;
-	u8 rx_check;
+	u8 txrx_check;
+
+	u16 tx_dma_idx[4];
+	u16 rx_dma_idx;
 
 	struct delayed_work mac_work;
 	struct tasklet_struct tx_tasklet;

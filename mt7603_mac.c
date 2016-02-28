@@ -994,9 +994,6 @@ static void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 	napi_disable(&dev->mt76.napi[0]);
 	napi_disable(&dev->mt76.napi[1]);
 
-	dev->tx_check = 0;
-	dev->rx_check = 0;
-
 	mt7603_beacon_set_timer(dev, -1, 0);
 	mt76_set(dev, MT_WPDMA_GLO_CFG, MT_WPDMA_GLO_CFG_FORCE_TX_EOF);
 
@@ -1032,6 +1029,42 @@ static bool mt7603_tx_dma_busy(struct mt7603_dev *dev)
 	return (val & BIT(8)) && (val & 0xf) != 0xf;
 }
 
+static bool mt7603_tx_rx_dma_busy(struct mt7603_dev *dev)
+{
+	struct mt76_queue *q;
+	u32 dma_idx, prev_dma_idx, val;
+	int i;
+
+	for (i = 0; i < 4; i++) {
+		q = &dev->mt76.q_tx[i];
+		prev_dma_idx = dev->tx_dma_idx[i];
+		dev->tx_dma_idx[i] = dma_idx = ioread32(&q->regs->dma_idx);
+
+		if (dma_idx != prev_dma_idx ||
+		    dma_idx == ioread32(&q->regs->cpu_idx))
+			continue;
+
+		val = mt76_rr(dev, MT_FC_RSV_COUNT_0);
+		if (MT76_GET(MT_FC_RSV_COUNT_0_P0, val) > 0xa0)
+			break;
+	}
+
+	if (i == 4)
+		return false;
+
+	q = &dev->mt76.q_rx[0];
+	prev_dma_idx = dev->rx_dma_idx;
+	dev->rx_dma_idx = dma_idx = ioread32(&q->regs->dma_idx);
+	if (dma_idx != prev_dma_idx)
+		return false;
+
+	if (dma_idx == ioread32(&q->regs->cpu_idx))
+		return false;
+
+	val = mt76_rr(dev, MT_FC_SP2_Q0Q1);
+	return MT76_GET(MT_FC_SP2_Q0Q1_SRC_COUNT_Q0, val) > 0x20;
+}
+
 void mt7603_mac_work(struct work_struct *work)
 {
 	struct mt7603_dev *dev = container_of(work, struct mt7603_dev, mac_work.work);
@@ -1041,18 +1074,33 @@ void mt7603_mac_work(struct work_struct *work)
 
 	if (mt7603_tx_dma_busy(dev) ||
 	    dev->tx_check >= MT7603_WATCHDOG_TIMEOUT) {
-		time = MT7603_WATCHDOG_TIME / 10;
 
-		if (WARN_ON_ONCE(++dev->tx_check >= MT7603_WATCHDOG_TIMEOUT)) {
-			mt7603_mac_watchdog_reset(dev);
-			goto out;
-		}
+		if (WARN_ON_ONCE(++dev->tx_check >= MT7603_WATCHDOG_TIMEOUT))
+			goto reset;
 	} else {
 		dev->tx_check = 0;
+	}
+
+	if (mt7603_tx_rx_dma_busy(dev) ||
+	    dev->txrx_check >= MT7603_WATCHDOG_TIMEOUT) {
+
+		if (WARN_ON_ONCE(++dev->txrx_check >= MT7603_WATCHDOG_TIMEOUT))
+			goto reset;
+	} else {
+		dev->txrx_check = 0;
 	}
 
 out:
 	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mac_work,
 				     msecs_to_jiffies(time));
 	mutex_unlock(&dev->mutex);
+	return;
+
+reset:
+	dev->tx_check = 0;
+	dev->txrx_check = 0;
+	dev->rx_dma_idx = ~0;
+	memset(dev->tx_dma_idx, 0xff, sizeof(dev->tx_dma_idx));
+	mt7603_mac_watchdog_reset(dev);
+	goto out;
 }
