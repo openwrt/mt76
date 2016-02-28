@@ -304,7 +304,7 @@ mt7603_sta_notify(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	switch (cmd) {
 	case STA_NOTIFY_SLEEP:
 		mt7603_wtbl_set_ps(dev, idx, true);
-		mt76_stop_tx_queues(&dev->mt76, sta);
+		mt76_stop_tx_queues(&dev->mt76, sta, false);
 		break;
 	case STA_NOTIFY_AWAKE:
 		mt7603_wtbl_set_ps(dev, idx, false);

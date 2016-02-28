@@ -279,7 +279,8 @@ void mt76_tx(struct mt76_dev *dev, struct ieee80211_sta *sta,
 void mt76_txq_init(struct mt76_dev *dev, struct ieee80211_txq *txq);
 void mt76_txq_remove(struct mt76_dev *dev, struct ieee80211_txq *txq);
 void mt76_wake_tx_queue(struct ieee80211_hw *hw, struct ieee80211_txq *txq);
-void mt76_stop_tx_queues(struct mt76_dev *dev, struct ieee80211_sta *sta);
+void mt76_stop_tx_queues(struct mt76_dev *dev, struct ieee80211_sta *sta,
+			 bool send_bar);
 void mt76_txq_schedule(struct mt76_dev *dev, struct mt76_queue *hwq);
 void mt76_txq_schedule_all(struct mt76_dev *dev);
 void mt76_release_buffered_frames(struct ieee80211_hw *hw,
