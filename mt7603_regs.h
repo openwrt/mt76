@@ -270,9 +270,14 @@ enum {
 #define MT_WF_ARB_CAB_FLUSH_BSSn(n)	BIT(0 + (n))
 #define MT_WF_ARB_CAB_FLUSH_BSS0n(n)	BIT((n) ? 16 + ((n) - 1) : 0)
 
-#define MT_WF_ARB_CAB_COUNT_0		MT_WF_ARB(0x128)
-#define MT_WF_ARB_CAB_COUNT_1		MT_WF_ARB(0x12c)
-#define MT_WF_ARB_CAB_COUNT_2		MT_WF_ARB(0x130)
+#define MT_WF_ARB_CAB_COUNT(n)		MT_WF_ARB(0x128 + (n) * 4)
+#define MT_WF_ARB_CAB_COUNT_SHIFT	4
+#define MT_WF_ARB_CAB_COUNT_MASK	GENMASK(3, 0)
+#define MT_WF_ARB_CAB_COUNT_B0_REG(n)	MT_WF_ARB_CAB_COUNT(((n) > 12 ? 2 : \
+							     ((n) > 4 ? 1 : 0)))
+#define MT_WF_ARB_CAB_COUNT_B0_SHIFT(n)	(((n) > 12 ? (n) - 12 : \
+					 ((n) > 4 ? (n) - 4 : \
+					  (n) ? (n) + 3 : 0)) * 4)
 
 #define MT_WF_TMAC_BASE			0x21600
 #define MT_WF_TMAC(ofs)			(MT_WF_TMAC_BASE + (ofs))
