@@ -1024,7 +1024,7 @@ void mt7603_mac_work(struct work_struct *work)
 	if (mt7603_tx_dma_busy(dev)) {
 		time = MT7603_WATCHDOG_TIME / 10;
 
-		if (++dev->tx_check == 10) {
+		if (WARN_ON_ONCE(++dev->tx_check == 10)) {
 			mt7603_mac_reset(dev);
 			goto out;
 		}
