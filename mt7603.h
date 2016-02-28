@@ -137,6 +137,7 @@ struct mt7603_dev {
 };
 
 extern const struct ieee80211_ops mt7603_ops;
+extern struct pci_driver mt7603_pci_driver;
 
 /* need offset to prevent conflict with ampdu_ack_len */
 #define MT_RATE_DRIVER_DATA_OFFSET	4

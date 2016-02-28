@@ -79,13 +79,10 @@ mt76pci_remove(struct pci_dev *pdev)
 MODULE_DEVICE_TABLE(pci, mt76pci_device_table);
 MODULE_FIRMWARE(MT7603_FIRMWARE_E1);
 MODULE_FIRMWARE(MT7603_FIRMWARE_E2);
-MODULE_LICENSE("GPL");
 
-static struct pci_driver mt76pci_driver = {
+struct pci_driver mt7603_pci_driver = {
 	.name		= KBUILD_MODNAME,
 	.id_table	= mt76pci_device_table,
 	.probe		= mt76pci_probe,
 	.remove		= mt76pci_remove,
 };
-
-module_pci_driver(mt76pci_driver);

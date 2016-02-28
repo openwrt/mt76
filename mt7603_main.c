@@ -12,6 +12,7 @@
  */
 
 #include <linux/etherdevice.h>
+#include <linux/pci.h>
 #include "mt7603.h"
 #include "mt7603_eeprom.h"
 
@@ -521,3 +522,18 @@ const struct ieee80211_ops mt7603_ops = {
 	.release_buffered_frames = mt76_release_buffered_frames,
 	.set_coverage_class = mt7603_set_coverage_class,
 };
+
+MODULE_LICENSE("GPL");
+
+static int __init mt7603_init(void)
+{
+	return pci_register_driver(&mt7603_pci_driver);
+}
+
+static void __exit mt7603_exit(void)
+{
+	pci_unregister_driver(&mt7603_pci_driver);
+}
+
+module_init(mt7603_init);
+module_exit(mt7603_exit);
