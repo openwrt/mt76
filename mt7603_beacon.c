@@ -17,6 +17,7 @@ struct beacon_bc_data {
 	struct mt7603_dev *dev;
 	struct sk_buff_head q;
 	struct sk_buff *tail[MT7603_MAX_INTERFACES];
+	int count[MT7603_MAX_INTERFACES];
 };
 
 static void
@@ -59,6 +60,16 @@ mt7603_add_buffered_bc(void *priv, u8 *mac, struct ieee80211_vif *vif)
 	mt76_skb_set_moredata(skb, true);
 	__skb_queue_tail(&data->q, skb);
 	data->tail[mvif->idx] = skb;
+	data->count[mvif->idx]++;
+}
+
+void mt7603_tbtt(struct mt7603_dev *dev)
+{
+	u32 mask = MT_WF_ARB_CAB_START_BSSn(0) |
+		   (MT_WF_ARB_CAB_START_BSS0n(1) *
+		    ((1 << (MT7603_MAX_INTERFACES - 1)) - 1));
+
+	mt76_wr(dev, MT_WF_ARB_CAB_START, mask);
 }
 
 void mt7603_pre_tbtt_tasklet(unsigned long arg)
@@ -68,6 +79,9 @@ void mt7603_pre_tbtt_tasklet(unsigned long arg)
 	struct beacon_bc_data data = {};
 	struct sk_buff *skb;
 	int i, nframes;
+
+	/* Flush all previous CAB queue packets */
+	mt76_wr(dev, MT_WF_ARB_CAB_FLUSH, GENMASK(30, 0));
 
 	data.dev = dev;
 	__skb_queue_head_init(&data.q);
@@ -80,13 +94,15 @@ void mt7603_pre_tbtt_tasklet(unsigned long arg)
 	mt76_queue_kick(dev, q);
 	spin_unlock_bh(&q->lock);
 
+	mt76_queue_tx_cleanup(dev, MT_TXQ_CAB, true);
+
 	q = &dev->mt76.q_tx[MT_TXQ_CAB];
 	do {
 		nframes = skb_queue_len(&data.q);
 		ieee80211_iterate_active_interfaces_atomic(mt76_hw(dev),
 			IEEE80211_IFACE_ITER_RESUME_ALL,
 			mt7603_add_buffered_bc, &data);
-	} while (nframes != skb_queue_len(&data.q));
+	} while (nframes != skb_queue_len(&data.q) && nframes < 8);
 
 	if (!nframes)
 		goto out;
@@ -109,9 +125,12 @@ void mt7603_pre_tbtt_tasklet(unsigned long arg)
 	mt76_queue_kick(dev, q);
 	spin_unlock_bh(&q->lock);
 
+	for (i = 0; i < ARRAY_SIZE(data.count); i++)
+		mt76_wr(dev, MT_WF_ARB_CAB_COUNT(i),
+			data.count[i] << MT_WF_ARB_CAB_COUNT_B0_SHIFT(i));
+
 out:
 	mt76_queue_tx_cleanup(dev, MT_TXQ_BEACON, false);
-	mt76_queue_tx_cleanup(dev, MT_TXQ_CAB, false);
 }
 
 void mt7603_beacon_set_timer(struct mt7603_dev *dev, int idx, int intval)
@@ -145,7 +164,8 @@ void mt7603_beacon_set_timer(struct mt7603_dev *dev, int idx, int intval)
 
 	mt76_wr(dev, MT_PRE_TBTT, pre_tbtt);
 
-	mt76_set(dev, MT_HW_INT_MASK(3), MT_HW_INT3_PRE_TBTT0);
+	mt76_set(dev, MT_HW_INT_MASK(3),
+		 MT_HW_INT3_PRE_TBTT0 | MT_HW_INT3_TBTT0);
 
 	mt76_set(dev, MT_WF_ARB_BCN_START, MT_WF_ARB_BCN_START_BSSn(0));
 	mt7603_irq_enable(dev, MT_INT_MAC_IRQ3);
