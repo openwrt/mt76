@@ -975,7 +975,7 @@ void mt7603_mac_stop(struct mt7603_dev *dev)
 	mt76_clear(dev, MT_WF_ARB_RQCR, MT_WF_ARB_RQCR_RX_START);
 }
 
-static void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
+void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 {
 	int beacon_int = dev->beacon_int;
 	u32 mask = dev->irqmask;

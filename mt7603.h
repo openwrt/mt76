@@ -218,6 +218,7 @@ struct sk_buff *mt7603_mac_status_skb(struct mt7603_dev *dev,
 void mt7603_mac_rx_ba_reset(struct mt7603_dev *dev, void *addr, u8 tid);
 void mt7603_mac_tx_ba_reset(struct mt7603_dev *dev, int wcid, int tid, int ssn,
 			    int ba_size);
+void mt7603_mac_watchdog_reset(struct mt7603_dev *dev);
 
 int mt7603_mcu_set_channel(struct mt7603_dev *dev);
 int mt7603_mcu_reg_read(struct mt7603_dev *dev, u32 reg, u32 *val, bool rf);
