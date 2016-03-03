@@ -85,7 +85,7 @@ mt76pci_remove(struct pci_dev *pdev)
 	struct mt76_dev *mdev = pci_get_drvdata(pdev);
 	struct mt76x2_dev *dev = container_of(mdev, struct mt76x2_dev, mt76);
 
-	ieee80211_unregister_hw(mdev->hw);
+	mt76_unregister_device(mdev);
 	mt76x2_cleanup(dev);
 	ieee80211_free_hw(mdev->hw);
 }
