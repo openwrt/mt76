@@ -429,8 +429,13 @@ int mt76x2_mcu_init(struct mt76x2_dev *dev)
 
 int mt76x2_mcu_cleanup(struct mt76x2_dev *dev)
 {
+	struct sk_buff *skb;
+
 	mt76_wr(dev, MT_MCU_INT_LEVEL, 1);
 	msleep(20);
+
+	while ((skb = skb_dequeue(&dev->mcu.res_q)) != NULL)
+		dev_kfree_skb(skb);
 
 	return 0;
 }
