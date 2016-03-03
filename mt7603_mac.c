@@ -675,41 +675,59 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 	return 0;
 }
 
+static int
+mt7603_add_tx_status_skb(struct mt7603_dev *dev, struct mt7603_sta *msta,
+			 struct sk_buff *skb)
+{
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+	struct mt7603_cb *cb = mt7603_skb_cb(skb);
+	int pid;
+
+	if (!msta)
+		return 0;
+
+	if (info->flags & IEEE80211_TX_CTL_NO_ACK)
+		return 0;
+
+	if (!(info->flags & (IEEE80211_TX_CTL_REQ_TX_STATUS |
+			  IEEE80211_TX_CTL_RATE_CTRL_PROBE)) &&
+	    info->control.rates[0].idx < 0)
+		return 0;
+
+	spin_lock_bh(&dev->status_lock);
+
+	memset(cb, 0, sizeof(*cb));
+	msta->pid = (msta->pid + 1) & MT_PID_INDEX;
+	if (!msta->pid || msta->pid == MT_PID_NOACK)
+	    msta->pid = 1;
+
+	pid = msta->pid;
+	cb->wcid = msta->wcid.idx;
+	cb->pktid = pid;
+
+	__skb_queue_tail(&dev->status_list, skb);
+
+	spin_unlock_bh(&dev->status_lock);
+	return pid;
+}
+
 int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  struct sk_buff *skb, struct mt76_queue *q,
 			  struct mt76_wcid *wcid, struct ieee80211_sta *sta,
 			  u32 *tx_info)
 {
 	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct mt7603_sta *msta = container_of(wcid, struct mt7603_sta, wcid);
-	struct mt7603_cb *cb = mt7603_skb_cb(skb);
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_key_conf *key = info->control.hw_key;
-	int pid = 0;
+	int pid;
 
 	if (!wcid)
 		wcid = &dev->global_sta.wcid;
 
-	memset(cb, 0, sizeof(*cb));
-	if ((info->flags & (IEEE80211_TX_CTL_REQ_TX_STATUS |
-			  IEEE80211_TX_CTL_RATE_CTRL_PROBE)) ||
-	    info->control.rates[0].idx >= 0) {
-		spin_lock_bh(&dev->status_lock);
-
-		msta->pid = (msta->pid + 1) & MT_PID_INDEX;
-		if (!msta->pid || msta->pid == MT_PID_NOACK)
-		    msta->pid = 1;
-
-		pid = msta->pid;
-		cb->wcid = wcid->idx;
-		cb->pktid = pid;
-
-		__skb_queue_tail(&dev->status_list, skb);
-
-		spin_unlock_bh(&dev->status_lock);
-	} else {
+	pid = mt7603_add_tx_status_skb(dev, msta, skb);
+	if (!pid)
 		skb->next = skb->prev = NULL;
-	}
 
 	mt7603_mac_write_txwi(dev, txwi_ptr, skb, q, wcid, sta, pid, key);
 
