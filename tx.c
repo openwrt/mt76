@@ -429,8 +429,13 @@ void mt76_txq_schedule_all(struct mt76_dev *dev)
 {
 	int i;
 
-	for (i = 0; i <= MT_TXQ_BK; i++)
-		mt76_txq_schedule(dev, &dev->q_tx[i]);
+	for (i = 0; i <= MT_TXQ_BK; i++) {
+		struct mt76_queue *q = &dev->q_tx[i];
+
+		spin_lock_bh(&q->lock);
+		mt76_txq_schedule(dev, q);
+		spin_unlock_bh(&q->lock);
+	}
 }
 EXPORT_SYMBOL_GPL(mt76_txq_schedule_all);
 
