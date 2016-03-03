@@ -35,6 +35,7 @@
 
 #define MT7603_PRE_TBTT_TIME	5000 /* ms */
 
+#define MT7603_STATUS_TIMEOUT	(10 * HZ)
 #define MT7603_WATCHDOG_TIME	100 /* ms */
 #define MT7603_WATCHDOG_TIMEOUT	10 /* number of checks */
 
@@ -85,6 +86,7 @@ struct mt7603_vif {
 #define MT7603_CB_TXS_FAILED	BIT(2)
 
 struct mt7603_cb {
+	unsigned long jiffies;
 	u8 wcid;
 	u8 pktid;
 	u8 flags;

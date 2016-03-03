@@ -704,6 +704,7 @@ mt7603_add_tx_status_skb(struct mt7603_dev *dev, struct mt7603_sta *msta,
 	pid = msta->pid;
 	cb->wcid = msta->wcid.idx;
 	cb->pktid = pid;
+	cb->jiffies = jiffies;
 
 	__skb_queue_tail(&dev->status_list, skb);
 
@@ -1123,7 +1124,20 @@ mt7603_watchdog_check(struct mt7603_dev *dev, u8 *counter,
 void mt7603_mac_work(struct work_struct *work)
 {
 	struct mt7603_dev *dev = container_of(work, struct mt7603_dev, mac_work.work);
+	struct sk_buff *skb;
 	int time = MT7603_WATCHDOG_TIME;
+
+	spin_lock_bh(&dev->status_lock);
+	while ((skb = skb_peek(&dev->status_list)) != NULL) {
+		struct mt7603_cb *cb = mt7603_skb_cb(skb);
+		if (time_is_after_jiffies(cb->jiffies + MT7603_STATUS_TIMEOUT))
+			break;
+
+		__skb_unlink(skb, &dev->status_list);
+		mt7603_skb_done(dev, skb,
+				MT7603_CB_TXS_FAILED | MT7603_CB_TXS_DONE);
+	}
+	spin_unlock_bh(&dev->status_lock);
 
 	mutex_lock(&dev->mutex);
 
