@@ -14,6 +14,7 @@
 #include <linux/etherdevice.h>
 #include <linux/platform_device.h>
 #include <linux/pci.h>
+#include <linux/module.h>
 #include "mt7603.h"
 #include "mt7603_eeprom.h"
 
