@@ -305,9 +305,14 @@ int mt7603_mcu_init(struct mt7603_dev *dev)
 	return mt7603_load_firmware(dev);
 }
 
-int mt7603_mcu_exit(struct mt7603_dev *dev)
+void mt7603_mcu_exit(struct mt7603_dev *dev)
 {
-	return mt7603_mcu_restart(dev);
+	struct sk_buff *skb;
+
+	mt7603_mcu_restart(dev);
+
+	while ((skb = skb_dequeue(&dev->mcu.res_q)) != NULL)
+		dev_kfree_skb(skb);
 }
 
 int mt7603_mcu_set_eeprom(struct mt7603_dev *dev)
