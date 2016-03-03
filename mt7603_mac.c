@@ -1098,7 +1098,7 @@ static bool mt7603_rx_pse_busy(struct mt7603_dev *dev)
 {
 	u32 addr, val;
 
-	mt76_wr(dev, 0x4244, 0x98000000);
+	mt76_wr(dev, 0x4244, 0x28000000);
 	if (mt76_rr(dev, 0x4244) & BIT(8))
 		return false;
 
