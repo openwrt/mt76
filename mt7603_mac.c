@@ -703,11 +703,12 @@ int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 		pid = msta->pid;
 		cb->wcid = wcid->idx;
 		cb->pktid = pid;
-		list_add_tail(&cb->list, &dev->status_list);
+
+		__skb_queue_tail(&dev->status_list, skb);
 
 		spin_unlock_bh(&dev->status_lock);
 	} else {
-		INIT_LIST_HEAD(&cb->list);
+		skb->next = skb->prev = NULL;
 	}
 
 	mt7603_mac_write_txwi(dev, txwi_ptr, skb, q, wcid, sta, pid, key);
@@ -793,25 +794,22 @@ mt7603_skb_done(struct mt7603_dev *dev, struct sk_buff *skb, u8 flags)
 struct sk_buff *
 mt7603_mac_status_skb(struct mt7603_dev *dev, struct mt7603_sta *sta, int pktid)
 {
-	struct mt7603_cb *cb, *tmp;
-	struct sk_buff *skb = NULL;
+	struct sk_buff *skb, *tmp;
 
-	list_for_each_entry_safe(cb, tmp, &dev->status_list, list) {
+	skb_queue_walk_safe(&dev->status_list, skb, tmp) {
+		struct mt7603_cb *cb = mt7603_skb_cb(skb);
 		if (sta && cb->wcid != sta->wcid.idx)
 			continue;
 
-		list_del_init(&cb->list);
-		skb = mt7603_cb_skb(cb);
-
+		__skb_unlink(skb, &dev->status_list);
 		if (cb->pktid == pktid)
-			break;
+			return skb;
 
 		mt7603_skb_done(dev, skb,
 				MT7603_CB_TXS_FAILED | MT7603_CB_TXS_DONE);
-		skb = NULL;
 	}
 
-	return skb;
+	return NULL;
 }
 
 static bool
@@ -886,28 +884,28 @@ void mt7603_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 			    struct mt76_queue_entry *e, bool flush)
 {
 	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
-	struct mt7603_cb *cb = mt7603_skb_cb(e->skb);
+	struct sk_buff *skb = e->skb;
 	bool free = true;
 
 	if (!e->txwi) {
-		dev_kfree_skb_any(e->skb);
+		dev_kfree_skb_any(skb);
 		return;
 	}
 
 	/* will be freed by tx status handling codepath */
-	if (!list_empty(&cb->list)) {
+	if (skb->prev) {
 		spin_lock_bh(&dev->status_lock);
 		if (!flush) {
-			mt7603_skb_done(dev, e->skb, MT7603_CB_DMA_DONE);
+			mt7603_skb_done(dev, skb, MT7603_CB_DMA_DONE);
 			free = false;
 		} else {
-			list_del_init(&cb->list);
+			__skb_unlink(skb, &dev->status_list);
 		}
 		spin_unlock_bh(&dev->status_lock);
 	}
 
 	if (free)
-		ieee80211_free_txskb(mdev->hw, e->skb);
+		ieee80211_free_txskb(mdev->hw, skb);
 }
 
 static bool

@@ -85,7 +85,6 @@ struct mt7603_vif {
 #define MT7603_CB_TXS_FAILED	BIT(2)
 
 struct mt7603_cb {
-	struct list_head list;
 	u8 wcid;
 	u8 pktid;
 	u8 flags;
@@ -107,7 +106,7 @@ struct mt7603_dev {
 	struct mt76_wcid __rcu *wcid[MT7603_WTBL_SIZE];
 
 	spinlock_t status_lock;
-	struct list_head status_list;
+	struct sk_buff_head status_list;
 
 	struct mt7603_sta global_sta;
 
@@ -159,24 +158,13 @@ static inline bool is_mt7628(struct mt7603_dev *dev)
 
 static inline struct mt7603_cb *mt7603_skb_cb(struct sk_buff *skb)
 {
-	return ((void *) IEEE80211_SKB_CB(skb)->rate_driver_data) +
-	       MT_RATE_DRIVER_DATA_OFFSET;
-}
-
-static inline struct sk_buff *mt7603_cb_skb(struct mt7603_cb *cb)
-{
-	struct ieee80211_tx_info *info;
-	void *ptr = cb;
-
 	BUILD_BUG_ON(offsetof(struct ieee80211_tx_info, status.ampdu_len) >=
 		     (offsetof(struct ieee80211_tx_info, rate_driver_data) +
 		      MT_RATE_DRIVER_DATA_OFFSET));
-	BUILD_BUG_ON(sizeof(*cb) + MT_RATE_DRIVER_DATA_OFFSET >
-		     sizeof(info->rate_driver_data));
-	info = container_of(ptr - MT_RATE_DRIVER_DATA_OFFSET,
-			    struct ieee80211_tx_info, rate_driver_data);
-	ptr = info;
-	return container_of(ptr, struct sk_buff, cb);
+	BUILD_BUG_ON(sizeof(struct mt7603_cb) + MT_RATE_DRIVER_DATA_OFFSET >
+		     IEEE80211_TX_INFO_RATE_DRIVER_DATA_SIZE);
+	return ((void *) IEEE80211_SKB_CB(skb)->rate_driver_data) +
+	       MT_RATE_DRIVER_DATA_OFFSET;
 }
 
 u32 mt7603_reg_map(struct mt7603_dev *dev, u32 addr);
