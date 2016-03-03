@@ -1118,7 +1118,9 @@ void mt7603_mac_work(struct work_struct *work)
 	    WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->txrx_check,
 					       mt7603_tx_rx_dma_busy)) ||
 	    WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->rx_pse_check,
-					       mt7603_rx_pse_busy))) {
+					       mt7603_rx_pse_busy)) ||
+	    WARN_ON_ONCE(dev->beacon_check > MT7603_WATCHDOG_TIMEOUT)) {
+		dev->beacon_check = 0;
 		dev->tx_check = 0;
 		dev->txrx_check = 0;
 		dev->rx_dma_check = 0;

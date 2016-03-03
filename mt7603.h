@@ -126,6 +126,7 @@ struct mt7603_dev {
 
 	u8 beacon_mask;
 
+	u8 beacon_check;
 	u8 tx_check;
 	u8 txrx_check;
 	u8 rx_dma_check;

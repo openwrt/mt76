@@ -131,6 +131,8 @@ void mt7603_pre_tbtt_tasklet(unsigned long arg)
 
 out:
 	mt76_queue_tx_cleanup(dev, MT_TXQ_BEACON, false);
+	if (dev->mt76.q_tx[MT_TXQ_BEACON].queued > MT7603_MAX_INTERFACES)
+		dev->beacon_check++;
 }
 
 void mt7603_beacon_set_timer(struct mt7603_dev *dev, int idx, int intval)
