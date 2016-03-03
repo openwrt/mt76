@@ -651,6 +651,9 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 		if (rate->flags & IEEE80211_TX_RC_SHORT_GI)
 			txwi[6] |= cpu_to_le32(MT_TXD6_SGI);
 
+		if (!(rate->flags & IEEE80211_TX_RC_MCS))
+			txwi[2] |= cpu_to_le32(MT_TXD2_BA_DISABLE);
+
 		tx_count = rate->count;
 	}
 
