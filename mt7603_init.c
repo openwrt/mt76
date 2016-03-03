@@ -383,8 +383,8 @@ int mt7603_register_device(struct mt7603_dev *dev)
 
 void mt7603_unregister_device(struct mt7603_dev *dev)
 {
-	mt7603_mac_status_skb(dev, NULL, -1);
 	mt76_unregister_device(&dev->mt76);
+	mt7603_mac_status_skb(dev, NULL, -1);
 	mt7603_mcu_exit(dev);
 	mt7603_dma_cleanup(dev);
 	ieee80211_free_hw(mt76_hw(dev));
