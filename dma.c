@@ -134,6 +134,7 @@ mt76_dma_tx_cleanup(struct mt76_dev *dev, enum mt76_txq_id qid, bool flush)
 {
 	struct mt76_queue *q = &dev->q_tx[qid];
 	struct mt76_queue_entry entry;
+	bool wake = false;
 	int last;
 
 	if (!q->ndesc)
@@ -153,8 +154,10 @@ mt76_dma_tx_cleanup(struct mt76_dev *dev, enum mt76_txq_id qid, bool flush)
 		if (entry.skb)
 			dev->drv->tx_complete_skb(dev, q, &entry, flush);
 
-		if (entry.txwi)
+		if (entry.txwi) {
 			mt76_put_txwi(dev, entry.txwi);
+			wake = true;
+		}
 
 		q->tail = (q->tail + 1) % q->ndesc;
 		q->queued--;
@@ -168,7 +171,11 @@ mt76_dma_tx_cleanup(struct mt76_dev *dev, enum mt76_txq_id qid, bool flush)
 	else
 		mt76_dma_sync_idx(dev, q);
 
+	wake = wake && qid < IEEE80211_NUM_ACS && q->queued < q->ndesc - 8;
 	spin_unlock_bh(&q->lock);
+
+	if (wake)
+		ieee80211_wake_queue(dev->hw, qid);
 }
 
 static void *

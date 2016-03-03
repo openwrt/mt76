@@ -41,8 +41,6 @@ void mt76x2_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
 void mt76x2_tx_complete(struct mt76x2_dev *dev, struct sk_buff *skb)
 {
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	struct mt76_queue *q;
-	int qid = skb_get_queue_mapping(skb);
 
 	if (info->flags & IEEE80211_TX_CTL_AMPDU) {
 		ieee80211_free_txskb(mt76_hw(dev), skb);
@@ -52,10 +50,6 @@ void mt76x2_tx_complete(struct mt76x2_dev *dev, struct sk_buff *skb)
 		info->flags |= IEEE80211_TX_STAT_ACK;
 		ieee80211_tx_status(mt76_hw(dev), skb);
 	}
-
-	q = &dev->mt76.q_tx[qid];
-	if (q->queued < q->ndesc - 8)
-		ieee80211_wake_queue(mt76_hw(dev), qid);
 }
 
 int mt76x2_tx_prepare_skb(struct mt76_dev *mdev, void *txwi,
