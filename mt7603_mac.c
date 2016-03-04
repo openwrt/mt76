@@ -919,6 +919,9 @@ void mt7603_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 		return;
 	}
 
+	if (q - dev->mt76.q_tx < 4)
+		dev->tx_hang_check = 0;
+
 	/* will be freed by tx status handling codepath */
 	if (skb->prev) {
 		spin_lock_bh(&dev->status_lock);
@@ -1066,40 +1069,27 @@ static bool mt7603_tx_dma_busy(struct mt7603_dev *dev)
 	return (val & BIT(8)) && (val & 0xf) != 0xf;
 }
 
-static bool mt7603_tx_rx_dma_busy(struct mt7603_dev *dev)
+static bool mt7603_tx_hang(struct mt7603_dev *dev)
 {
 	struct mt76_queue *q;
-	u32 dma_idx, prev_dma_idx, val;
+	u32 dma_idx, prev_dma_idx;
 	int i;
 
 	for (i = 0; i < 4; i++) {
 		q = &dev->mt76.q_tx[i];
+
+		if (!q->queued)
+			continue;
+
 		prev_dma_idx = dev->tx_dma_idx[i];
 		dev->tx_dma_idx[i] = dma_idx = ioread32(&q->regs->dma_idx);
 
 		if (dma_idx != prev_dma_idx ||
 		    dma_idx == ioread32(&q->regs->cpu_idx))
 			continue;
-
-		val = mt76_rr(dev, MT_FC_RSV_COUNT_0);
-		if (MT76_GET(MT_FC_RSV_COUNT_0_P0, val) > 0xa0)
-			break;
 	}
 
-	if (i == 4)
-		return false;
-
-	q = &dev->mt76.q_rx[0];
-	prev_dma_idx = dev->rx_dma_idx;
-	dev->rx_dma_idx = dma_idx = ioread32(&q->regs->dma_idx);
-	if (dma_idx != prev_dma_idx)
-		return false;
-
-	if (dma_idx == ioread32(&q->regs->cpu_idx))
-		return false;
-
-	val = mt76_rr(dev, MT_FC_SP2_Q0Q1);
-	return MT76_GET(MT_FC_SP2_Q0Q1_SRC_COUNT_Q0, val) > 0x20;
+	return i < 4;
 }
 
 static bool mt7603_rx_pse_busy(struct mt7603_dev *dev)
@@ -1158,15 +1148,15 @@ void mt7603_mac_work(struct work_struct *work)
 
 	mutex_lock(&dev->mutex);
 
-	if (WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->tx_check,
+	if (WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->tx_dma_check,
 					       RESET_CAUSE_TX_BUSY,
 					       mt7603_tx_dma_busy)) ||
 	    WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->rx_dma_check,
 					       RESET_CAUSE_RX_BUSY,
 					       mt7603_rx_dma_busy)) ||
-	    WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->txrx_check,
+	    WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->tx_hang_check,
 					       RESET_CAUSE_TX_HANG,
-					       mt7603_tx_rx_dma_busy)) ||
+					       mt7603_tx_hang)) ||
 	    WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->rx_pse_check,
 					       RESET_CAUSE_RX_PSE_BUSY,
 					       mt7603_rx_pse_busy)) ||
@@ -1174,8 +1164,8 @@ void mt7603_mac_work(struct work_struct *work)
 					       RESET_CAUSE_BEACON_STUCK,
 					       NULL))) {
 		dev->beacon_check = 0;
-		dev->tx_check = 0;
-		dev->txrx_check = 0;
+		dev->tx_dma_check = 0;
+		dev->tx_hang_check = 0;
 		dev->rx_dma_check = 0;
 		dev->rx_pse_check = 0;
 		dev->rx_dma_idx = ~0;
