@@ -67,11 +67,13 @@ struct mt7603_sta {
 	struct mt76_wcid wcid; /* must be first */
 
 	struct ieee80211_tx_rate rates[8];
+	int rate_count;
 	int n_rates;
 
 	int pid;
 
 	int ampdu_count;
+	int ampdu_tx_count;
 	int ampdu_acked;
 };
 

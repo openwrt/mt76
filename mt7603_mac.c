@@ -476,12 +476,15 @@ void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta)
 	u8 bw, bw_prev, bw_idx = 0;
 	u16 val[8];
 	u32 w9 = mt76_rr(dev, addr + 9 * 4);
+	int count;
 	int i;
 
 	if (!mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000))
 		return;
 
-	for (i = n_rates; i < 8; i++)
+	for (i = 0, count = 0; i < n_rates; i++)
+		count += max_t(int, MT7603_RATE_RETRY, rates[i].count);
+	for (i = n_rates; i < 4; i++)
 		rates[i] = rates[n_rates - 1];
 
 	w9 &= MT_WTBL2_W9_SHORT_GI_20 | MT_WTBL2_W9_SHORT_GI_40 |
@@ -513,25 +516,26 @@ void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta)
 
 	mt76_wr(dev, MT_WTBL_RIUCR1,
 		MT76_SET(MT_WTBL_RIUCR1_RATE0, val[0]) |
-		MT76_SET(MT_WTBL_RIUCR1_RATE1, val[1]) |
-		MT76_SET(MT_WTBL_RIUCR1_RATE2_LO, val[2]));
+		MT76_SET(MT_WTBL_RIUCR1_RATE1, val[0]) |
+		MT76_SET(MT_WTBL_RIUCR1_RATE2_LO, val[1]));
 
 	mt76_wr(dev, MT_WTBL_RIUCR2,
-		MT76_SET(MT_WTBL_RIUCR2_RATE2_HI, val[2] >> 8) |
-		MT76_SET(MT_WTBL_RIUCR2_RATE3, val[3]) |
-		MT76_SET(MT_WTBL_RIUCR2_RATE4, val[4]) |
-		MT76_SET(MT_WTBL_RIUCR2_RATE5_LO, val[5]));
+		MT76_SET(MT_WTBL_RIUCR2_RATE2_HI, val[1] >> 8) |
+		MT76_SET(MT_WTBL_RIUCR2_RATE3, val[2]) |
+		MT76_SET(MT_WTBL_RIUCR2_RATE4, val[2]) |
+		MT76_SET(MT_WTBL_RIUCR2_RATE5_LO, val[3]));
 
 	mt76_wr(dev, MT_WTBL_RIUCR3,
-		MT76_SET(MT_WTBL_RIUCR3_RATE5_HI, val[5] >> 4) |
-		MT76_SET(MT_WTBL_RIUCR3_RATE6, val[6]) |
-		MT76_SET(MT_WTBL_RIUCR3_RATE7, val[7]));
+		MT76_SET(MT_WTBL_RIUCR3_RATE5_HI, val[3] >> 4) |
+		MT76_SET(MT_WTBL_RIUCR3_RATE6, val[4]) |
+		MT76_SET(MT_WTBL_RIUCR3_RATE7, val[4]));
 
 	mt76_wr(dev, MT_WTBL_UPDATE,
 		MT76_SET(MT_WTBL_UPDATE_WLAN_IDX, wcid) |
 		MT_WTBL_UPDATE_RATE_UPDATE |
 		MT_WTBL_UPDATE_TX_COUNT_CLEAR);
 
+	sta->rate_count = count;
 	sta->wcid.tx_rate_set = true;
 }
 
@@ -606,7 +610,7 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 
 	if (sta) {
 		struct mt7603_sta *msta = (struct mt7603_sta *) sta->drv_priv;
-		tx_count = msta->n_rates * MT7603_RATE_RETRY;
+		tx_count = msta->rate_count;
 	}
 
 	if (wcid)
@@ -761,55 +765,75 @@ mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 		struct ieee80211_tx_info *info, __le32 *txs_data)
 {
 	bool final_mpdu;
+	bool ack_timeout;
+	bool fixed_rate;
 	bool ampdu;
 	int count;
 	u32 txs;
 	u8 pid;
 	int i;
 
+	fixed_rate = info->status.rates[0].count;
+
 	txs = le32_to_cpu(txs_data[4]);
 	final_mpdu = txs & MT_TXS4_ACKED_MPDU;
-	ampdu = txs & MT_TXS4_AMPDU;
+	ampdu = !fixed_rate && (txs & MT_TXS4_AMPDU);
 	pid = MT76_GET(MT_TXS4_PID, txs);
 	count = MT76_GET(MT_TXS4_TX_COUNT, txs);
 
 	txs = le32_to_cpu(txs_data[0]);
+	ack_timeout = txs & MT_TXS0_ACK_TIMEOUT;
+
 	if (!(txs & MT_TXS0_ACK_ERROR_MASK)) {
-		if (ampdu)
+		if (!fixed_rate && !ack_timeout)
 			sta->ampdu_acked++;
 		info->flags |= IEEE80211_TX_STAT_ACK;
 	}
 
-	if (info->status.rates[0].count) {
-		info->status.rates[0].count = count;
-		info->status.rates[1].count = 0;
-	} else {
-		for (i = 0; i < ARRAY_SIZE(info->status.rates); i++) {
-			if (!count) {
-				info->status.rates[i].idx = -1;
-				break;
-			}
+	if (!fixed_rate)
+		sta->ampdu_count++;
 
-			info->status.rates[i] = sta->rates[i];
-			info->status.rates[i].count = min_t(int, count, MT7603_RATE_RETRY);
-			count -= MT7603_RATE_RETRY;
-			if (count < 0)
-				count = 0;
-		}
-	}
-
-	sta->ampdu_count++;
+	sta->ampdu_tx_count = max_t(int, sta->ampdu_tx_count, count);
 	if (ampdu && !final_mpdu)
 		return false;
 
-	info->status.ampdu_len = sta->ampdu_count;
-	info->status.ampdu_ack_len = sta->ampdu_acked;
+	count = sta->ampdu_tx_count;
+	for (i = 0; i < ARRAY_SIZE(info->status.rates); i++) {
+		int cur_count = min_t(int, count, MT7603_RATE_RETRY);
+
+		if (fixed_rate)
+			cur_count = count;
+		else
+			info->status.rates[i] = sta->rates[i];
+
+		if (i && info->status.rates[i].idx < 0) {
+			info->status.rates[i - 1].count += count;
+			break;
+		}
+
+		if (!count) {
+			info->status.rates[i].idx = -1;
+			break;
+		}
+
+		info->status.rates[i].count = cur_count;
+		count -= cur_count;
+	}
+
+	if (fixed_rate) {
+		info->status.ampdu_len = 1;
+		info->status.ampdu_ack_len = !!(info->flags & IEEE80211_TX_STAT_ACK);
+	} else {
+		info->status.ampdu_len = sta->ampdu_count;
+		info->status.ampdu_ack_len = sta->ampdu_acked;
+	}
 
 	if (ampdu || (info->flags & IEEE80211_TX_CTL_AMPDU))
 		info->flags |= IEEE80211_TX_STAT_AMPDU | IEEE80211_TX_CTL_AMPDU;
 
 	sta->ampdu_count = 0;
 	sta->ampdu_acked = 0;
+	sta->ampdu_tx_count = 0;
 	return true;
 }
 
