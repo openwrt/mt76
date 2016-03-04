@@ -490,6 +490,28 @@ int mt7603_mcu_set_channel(struct mt7603_dev *dev)
 	return mt7603_mcu_set_tx_power(dev);
 }
 
+int mt7603_mcu_set_timing(struct mt7603_dev *dev, int slot, int sifs, int rifs,
+			  int eifs)
+{
+	struct {
+		u8 slot_time;
+		u8 sifs_time;
+		u8 rifs_time;
+		u8 __res0;
+		u16 eifs_time;
+		u16 __res1;
+	} req = {
+		.slot_time = slot,
+		.sifs_time = sifs,
+		.rifs_time = rifs,
+		.eifs_time = eifs,
+	};
+	struct sk_buff *skb;
+
+	skb = mt7603_mcu_msg_alloc(dev, &req, sizeof(req));
+	return mt7603_mcu_msg_send(dev, skb, MCU_EXT_CMD_SLOT_TIME_SET, MCU_Q_SET, NULL);
+}
+
 int mt7603_mcu_reg_read(struct mt7603_dev *dev, u32 reg, u32 *val, bool rf)
 {
 	struct {
