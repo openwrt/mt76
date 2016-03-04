@@ -482,44 +482,65 @@ void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta)
 	bool stbc = false;
 	int n_rates = sta->n_rates;
 	u8 bw, bw_prev, bw_idx = 0;
-	u16 val[4];
+	u16 val[8];
+	u32 w9 = mt76_rr(dev, addr + 9 * 4);
 	int i;
 
-	mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000);
+	if (!mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000))
+		return;
 
-	for (i = n_rates; i < 4; i++)
+	for (i = n_rates; i < 8; i++)
 		rates[i] = rates[n_rates - 1];
 
+	w9 &= MT_WTBL2_W9_SHORT_GI_20 | MT_WTBL2_W9_SHORT_GI_40 |
+	      MT_WTBL2_W9_SHORT_GI_80;
+
 	val[0] = mt7603_mac_tx_rate_val(dev, &rates[0], stbc, &bw);
-	mt76_rmw_field(dev, addr + 9 * 4, MT_WTBL2_W9_BW_CAP, bw);
-	mt76_rmw_field(dev, addr + 10 * 4, MT_WTBL2_W10_RATE1, val[0]);
+	w9 |= MT76_SET(MT_WTBL2_W9_CC_BW_SEL, bw);
+	w9 |= MT76_SET(MT_WTBL2_W9_BW_CAP, bw);
 
 	bw_prev = bw;
 	val[1] = mt7603_mac_tx_rate_val(dev, &rates[1], stbc, &bw);
-	mt76_rmw_field(dev, addr + 10 * 4, MT_WTBL2_W10_RATE2, val[1]);
 	if (bw_prev < bw && !bw_idx)
 		bw_idx = 1;
 
 	bw_prev = bw;
 	val[2] = mt7603_mac_tx_rate_val(dev, &rates[2], stbc, &bw);
-	mt76_rmw_field(dev, addr + 10 * 4, MT_WTBL2_W10_RATE3_LO, val[2]);
-	mt76_rmw_field(dev, addr + 11 * 4, MT_WTBL2_W11_RATE3_HI, val[2] >> 4);
 	if (bw_prev < bw && !bw_idx)
 		bw_idx = 2;
 
 	bw_prev = bw;
 	val[3] = mt7603_mac_tx_rate_val(dev, &rates[3], stbc, &bw);
-	mt76_rmw_field(dev, addr + 11 * 4, MT_WTBL2_W11_RATE4, val[3]);
 	if (bw_prev < bw && !bw_idx)
 		bw_idx = 3;
 
-	mt76_rmw_field(dev, addr + 9 * 4, MT_WTBL2_W9_CHANGE_BW_RATE,
+	w9 |= MT76_SET(MT_WTBL2_W9_CHANGE_BW_RATE,
 		       bw_idx ? bw_idx - 1 : 7);
+
+	mt76_wr(dev, MT_WTBL_RIUCR0, w9);
+
+	mt76_wr(dev, MT_WTBL_RIUCR1,
+		MT76_SET(MT_WTBL_RIUCR1_RATE0, val[0]) |
+		MT76_SET(MT_WTBL_RIUCR1_RATE1, val[1]) |
+		MT76_SET(MT_WTBL_RIUCR1_RATE2_LO, val[2]));
+
+	mt76_wr(dev, MT_WTBL_RIUCR2,
+		MT76_SET(MT_WTBL_RIUCR2_RATE2_HI, val[2] >> 8) |
+		MT76_SET(MT_WTBL_RIUCR2_RATE3, val[3]) |
+		MT76_SET(MT_WTBL_RIUCR2_RATE4, val[4]) |
+		MT76_SET(MT_WTBL_RIUCR2_RATE5_LO, val[5]));
+
+	mt76_wr(dev, MT_WTBL_RIUCR3,
+		MT76_SET(MT_WTBL_RIUCR3_RATE5_HI, val[5] >> 4) |
+		MT76_SET(MT_WTBL_RIUCR3_RATE6, val[6]) |
+		MT76_SET(MT_WTBL_RIUCR3_RATE7, val[7]));
 
 	mt76_wr(dev, MT_WTBL_UPDATE,
 		MT76_SET(MT_WTBL_UPDATE_WLAN_IDX, wcid) |
-		MT_WTBL_UPDATE_WTBL2 |
+		MT_WTBL_UPDATE_RATE_UPDATE |
 		MT_WTBL_UPDATE_TX_COUNT_CLEAR);
+
+	sta->wcid.tx_rate_set = true;
 }
 
 static enum mt7603_cipher_type

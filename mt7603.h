@@ -66,7 +66,7 @@ struct mt7603_mcu {
 struct mt7603_sta {
 	struct mt76_wcid wcid; /* must be first */
 
-	struct ieee80211_tx_rate rates[4];
+	struct ieee80211_tx_rate rates[8];
 	int n_rates;
 
 	int pid;
