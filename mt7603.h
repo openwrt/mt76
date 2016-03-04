@@ -85,6 +85,15 @@ struct mt7603_vif {
 #define MT7603_CB_TXS_DONE		BIT(1)
 #define MT7603_CB_TXS_FAILED	BIT(2)
 
+enum mt7603_reset_cause {
+	RESET_CAUSE_TX_HANG,
+	RESET_CAUSE_TX_BUSY,
+	RESET_CAUSE_RX_BUSY,
+	RESET_CAUSE_BEACON_STUCK,
+	RESET_CAUSE_RX_PSE_BUSY,
+	__RESET_CAUSE_MAX
+};
+
 struct mt7603_cb {
 	unsigned long jiffies;
 	u8 wcid;
@@ -136,6 +145,8 @@ struct mt7603_dev {
 	u16 tx_dma_idx[4];
 	u16 rx_dma_idx;
 
+	unsigned int reset_cause[__RESET_CAUSE_MAX];
+
 	struct delayed_work mac_work;
 	struct tasklet_struct tx_tasklet;
 	struct tasklet_struct pre_tbtt_tasklet;
@@ -182,6 +193,7 @@ void mt7603_dma_cleanup(struct mt7603_dev *dev);
 int mt7603_mcu_init(struct mt7603_dev *dev);
 int mt7603_tx_queue_mcu(struct mt7603_dev *dev, enum mt76_txq_id qid,
 			struct sk_buff *skb);
+void mt7603_init_debugfs(struct mt7603_dev *dev);
 
 void mt7603_set_irq_mask(struct mt7603_dev *dev, u32 clear, u32 set);
 

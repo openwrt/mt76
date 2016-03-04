@@ -376,7 +376,7 @@ int mt7603_register_device(struct mt7603_dev *dev)
 	sband = wiphy->bands[IEEE80211_BAND_2GHZ];
 	dev->chandef.chan = &sband->channels[0];
 
-	mt76_register_debugfs(&dev->mt76);
+	mt7603_init_debugfs(dev);
 
 	return 0;
 }

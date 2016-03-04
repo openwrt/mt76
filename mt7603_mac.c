@@ -1119,14 +1119,23 @@ static bool mt7603_rx_pse_busy(struct mt7603_dev *dev)
 
 static bool
 mt7603_watchdog_check(struct mt7603_dev *dev, u8 *counter,
+		      enum mt7603_reset_cause cause,
 		      bool (*check)(struct mt7603_dev *dev))
 {
-	if (!check(dev) && *counter < MT7603_WATCHDOG_TIMEOUT) {
-		*counter = 0;
-		return false;
+	if (check) {
+		if (!check(dev) && *counter < MT7603_WATCHDOG_TIMEOUT) {
+			*counter = 0;
+			return false;
+		}
+
+		(*counter)++;
 	}
 
-	return ++(*counter) >= MT7603_WATCHDOG_TIMEOUT;
+	if (*counter < MT7603_WATCHDOG_TIMEOUT)
+		return false;
+
+	dev->reset_cause[cause]++;
+	return true;
 }
 
 void mt7603_mac_work(struct work_struct *work)
@@ -1150,14 +1159,20 @@ void mt7603_mac_work(struct work_struct *work)
 	mutex_lock(&dev->mutex);
 
 	if (WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->tx_check,
+					       RESET_CAUSE_TX_BUSY,
 					       mt7603_tx_dma_busy)) ||
 	    WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->rx_dma_check,
+					       RESET_CAUSE_RX_BUSY,
 					       mt7603_rx_dma_busy)) ||
 	    WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->txrx_check,
+					       RESET_CAUSE_TX_HANG,
 					       mt7603_tx_rx_dma_busy)) ||
 	    WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->rx_pse_check,
+					       RESET_CAUSE_RX_PSE_BUSY,
 					       mt7603_rx_pse_busy)) ||
-	    WARN_ON_ONCE(dev->beacon_check > MT7603_WATCHDOG_TIMEOUT)) {
+	    WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->beacon_check,
+					       RESET_CAUSE_BEACON_STUCK,
+					       NULL))) {
 		dev->beacon_check = 0;
 		dev->tx_check = 0;
 		dev->txrx_check = 0;
