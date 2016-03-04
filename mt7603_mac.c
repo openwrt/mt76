@@ -159,6 +159,8 @@ void mt7603_wtbl_clear(struct mt7603_dev *dev, int idx)
 	u32 addr = MT_WTBL1_BASE + idx * MT_WTBL1_SIZE;
 	int i;
 
+	mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000);
+
 	mt76_wr(dev, addr + 0 * 4,
 		MT_WTBL1_W0_RX_CHECK_A1 |
 		MT_WTBL1_W0_RX_CHECK_A2 |
@@ -253,6 +255,7 @@ void mt7603_mac_tx_ba_reset(struct mt7603_dev *dev, int wcid, int tid, int ssn,
 		mt76_clear(dev, addr + (15 * 4), tid_mask);
 		return;
 	}
+	mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000);
 
 	mt7603_mac_stop(dev);
 	switch (tid) {
@@ -481,6 +484,8 @@ void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta)
 	u8 bw, bw_prev, bw_idx = 0;
 	u16 val[4];
 	int i;
+
+	mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000);
 
 	for (i = n_rates; i < 4; i++)
 		rates[i] = rates[n_rates - 1];
