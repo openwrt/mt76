@@ -474,7 +474,7 @@ void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta)
 	bool stbc = false;
 	int n_rates = sta->n_rates;
 	u8 bw, bw_prev, bw_idx = 0;
-	u16 val[8];
+	u16 val[4];
 	u32 w9 = mt76_rr(dev, addr + 9 * 4);
 	int count;
 	int i;
@@ -521,14 +521,14 @@ void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta)
 
 	mt76_wr(dev, MT_WTBL_RIUCR2,
 		MT76_SET(MT_WTBL_RIUCR2_RATE2_HI, val[1] >> 8) |
-		MT76_SET(MT_WTBL_RIUCR2_RATE3, val[2]) |
+		MT76_SET(MT_WTBL_RIUCR2_RATE3, val[1]) |
 		MT76_SET(MT_WTBL_RIUCR2_RATE4, val[2]) |
-		MT76_SET(MT_WTBL_RIUCR2_RATE5_LO, val[3]));
+		MT76_SET(MT_WTBL_RIUCR2_RATE5_LO, val[2]));
 
 	mt76_wr(dev, MT_WTBL_RIUCR3,
-		MT76_SET(MT_WTBL_RIUCR3_RATE5_HI, val[3] >> 4) |
-		MT76_SET(MT_WTBL_RIUCR3_RATE6, val[4]) |
-		MT76_SET(MT_WTBL_RIUCR3_RATE7, val[4]));
+		MT76_SET(MT_WTBL_RIUCR3_RATE5_HI, val[2] >> 4) |
+		MT76_SET(MT_WTBL_RIUCR3_RATE6, val[3]) |
+		MT76_SET(MT_WTBL_RIUCR3_RATE7, val[3]));
 
 	mt76_wr(dev, MT_WTBL_UPDATE,
 		MT76_SET(MT_WTBL_UPDATE_WLAN_IDX, wcid) |
