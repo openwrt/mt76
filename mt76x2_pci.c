@@ -20,6 +20,7 @@
 
 static const struct pci_device_id mt76pci_device_table[] = {
 	{ PCI_DEVICE(0x14c3, 0x7662) },
+	{ PCI_DEVICE(0x14c3, 0x7612) },
 	{ },
 };
 
