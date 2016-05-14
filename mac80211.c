@@ -238,5 +238,5 @@ void mt76_rx_complete(struct mt76_dev *dev, enum mt76_rxq_id q)
 	struct sk_buff *skb;
 
 	while ((skb = __skb_dequeue(&dev->rx_skb[q])) != NULL)
-		ieee80211_rx_napi(dev->hw, skb, &dev->napi[q]);
+		ieee80211_rx_napi(dev->hw, NULL, skb, &dev->napi[q]);
 }
