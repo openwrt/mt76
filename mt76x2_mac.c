@@ -247,7 +247,7 @@ int mt76x2_mac_process_rx(struct mt76x2_dev *dev, struct sk_buff *skb, void *rxi
 
 static void
 mt76x2_mac_process_tx_rate(struct ieee80211_tx_rate *txrate, u16 rate,
-			 enum ieee80211_band band)
+			 enum nl80211_band band)
 {
 	u8 idx = MT76_GET(MT_RXWI_RATE_INDEX, rate);
 

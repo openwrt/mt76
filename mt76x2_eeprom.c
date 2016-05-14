@@ -568,7 +568,7 @@ void mt76x2_get_power_info(struct mt76x2_dev *dev, struct mt76x2_tx_power_info *
 
 int mt76x2_get_temp_comp(struct mt76x2_dev *dev, struct mt76x2_temp_comp *t)
 {
-	enum ieee80211_band band = dev->chandef.chan->band;
+	enum nl80211_band band = dev->chandef.chan->band;
 	u16 val, slope;
 	u8 bounds;
 
@@ -602,7 +602,7 @@ int mt76x2_get_temp_comp(struct mt76x2_dev *dev, struct mt76x2_temp_comp *t)
 	return 0;
 }
 
-bool mt76x2_ext_pa_enabled(struct mt76x2_dev *dev, enum ieee80211_band band)
+bool mt76x2_ext_pa_enabled(struct mt76x2_dev *dev, enum nl80211_band band)
 {
 	u16 conf1 = mt76x2_eeprom_get(dev, MT_EE_NIC_CONF_0);
 

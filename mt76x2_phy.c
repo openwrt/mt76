@@ -235,7 +235,7 @@ mt76x2_phy_channel_calibrate(struct mt76x2_dev *dev, bool mac_stopped)
 }
 
 static void
-mt76x2_phy_set_txpower_regs(struct mt76x2_dev *dev, enum ieee80211_band band)
+mt76x2_phy_set_txpower_regs(struct mt76x2_dev *dev, enum nl80211_band band)
 {
 	u32 pa_mode[2];
 	u32 pa_mode_adj;
@@ -296,7 +296,7 @@ mt76x2_phy_set_txpower_regs(struct mt76x2_dev *dev, enum ieee80211_band band)
 }
 
 static void
-mt76x2_configure_tx_delay(struct mt76x2_dev *dev, enum ieee80211_band band, u8 bw)
+mt76x2_configure_tx_delay(struct mt76x2_dev *dev, enum nl80211_band band, u8 bw)
 {
 	u32 cfg0, cfg1;
 
@@ -456,7 +456,7 @@ int mt76x2_phy_set_channel(struct mt76x2_dev *dev,
 {
 	struct ieee80211_channel *chan = chandef->chan;
 	bool scan = test_bit(MT76_SCANNING, &dev->mt76.state);
-	enum ieee80211_band band = chan->band;
+	enum nl80211_band band = chan->band;
 	u8 channel;
 
 	u32 ext_cca_chan[4] = {
