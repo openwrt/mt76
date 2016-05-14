@@ -373,7 +373,7 @@ int mt7603_register_device(struct mt7603_dev *dev)
 	if (ret)
 		return ret;
 
-	sband = wiphy->bands[IEEE80211_BAND_2GHZ];
+	sband = wiphy->bands[NL80211_BAND_2GHZ];
 	dev->chandef.chan = &sband->channels[0];
 
 	mt7603_init_debugfs(dev);

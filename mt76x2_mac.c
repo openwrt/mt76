@@ -35,7 +35,7 @@ mt76x2_mac_process_rate(struct ieee80211_rx_status *status, u16 rate)
 		if (idx >= 8)
 			idx = 0;
 
-		if (status->band == IEEE80211_BAND_2GHZ)
+		if (status->band == NL80211_BAND_2GHZ)
 			idx += 4;
 
 		status->rate_idx = idx;
@@ -257,7 +257,7 @@ mt76x2_mac_process_tx_rate(struct ieee80211_tx_rate *txrate, u16 rate,
 
 	switch (MT76_GET(MT_RXWI_RATE_PHY, rate)) {
 	case MT_PHY_TYPE_OFDM:
-		if (band == IEEE80211_BAND_2GHZ)
+		if (band == NL80211_BAND_2GHZ)
 			idx += 4;
 
 		txrate->idx = idx;

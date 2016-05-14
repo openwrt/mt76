@@ -342,14 +342,14 @@ void mt76x2_read_rx_gain(struct mt76x2_dev *dev)
 	u8 lna;
 	u16 val;
 
-	if (chan->band == IEEE80211_BAND_2GHZ)
+	if (chan->band == NL80211_BAND_2GHZ)
 		val = mt76x2_eeprom_get(dev, MT_EE_RF_2G_RX_HIGH_GAIN) >> 8;
 	else
 		val = mt76x2_get_5g_rx_gain(dev, channel);
 
 	mt76x2_set_rx_gain_group(dev, val);
 
-	if (chan->band == IEEE80211_BAND_2GHZ) {
+	if (chan->band == NL80211_BAND_2GHZ) {
 		val = mt76x2_eeprom_get(dev, MT_EE_RSSI_OFFSET_2G_0);
 		mt76x2_set_rssi_offset(dev, 0, val);
 		mt76x2_set_rssi_offset(dev, 1, val >> 8);
@@ -386,7 +386,7 @@ void mt76x2_read_rx_gain(struct mt76x2_dev *dev)
 	if (val & MT_EE_NIC_CONF_1_LNA_EXT_5G)
 		memset(lna_5g, 0, sizeof(lna_5g));
 
-	if (chan->band == IEEE80211_BAND_2GHZ)
+	if (chan->band == NL80211_BAND_2GHZ)
 		lna = lna_2g;
 	else if (channel <= 64)
 		lna = lna_5g[0];
@@ -415,7 +415,7 @@ void mt76x2_get_rate_power(struct mt76x2_dev *dev, struct mt76x2_rate_power *t)
 	bool is_5ghz = false;
 	u16 val;
 
-	is_5ghz = dev->chandef.chan->band == IEEE80211_BAND_5GHZ;
+	is_5ghz = dev->chandef.chan->band == NL80211_BAND_5GHZ;
 
 	memset(t, 0, sizeof(*t));
 
@@ -550,7 +550,7 @@ void mt76x2_get_power_info(struct mt76x2_dev *dev, struct mt76x2_tx_power_info *
 	bw40 = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_DELTA_BW40);
 	bw80 = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_DELTA_BW80);
 
-	if (dev->chandef.chan->band == IEEE80211_BAND_5GHZ) {
+	if (dev->chandef.chan->band == NL80211_BAND_5GHZ) {
 		bw40 >>= 8;
 		mt76x2_get_power_info_5g(dev, t, 0, MT_EE_TX_POWER_0_START_5G);
 		mt76x2_get_power_info_5g(dev, t, 1, MT_EE_TX_POWER_1_START_5G);
@@ -586,7 +586,7 @@ int mt76x2_get_temp_comp(struct mt76x2_dev *dev, struct mt76x2_temp_comp *t)
 		return -EINVAL;
 
 	t->temp_25_ref = val & 0x7f;
-	if (band == IEEE80211_BAND_5GHZ) {
+	if (band == NL80211_BAND_5GHZ) {
 		slope = mt76x2_eeprom_get(dev, MT_EE_RF_TEMP_COMP_SLOPE_5G);
 		bounds = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_EXT_PA_5G);
 	} else {
@@ -606,7 +606,7 @@ bool mt76x2_ext_pa_enabled(struct mt76x2_dev *dev, enum ieee80211_band band)
 {
 	u16 conf1 = mt76x2_eeprom_get(dev, MT_EE_NIC_CONF_0);
 
-	if (band == IEEE80211_BAND_5GHZ)
+	if (band == NL80211_BAND_5GHZ)
 		return !(conf1 & MT_EE_NIC_CONF_0_PA_INT_5G);
 	else
 		return !(conf1 & MT_EE_NIC_CONF_0_PA_INT_2G);
