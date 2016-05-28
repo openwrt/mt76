@@ -739,8 +739,8 @@ int mt76x2_register_device(struct mt76x2_dev *dev)
 	if (ret)
 		goto fail;
 
-	sband = wiphy->bands[dev->mt76.cap.has_5ghz ? IEEE80211_BAND_5GHZ :
-			     IEEE80211_BAND_2GHZ];
+	sband = wiphy->bands[dev->mt76.cap.has_5ghz ? NL80211_BAND_5GHZ :
+			     NL80211_BAND_2GHZ];
 	dev->chandef.chan = &sband->channels[0];
 
 	mt76x2_init_debugfs(dev);

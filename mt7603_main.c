@@ -135,7 +135,7 @@ mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 	if (ret)
 		return ret;
 
-	if (def->chan->band == IEEE80211_BAND_5GHZ) {
+	if (def->chan->band == NL80211_BAND_5GHZ) {
 		idx = 1;
 		rssi_data += MT_EE_RSSI_OFFSET_5G;
 	} else {

@@ -13,14 +13,14 @@
 #include "mt76.h"
 
 #define CHAN2G(_idx, _freq) {			\
-	.band = IEEE80211_BAND_2GHZ,		\
+	.band = NL80211_BAND_2GHZ,		\
 	.center_freq = (_freq),			\
 	.hw_value = (_idx),			\
 	.max_power = 30,			\
 }
 
 #define CHAN5G(_idx, _freq) {			\
-	.band = IEEE80211_BAND_5GHZ,		\
+	.band = NL80211_BAND_5GHZ,		\
 	.center_freq = (_freq),			\
 	.hw_value = (_idx),			\
 	.max_power = 30,			\
@@ -138,7 +138,7 @@ static int
 mt76_init_sband_2g(struct mt76_dev *dev, struct ieee80211_rate *rates,
 		   int n_rates)
 {
-	dev->hw->wiphy->bands[IEEE80211_BAND_2GHZ] = &dev->sband_2g;
+	dev->hw->wiphy->bands[NL80211_BAND_2GHZ] = &dev->sband_2g;
 
 	return mt76_init_sband(dev, &dev->sband_2g,
 			       mt76_channels_2ghz,
@@ -150,7 +150,7 @@ static int
 mt76_init_sband_5g(struct mt76_dev *dev, struct ieee80211_rate *rates,
 		   int n_rates, bool vht)
 {
-	dev->hw->wiphy->bands[IEEE80211_BAND_5GHZ] = &dev->sband_5g;
+	dev->hw->wiphy->bands[NL80211_BAND_5GHZ] = &dev->sband_5g;
 
 	return mt76_init_sband(dev, &dev->sband_5g,
 			       mt76_channels_5ghz,
@@ -238,5 +238,5 @@ void mt76_rx_complete(struct mt76_dev *dev, enum mt76_rxq_id q)
 	struct sk_buff *skb;
 
 	while ((skb = __skb_dequeue(&dev->rx_skb[q])) != NULL)
-		ieee80211_rx_napi(dev->hw, skb, &dev->napi[q]);
+		ieee80211_rx_napi(dev->hw, NULL, skb, &dev->napi[q]);
 }
