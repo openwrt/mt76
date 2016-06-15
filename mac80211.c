@@ -93,6 +93,7 @@ mt76_init_sband(struct mt76_dev *dev, struct ieee80211_supported_band *sband,
 	sband->n_channels = n_chan;
 	sband->bitrates = rates;
 	sband->n_bitrates = n_rates;
+	dev->chandef.chan = &sband->channels[0];
 
 	ht_cap = &sband->ht_cap;
 	ht_cap->ht_supported = true;

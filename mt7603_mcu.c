@@ -428,7 +428,7 @@ static int mt7603_mcu_set_tx_power(struct mt7603_dev *dev)
 		u8 temp_comp_power[17];
 		u8 reserved;
 	} req = {
-		.center_channel = dev->chandef.chan->hw_value,
+		.center_channel = dev->mt76.chandef.chan->hw_value,
 #define EEP_VAL(n) ((u8 *) dev->mt76.eeprom.data)[n]
 		.tssi = EEP_VAL(MT_EE_NIC_CONF_1 + 1),
 		.temp_comp = EEP_VAL(MT_EE_NIC_CONF_1),
@@ -472,8 +472,8 @@ int mt7603_mcu_set_channel(struct mt7603_dev *dev)
 		u8 txpower[21];
 		u8 _res1[3];
 	} req = {
-		.control_chan = dev->chandef.chan->hw_value,
-		.center_chan = dev->chandef.chan->hw_value,
+		.control_chan = dev->mt76.chandef.chan->hw_value,
+		.center_chan = dev->mt76.chandef.chan->hw_value,
 		.bw = MT_BW_20,
 		.tx_streams = dev->tx_chains,
 		.rx_streams = dev->rx_chains,

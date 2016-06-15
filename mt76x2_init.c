@@ -684,7 +684,6 @@ static const struct ieee80211_iface_combination if_comb[] = {
 int mt76x2_register_device(struct mt76x2_dev *dev)
 {
 	struct ieee80211_hw *hw = mt76_hw(dev);
-	struct ieee80211_supported_band *sband;
 	struct wiphy *wiphy = hw->wiphy;
 	void *status_fifo;
 	int fifo_size;
@@ -739,10 +738,6 @@ int mt76x2_register_device(struct mt76x2_dev *dev)
 				   ARRAY_SIZE(mt76x2_rates));
 	if (ret)
 		goto fail;
-
-	sband = wiphy->bands[dev->mt76.cap.has_5ghz ? NL80211_BAND_5GHZ :
-			     NL80211_BAND_2GHZ];
-	dev->chandef.chan = &sband->channels[0];
 
 	mt76x2_init_debugfs(dev);
 

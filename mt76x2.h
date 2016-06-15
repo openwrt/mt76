@@ -95,7 +95,6 @@ struct mt76x2_dev {
 	const u16 *beacon_offsets;
 	unsigned long wcid_mask[256 / BITS_PER_LONG];
 
-	struct cfg80211_chan_def chandef;
 	int txpower_conf;
 	int txpower_cur;
 

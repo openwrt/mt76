@@ -107,7 +107,6 @@ struct mt7603_dev {
 	struct mt76_dev mt76; /* must be first */
 
 	struct mutex mutex;
-	struct cfg80211_chan_def chandef;
 
 	u32 irqmask;
 	spinlock_t irq_lock;

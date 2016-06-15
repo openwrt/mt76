@@ -336,7 +336,6 @@ static const struct ieee80211_iface_combination if_comb[] = {
 int mt7603_register_device(struct mt7603_dev *dev)
 {
 	struct ieee80211_hw *hw = mt76_hw(dev);
-	struct ieee80211_supported_band *sband;
 	struct wiphy *wiphy = hw->wiphy;
 	int ret;
 
@@ -372,9 +371,6 @@ int mt7603_register_device(struct mt7603_dev *dev)
 				   ARRAY_SIZE(mt7603_rates));
 	if (ret)
 		return ret;
-
-	sband = wiphy->bands[NL80211_BAND_2GHZ];
-	dev->chandef.chan = &sband->channels[0];
 
 	mt7603_init_debugfs(dev);
 

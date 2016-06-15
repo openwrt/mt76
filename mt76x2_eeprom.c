@@ -336,7 +336,7 @@ mt76x2_get_5g_rx_gain(struct mt76x2_dev *dev, u8 channel)
 
 void mt76x2_read_rx_gain(struct mt76x2_dev *dev)
 {
-	struct ieee80211_channel *chan = dev->chandef.chan;
+	struct ieee80211_channel *chan = dev->mt76.chandef.chan;
 	int channel = chan->hw_value;
 	s8 lna_5g[3], lna_2g;
 	u8 lna;
@@ -415,7 +415,7 @@ void mt76x2_get_rate_power(struct mt76x2_dev *dev, struct mt76x2_rate_power *t)
 	bool is_5ghz = false;
 	u16 val;
 
-	is_5ghz = dev->chandef.chan->band == NL80211_BAND_5GHZ;
+	is_5ghz = dev->mt76.chandef.chan->band == NL80211_BAND_5GHZ;
 
 	memset(t, 0, sizeof(*t));
 
@@ -471,7 +471,7 @@ static void
 mt76x2_get_power_info_2g(struct mt76x2_dev *dev, struct mt76x2_tx_power_info *t,
 		       int chain, int offset)
 {
-	int channel = dev->chandef.chan->hw_value;
+	int channel = dev->mt76.chandef.chan->hw_value;
 	int delta_idx;
 	u8 data[6];
 	u16 val;
@@ -498,7 +498,7 @@ static void
 mt76x2_get_power_info_5g(struct mt76x2_dev *dev, struct mt76x2_tx_power_info *t,
 		       int chain, int offset)
 {
-	int channel = dev->chandef.chan->hw_value;
+	int channel = dev->mt76.chandef.chan->hw_value;
 	enum mt76x2_cal_channel_group group = mt76x2_get_cal_channel_group(channel);
 	int delta_idx;
 	u16 val;
@@ -550,7 +550,7 @@ void mt76x2_get_power_info(struct mt76x2_dev *dev, struct mt76x2_tx_power_info *
 	bw40 = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_DELTA_BW40);
 	bw80 = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_DELTA_BW80);
 
-	if (dev->chandef.chan->band == NL80211_BAND_5GHZ) {
+	if (dev->mt76.chandef.chan->band == NL80211_BAND_5GHZ) {
 		bw40 >>= 8;
 		mt76x2_get_power_info_5g(dev, t, 0, MT_EE_TX_POWER_0_START_5G);
 		mt76x2_get_power_info_5g(dev, t, 1, MT_EE_TX_POWER_1_START_5G);
@@ -568,7 +568,7 @@ void mt76x2_get_power_info(struct mt76x2_dev *dev, struct mt76x2_tx_power_info *
 
 int mt76x2_get_temp_comp(struct mt76x2_dev *dev, struct mt76x2_temp_comp *t)
 {
-	enum nl80211_band band = dev->chandef.chan->band;
+	enum nl80211_band band = dev->mt76.chandef.chan->band;
 	u16 val, slope;
 	u8 bounds;
 

@@ -113,7 +113,7 @@ mt76x2_get_max_power(struct mt76x2_rate_power *r)
 
 void mt76x2_phy_set_txpower(struct mt76x2_dev *dev)
 {
-	enum nl80211_chan_width width = dev->chandef.width;
+	enum nl80211_chan_width width = dev->mt76.chandef.width;
 	struct mt76x2_tx_power_info txp;
 	int txp_0, txp_1, delta = 0;
 	struct mt76x2_rate_power t = {};
@@ -170,7 +170,7 @@ void mt76x2_phy_set_txpower(struct mt76x2_dev *dev)
 static bool
 mt76x2_channel_silent(struct mt76x2_dev *dev)
 {
-	struct ieee80211_channel *chan = dev->chandef.chan;
+	struct ieee80211_channel *chan = dev->mt76.chandef.chan;
 
 	return ((chan->flags & IEEE80211_CHAN_RADAR) &&
 		chan->dfs_state != NL80211_DFS_AVAILABLE);
@@ -179,7 +179,7 @@ mt76x2_channel_silent(struct mt76x2_dev *dev)
 static bool
 mt76x2_phy_tssi_init_cal(struct mt76x2_dev *dev)
 {
-	struct ieee80211_channel *chan = dev->chandef.chan;
+	struct ieee80211_channel *chan = dev->mt76.chandef.chan;
 	u32 flag = 0;
 
 	if (!mt76x2_tssi_enabled(dev))
@@ -202,7 +202,7 @@ mt76x2_phy_tssi_init_cal(struct mt76x2_dev *dev)
 static void
 mt76x2_phy_channel_calibrate(struct mt76x2_dev *dev, bool mac_stopped)
 {
-	struct ieee80211_channel *chan = dev->chandef.chan;
+	struct ieee80211_channel *chan = dev->mt76.chandef.chan;
 	bool is_5ghz = chan->band == NL80211_BAND_5GHZ;
 
 	if (dev->cal.channel_cal_done)
@@ -391,7 +391,7 @@ mt76x2_get_agc_gain(struct mt76x2_dev *dev, u8 *dest)
 static int
 mt76x2_get_rssi_gain_thresh(struct mt76x2_dev *dev)
 {
-	switch (dev->chandef.width) {
+	switch (dev->mt76.chandef.width) {
 	case NL80211_CHAN_WIDTH_80:
 		return -62;
 	case NL80211_CHAN_WIDTH_40:
@@ -420,14 +420,14 @@ mt76x2_phy_update_channel_gain(struct mt76x2_dev *dev)
 
 	dev->cal.low_gain = low_gain;
 
-	if (dev->chandef.width >= NL80211_CHAN_WIDTH_40)
+	if (dev->mt76.chandef.width >= NL80211_CHAN_WIDTH_40)
 		val = 0x1e42 << 16;
 	else
 		val = 0x1836 << 16;
 
 	val |= 0xf8;
 
-	if (dev->chandef.width == NL80211_CHAN_WIDTH_80)
+	if (dev->mt76.chandef.width == NL80211_CHAN_WIDTH_80)
 		mt76_wr(dev, MT_BBP(RXO, 14), 0x00560411);
 	else
 		mt76_wr(dev, MT_BBP(RXO, 14), 0x00560423);
@@ -487,7 +487,7 @@ int mt76x2_phy_set_channel(struct mt76x2_dev *dev,
 	int ret;
 	u8 sifs = 13;
 
-	dev->chandef = *chandef;
+	dev->mt76.chandef = *chandef;
 	dev->cal.channel_cal_done = false;
 	freq = chandef->chan->center_freq;
 	freq1 = chandef->center_freq1;
@@ -590,7 +590,7 @@ int mt76x2_phy_set_channel(struct mt76x2_dev *dev,
 static void
 mt76x2_phy_tssi_compensate(struct mt76x2_dev *dev)
 {
-	struct ieee80211_channel *chan = dev->chandef.chan;
+	struct ieee80211_channel *chan = dev->mt76.chandef.chan;
 	struct mt76x2_tx_power_info txp;
 	struct mt76x2_tssi_comp t = {};
 

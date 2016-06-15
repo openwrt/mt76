@@ -174,6 +174,7 @@ struct mt76_driver_ops {
 
 struct mt76_dev {
 	struct ieee80211_hw *hw;
+	struct cfg80211_chan_def chandef;
 
 	spinlock_t lock;
 	const struct mt76_bus_ops *bus;

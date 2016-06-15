@@ -118,7 +118,7 @@ mt76x2_mac_tx_rate_val(struct mt76x2_dev *dev, const struct ieee80211_tx_rate *r
 			bw = 1;
 	} else {
 		const struct ieee80211_rate *r;
-		int band = dev->chandef.chan->band;
+		int band = dev->mt76.chandef.chan->band;
 		u16 val;
 
 		r = &mt76_hw(dev)->wiphy->bands[band]->bitrates[rate->idx];
@@ -237,8 +237,8 @@ int mt76x2_mac_process_rx(struct mt76x2_dev *dev, struct sk_buff *skb, void *rxi
 	status->chain_signal[0] = mt76x2_phy_get_rssi(dev, rxwi->rssi[0], 0);
 	status->chain_signal[1] = mt76x2_phy_get_rssi(dev, rxwi->rssi[1], 1);
 	status->signal = max(status->chain_signal[0], status->chain_signal[1]);
-	status->freq = dev->chandef.chan->center_freq;
-	status->band = dev->chandef.chan->band;
+	status->freq = dev->mt76.chandef.chan->center_freq;
+	status->band = dev->mt76.chandef.chan->band;
 
 	mt76x2_mac_process_rate(status, rate);
 
@@ -312,7 +312,7 @@ mt76x2_mac_fill_tx_status(struct mt76x2_dev *dev, struct ieee80211_tx_info *info
 
 	last_rate = min_t(int, st->retry, IEEE80211_TX_MAX_RATES - 1);
 	mt76x2_mac_process_tx_rate(&rate[last_rate], st->rate,
-				 dev->chandef.chan->band);
+				 dev->mt76.chandef.chan->band);
 	if (last_rate < IEEE80211_TX_MAX_RATES - 1)
 		rate[last_rate + 1].idx = -1;
 
