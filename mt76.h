@@ -158,6 +158,8 @@ struct mt76_hw_cap {
 struct mt76_driver_ops {
 	u16 txwi_size;
 
+	void (*update_survey)(struct mt76_dev *dev);
+
 	int (*tx_prepare_skb)(struct mt76_dev *dev, void *txwi_ptr,
 			      struct sk_buff *skb, struct mt76_queue *q,
 			      struct mt76_wcid *wcid,
@@ -172,11 +174,23 @@ struct mt76_driver_ops {
 	void (*rx_poll_complete)(struct mt76_dev *dev, enum mt76_rxq_id q);
 };
 
+struct mt76_channel_state {
+	u64 cc_active;
+	u64 cc_busy;
+};
+
+struct mt76_sband {
+	struct ieee80211_supported_band sband;
+	struct mt76_channel_state *chan;
+};
+
 struct mt76_dev {
 	struct ieee80211_hw *hw;
 	struct cfg80211_chan_def chandef;
+	struct ieee80211_channel *main_chan;
 
 	spinlock_t lock;
+	spinlock_t cc_lock;
 	const struct mt76_bus_ops *bus;
 	const struct mt76_driver_ops *drv;
 	void __iomem *regs;
@@ -195,8 +209,8 @@ struct mt76_dev {
 	u32 rev;
 	unsigned long state;
 
-	struct ieee80211_supported_band sband_2g;
-	struct ieee80211_supported_band sband_5g;
+	struct mt76_sband sband_2g;
+	struct mt76_sband sband_5g;
 	struct debugfs_blob_wrapper eeprom;
 	struct debugfs_blob_wrapper otp;
 	struct mt76_hw_cap cap;
@@ -260,6 +274,21 @@ static inline u16 mt76_rev(struct mt76_dev *dev)
 #define mt76_queue_tx_cleanup(dev, ...)	(dev)->mt76.queue_ops->tx_cleanup(&((dev)->mt76), __VA_ARGS__)
 #define mt76_queue_kick(dev, ...)	(dev)->mt76.queue_ops->kick(&((dev)->mt76), __VA_ARGS__)
 
+static inline struct mt76_channel_state *
+mt76_channel_state(struct mt76_dev *dev, struct ieee80211_channel *c)
+{
+	struct mt76_sband *msband;
+	int idx;
+
+	if (c->band == NL80211_BAND_2GHZ)
+		msband = &dev->sband_2g;
+	else
+		msband = &dev->sband_5g;
+
+	idx = c - &msband->sband.channels[0];
+	return &msband->chan[idx];
+}
+
 int mt76_register_device(struct mt76_dev *dev, bool vht,
 			 struct ieee80211_rate *rates, int n_rates);
 void mt76_unregister_device(struct mt76_dev *dev);
@@ -295,6 +324,9 @@ void mt76_release_buffered_frames(struct ieee80211_hw *hw,
 				  u16 tids, int nframes,
 				  enum ieee80211_frame_release_type reason,
 				  bool more_data);
+void mt76_set_channel(struct mt76_dev *dev);
+int mt76_get_survey(struct ieee80211_hw *hw, int idx,
+		     struct survey_info *survey);
 
 /* internal */
 void mt76_tx_free(struct mt76_dev *dev);

@@ -74,10 +74,11 @@ static const struct ieee80211_channel mt76_channels_5ghz[] = {
 };
 
 static int
-mt76_init_sband(struct mt76_dev *dev, struct ieee80211_supported_band *sband,
+mt76_init_sband(struct mt76_dev *dev, struct mt76_sband *msband,
 		const struct ieee80211_channel *chan, int n_chan,
 		struct ieee80211_rate *rates, int n_rates, bool vht)
 {
+	struct ieee80211_supported_band *sband = &msband->sband;
 	struct ieee80211_sta_ht_cap *ht_cap;
 	struct ieee80211_sta_vht_cap *vht_cap;
 	void *chanlist;
@@ -87,6 +88,11 @@ mt76_init_sband(struct mt76_dev *dev, struct ieee80211_supported_band *sband,
 	size = n_chan * sizeof(*chan);
 	chanlist = devm_kmemdup(dev->dev, chan, size, GFP_KERNEL);
 	if (!chanlist)
+		return -ENOMEM;
+
+	msband->chan = devm_kzalloc(dev->dev, n_chan * sizeof(*msband->chan),
+				    GFP_KERNEL);
+	if (!msband->chan)
 		return -ENOMEM;
 
 	sband->channels = chanlist;
@@ -139,7 +145,7 @@ static int
 mt76_init_sband_2g(struct mt76_dev *dev, struct ieee80211_rate *rates,
 		   int n_rates)
 {
-	dev->hw->wiphy->bands[NL80211_BAND_2GHZ] = &dev->sband_2g;
+	dev->hw->wiphy->bands[NL80211_BAND_2GHZ] = &dev->sband_2g.sband;
 
 	return mt76_init_sband(dev, &dev->sband_2g,
 			       mt76_channels_2ghz,
@@ -151,7 +157,7 @@ static int
 mt76_init_sband_5g(struct mt76_dev *dev, struct ieee80211_rate *rates,
 		   int n_rates, bool vht)
 {
-	dev->hw->wiphy->bands[NL80211_BAND_5GHZ] = &dev->sband_5g;
+	dev->hw->wiphy->bands[NL80211_BAND_5GHZ] = &dev->sband_5g.sband;
 
 	return mt76_init_sband(dev, &dev->sband_5g,
 			       mt76_channels_5ghz,
@@ -169,6 +175,7 @@ int mt76_register_device(struct mt76_dev *dev, bool vht,
 	dev_set_drvdata(dev->dev, dev);
 
 	spin_lock_init(&dev->lock);
+	spin_lock_init(&dev->cc_lock);
 	INIT_LIST_HEAD(&dev->txwi_cache);
 
 	SET_IEEE80211_DEV(hw, dev->dev);
@@ -233,6 +240,67 @@ void mt76_rx(struct mt76_dev *dev, enum mt76_rxq_id q, struct sk_buff *skb)
 	__skb_queue_tail(&dev->rx_skb[q], skb);
 }
 EXPORT_SYMBOL_GPL(mt76_rx);
+
+void mt76_set_channel(struct mt76_dev *dev)
+{
+	struct ieee80211_hw *hw = dev->hw;
+	struct cfg80211_chan_def *chandef = &hw->conf.chandef;
+	struct mt76_channel_state *state;
+	bool offchannel = hw->conf.flags & IEEE80211_CONF_OFFCHANNEL;
+
+	if (dev->drv->update_survey)
+		dev->drv->update_survey(dev);
+
+	dev->chandef = *chandef;
+
+	if (!offchannel)
+		dev->main_chan = chandef->chan;
+
+	if (chandef->chan != dev->main_chan) {
+		state = mt76_channel_state(dev, chandef->chan);
+		memset(state, 0, sizeof(*state));
+	}
+}
+EXPORT_SYMBOL_GPL(mt76_set_channel);
+
+int mt76_get_survey(struct ieee80211_hw *hw, int idx,
+		     struct survey_info *survey)
+{
+	struct mt76_dev *dev = hw->priv;
+	struct mt76_sband *sband;
+	struct ieee80211_channel *chan;
+	struct mt76_channel_state *state;
+	int ret = 0;
+
+	if (idx == 0 && dev->drv->update_survey)
+		dev->drv->update_survey(dev);
+
+	sband = &dev->sband_2g;
+	if (idx >= sband->sband.n_channels) {
+		idx -= sband->sband.n_channels;
+		sband = &dev->sband_5g;
+	}
+
+	if (idx >= sband->sband.n_channels)
+		return -ENOENT;
+
+	chan = &sband->sband.channels[idx];
+	state = mt76_channel_state(dev, chan);
+
+	memset(survey, 0, sizeof(*survey));
+	survey->channel = chan;
+	survey->filled = SURVEY_INFO_TIME | SURVEY_INFO_TIME_BUSY;
+	if (chan == dev->main_chan)
+		survey->filled |= SURVEY_INFO_IN_USE;
+
+	spin_lock_bh(&dev->cc_lock);
+	survey->time = div_u64(state->cc_active, 1000);
+	survey->time_busy = div_u64(state->cc_busy, 1000);
+	spin_unlock_bh(&dev->cc_lock);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mt76_get_survey);
 
 void mt76_rx_complete(struct mt76_dev *dev, enum mt76_rxq_id q)
 {

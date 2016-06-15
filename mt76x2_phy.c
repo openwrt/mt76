@@ -487,7 +487,6 @@ int mt76x2_phy_set_channel(struct mt76x2_dev *dev,
 	int ret;
 	u8 sifs = 13;
 
-	dev->mt76.chandef = *chandef;
 	dev->cal.channel_cal_done = false;
 	freq = chandef->chan->center_freq;
 	freq1 = chandef->center_freq1;

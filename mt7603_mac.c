@@ -305,11 +305,11 @@ mt7603_get_rate(struct mt7603_dev *dev, struct ieee80211_supported_band *sband,
 	int i;
 
 	if (cck) {
-		if (WARN_ON_ONCE(sband == &dev->mt76.sband_5g))
+		if (WARN_ON_ONCE(sband == &dev->mt76.sband_5g.sband))
 			return 0;
 
 		idx &= ~BIT(2); /* short preamble */
-	} else if (sband == &dev->mt76.sband_2g) {
+	} else if (sband == &dev->mt76.sband_2g.sband) {
 		offset = 4;
 	}
 
@@ -335,7 +335,7 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 	memset(status, 0, sizeof(*status));
 
 	i = MT76_GET(MT_RXD1_NORMAL_CH_FREQ, rxd[1]);
-	sband = (i & 1) ? &dev->mt76.sband_5g : &dev->mt76.sband_2g;
+	sband = (i & 1) ? &dev->mt76.sband_5g.sband : &dev->mt76.sband_2g.sband;
 	i >>= 1;
 
 	status->band = sband->band;

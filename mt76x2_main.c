@@ -118,11 +118,18 @@ mt76x2_set_channel(struct mt76x2_dev *dev, struct cfg80211_chan_def *chandef)
 {
 	int ret;
 
+	mt76_set_channel(&dev->mt76);
+
 	tasklet_disable(&dev->pre_tbtt_tasklet);
 	cancel_delayed_work_sync(&dev->cal_work);
 
 	mt76x2_mac_stop(dev, true);
 	ret = mt76x2_phy_set_channel(dev, chandef);
+
+	/* channel cycle counters read-and-clear */
+	mt76_rr(dev, MT_CH_IDLE);
+	mt76_rr(dev, MT_CH_BUSY);
+
 	mt76x2_mac_resume(dev);
 	tasklet_enable(&dev->pre_tbtt_tasklet);
 
@@ -504,5 +511,6 @@ const struct ieee80211_ops mt76x2_ops = {
 	.sta_rate_tbl_update = mt76x2_sta_rate_tbl_update,
 	.release_buffered_frames = mt76_release_buffered_frames,
 	.set_coverage_class = mt76x2_set_coverage_class,
+	.get_survey = mt76_get_survey,
 };
 
