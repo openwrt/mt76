@@ -547,7 +547,8 @@ int mt76x2_init_hardware(struct mt76x2_dev *dev)
 		     (unsigned long) dev);
 
 	dev->chainmask = 0x202;
-
+	dev->global_wcid.idx = 255;
+	dev->global_wcid.hw_key_idx = -1;
 	dev->slottime = 9;
 
 	val = mt76_rr(dev, MT_WPDMA_GLO_CFG);

@@ -112,6 +112,7 @@ struct mt76x2_dev {
 
 	u32 aggr_stats[32];
 
+	struct mt76_wcid global_wcid;
 	struct mt76_wcid __rcu *wcid[254 - 8];
 
 	spinlock_t irq_lock;
