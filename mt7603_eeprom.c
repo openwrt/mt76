@@ -103,21 +103,26 @@ mt7603_apply_cal_free_data(struct mt7603_dev *dev, u8 *efuse)
 {
 	static const u8 cal_free_bytes[] = {
 		MT_EE_TEMP_SENSOR_CAL,
-		MT_EE_TX_POWER_0_START_2G,
-		MT_EE_TX_POWER_0_START_2G + 1,
 		MT_EE_TX_POWER_1_START_2G,
 		MT_EE_TX_POWER_1_START_2G + 1,
 		MT_EE_CP_FT_VERSION,
 		MT_EE_XTAL_FREQ_OFFSET,
 		MT_EE_XTAL_WF_RFCAL,
+		/* Skip for MT7628 */
+		MT_EE_TX_POWER_0_START_2G,
+		MT_EE_TX_POWER_0_START_2G + 1,
 	};
 	u8 *eeprom = dev->mt76.eeprom.data;
+	int n = ARRAY_SIZE(cal_free_bytes);
 	int i;
 
 	if (!mt7603_has_cal_free_data(dev, efuse))
 	    return;
 
-	for (i = 0; i < ARRAY_SIZE(cal_free_bytes); i++) {
+	if (is_mt7628(dev))
+		n -= 2;
+
+	for (i = 0; i < n; i++) {
 	    int offset = cal_free_bytes[i];
 	    eeprom[offset] = efuse[offset];
 	}
