@@ -73,18 +73,6 @@ struct mt76x2_calibration {
 	bool channel_cal_done;
 };
 
-struct mt76x2_rate_power {
-	union {
-		struct {
-			s8 cck[4];
-			s8 ofdm[8];
-			s8 ht[16];
-			s8 vht[10];
-		};
-		s8 all[38];
-	};
-};
-
 struct mt76x2_dev {
 	struct mt76_dev mt76; /* must be first */
 
@@ -130,7 +118,7 @@ struct mt76x2_dev {
 
 	s8 target_power;
 	s8 target_power_delta[2];
-	struct mt76x2_rate_power rate_power;
+	struct mt76_rate_power rate_power;
 
 	u8 coverage_class;
 	u8 slottime;

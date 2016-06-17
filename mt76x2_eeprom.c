@@ -410,7 +410,7 @@ mt76x2_rate_power_val(u8 val)
 	return mt76x2_sign_extend_optional(val, 7);
 }
 
-void mt76x2_get_rate_power(struct mt76x2_dev *dev, struct mt76x2_rate_power *t)
+void mt76x2_get_rate_power(struct mt76x2_dev *dev, struct mt76_rate_power *t)
 {
 	bool is_5ghz = false;
 	u16 val;

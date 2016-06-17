@@ -81,7 +81,7 @@ mt76x2_txpower_check(int value)
 }
 
 static void
-mt76x2_add_rate_power_offset(struct mt76x2_rate_power *r, int offset)
+mt76x2_add_rate_power_offset(struct mt76_rate_power *r, int offset)
 {
 	int i;
 
@@ -90,7 +90,7 @@ mt76x2_add_rate_power_offset(struct mt76x2_rate_power *r, int offset)
 }
 
 static void
-mt76x2_limit_rate_power(struct mt76x2_rate_power *r, int limit)
+mt76x2_limit_rate_power(struct mt76_rate_power *r, int limit)
 {
 	int i;
 
@@ -100,7 +100,7 @@ mt76x2_limit_rate_power(struct mt76x2_rate_power *r, int limit)
 }
 
 static int
-mt76x2_get_max_power(struct mt76x2_rate_power *r)
+mt76x2_get_max_power(struct mt76_rate_power *r)
 {
 	int i;
 	s8 ret = 0;
@@ -116,7 +116,7 @@ void mt76x2_phy_set_txpower(struct mt76x2_dev *dev)
 	enum nl80211_chan_width width = dev->mt76.chandef.width;
 	struct mt76x2_tx_power_info txp;
 	int txp_0, txp_1, delta = 0;
-	struct mt76x2_rate_power t = {};
+	struct mt76_rate_power t = {};
 
 	mt76x2_get_power_info(dev, &txp);
 
