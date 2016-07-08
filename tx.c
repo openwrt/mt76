@@ -198,7 +198,7 @@ mt76_txq_dequeue(struct mt76_dev *dev, struct mt76_txq *mtxq, bool ps)
 	if (skb) {
 		u8 tid = skb->priority & IEEE80211_QOS_CTL_TID_MASK;
 
-		if (ps && skb_queue_empty(&mtxq->retry_q));
+		if (ps && skb_queue_empty(&mtxq->retry_q))
 			ieee80211_sta_set_buffered(txq->sta, tid, false);
 
 		return skb;
