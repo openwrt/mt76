@@ -126,6 +126,7 @@ struct mt76_wcid {
 	__le16 tx_rate;
 	bool tx_rate_set;
 	u8 tx_rate_nss;
+	s8 max_txpwr_adj;
 };
 
 struct mt76_txq {

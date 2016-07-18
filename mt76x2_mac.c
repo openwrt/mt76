@@ -163,6 +163,7 @@ void mt76x2_mac_write_txwi(struct mt76x2_dev *dev, struct mt76x2_txwi *txwi,
 	u16 rate_ht_mask = MT76_SET(MT_RXWI_RATE_PHY, BIT(1) | BIT(2));
 	u16 txwi_flags = 0;
 	u8 nss;
+	s8 txpwr_adj, max_txpwr_adj;
 
 	memset(txwi, 0, sizeof(*txwi));
 
@@ -176,11 +177,17 @@ void mt76x2_mac_write_txwi(struct mt76x2_dev *dev, struct mt76x2_txwi *txwi,
 	spin_lock_bh(&dev->mt76.lock);
 	if (rate->idx < 0 || !rate->count) {
 		txwi->rate = wcid->tx_rate;
+		max_txpwr_adj = wcid->max_txpwr_adj;
 		nss = wcid->tx_rate_nss;
 	} else {
 		txwi->rate = mt76x2_mac_tx_rate_val(dev, rate, &nss);
+		max_txpwr_adj = mt76x3_tx_get_max_txpwr_adj(dev, rate);
 	}
 	spin_unlock_bh(&dev->mt76.lock);
+
+	txpwr_adj = mt76x2_tx_get_txpwr_adj(dev, dev->txpower_conf,
+					    max_txpwr_adj);
+	txwi->ctl2 = MT76_SET(MT_TX_PWR_ADJ, txpwr_adj);
 
 	if (mt76xx_rev(dev) >= MT76XX_REV_E4)
 		txwi->txstream = 0x13;

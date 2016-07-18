@@ -108,6 +108,8 @@ struct mt76x2_rxwi {
 #define MT_RATE_INDEX_VHT_IDX		GENMASK(3, 0)
 #define MT_RATE_INDEX_VHT_NSS		GENMASK(5, 4)
 
+#define MT_TX_PWR_ADJ			GENMASK(3, 0)
+
 enum mt76x2_phy_bandwith {
 	MT_PHY_BW_20,
 	MT_PHY_BW_40,
