@@ -150,8 +150,10 @@ mt76x2_config(struct ieee80211_hw *hw, u32 changed)
 	if (changed & IEEE80211_CONF_CHANGE_POWER) {
 		dev->txpower_conf = hw->conf.power_level * 2;
 
-		if (test_bit(MT76_STATE_RUNNING, &dev->mt76.state))
+		if (test_bit(MT76_STATE_RUNNING, &dev->mt76.state)) {
 			mt76x2_phy_set_txpower(dev);
+			mt76x2_tx_set_txpwr_auto(dev, dev->txpower_conf);
+		}
 	}
 
 	if (changed & IEEE80211_CONF_CHANGE_CHANNEL) {
