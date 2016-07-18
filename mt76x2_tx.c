@@ -104,7 +104,9 @@ s8 mt76x2_tx_get_txpwr_adj(struct mt76x2_dev *dev, s8 txpwr, s8 max_txpwr_adj)
 	txpwr -= (dev->target_power + dev->target_power_delta[0]);
 	txpwr = min_t(s8, txpwr, max_txpwr_adj);
 
-	if (txpwr >= 0)
+	if (!dev->enable_tpc)
+		return 0;
+	else if (txpwr >= 0)
 		return min_t(s8, txpwr, 7);
 	else
 		return (txpwr < -16) ? 8 : (txpwr + 32) / 2;

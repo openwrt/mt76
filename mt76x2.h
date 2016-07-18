@@ -122,6 +122,7 @@ struct mt76x2_dev {
 	s8 target_power;
 	s8 target_power_delta[2];
 	struct mt76_rate_power rate_power;
+	bool enable_tpc;
 
 	u8 coverage_class;
 	u8 slottime;
