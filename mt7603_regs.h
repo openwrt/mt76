@@ -367,6 +367,7 @@ enum {
 
 #define MT_BSSID0(idx)			MT_WF_RMAC(0x004 + idx * 8)
 #define MT_BSSID1(idx)			MT_WF_RMAC(0x008 + idx * 8)
+#define MT_BSSID1_VALID			BIT(16)
 
 #define MT_MAC_ADDR0(idx)		MT_WF_RMAC(0x024 + idx * 8)
 #define MT_MAC_ADDR1(idx)		MT_WF_RMAC(0x028 + idx * 8)

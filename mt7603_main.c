@@ -224,10 +224,16 @@ mt7603_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	mutex_lock(&dev->mutex);
 
 	if (changed & (BSS_CHANGED_ASSOC | BSS_CHANGED_BSSID)) {
-		mt76_wr(dev, MT_BSSID0(mvif->idx),
-			get_unaligned_le32(info->bssid));
-		mt76_wr(dev, MT_BSSID1(mvif->idx),
-			get_unaligned_le16(info->bssid + 4));
+		if (info->assoc || info->ibss_joined) {
+			mt76_wr(dev, MT_BSSID0(mvif->idx),
+				get_unaligned_le32(info->bssid));
+			mt76_wr(dev, MT_BSSID1(mvif->idx),
+				(get_unaligned_le16(info->bssid + 4) |
+				 MT_BSSID1_VALID));
+		} else {
+			mt76_wr(dev, MT_BSSID0(mvif->idx), 0);
+			mt76_wr(dev, MT_BSSID1(mvif->idx), 0);
+		}
 	}
 
 	if (changed & BSS_CHANGED_ERP_SLOT) {
