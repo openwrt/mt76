@@ -186,8 +186,7 @@ mt7603_configure_filter(struct ieee80211_hw *hw, unsigned int changed_flags,
 		dev->rxfilter |= !(flags & FIF_##_flag) * (_hw);	\
 	} while (0)
 
-	dev->rxfilter &= ~(MT_WF_RFCR_DROP_OTHER_BSS |
-			   MT_WF_RFCR_DROP_OTHER_BEACON |
+	dev->rxfilter &= ~(MT_WF_RFCR_DROP_OTHER_BEACON |
 			   MT_WF_RFCR_DROP_FRAME_REPORT |
 			   MT_WF_RFCR_DROP_PROBEREQ |
 			   MT_WF_RFCR_DROP_MCAST_FILTERED |
