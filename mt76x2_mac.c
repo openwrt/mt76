@@ -181,7 +181,7 @@ void mt76x2_mac_write_txwi(struct mt76x2_dev *dev, struct mt76x2_txwi *txwi,
 		nss = wcid->tx_rate_nss;
 	} else {
 		txwi->rate = mt76x2_mac_tx_rate_val(dev, rate, &nss);
-		max_txpwr_adj = mt76x3_tx_get_max_txpwr_adj(dev, rate);
+		max_txpwr_adj = mt76x2_tx_get_max_txpwr_adj(dev, rate);
 	}
 	spin_unlock_bh(&dev->mt76.lock);
 

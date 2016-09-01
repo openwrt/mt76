@@ -60,7 +60,7 @@ void mt76x2_tx_complete(struct mt76x2_dev *dev, struct sk_buff *skb)
 	}
 }
 
-s8 mt76x3_tx_get_max_txpwr_adj(struct mt76x2_dev *dev,
+s8 mt76x2_tx_get_max_txpwr_adj(struct mt76x2_dev *dev,
 			       const struct ieee80211_tx_rate *rate)
 {
 	s8 max_txpwr;
