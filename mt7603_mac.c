@@ -46,13 +46,13 @@ mt76_start_tx_ac(struct mt7603_dev *dev, u32 mask)
 
 void mt7603_mac_set_timing(struct mt7603_dev *dev)
 {
-	u32 cck = MT76_SET(MT_TIMEOUT_VAL_PLCP, 247) |
-		  MT76_SET(MT_TIMEOUT_VAL_CCA, 64);
-	u32 ofdm = MT76_SET(MT_TIMEOUT_VAL_PLCP, 113) |
-		   MT76_SET(MT_TIMEOUT_VAL_CCA, 64);
+	u32 cck = FIELD_PREP(MT_TIMEOUT_VAL_PLCP, 247) |
+		  FIELD_PREP(MT_TIMEOUT_VAL_CCA, 64);
+	u32 ofdm = FIELD_PREP(MT_TIMEOUT_VAL_PLCP, 113) |
+		   FIELD_PREP(MT_TIMEOUT_VAL_CCA, 64);
 	int offset = 3 * dev->coverage_class;
-	u32 reg_offset = MT76_SET(MT_TIMEOUT_VAL_PLCP, offset) |
-			 MT76_SET(MT_TIMEOUT_VAL_CCA, offset);
+	u32 reg_offset = FIELD_PREP(MT_TIMEOUT_VAL_PLCP, offset) |
+			 FIELD_PREP(MT_TIMEOUT_VAL_CCA, offset);
 	int sifs;
 
 	if (dev->mt76.chandef.chan->band == NL80211_BAND_5GHZ)
@@ -69,7 +69,7 @@ static void
 mt7603_wtbl_update(struct mt7603_dev *dev, int idx, u32 mask)
 {
 	mt76_rmw(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_WLAN_IDX,
-		 MT76_SET(MT_WTBL_UPDATE_WLAN_IDX, idx) | mask);
+		 FIELD_PREP(MT_WTBL_UPDATE_WLAN_IDX, idx) | mask);
 
 	mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000);
 }
@@ -108,9 +108,9 @@ void mt7603_wtbl_init(struct mt7603_dev *dev, int idx, const u8 *mac_addr)
 	int i;
 
 	mt76_set(dev, addr + 0 * 4,
-		 MT76_SET(MT_WTBL1_W0_ADDR_HI, get_unaligned_le16(_mac + 4)));
+		 FIELD_PREP(MT_WTBL1_W0_ADDR_HI, get_unaligned_le16(_mac + 4)));
 	mt76_set(dev, addr + 1 * 4,
-		 MT76_SET(MT_WTBL1_W1_ADDR_LO, get_unaligned_le32(_mac)));
+		 FIELD_PREP(MT_WTBL1_W1_ADDR_LO, get_unaligned_le32(_mac)));
 	mt76_set(dev, addr + 2 * 4, MT_WTBL1_W2_ADMISSION_CONTROL);
 
 	addr = mt7603_wtbl2_addr(idx);
@@ -166,14 +166,14 @@ void mt7603_wtbl_clear(struct mt7603_dev *dev, int idx)
 	mt76_set(dev, MT_WTBL1_OR, MT_WTBL1_OR_PSM_WRITE);
 
 	mt76_wr(dev, addr + 3 * 4,
-		MT76_SET(MT_WTBL1_W3_WTBL2_FRAME_ID, wtbl2_frame) |
-		MT76_SET(MT_WTBL1_W3_WTBL2_ENTRY_ID, wtbl2_entry) |
-		MT76_SET(MT_WTBL1_W3_WTBL4_FRAME_ID, wtbl4_frame) |
+		FIELD_PREP(MT_WTBL1_W3_WTBL2_FRAME_ID, wtbl2_frame) |
+		FIELD_PREP(MT_WTBL1_W3_WTBL2_ENTRY_ID, wtbl2_entry) |
+		FIELD_PREP(MT_WTBL1_W3_WTBL4_FRAME_ID, wtbl4_frame) |
 		MT_WTBL1_W3_I_PSM | MT_WTBL1_W3_KEEP_I_PSM);
 	mt76_wr(dev, addr + 4 * 4,
-		MT76_SET(MT_WTBL1_W4_WTBL3_FRAME_ID, wtbl3_frame) |
-		MT76_SET(MT_WTBL1_W4_WTBL3_ENTRY_ID, wtbl3_entry) |
-		MT76_SET(MT_WTBL1_W4_WTBL4_ENTRY_ID, wtbl4_entry));
+		FIELD_PREP(MT_WTBL1_W4_WTBL3_FRAME_ID, wtbl3_frame) |
+		FIELD_PREP(MT_WTBL1_W4_WTBL3_ENTRY_ID, wtbl3_entry) |
+		FIELD_PREP(MT_WTBL1_W4_WTBL4_ENTRY_ID, wtbl4_entry));
 
 	mt76_clear(dev, MT_WTBL1_OR, MT_WTBL1_OR_PSM_WRITE);
 
@@ -204,8 +204,8 @@ void mt7603_wtbl_update_cap(struct mt7603_dev *dev, struct ieee80211_sta *sta)
 
 	val = mt76_rr(dev, addr + 2 * 4);
 	val &= MT_WTBL1_W2_KEY_TYPE | MT_WTBL1_W2_ADMISSION_CONTROL;
-	val |= MT76_SET(MT_WTBL1_W2_AMPDU_FACTOR, sta->ht_cap.ampdu_factor) |
-	       MT76_SET(MT_WTBL1_W2_MPDU_DENSITY, sta->ht_cap.ampdu_density) |
+	val |= FIELD_PREP(MT_WTBL1_W2_AMPDU_FACTOR, sta->ht_cap.ampdu_factor) |
+	       FIELD_PREP(MT_WTBL1_W2_MPDU_DENSITY, sta->ht_cap.ampdu_density) |
 	       MT_WTBL1_W2_TXS_BAF_REPORT;
 
 	if (sta->ht_cap.cap)
@@ -231,7 +231,7 @@ void mt7603_mac_rx_ba_reset(struct mt7603_dev *dev, void *addr, u8 tid)
 	mt76_wr(dev, MT_BA_CONTROL_0, get_unaligned_le32(addr));
 	mt76_wr(dev, MT_BA_CONTROL_1,
 		(get_unaligned_le16(addr + 4) |
-		 MT76_SET(MT_BA_CONTROL_1_TID, tid) |
+		 FIELD_PREP(MT_BA_CONTROL_1_TID, tid) |
 		 MT_BA_CONTROL_1_RESET));
 }
 
@@ -239,7 +239,7 @@ void mt7603_mac_tx_ba_reset(struct mt7603_dev *dev, int wcid, int tid, int ssn,
 			    int ba_size)
 {
 	u32 addr = mt7603_wtbl2_addr(wcid);
-	u32 tid_mask = MT76_SET(MT_WTBL2_W15_BA_EN_TIDS, BIT(tid)) |
+	u32 tid_mask = FIELD_PREP(MT_WTBL2_W15_BA_EN_TIDS, BIT(tid)) |
 		       (MT_WTBL2_W15_BA_WIN_SIZE <<
 			(tid * MT_WTBL2_W15_BA_WIN_SIZE_SHIFT));
 	u32 tid_val;
@@ -293,7 +293,7 @@ void mt7603_mac_tx_ba_reset(struct mt7603_dev *dev, int wcid, int tid, int ssn,
 			break;
 	}
 
-	tid_val = MT76_SET(MT_WTBL2_W15_BA_EN_TIDS, BIT(tid)) |
+	tid_val = FIELD_PREP(MT_WTBL2_W15_BA_EN_TIDS, BIT(tid)) |
 		  i << (tid * MT_WTBL2_W15_BA_WIN_SIZE_SHIFT);
 
 	mt76_rmw(dev, addr + (15 * 4), tid_mask, tid_val);
@@ -337,7 +337,7 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 
 	memset(status, 0, sizeof(*status));
 
-	i = MT76_GET(MT_RXD1_NORMAL_CH_FREQ, rxd[1]);
+	i = FIELD_GET(MT_RXD1_NORMAL_CH_FREQ, rxd[1]);
 	sband = (i & 1) ? &dev->mt76.sband_5g.sband : &dev->mt76.sband_2g.sband;
 	i >>= 1;
 
@@ -351,7 +351,7 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 	if (rxd[2] & MT_RXD2_NORMAL_TKIP_MIC_ERR)
 		status->flag |= RX_FLAG_MMIC_ERROR;
 
-	if (MT76_GET(MT_RXD2_NORMAL_SEC_MODE, rxd[2]) != 0 &&
+	if (FIELD_GET(MT_RXD2_NORMAL_SEC_MODE, rxd[2]) != 0 &&
 	    !(rxd[2] & (MT_RXD2_NORMAL_CLM | MT_RXD2_NORMAL_CM))) {
 		status->flag |= RX_FLAG_DECRYPTED;
 		status->flag |= RX_FLAG_IV_STRIPPED | RX_FLAG_MMIC_STRIPPED;
@@ -384,8 +384,8 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 	if (rxd0 & MT_RXD0_NORMAL_GROUP_3) {
 		bool cck = false;
 
-		i = MT76_GET(MT_RXV1_TX_RATE, rxd[0]);
-		switch (MT76_GET(MT_RXV1_TX_MODE, rxd[0])) {
+		i = FIELD_GET(MT_RXV1_TX_RATE, rxd[0]);
+		switch (FIELD_GET(MT_RXV1_TX_MODE, rxd[0])) {
 		case MT_PHY_TYPE_CCK:
 			cck = true;
 			/* fall through */
@@ -407,14 +407,14 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 			status->flag |= RX_FLAG_SHORT_GI;
 
 		status->flag |= RX_FLAG_STBC_MASK *
-				    MT76_GET(MT_RXV1_HT_STBC, rxd[0]);
+				    FIELD_GET(MT_RXV1_HT_STBC, rxd[0]);
 
 		status->rate_idx = i;
 
 		status->chains = BIT(0) | BIT(1);
-		status->chain_signal[0] = MT76_GET(MT_RXV4_IB_RSSI0, rxd[3]) +
+		status->chain_signal[0] = FIELD_GET(MT_RXV4_IB_RSSI0, rxd[3]) +
 					  dev->rssi_offset[0];
-		status->chain_signal[1] = MT76_GET(MT_RXV4_IB_RSSI1, rxd[3]) +
+		status->chain_signal[1] = FIELD_GET(MT_RXV4_IB_RSSI1, rxd[3]) +
 					  dev->rssi_offset[1];
 		status->signal = max(status->chain_signal[0], status->chain_signal[1]);
 
@@ -460,8 +460,8 @@ mt7603_mac_tx_rate_val(struct mt7603_dev *dev,
 		rate_idx = val & 0xff;
 	}
 
-	rateval = (MT76_SET(MT_TX_RATE_IDX, rate_idx) |
-		   MT76_SET(MT_TX_RATE_MODE, phy));
+	rateval = (FIELD_PREP(MT_TX_RATE_IDX, rate_idx) |
+		   FIELD_PREP(MT_TX_RATE_MODE, phy));
 
 	if (stbc && nss == 1)
 		rateval |= MT_TX_RATE_STBC;
@@ -494,8 +494,8 @@ void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta)
 	      MT_WTBL2_W9_SHORT_GI_80;
 
 	val[0] = mt7603_mac_tx_rate_val(dev, &rates[0], stbc, &bw);
-	w9 |= MT76_SET(MT_WTBL2_W9_CC_BW_SEL, bw);
-	w9 |= MT76_SET(MT_WTBL2_W9_BW_CAP, bw);
+	w9 |= FIELD_PREP(MT_WTBL2_W9_CC_BW_SEL, bw);
+	w9 |= FIELD_PREP(MT_WTBL2_W9_BW_CAP, bw);
 
 	bw_prev = bw;
 	val[1] = mt7603_mac_tx_rate_val(dev, &rates[1], stbc, &bw);
@@ -512,29 +512,29 @@ void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta)
 	if (bw_prev < bw && !bw_idx)
 		bw_idx = 3;
 
-	w9 |= MT76_SET(MT_WTBL2_W9_CHANGE_BW_RATE,
+	w9 |= FIELD_PREP(MT_WTBL2_W9_CHANGE_BW_RATE,
 		       bw_idx ? bw_idx - 1 : 7);
 
 	mt76_wr(dev, MT_WTBL_RIUCR0, w9);
 
 	mt76_wr(dev, MT_WTBL_RIUCR1,
-		MT76_SET(MT_WTBL_RIUCR1_RATE0, val[0]) |
-		MT76_SET(MT_WTBL_RIUCR1_RATE1, val[0]) |
-		MT76_SET(MT_WTBL_RIUCR1_RATE2_LO, val[1]));
+		FIELD_PREP(MT_WTBL_RIUCR1_RATE0, val[0]) |
+		FIELD_PREP(MT_WTBL_RIUCR1_RATE1, val[0]) |
+		FIELD_PREP(MT_WTBL_RIUCR1_RATE2_LO, val[1]));
 
 	mt76_wr(dev, MT_WTBL_RIUCR2,
-		MT76_SET(MT_WTBL_RIUCR2_RATE2_HI, val[1] >> 8) |
-		MT76_SET(MT_WTBL_RIUCR2_RATE3, val[1]) |
-		MT76_SET(MT_WTBL_RIUCR2_RATE4, val[2]) |
-		MT76_SET(MT_WTBL_RIUCR2_RATE5_LO, val[2]));
+		FIELD_PREP(MT_WTBL_RIUCR2_RATE2_HI, val[1] >> 8) |
+		FIELD_PREP(MT_WTBL_RIUCR2_RATE3, val[1]) |
+		FIELD_PREP(MT_WTBL_RIUCR2_RATE4, val[2]) |
+		FIELD_PREP(MT_WTBL_RIUCR2_RATE5_LO, val[2]));
 
 	mt76_wr(dev, MT_WTBL_RIUCR3,
-		MT76_SET(MT_WTBL_RIUCR3_RATE5_HI, val[2] >> 4) |
-		MT76_SET(MT_WTBL_RIUCR3_RATE6, val[3]) |
-		MT76_SET(MT_WTBL_RIUCR3_RATE7, val[3]));
+		FIELD_PREP(MT_WTBL_RIUCR3_RATE5_HI, val[2] >> 4) |
+		FIELD_PREP(MT_WTBL_RIUCR3_RATE6, val[3]) |
+		FIELD_PREP(MT_WTBL_RIUCR3_RATE7, val[3]));
 
 	mt76_wr(dev, MT_WTBL_UPDATE,
-		MT76_SET(MT_WTBL_UPDATE_WLAN_IDX, wcid) |
+		FIELD_PREP(MT_WTBL_UPDATE_WLAN_IDX, wcid) |
 		MT_WTBL_UPDATE_RATE_UPDATE |
 		MT_WTBL_UPDATE_TX_COUNT_CLEAR);
 
@@ -624,24 +624,24 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 	else
 		wlan_idx = MT7603_WTBL_RESERVED;
 
-	frame_type = MT76_GET(IEEE80211_FCTL_FTYPE,
+	frame_type = FIELD_GET(IEEE80211_FCTL_FTYPE,
 			      le16_to_cpu(hdr->frame_control));
-	frame_subtype = MT76_GET(IEEE80211_FCTL_STYPE,
+	frame_subtype = FIELD_GET(IEEE80211_FCTL_STYPE,
 				 le16_to_cpu(hdr->frame_control));
 
 	txwi[0] = cpu_to_le32(
-		MT76_SET(MT_TXD0_TX_BYTES, skb->len + MT_TXD_SIZE) |
-		MT76_SET(MT_TXD0_Q_IDX, q->hw_idx)
+		FIELD_PREP(MT_TXD0_TX_BYTES, skb->len + MT_TXD_SIZE) |
+		FIELD_PREP(MT_TXD0_Q_IDX, q->hw_idx)
 	);
 	txwi[1] = cpu_to_le32(
 		MT_TXD1_LONG_FORMAT |
-		MT76_SET(MT_TXD1_OWN_MAC, 0) |
-		MT76_SET(MT_TXD1_TID, skb->priority &
+		FIELD_PREP(MT_TXD1_OWN_MAC, 0) |
+		FIELD_PREP(MT_TXD1_TID, skb->priority &
 				      IEEE80211_QOS_CTL_TID_MASK) |
-		MT76_SET(MT_TXD1_HDR_FORMAT, MT_HDR_FORMAT_802_11) |
-		MT76_SET(MT_TXD1_HDR_INFO, hdr_len / 2) |
-		MT76_SET(MT_TXD1_WLAN_IDX, wlan_idx) |
-		MT76_SET(MT_TXD1_PROTECTED, !!key)
+		FIELD_PREP(MT_TXD1_HDR_FORMAT, MT_HDR_FORMAT_802_11) |
+		FIELD_PREP(MT_TXD1_HDR_INFO, hdr_len / 2) |
+		FIELD_PREP(MT_TXD1_WLAN_IDX, wlan_idx) |
+		FIELD_PREP(MT_TXD1_PROTECTED, !!key)
 	);
 
 	if (info->flags & IEEE80211_TX_CTL_NO_ACK) {
@@ -650,9 +650,9 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 	}
 
 	txwi[2] = cpu_to_le32(
-		MT76_SET(MT_TXD2_FRAME_TYPE, frame_type) |
-		MT76_SET(MT_TXD2_SUB_TYPE, frame_subtype) |
-		MT76_SET(MT_TXD2_MULTICAST, is_multicast_ether_addr(hdr->addr1))
+		FIELD_PREP(MT_TXD2_FRAME_TYPE, frame_type) |
+		FIELD_PREP(MT_TXD2_SUB_TYPE, frame_subtype) |
+		FIELD_PREP(MT_TXD2_MULTICAST, is_multicast_ether_addr(hdr->addr1))
 	);
 
 	if (!(info->flags & IEEE80211_TX_CTL_AMPDU))
@@ -661,7 +661,7 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 	txwi[4] = 0;
 	txwi[5] = cpu_to_le32(
 		MT_TXD5_TX_STATUS_HOST | MT_TXD5_SW_POWER_MGMT |
-		MT76_SET(MT_TXD5_PID, pid)
+		FIELD_PREP(MT_TXD5_PID, pid)
 	);
 	txwi[6] = 0;
 
@@ -672,8 +672,8 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 		txwi[6] |= cpu_to_le32(
 			MT_TXD6_FIXED_RATE |
 			MT_TXD6_FIXED_BW |
-			MT76_SET(MT_TXD6_BW, bw) |
-			MT76_SET(MT_TXD6_TX_RATE, rateval)
+			FIELD_PREP(MT_TXD6_BW, bw) |
+			FIELD_PREP(MT_TXD6_TX_RATE, rateval)
 		);
 
 		if (rate->flags & IEEE80211_TX_RC_SHORT_GI)
@@ -690,15 +690,15 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 		tx_count = 0x1f;
 
 	txwi[3] = cpu_to_le32(
-		MT76_SET(MT_TXD3_REM_TX_COUNT, tx_count) |
-		MT76_SET(MT_TXD3_SEQ, le16_to_cpu(hdr->seq_ctrl))
+		FIELD_PREP(MT_TXD3_REM_TX_COUNT, tx_count) |
+		FIELD_PREP(MT_TXD3_SEQ, le16_to_cpu(hdr->seq_ctrl))
 	);
 
 	if (key) {
 		u64 pn = atomic64_inc_return(&key->tx_pn);
 		txwi[3] |= cpu_to_le32(MT_TXD3_PN_VALID);
 		txwi[4] = pn & GENMASK(31, 0);
-		txwi[5] |= MT76_SET(MT_TXD5_PN_HIGH, pn >> 32);
+		txwi[5] |= FIELD_PREP(MT_TXD5_PN_HIGH, pn >> 32);
 	}
 
 	txwi[7] = 0;
@@ -784,8 +784,8 @@ mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 	txs = le32_to_cpu(txs_data[4]);
 	final_mpdu = txs & MT_TXS4_ACKED_MPDU;
 	ampdu = !fixed_rate && (txs & MT_TXS4_AMPDU);
-	pid = MT76_GET(MT_TXS4_PID, txs);
-	count = MT76_GET(MT_TXS4_TX_COUNT, txs);
+	pid = FIELD_GET(MT_TXS4_PID, txs);
+	count = FIELD_GET(MT_TXS4_TX_COUNT, txs);
 
 	txs = le32_to_cpu(txs_data[0]);
 	ack_timeout = txs & MT_TXS0_ACK_TIMEOUT;
@@ -917,9 +917,9 @@ void mt7603_mac_add_txs(struct mt7603_dev *dev, void *data)
 	u8 pid;
 
 	txs = le32_to_cpu(txs_data[4]);
-	pid = MT76_GET(MT_TXS4_PID, txs);
+	pid = FIELD_GET(MT_TXS4_PID, txs);
 	txs = le32_to_cpu(txs_data[3]);
-	wcidx = MT76_GET(MT_TXS3_WCID, txs);
+	wcidx = FIELD_GET(MT_TXS3_WCID, txs);
 
 	if (pid == MT_PID_NOACK)
 		return;
@@ -1026,7 +1026,7 @@ void mt7603_mac_dma_start(struct mt7603_dev *dev)
 	mt76_set(dev, MT_WPDMA_GLO_CFG,
 		 (MT_WPDMA_GLO_CFG_TX_DMA_EN |
 		  MT_WPDMA_GLO_CFG_RX_DMA_EN |
-		  MT76_SET(MT_WPDMA_GLO_CFG_DMA_BURST_SIZE, 3) |
+		  FIELD_PREP(MT_WPDMA_GLO_CFG_DMA_BURST_SIZE, 3) |
 		  MT_WPDMA_GLO_CFG_TX_WRITEBACK_DONE));
 
 	mt7603_irq_enable(dev, MT_INT_RX_DONE_ALL | MT_INT_TX_DONE_ALL);

@@ -356,10 +356,10 @@ mt76x2_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif, u16 queue,
 	if (params->cw_max)
 		cw_max = fls(params->cw_max);
 
-	val = MT76_SET(MT_EDCA_CFG_TXOP, params->txop) |
-	      MT76_SET(MT_EDCA_CFG_AIFSN, params->aifs) |
-	      MT76_SET(MT_EDCA_CFG_CWMIN, cw_min) |
-	      MT76_SET(MT_EDCA_CFG_CWMAX, cw_max);
+	val = FIELD_PREP(MT_EDCA_CFG_TXOP, params->txop) |
+	      FIELD_PREP(MT_EDCA_CFG_AIFSN, params->aifs) |
+	      FIELD_PREP(MT_EDCA_CFG_CWMIN, cw_min) |
+	      FIELD_PREP(MT_EDCA_CFG_CWMAX, cw_max);
 	mt76_wr(dev, MT_EDCA_CFG_AC(queue), val);
 
 	val = mt76_rr(dev, MT_WMM_TXOP(queue));

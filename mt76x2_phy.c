@@ -24,7 +24,7 @@ mt76x2_adjust_lna_gain(struct mt76x2_dev *dev, int reg, s8 offset)
 {
 	s8 gain;
 
-	gain = MT76_GET(MT_BBP_AGC_LNA_GAIN, mt76_rr(dev, MT_BBP(AGC, reg)));
+	gain = FIELD_GET(MT_BBP_AGC_LNA_GAIN, mt76_rr(dev, MT_BBP(AGC, reg)));
 	gain -= offset / 2;
 	mt76_rmw_field(dev, MT_BBP(AGC, reg), MT_BBP_AGC_LNA_GAIN, gain);
 }
@@ -34,7 +34,7 @@ mt76x2_adjust_agc_gain(struct mt76x2_dev *dev, int reg, s8 offset)
 {
 	s8 gain;
 
-	gain = MT76_GET(MT_BBP_AGC_GAIN, mt76_rr(dev, MT_BBP(AGC, reg)));
+	gain = FIELD_GET(MT_BBP_AGC_GAIN, mt76_rr(dev, MT_BBP(AGC, reg)));
 	gain += offset;
 	mt76_rmw_field(dev, MT_BBP(AGC, reg), MT_BBP_AGC_GAIN, gain);
 }
@@ -408,8 +408,8 @@ static void
 mt76x2_phy_update_channel_gain(struct mt76x2_dev *dev)
 {
 	u32 val = mt76_rr(dev, MT_BBP(AGC, 20));
-	int rssi0 = (s8) MT76_GET(MT_BBP_AGC20_RSSI0, val);
-	int rssi1 = (s8) MT76_GET(MT_BBP_AGC20_RSSI1, val);
+	int rssi0 = (s8) FIELD_GET(MT_BBP_AGC20_RSSI0, val);
+	int rssi1 = (s8) FIELD_GET(MT_BBP_AGC20_RSSI1, val);
 	bool low_gain;
 	u8 *gain = dev->cal.agc_gain_init, gain_delta;
 
@@ -449,9 +449,9 @@ mt76x2_phy_update_channel_gain(struct mt76x2_dev *dev)
 	}
 
 	mt76_wr(dev, MT_BBP(AGC, 8),
-		val | MT76_SET(MT_BBP_AGC_GAIN, gain[0] - gain_delta));
+		val | FIELD_PREP(MT_BBP_AGC_GAIN, gain[0] - gain_delta));
 	mt76_wr(dev, MT_BBP(AGC, 9),
-		val | MT76_SET(MT_BBP_AGC_GAIN, gain[1] - gain_delta));
+		val | FIELD_PREP(MT_BBP_AGC_GAIN, gain[1] - gain_delta));
 }
 
 int mt76x2_phy_set_channel(struct mt76x2_dev *dev,
@@ -463,26 +463,26 @@ int mt76x2_phy_set_channel(struct mt76x2_dev *dev,
 	u8 channel;
 
 	u32 ext_cca_chan[4] = {
-		[0] = MT76_SET(MT_EXT_CCA_CFG_CCA0, 0) |
-		      MT76_SET(MT_EXT_CCA_CFG_CCA1, 1) |
-		      MT76_SET(MT_EXT_CCA_CFG_CCA2, 2) |
-		      MT76_SET(MT_EXT_CCA_CFG_CCA3, 3) |
-		      MT76_SET(MT_EXT_CCA_CFG_CCA_MASK, BIT(0)),
-		[1] = MT76_SET(MT_EXT_CCA_CFG_CCA0, 1) |
-		      MT76_SET(MT_EXT_CCA_CFG_CCA1, 0) |
-		      MT76_SET(MT_EXT_CCA_CFG_CCA2, 2) |
-		      MT76_SET(MT_EXT_CCA_CFG_CCA3, 3) |
-		      MT76_SET(MT_EXT_CCA_CFG_CCA_MASK, BIT(1)),
-		[2] = MT76_SET(MT_EXT_CCA_CFG_CCA0, 2) |
-		      MT76_SET(MT_EXT_CCA_CFG_CCA1, 3) |
-		      MT76_SET(MT_EXT_CCA_CFG_CCA2, 1) |
-		      MT76_SET(MT_EXT_CCA_CFG_CCA3, 0) |
-		      MT76_SET(MT_EXT_CCA_CFG_CCA_MASK, BIT(2)),
-		[3] = MT76_SET(MT_EXT_CCA_CFG_CCA0, 3) |
-		      MT76_SET(MT_EXT_CCA_CFG_CCA1, 2) |
-		      MT76_SET(MT_EXT_CCA_CFG_CCA2, 1) |
-		      MT76_SET(MT_EXT_CCA_CFG_CCA3, 0) |
-		      MT76_SET(MT_EXT_CCA_CFG_CCA_MASK, BIT(3)),
+		[0] = FIELD_PREP(MT_EXT_CCA_CFG_CCA0, 0) |
+		      FIELD_PREP(MT_EXT_CCA_CFG_CCA1, 1) |
+		      FIELD_PREP(MT_EXT_CCA_CFG_CCA2, 2) |
+		      FIELD_PREP(MT_EXT_CCA_CFG_CCA3, 3) |
+		      FIELD_PREP(MT_EXT_CCA_CFG_CCA_MASK, BIT(0)),
+		[1] = FIELD_PREP(MT_EXT_CCA_CFG_CCA0, 1) |
+		      FIELD_PREP(MT_EXT_CCA_CFG_CCA1, 0) |
+		      FIELD_PREP(MT_EXT_CCA_CFG_CCA2, 2) |
+		      FIELD_PREP(MT_EXT_CCA_CFG_CCA3, 3) |
+		      FIELD_PREP(MT_EXT_CCA_CFG_CCA_MASK, BIT(1)),
+		[2] = FIELD_PREP(MT_EXT_CCA_CFG_CCA0, 2) |
+		      FIELD_PREP(MT_EXT_CCA_CFG_CCA1, 3) |
+		      FIELD_PREP(MT_EXT_CCA_CFG_CCA2, 1) |
+		      FIELD_PREP(MT_EXT_CCA_CFG_CCA3, 0) |
+		      FIELD_PREP(MT_EXT_CCA_CFG_CCA_MASK, BIT(2)),
+		[3] = FIELD_PREP(MT_EXT_CCA_CFG_CCA0, 3) |
+		      FIELD_PREP(MT_EXT_CCA_CFG_CCA1, 2) |
+		      FIELD_PREP(MT_EXT_CCA_CFG_CCA2, 1) |
+		      FIELD_PREP(MT_EXT_CCA_CFG_CCA3, 0) |
+		      FIELD_PREP(MT_EXT_CCA_CFG_CCA_MASK, BIT(3)),
 	};
 	int ch_group_index;
 	u8 bw, bw_index;

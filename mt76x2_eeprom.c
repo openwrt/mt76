@@ -45,7 +45,7 @@ mt76x2_eeprom_parse_hw_cap(struct mt76x2_dev *dev)
 {
 	u16 val = MT_EE_NIC_CONF_0;
 
-	switch (MT76_GET(MT_EE_NIC_CONF_0_BOARD_TYPE, val)) {
+	switch (FIELD_GET(MT_EE_NIC_CONF_0_BOARD_TYPE, val)) {
 	case BOARD_TYPE_5GHZ:
 		dev->mt76.cap.has_5ghz = true;
 		break;
@@ -68,7 +68,7 @@ mt76x2_efuse_read(struct mt76x2_dev *dev, u16 addr, u8 *data)
 	val = mt76_rr(dev, MT_EFUSE_CTRL);
 	val &= ~(MT_EFUSE_CTRL_AIN |
 		 MT_EFUSE_CTRL_MODE);
-	val |= MT76_SET(MT_EFUSE_CTRL_AIN, addr & ~0xf);
+	val |= FIELD_PREP(MT_EFUSE_CTRL_AIN, addr & ~0xf);
 	val |= MT_EFUSE_CTRL_KICK;
 	mt76_wr(dev, MT_EFUSE_CTRL, val);
 
