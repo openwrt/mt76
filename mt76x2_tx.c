@@ -33,10 +33,12 @@ void mt76x2_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
 
 	if (control->sta) {
 		struct mt76x2_sta *msta;
+
 		msta = (struct mt76x2_sta *) control->sta->drv_priv;
 		wcid = &msta->wcid;
 	} else if (vif) {
 		struct mt76x2_vif *mvif;
+
 		mvif = (struct mt76x2_vif *) vif->drv_priv;
 		wcid = &mvif->group_wcid;
 	}
@@ -132,9 +134,11 @@ static int mt76x2_insert_hdr_pad(struct sk_buff *skb)
 	if (len % 4 == 0)
 		return 0;
 
-	if (skb_headroom(skb) < 2 &&
-	    (ret = pskb_expand_head(skb, 2, 0, GFP_ATOMIC)) != 0)
-		return ret;
+	if (skb_headroom(skb) < 2) {
+		ret = pskb_expand_head(skb, 2, 0, GFP_ATOMIC);
+		if (ret != 0)
+			return ret;
+	}
 
 	skb_push(skb, 2);
 	memmove(skb->data, skb->data + 2, len);

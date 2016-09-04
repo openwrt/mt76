@@ -96,5 +96,6 @@ void mt76x2_init_debugfs(struct mt76x2_dev *dev)
 	debugfs_create_bool("tpc", S_IRUSR | S_IWUSR, dir, &dev->enable_tpc);
 
 	debugfs_create_file("ampdu_stat", S_IRUSR, dir, dev, &fops_ampdu_stat);
-	debugfs_create_devm_seqfile(dev->mt76.dev, "txpower", dir, read_txpower);
+	debugfs_create_devm_seqfile(dev->mt76.dev, "txpower", dir,
+				    read_txpower);
 }

@@ -63,10 +63,14 @@ mt76x2_txq_init(struct mt76x2_dev *dev, struct ieee80211_txq *txq)
 
 	mtxq = (struct mt76_txq *) txq->drv_priv;
 	if (txq->sta) {
-		struct mt76x2_sta *sta = (struct mt76x2_sta *) txq->sta->drv_priv;
+		struct mt76x2_sta *sta;
+
+		sta = (struct mt76x2_sta *) txq->sta->drv_priv;
 		mtxq->wcid = &sta->wcid;
 	} else {
-		struct mt76x2_vif *mvif = (struct mt76x2_vif *) txq->vif->drv_priv;
+		struct mt76x2_vif *mvif;
+
+		mvif = (struct mt76x2_vif *) txq->vif->drv_priv;
 		mtxq->wcid = &mvif->group_wcid;
 	}
 
@@ -169,7 +173,7 @@ mt76x2_config(struct ieee80211_hw *hw, u32 changed)
 
 static void
 mt76x2_configure_filter(struct ieee80211_hw *hw, unsigned int changed_flags,
-		      unsigned int *total_flags, u64 multicast)
+			unsigned int *total_flags, u64 multicast)
 {
 	struct mt76x2_dev *dev = hw->priv;
 	u32 flags = 0;
@@ -202,7 +206,7 @@ mt76x2_configure_filter(struct ieee80211_hw *hw, unsigned int changed_flags,
 
 static void
 mt76x2_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-		      struct ieee80211_bss_conf *info, u32 changed)
+			struct ieee80211_bss_conf *info, u32 changed)
 {
 	struct mt76x2_dev *dev = hw->priv;
 	struct mt76x2_vif *mvif = (struct mt76x2_vif *) vif->drv_priv;
@@ -219,7 +223,8 @@ mt76x2_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	if (changed & BSS_CHANGED_BEACON_ENABLED) {
 		tasklet_disable(&dev->pre_tbtt_tasklet);
-		mt76x2_mac_set_beacon_enable(dev, mvif->idx, info->enable_beacon);
+		mt76x2_mac_set_beacon_enable(dev, mvif->idx,
+					     info->enable_beacon);
 		tasklet_enable(&dev->pre_tbtt_tasklet);
 	}
 
@@ -236,7 +241,7 @@ mt76x2_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 static int
 mt76x2_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-	     struct ieee80211_sta *sta)
+	       struct ieee80211_sta *sta)
 {
 	struct mt76x2_dev *dev = hw->priv;
 	struct mt76x2_sta *msta = (struct mt76x2_sta *) sta->drv_priv;
@@ -270,7 +275,7 @@ out:
 
 static int
 mt76x2_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-		struct ieee80211_sta *sta)
+		  struct ieee80211_sta *sta)
 {
 	struct mt76x2_dev *dev = hw->priv;
 	struct mt76x2_sta *msta = (struct mt76x2_sta *) sta->drv_priv;
@@ -291,7 +296,7 @@ mt76x2_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 static void
 mt76x2_sta_notify(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-		enum sta_notify_cmd cmd, struct ieee80211_sta *sta)
+		  enum sta_notify_cmd cmd, struct ieee80211_sta *sta)
 {
 	struct mt76x2_sta *msta = (struct mt76x2_sta *) sta->drv_priv;
 	struct mt76x2_dev *dev = hw->priv;
@@ -310,15 +315,18 @@ mt76x2_sta_notify(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 static int
 mt76x2_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
-	     struct ieee80211_vif *vif, struct ieee80211_sta *sta,
-	     struct ieee80211_key_conf *key)
+	       struct ieee80211_vif *vif, struct ieee80211_sta *sta,
+	       struct ieee80211_key_conf *key)
 {
 	struct mt76x2_dev *dev = hw->priv;
 	struct mt76x2_vif *mvif = (struct mt76x2_vif *) vif->drv_priv;
-	struct mt76x2_sta *msta = sta ? (struct mt76x2_sta *) sta->drv_priv : NULL;
-	struct mt76_wcid *wcid = msta ? &msta->wcid : &mvif->group_wcid;
+	struct mt76x2_sta *msta;
+	struct mt76_wcid *wcid;
 	int idx = key->keyidx;
 	int ret;
+
+	msta = sta ? (struct mt76x2_sta *) sta->drv_priv : NULL;
+	wcid = msta ? &msta->wcid : &mvif->group_wcid;
 
 	if (cmd == SET_KEY) {
 		key->hw_key_idx = wcid->idx;
@@ -345,7 +353,7 @@ mt76x2_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 
 static int
 mt76x2_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif, u16 queue,
-	     const struct ieee80211_tx_queue_params *params)
+	       const struct ieee80211_tx_queue_params *params)
 {
 	struct mt76x2_dev *dev = hw->priv;
 	u8 cw_min = 5, cw_max = 10;
@@ -386,7 +394,8 @@ mt76x2_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif, u16 queue,
 }
 
 static void
-mt76x2_sw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif, const u8 *mac)
+mt76x2_sw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+	       const u8 *mac)
 {
 	struct mt76x2_dev *dev = hw->priv;
 
@@ -406,7 +415,7 @@ mt76x2_sw_scan_complete(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 static void
 mt76x2_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-	   u32 queues, bool drop)
+	     u32 queues, bool drop)
 {
 }
 
@@ -437,10 +446,11 @@ mt76x2_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	switch (action) {
 	case IEEE80211_AMPDU_RX_START:
-		mt76_set(dev, MT_WCID_ADDR(msta->wcid.idx)+4, BIT(16 + tid));
+		mt76_set(dev, MT_WCID_ADDR(msta->wcid.idx) + 4, BIT(16 + tid));
 		break;
 	case IEEE80211_AMPDU_RX_STOP:
-		mt76_clear(dev, MT_WCID_ADDR(msta->wcid.idx)+4, BIT(16 + tid));
+		mt76_clear(dev, MT_WCID_ADDR(msta->wcid.idx) + 4,
+			   BIT(16 + tid));
 		break;
 	case IEEE80211_AMPDU_TX_OPERATIONAL:
 		mtxq->aggr = true;
@@ -467,7 +477,7 @@ mt76x2_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 static void
 mt76x2_sta_rate_tbl_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-			 struct ieee80211_sta *sta)
+			   struct ieee80211_sta *sta)
 {
 	struct mt76x2_dev *dev = hw->priv;
 	struct mt76x2_sta *msta = (struct mt76x2_sta *) sta->drv_priv;
@@ -484,7 +494,7 @@ mt76x2_sta_rate_tbl_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 }
 
 static void mt76x2_set_coverage_class(struct ieee80211_hw *hw,
-				    s16 coverage_class)
+				      s16 coverage_class)
 {
 	struct mt76x2_dev *dev = hw->priv;
 

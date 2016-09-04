@@ -32,6 +32,7 @@ void mt76x2_set_irq_mask(struct mt76x2_dev *dev, u32 clear, u32 set)
 void mt76x2_rx_poll_complete(struct mt76_dev *mdev, enum mt76_rxq_id q)
 {
 	struct mt76x2_dev *dev = container_of(mdev, struct mt76x2_dev, mt76);
+
 	mt76x2_irq_enable(dev, MT_INT_RX_DONE(q));
 }
 

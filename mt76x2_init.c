@@ -37,7 +37,7 @@ mt76x2_wait_for_mac(struct mt76x2_dev *dev)
 		default:
 			return true;
 		}
-		msleep(5);
+		usleep_range(5000, 10000);
 	}
 
 	return false;
@@ -265,7 +265,7 @@ int mt76x2_mac_reset(struct mt76x2_dev *dev, bool hard)
 
 	mt76_wr(dev, MT_RF_BYPASS_0, 0x06000000);
 	mt76_wr(dev, MT_RF_SETTING_0, 0x08800000);
-	msleep(5);
+	usleep_range(5000, 10000);
 	mt76_wr(dev, MT_RF_BYPASS_0, 0x00000000);
 
 	mt76_wr(dev, MT_MCU_CLOCK_CTL, 0x1401);
@@ -334,7 +334,7 @@ int mt76x2_mac_start(struct mt76x2_dev *dev)
 
 	mt76_wr(dev, MT_MAC_SYS_CTRL, MT_MAC_SYS_CTRL_ENABLE_TX);
 	wait_for_wpdma(dev);
-	udelay(50);
+	usleep_range(50, 100);
 
 	mt76_set(dev, MT_WPDMA_GLO_CFG,
 		 MT_WPDMA_GLO_CFG_TX_DMA_EN |
@@ -348,7 +348,8 @@ int mt76x2_mac_start(struct mt76x2_dev *dev)
 		MT_MAC_SYS_CTRL_ENABLE_TX |
 		MT_MAC_SYS_CTRL_ENABLE_RX);
 
-	mt76x2_irq_enable(dev, MT_INT_RX_DONE_ALL | MT_INT_TX_DONE_ALL | MT_INT_TX_STAT);
+	mt76x2_irq_enable(dev, MT_INT_RX_DONE_ALL | MT_INT_TX_DONE_ALL |
+			       MT_INT_TX_STAT);
 
 	return 0;
 }
@@ -394,7 +395,6 @@ void mt76x2_mac_resume(struct mt76x2_dev *dev)
 		MT_MAC_SYS_CTRL_ENABLE_TX |
 		MT_MAC_SYS_CTRL_ENABLE_RX);
 }
-
 
 static void
 mt76x2_power_on_rf_patch(struct mt76x2_dev *dev)
@@ -724,6 +724,7 @@ int mt76x2_register_device(struct mt76x2_dev *dev)
 
 	for (i = 0; i < ARRAY_SIZE(dev->macaddr_list); i++) {
 		u8 *addr = dev->macaddr_list[i].addr;
+
 		memcpy(addr, dev->mt76.macaddr, ETH_ALEN);
 
 		if (!i)

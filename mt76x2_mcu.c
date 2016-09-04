@@ -66,7 +66,8 @@ mt76x2_mcu_get_response(struct mt76x2_dev *dev, unsigned long expires)
 }
 
 static int
-mt76x2_mcu_msg_send(struct mt76x2_dev *dev, struct sk_buff *skb, enum mcu_cmd cmd)
+mt76x2_mcu_msg_send(struct mt76x2_dev *dev, struct sk_buff *skb,
+		    enum mcu_cmd cmd)
 {
 	unsigned long expires = jiffies + HZ;
 	int ret;
@@ -91,7 +92,9 @@ mt76x2_mcu_msg_send(struct mt76x2_dev *dev, struct sk_buff *skb, enum mcu_cmd cm
 
 		skb = mt76x2_mcu_get_response(dev, expires);
 		if (!skb) {
-			printk("MCU message %d (seq %d) timed out\n", cmd, seq);
+			dev_err(dev->mt76.dev,
+				"MCU message %d (seq %d) timed out\n", cmd,
+				seq);
 			ret = -ETIMEDOUT;
 			break;
 		}
@@ -123,7 +126,8 @@ mt76pci_load_rom_patch(struct mt76x2_dev *dev)
 	u32 patch_mask, patch_reg;
 
 	if (rom_protect && !mt76_poll(dev, MT_MCU_SEMAPHORE_03, 1, 1, 600)) {
-		printk("Could not get hardware semaphore for ROM PATCH\n");
+		dev_err(dev->mt76.dev,
+			"Could not get hardware semaphore for ROM PATCH\n");
 		return -ETIMEDOUT;
 	}
 
@@ -136,7 +140,7 @@ mt76pci_load_rom_patch(struct mt76x2_dev *dev)
 	}
 
 	if (rom_protect && (mt76_rr(dev, patch_reg) & patch_mask)) {
-		printk("ROM patch already applied\n");
+		dev_info(dev->mt76.dev, "ROM patch already applied\n");
 		goto out;
 	}
 
@@ -151,7 +155,7 @@ mt76pci_load_rom_patch(struct mt76x2_dev *dev)
 	}
 
 	hdr = (struct mt76x2_patch_header *) fw->data;
-	printk("ROM patch build: %.15s\n", hdr->build_time);
+	dev_info(dev->mt76.dev, "ROM patch build: %.15s\n", hdr->build_time);
 
 	mt76_wr(dev, MT_MCU_PCIE_REMAP_BASE4, MT_MCU_ROM_PATCH_OFFSET);
 
@@ -165,7 +169,7 @@ mt76pci_load_rom_patch(struct mt76x2_dev *dev)
 	mt76_wr(dev, MT_MCU_INT_LEVEL, 4);
 
 	if (!mt76_poll_msec(dev, patch_reg, patch_mask, patch_mask, 2000)) {
-		printk("Failed to load ROM patch\n");
+		dev_err(dev->mt76.dev, "Failed to load ROM patch\n");
 		ret = -ETIMEDOUT;
 	}
 
@@ -203,12 +207,12 @@ mt76pci_load_firmware(struct mt76x2_dev *dev)
 		goto error;
 
 	val = le16_to_cpu(hdr->fw_ver);
-	printk("Firmware Version: %d.%d.%02d\n",
-		(val >> 12) & 0xf, (val >> 8) & 0xf, val & 0xf);
+	dev_info(dev->mt76.dev, "Firmware Version: %d.%d.%02d\n",
+		 (val >> 12) & 0xf, (val >> 8) & 0xf, val & 0xf);
 
 	val = le16_to_cpu(hdr->build_ver);
-	printk("Build: %x\n", val);
-	printk("Build Time: %.16s\n", hdr->build_time);
+	dev_info(dev->mt76.dev, "Build: %x\n", val);
+	dev_info(dev->mt76.dev, "Build Time: %.16s\n", hdr->build_time);
 
 	cur = (__le32 *) (fw->data + sizeof(*hdr));
 	len = le32_to_cpu(hdr->ilm_len);
@@ -245,25 +249,26 @@ mt76pci_load_firmware(struct mt76x2_dev *dev)
 	}
 
 	if (!i) {
-		printk("Firmware failed to start\n");
+		dev_err(dev->mt76.dev, "Firmware failed to start\n");
 		release_firmware(fw);
 		return -ETIMEDOUT;
 	}
 
-	printk("Firmware running!\n");
+	dev_info(dev->mt76.dev, "Firmware running!\n");
 
 	release_firmware(fw);
 
 	return ret;
 
 error:
-	printk("Invalid firmware\n");
+	dev_err(dev->mt76.dev, "Invalid firmware\n");
 	release_firmware(fw);
 	return -ENOENT;
 }
 
 static int
-mt76x2_mcu_function_select(struct mt76x2_dev *dev, enum mcu_function func, u32 val)
+mt76x2_mcu_function_select(struct mt76x2_dev *dev, enum mcu_function func,
+			   u32 val)
 {
 	struct sk_buff *skb;
 	struct {
@@ -278,7 +283,8 @@ mt76x2_mcu_function_select(struct mt76x2_dev *dev, enum mcu_function func, u32 v
 	return mt76x2_mcu_msg_send(dev, skb, CMD_FUN_SET_OP);
 }
 
-int mt76x2_mcu_load_cr(struct mt76x2_dev *dev, u8 type, u8 temp_level, u8 channel)
+int mt76x2_mcu_load_cr(struct mt76x2_dev *dev, u8 type, u8 temp_level,
+		       u8 channel)
 {
 	struct sk_buff *skb;
 	struct {
@@ -305,8 +311,8 @@ int mt76x2_mcu_load_cr(struct mt76x2_dev *dev, u8 type, u8 temp_level, u8 channe
 	return mt76x2_mcu_msg_send(dev, skb, CMD_LOAD_CR);
 }
 
-int mt76x2_mcu_set_channel(struct mt76x2_dev *dev, u8 channel, u8 bw, u8 bw_index,
-			 bool scan)
+int mt76x2_mcu_set_channel(struct mt76x2_dev *dev, u8 channel, u8 bw,
+			   u8 bw_index, bool scan)
 {
 	struct sk_buff *skb;
 	struct {
@@ -330,7 +336,7 @@ int mt76x2_mcu_set_channel(struct mt76x2_dev *dev, u8 channel, u8 bw, u8 bw_inde
 	skb = mt76x2_mcu_msg_alloc(dev, &msg, sizeof(msg));
 	mt76x2_mcu_msg_send(dev, skb, CMD_SWITCH_CHANNEL_OP);
 
-	msleep(5);
+	usleep_range(5000, 10000);
 
 	msg.ext_chan = 0xe0 + bw_index;
 	skb = mt76x2_mcu_msg_alloc(dev, &msg, sizeof(msg));
@@ -353,7 +359,7 @@ int mt76x2_mcu_set_radio_state(struct mt76x2_dev *dev, bool on)
 }
 
 int mt76x2_mcu_calibrate(struct mt76x2_dev *dev, enum mcu_calibration type,
-		       u32 param)
+			 u32 param)
 {
 	struct sk_buff *skb;
 	struct {
@@ -379,7 +385,8 @@ int mt76x2_mcu_calibrate(struct mt76x2_dev *dev, enum mcu_calibration type,
 	return 0;
 }
 
-int mt76x2_mcu_tssi_comp(struct mt76x2_dev *dev, struct mt76x2_tssi_comp *tssi_data)
+int mt76x2_mcu_tssi_comp(struct mt76x2_dev *dev,
+			 struct mt76x2_tssi_comp *tssi_data)
 {
 	struct sk_buff *skb;
 	struct {
@@ -394,7 +401,8 @@ int mt76x2_mcu_tssi_comp(struct mt76x2_dev *dev, struct mt76x2_tssi_comp *tssi_d
 	return mt76x2_mcu_msg_send(dev, skb, CMD_CALIBRATION_OP);
 }
 
-int mt76x2_mcu_init_gain(struct mt76x2_dev *dev, u8 channel, u32 gain, bool force)
+int mt76x2_mcu_init_gain(struct mt76x2_dev *dev, u8 channel, u32 gain,
+			 bool force)
 {
 	struct sk_buff *skb;
 	struct {
@@ -435,7 +443,7 @@ int mt76x2_mcu_cleanup(struct mt76x2_dev *dev)
 	struct sk_buff *skb;
 
 	mt76_wr(dev, MT_MCU_INT_LEVEL, 1);
-	msleep(20);
+	usleep_range(20000, 30000);
 
 	while ((skb = skb_dequeue(&dev->mcu.res_q)) != NULL)
 		dev_kfree_skb(skb);

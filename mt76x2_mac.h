@@ -110,7 +110,7 @@ struct mt76x2_rxwi {
 
 #define MT_TX_PWR_ADJ			GENMASK(3, 0)
 
-enum mt76x2_phy_bandwith {
+enum mt76x2_phy_bandwidth {
 	MT_PHY_BW_20,
 	MT_PHY_BW_40,
 	MT_PHY_BW_80,
@@ -149,11 +149,11 @@ struct mt76x2_txwi {
 	u8 pktid;
 } __packed __aligned(4);
 
-
 static inline struct mt76x2_tx_info *
 mt76x2_skb_tx_info(struct sk_buff *skb)
 {
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+
 	return (void *) info->status.status_driver_data;
 }
 
@@ -163,20 +163,22 @@ void mt76x2_mac_stop(struct mt76x2_dev *dev, bool force);
 void mt76x2_mac_resume(struct mt76x2_dev *dev);
 void mt76x2_mac_set_bssid(struct mt76x2_dev *dev, u8 idx, const u8 *addr);
 
-int mt76x2_mac_process_rx(struct mt76x2_dev *dev, struct sk_buff *skb, void *rxwi);
+int mt76x2_mac_process_rx(struct mt76x2_dev *dev, struct sk_buff *skb,
+			  void *rxwi);
 void mt76x2_mac_write_txwi(struct mt76x2_dev *dev, struct mt76x2_txwi *txwi,
 			   struct sk_buff *skb, struct mt76_wcid *wcid,
 			   struct ieee80211_sta *sta);
 void mt76x2_mac_wcid_setup(struct mt76x2_dev *dev, u8 idx, u8 vif_idx, u8 *mac);
 int mt76x2_mac_wcid_set_key(struct mt76x2_dev *dev, u8 idx,
-			  struct ieee80211_key_conf *key);
+			    struct ieee80211_key_conf *key);
 void mt76x2_mac_wcid_set_rate(struct mt76x2_dev *dev, struct mt76_wcid *wcid,
-			    const struct ieee80211_tx_rate *rate);
+			      const struct ieee80211_tx_rate *rate);
 
 int mt76x2_mac_shared_key_setup(struct mt76x2_dev *dev, u8 vif_idx, u8 key_idx,
-			      struct ieee80211_key_conf *key);
+			        struct ieee80211_key_conf *key);
 
-int mt76x2_mac_set_beacon(struct mt76x2_dev *dev, u8 vif_idx, struct sk_buff *skb);
+int mt76x2_mac_set_beacon(struct mt76x2_dev *dev, u8 vif_idx,
+			  struct sk_buff *skb);
 void mt76x2_mac_set_beacon_enable(struct mt76x2_dev *dev, u8 vif_idx, bool val);
 
 void mt76x2_mac_poll_tx_status(struct mt76x2_dev *dev, bool irq);

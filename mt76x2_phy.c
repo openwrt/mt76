@@ -281,12 +281,14 @@ mt76x2_phy_set_txpower_regs(struct mt76x2_dev *dev, enum nl80211_band band)
 
 	if (mt76x2_ext_pa_enabled(dev, band)) {
 		u32 val = 0x3c3c023c;
+
 		mt76_wr(dev, MT_TX0_RF_GAIN_CORR, val);
 		mt76_wr(dev, MT_TX1_RF_GAIN_CORR, val);
 		mt76_wr(dev, MT_TX_ALC_CFG_4, 0x00001818);
 	} else {
 		if (band == NL80211_BAND_2GHZ) {
 			u32 val = 0x0f3c3c3c;
+
 			mt76_wr(dev, MT_TX0_RF_GAIN_CORR, val);
 			mt76_wr(dev, MT_TX1_RF_GAIN_CORR, val);
 			mt76_wr(dev, MT_TX_ALC_CFG_4, 0x00000606);
@@ -410,12 +412,13 @@ mt76x2_phy_update_channel_gain(struct mt76x2_dev *dev)
 	u32 val = mt76_rr(dev, MT_BBP(AGC, 20));
 	int rssi0 = (s8) FIELD_GET(MT_BBP_AGC20_RSSI0, val);
 	int rssi1 = (s8) FIELD_GET(MT_BBP_AGC20_RSSI1, val);
-	bool low_gain;
 	u8 *gain = dev->cal.agc_gain_init, gain_delta;
+	bool low_gain;
 
 	dev->cal.avg_rssi[0] = (dev->cal.avg_rssi[0] * 15) / 16 + (rssi0 << 8);
 	dev->cal.avg_rssi[1] = (dev->cal.avg_rssi[1] * 15) / 16 + (rssi1 << 8);
-	dev->cal.avg_rssi_all = (dev->cal.avg_rssi[0] + dev->cal.avg_rssi[1]) / 512;
+	dev->cal.avg_rssi_all = (dev->cal.avg_rssi[0] +
+				 dev->cal.avg_rssi[1]) / 512;
 
 	low_gain = dev->cal.avg_rssi_all > mt76x2_get_rssi_gain_thresh(dev);
 	if (dev->cal.low_gain == low_gain)
@@ -455,7 +458,7 @@ mt76x2_phy_update_channel_gain(struct mt76x2_dev *dev)
 }
 
 int mt76x2_phy_set_channel(struct mt76x2_dev *dev,
-			 struct cfg80211_chan_def *chandef)
+			   struct cfg80211_chan_def *chandef)
 {
 	struct ieee80211_channel *chan = chandef->chan;
 	bool scan = test_bit(MT76_SCANNING, &dev->mt76.state);
@@ -553,7 +556,7 @@ int mt76x2_phy_set_channel(struct mt76x2_dev *dev,
 
 	/* Enable LDPC Rx */
 	if (mt76xx_rev(dev) >= MT76XX_REV_E3)
-	    mt76_set(dev, MT_BBP(RXO, 13), BIT(10));
+		mt76_set(dev, MT_BBP(RXO, 13), BIT(10));
 
 	if (!dev->cal.init_cal_done) {
 		u8 val = mt76x2_eeprom_get(dev, MT_EE_BT_RCAL_RESULT);
@@ -624,7 +627,7 @@ mt76x2_phy_tssi_compensate(struct mt76x2_dev *dev)
 		if (t.pa_mode || dev->cal.dpd_cal_done)
 			return;
 
-		msleep(10);
+		usleep_range(10000, 20000);
 		mt76x2_mcu_calibrate(dev, MCU_CAL_DPD, chan->hw_value);
 		dev->cal.dpd_cal_done = true;
 	}

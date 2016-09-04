@@ -33,7 +33,8 @@ mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76_txq_id qid,
 		  FIELD_PREP(MT_MCU_MSG_PORT, CPU_TX_PORT) |
 		  FIELD_PREP(MT_MCU_MSG_LEN, skb->len);
 
-	addr = dma_map_single(dev->mt76.dev, skb->data, skb->len, DMA_TO_DEVICE);
+	addr = dma_map_single(dev->mt76.dev, skb->data, skb->len,
+			      DMA_TO_DEVICE);
 	if (dma_mapping_error(dev->mt76.dev, addr))
 		return -ENOMEM;
 
@@ -49,7 +50,7 @@ mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76_txq_id qid,
 
 static int
 mt76x2_init_tx_queue(struct mt76x2_dev *dev, struct mt76_queue *q,
-		   int idx, int n_desc)
+		     int idx, int n_desc)
 {
 	int ret;
 
@@ -79,8 +80,8 @@ void mt76x2_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 
 	skb_pull(skb, sizeof(struct mt76x2_rxwi));
 	if (mt76x2_mac_process_rx(dev, skb, rxwi)) {
-	    dev_kfree_skb(skb);
-	    return;
+		dev_kfree_skb(skb);
+		return;
 	}
 
 	mt76_rx(&dev->mt76, q, skb);
@@ -88,7 +89,7 @@ void mt76x2_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 
 static int
 mt76x2_init_rx_queue(struct mt76x2_dev *dev, struct mt76_queue *q,
-		   int idx, int n_desc, int bufsize)
+		     int idx, int n_desc, int bufsize)
 {
 	int ret;
 
@@ -146,22 +147,21 @@ int mt76x2_dma_init(struct mt76x2_dev *dev)
 	mt76_wr(dev, MT_WPDMA_RST_IDX, ~0);
 
 	for (i = 0; i < ARRAY_SIZE(wmm_queue_map); i++) {
-		ret = mt76x2_init_tx_queue(dev, &dev->mt76.q_tx[i], wmm_queue_map[i],
-					 MT_TX_RING_SIZE);
+		ret = mt76x2_init_tx_queue(dev, &dev->mt76.q_tx[i],
+					   wmm_queue_map[i], MT_TX_RING_SIZE);
 		if (ret)
 			return ret;
 	}
 
 	ret = mt76x2_init_tx_queue(dev, &dev->mt76.q_tx[MT_TXQ_PSD],
-				 MT_TX_HW_QUEUE_MGMT, MT_TX_RING_SIZE);
+				   MT_TX_HW_QUEUE_MGMT, MT_TX_RING_SIZE);
 	if (ret)
 		return ret;
 
 	ret = mt76x2_init_tx_queue(dev, &dev->mt76.q_tx[MT_TXQ_MCU],
-				 MT_TX_HW_QUEUE_MCU, MT_MCU_RING_SIZE);
+				   MT_TX_HW_QUEUE_MCU, MT_MCU_RING_SIZE);
 	if (ret)
 		return ret;
-
 
 	ret = mt76x2_init_rx_queue(dev, &dev->mt76.q_rx[MT_RXQ_MCU], 1,
 				   MT_MCU_RING_SIZE, MT_RX_BUF_SIZE);

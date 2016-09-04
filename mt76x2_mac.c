@@ -95,8 +95,8 @@ mt76x2_mac_process_rate(struct ieee80211_rx_status *status, u16 rate)
 }
 
 static __le16
-mt76x2_mac_tx_rate_val(struct mt76x2_dev *dev, const struct ieee80211_tx_rate *rate,
-		     u8 *nss_val)
+mt76x2_mac_tx_rate_val(struct mt76x2_dev *dev,
+		       const struct ieee80211_tx_rate *rate, u8 *nss_val)
 {
 	u16 rateval;
 	u8 phy, rate_idx;
@@ -146,7 +146,7 @@ mt76x2_mac_tx_rate_val(struct mt76x2_dev *dev, const struct ieee80211_tx_rate *r
 }
 
 void mt76x2_mac_wcid_set_rate(struct mt76x2_dev *dev, struct mt76_wcid *wcid,
-			    const struct ieee80211_tx_rate *rate)
+			      const struct ieee80211_tx_rate *rate)
 {
 	spin_lock_bh(&dev->mt76.lock);
 	wcid->tx_rate = mt76x2_mac_tx_rate_val(dev, rate, &wcid->tx_rate_nss);
@@ -209,6 +209,7 @@ void mt76x2_mac_write_txwi(struct mt76x2_dev *dev, struct mt76x2_txwi *txwi,
 		txwi->pktid |= MT_TXWI_PKTID_PROBE;
 	if ((info->flags & IEEE80211_TX_CTL_AMPDU) && sta) {
 		u8 ba_size = IEEE80211_MIN_AMPDU_BUF;
+
 		ba_size <<= sta->ht_cap.ampdu_factor;
 		ba_size = min_t(int, 63, ba_size - 1);
 		if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE)
@@ -217,7 +218,7 @@ void mt76x2_mac_write_txwi(struct mt76x2_dev *dev, struct mt76x2_txwi *txwi,
 
 		txwi_flags |= MT_TXWI_FLAGS_AMPDU |
 			 FIELD_PREP(MT_TXWI_FLAGS_MPDU_DENSITY,
-				  sta->ht_cap.ampdu_density);
+				    sta->ht_cap.ampdu_density);
 	}
 
 	txwi->flags |= cpu_to_le16(txwi_flags);
@@ -227,11 +228,13 @@ void mt76x2_mac_write_txwi(struct mt76x2_dev *dev, struct mt76x2_txwi *txwi,
 static void mt76x2_remove_hdr_pad(struct sk_buff *skb)
 {
 	int len = ieee80211_get_hdrlen_from_skb(skb);
+
 	memmove(skb->data + 2, skb->data, len);
 	skb_pull(skb, 2);
 }
 
-int mt76x2_mac_process_rx(struct mt76x2_dev *dev, struct sk_buff *skb, void *rxi)
+int mt76x2_mac_process_rx(struct mt76x2_dev *dev, struct sk_buff *skb,
+			  void *rxi)
 {
 	struct ieee80211_rx_status *status = IEEE80211_SKB_RXCB(skb);
 	struct mt76x2_rxwi *rxwi = rxi;
@@ -266,7 +269,7 @@ int mt76x2_mac_process_rx(struct mt76x2_dev *dev, struct sk_buff *skb, void *rxi
 
 static void
 mt76x2_mac_process_tx_rate(struct ieee80211_tx_rate *txrate, u16 rate,
-			 enum nl80211_band band)
+			   enum nl80211_band band)
 {
 	u8 idx = FIELD_GET(MT_RXWI_RATE_INDEX, rate);
 
@@ -323,7 +326,7 @@ mt76x2_mac_process_tx_rate(struct ieee80211_tx_rate *txrate, u16 rate,
 
 static void
 mt76x2_mac_fill_tx_status(struct mt76x2_dev *dev, struct ieee80211_tx_info *info,
-			struct mt76x2_tx_status *st, int n_frames)
+			  struct mt76x2_tx_status *st, int n_frames)
 {
 	struct ieee80211_tx_rate *rate = info->status.rates;
 	int cur_idx, last_rate;
@@ -363,7 +366,7 @@ mt76x2_mac_fill_tx_status(struct mt76x2_dev *dev, struct ieee80211_tx_info *info
 
 static void
 mt76x2_send_tx_status(struct mt76x2_dev *dev, struct mt76x2_tx_status *stat,
-		    u8 *update)
+		      u8 *update)
 {
 	struct ieee80211_tx_info info = {};
 	struct ieee80211_sta *sta = NULL;
@@ -395,7 +398,7 @@ mt76x2_send_tx_status(struct mt76x2_dev *dev, struct mt76x2_tx_status *stat,
 			goto out;
 
 		mt76x2_mac_fill_tx_status(dev, &info, &msta->status,
-					msta->n_frames);
+					  msta->n_frames);
 
 		msta->status = *stat;
 		if (*update == 1) {
@@ -489,11 +492,10 @@ void mt76x2_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 {
 	struct mt76x2_dev *dev = container_of(mdev, struct mt76x2_dev, mt76);
 
-	if (e->txwi) {
+	if (e->txwi)
 		mt76x2_mac_queue_txdone(dev, e->skb, &e->txwi->txwi);
-	} else {
+	else
 		dev_kfree_skb_any(e->skb);
-	}
 }
 
 static enum mt76x2_cipher_type
@@ -508,7 +510,7 @@ mt76x2_mac_get_key_info(struct ieee80211_key_conf *key, u8 *key_data)
 
 	memcpy(key_data, key->key, key->keylen);
 
-	switch(key->cipher) {
+	switch (key->cipher) {
 	case WLAN_CIPHER_SUITE_WEP40:
 		return MT_CIPHER_WEP40;
 	case WLAN_CIPHER_SUITE_WEP104:
@@ -539,7 +541,7 @@ void mt76x2_mac_wcid_setup(struct mt76x2_dev *dev, u8 idx, u8 vif_idx, u8 *mac)
 }
 
 int mt76x2_mac_wcid_set_key(struct mt76x2_dev *dev, u8 idx,
-			  struct ieee80211_key_conf *key)
+			    struct ieee80211_key_conf *key)
 {
 	enum mt76x2_cipher_type cipher;
 	u8 key_data[32];
@@ -582,7 +584,8 @@ int mt76x2_mac_shared_key_setup(struct mt76x2_dev *dev, u8 vif_idx, u8 key_idx,
 	val |= cipher << MT_SKEY_MODE_SHIFT(vif_idx, key_idx);
 	mt76_wr(dev, MT_SKEY_MODE(vif_idx), val);
 
-	mt76_wr_copy(dev, MT_SKEY(vif_idx, key_idx), key_data, sizeof(key_data));
+	mt76_wr_copy(dev, MT_SKEY(vif_idx, key_idx), key_data,
+		     sizeof(key_data));
 
 	return 0;
 }
@@ -620,7 +623,8 @@ __mt76x2_mac_set_beacon(struct mt76x2_dev *dev, u8 bcn_idx, struct sk_buff *skb)
 	if (skb) {
 		ret = mt76_write_beacon(dev, beacon_addr, skb);
 		if (!ret)
-			dev->beacon_data_mask |= BIT(bcn_idx) & dev->beacon_mask;
+			dev->beacon_data_mask |= BIT(bcn_idx) &
+						 dev->beacon_mask;
 	} else {
 		dev->beacon_data_mask &= ~BIT(bcn_idx);
 		for (i = 0; i < beacon_len; i += 4)
@@ -632,7 +636,8 @@ __mt76x2_mac_set_beacon(struct mt76x2_dev *dev, u8 bcn_idx, struct sk_buff *skb)
 	return ret;
 }
 
-int mt76x2_mac_set_beacon(struct mt76x2_dev *dev, u8 vif_idx, struct sk_buff *skb)
+int mt76x2_mac_set_beacon(struct mt76x2_dev *dev, u8 vif_idx,
+			  struct sk_buff *skb)
 {
 	bool force_update = false;
 	int bcn_idx = 0;
@@ -661,7 +666,8 @@ int mt76x2_mac_set_beacon(struct mt76x2_dev *dev, u8 vif_idx, struct sk_buff *sk
 		__mt76x2_mac_set_beacon(dev, i, NULL);
 	}
 
-	mt76_rmw_field(dev, MT_MAC_BSSID_DW1, MT_MAC_BSSID_DW1_MBEACON_N, bcn_idx - 1);
+	mt76_rmw_field(dev, MT_MAC_BSSID_DW1, MT_MAC_BSSID_DW1_MBEACON_N,
+		       bcn_idx - 1);
 	return 0;
 }
 
@@ -721,6 +727,7 @@ void mt76x2_mac_work(struct work_struct *work)
 	mt76x2_update_channel(&dev->mt76);
 	for (i = 0, idx = 0; i < 16; i++) {
 		u32 val = mt76_rr(dev, MT_TX_AGG_CNT(i));
+
 		dev->aggr_stats[idx++] += val & 0xffff;
 		dev->aggr_stats[idx++] += val >> 16;
 	}
