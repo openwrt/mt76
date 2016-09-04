@@ -17,27 +17,6 @@
 #include <linux/module.h>
 #include "mt76.h"
 
-int mt76_insert_hdr_pad(struct sk_buff *skb)
-{
-	int len = ieee80211_get_hdrlen_from_skb(skb);
-	int ret;
-
-	if (len % 4 == 0)
-		return 0;
-
-	if (skb_headroom(skb) < 2 &&
-	    (ret = pskb_expand_head(skb, 2, 0, GFP_ATOMIC)) != 0)
-		return ret;
-
-	skb_push(skb, 2);
-	memmove(skb->data, skb->data + 2, len);
-
-	skb->data[len] = 0;
-	skb->data[len + 1] = 0;
-	return 2;
-}
-EXPORT_SYMBOL_GPL(mt76_insert_hdr_pad);
-
 bool __mt76_poll(struct mt76_dev *dev, u32 offset, u32 mask, u32 val,
 		 int timeout)
 {

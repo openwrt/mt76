@@ -124,6 +124,26 @@ void mt76x2_tx_set_txpwr_auto(struct mt76x2_dev *dev, s8 txpwr)
 		       MT_PROT_AUTO_TX_CFG_AUTO_PADJ, txpwr_adj);
 }
 
+static int mt76x2_insert_hdr_pad(struct sk_buff *skb)
+{
+	int len = ieee80211_get_hdrlen_from_skb(skb);
+	int ret;
+
+	if (len % 4 == 0)
+		return 0;
+
+	if (skb_headroom(skb) < 2 &&
+	    (ret = pskb_expand_head(skb, 2, 0, GFP_ATOMIC)) != 0)
+		return ret;
+
+	skb_push(skb, 2);
+	memmove(skb->data, skb->data + 2, len);
+
+	skb->data[len] = 0;
+	skb->data[len + 1] = 0;
+	return 2;
+}
+
 int mt76x2_tx_prepare_skb(struct mt76_dev *mdev, void *txwi,
 			  struct sk_buff *skb, struct mt76_queue *q,
 			  struct mt76_wcid *wcid, struct ieee80211_sta *sta,
@@ -136,7 +156,7 @@ int mt76x2_tx_prepare_skb(struct mt76_dev *mdev, void *txwi,
 
 	mt76x2_mac_write_txwi(dev, txwi, skb, wcid, sta);
 
-	ret = mt76_insert_hdr_pad(skb);
+	ret = mt76x2_insert_hdr_pad(skb);
 	if (ret < 0)
 		return ret;
 

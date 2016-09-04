@@ -22,7 +22,6 @@
 #define MT76_INCR(_var, _size) \
 	_var = (((_var) + 1) % _size)
 
-int mt76_insert_hdr_pad(struct sk_buff *skb);
 int mt76_wcid_alloc(unsigned long *mask, int size);
 
 static inline void
