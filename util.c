@@ -17,14 +17,6 @@
 #include <linux/module.h>
 #include "mt76.h"
 
-void mt76_remove_hdr_pad(struct sk_buff *skb)
-{
-	int len = ieee80211_get_hdrlen_from_skb(skb);
-	memmove(skb->data + 2, skb->data, len);
-	skb_pull(skb, 2);
-}
-EXPORT_SYMBOL_GPL(mt76_remove_hdr_pad);
-
 int mt76_insert_hdr_pad(struct sk_buff *skb)
 {
 	int len = ieee80211_get_hdrlen_from_skb(skb);

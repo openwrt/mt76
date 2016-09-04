@@ -224,6 +224,13 @@ void mt76x2_mac_write_txwi(struct mt76x2_dev *dev, struct mt76x2_txwi *txwi,
 	txwi->len_ctl = cpu_to_le16(skb->len);
 }
 
+static void mt76x2_remove_hdr_pad(struct sk_buff *skb)
+{
+	int len = ieee80211_get_hdrlen_from_skb(skb);
+	memmove(skb->data + 2, skb->data, len);
+	skb_pull(skb, 2);
+}
+
 int mt76x2_mac_process_rx(struct mt76x2_dev *dev, struct sk_buff *skb, void *rxi)
 {
 	struct ieee80211_rx_status *status = IEEE80211_SKB_RXCB(skb);
@@ -233,7 +240,7 @@ int mt76x2_mac_process_rx(struct mt76x2_dev *dev, struct sk_buff *skb, void *rxi
 	int len;
 
 	if (rxwi->rxinfo & cpu_to_le32(MT_RXINFO_L2PAD))
-		mt76_remove_hdr_pad(skb);
+		mt76x2_remove_hdr_pad(skb);
 
 	if (rxwi->rxinfo & cpu_to_le32(MT_RXINFO_DECRYPT)) {
 		status->flag |= RX_FLAG_DECRYPTED;
