@@ -40,7 +40,8 @@ static u32 mt76_mmio_rmw(struct mt76_dev *dev, u32 offset, u32 mask, u32 val)
 	return val;
 }
 
-static void mt76_mmio_copy(struct mt76_dev *dev, u32 offset, const void *data, int len)
+static void mt76_mmio_copy(struct mt76_dev *dev, u32 offset, const void *data,
+			   int len)
 {
 	__iowrite32_copy(dev->regs + offset, data, len >> 2);
 }

@@ -28,7 +28,8 @@ mt76_alloc_txwi(struct mt76_dev *dev)
 	if (!t)
 		return NULL;
 
-	addr = dma_map_single(dev->dev, &t->txwi, sizeof(t->txwi), DMA_TO_DEVICE);
+	addr = dma_map_single(dev->dev, &t->txwi, sizeof(t->txwi),
+			      DMA_TO_DEVICE);
 	t->dma_addr = addr;
 
 	return t;
@@ -135,7 +136,8 @@ int mt76_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 		if (n == ARRAY_SIZE(buf))
 			goto unmap;
 
-		addr = dma_map_single(dev->dev, iter->data, iter->len, DMA_TO_DEVICE);
+		addr = dma_map_single(dev->dev, iter->data, iter->len,
+				      DMA_TO_DEVICE);
 		if (dma_mapping_error(dev->dev, addr))
 			goto unmap;
 
@@ -151,7 +153,8 @@ int mt76_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 unmap:
 	ret = -ENOMEM;
 	for (n--; n > 0; n--)
-		dma_unmap_single(dev->dev, buf[n].addr, buf[n].len, DMA_TO_DEVICE);
+		dma_unmap_single(dev->dev, buf[n].addr, buf[n].len,
+				 DMA_TO_DEVICE);
 
 free:
 	e.skb = skb;
@@ -454,7 +457,7 @@ void mt76_stop_tx_queues(struct mt76_dev *dev, struct ieee80211_sta *sta,
 		spin_lock_bh(&mtxq->hwq->lock);
 		mtxq->send_bar = mtxq->aggr && send_bar;
 		if (!list_empty(&mtxq->list))
-		    list_del_init(&mtxq->list);
+			list_del_init(&mtxq->list);
 		spin_unlock_bh(&mtxq->hwq->lock);
 	}
 }

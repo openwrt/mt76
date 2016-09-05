@@ -102,11 +102,10 @@ mt76_eeprom_override(struct mt76_dev *dev)
 
 	if (!is_valid_ether_addr(dev->macaddr)) {
 		eth_random_addr(dev->macaddr);
-		dev_printk(KERN_INFO, dev->dev,
-			   "Invalid MAC address, using random address %pM\n",
-			   dev->macaddr);
+		dev_info(dev->dev,
+			 "Invalid MAC address, using random address %pM\n",
+			 dev->macaddr);
 	}
-
 }
 EXPORT_SYMBOL_GPL(mt76_eeprom_override);
 

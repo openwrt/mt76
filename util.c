@@ -46,7 +46,7 @@ bool __mt76_poll_msec(struct mt76_dev *dev, u32 offset, u32 mask, u32 val,
 		if (cur == val)
 			return true;
 
-		msleep(10);
+		usleep_range(10000, 20000);
 	} while (timeout-- > 0);
 
 	return false;

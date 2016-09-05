@@ -120,7 +120,7 @@ mt76_init_sband(struct mt76_dev *dev, struct mt76_sband *msband,
 	ht_cap->ampdu_density = IEEE80211_HT_MPDU_DENSITY_4;
 
 	if (!vht)
-	    return 0;
+		return 0;
 
 	vht_cap = &sband->vht_cap;
 	vht_cap->vht_supported = true;
@@ -137,9 +137,9 @@ mt76_init_sband(struct mt76_dev *dev, struct mt76_sband *msband,
 	vht_cap->vht_mcs.rx_mcs_map = cpu_to_le16(mcs_map);
 	vht_cap->vht_mcs.tx_mcs_map = cpu_to_le16(mcs_map);
 	vht_cap->cap |= IEEE80211_VHT_CAP_RXLDPC |
-		        IEEE80211_VHT_CAP_TXSTBC |
-		        IEEE80211_VHT_CAP_RXSTBC_1 |
-		        IEEE80211_VHT_CAP_SHORT_GI_80;
+			IEEE80211_VHT_CAP_TXSTBC |
+			IEEE80211_VHT_CAP_RXSTBC_1 |
+			IEEE80211_VHT_CAP_SHORT_GI_80;
 
 	return 0;
 }
@@ -267,7 +267,7 @@ void mt76_set_channel(struct mt76_dev *dev)
 EXPORT_SYMBOL_GPL(mt76_set_channel);
 
 int mt76_get_survey(struct ieee80211_hw *hw, int idx,
-		     struct survey_info *survey)
+		    struct survey_info *survey)
 {
 	struct mt76_dev *dev = hw->priv;
 	struct mt76_sband *sband;

@@ -35,7 +35,8 @@ struct mt76_bus_ops {
 	u32 (*rr)(struct mt76_dev *dev, u32 offset);
 	void (*wr)(struct mt76_dev *dev, u32 offset, u32 val);
 	u32 (*rmw)(struct mt76_dev *dev, u32 offset, u32 mask, u32 val);
-	void (*copy)(struct mt76_dev *dev, u32 offset, const void *data, int len);
+	void (*copy)(struct mt76_dev *dev, u32 offset, const void *data,
+		     int len);
 };
 
 enum mt76_txq_id {
@@ -114,7 +115,8 @@ struct mt76_queue_ops {
 
 	void (*rx_reset)(struct mt76_dev *dev, enum mt76_rxq_id qid);
 
-	void (*tx_cleanup)(struct mt76_dev *dev, enum mt76_txq_id qid, bool flush);
+	void (*tx_cleanup)(struct mt76_dev *dev, enum mt76_txq_id qid,
+			   bool flush);
 
 	void (*kick)(struct mt76_dev *dev, struct mt76_queue *q);
 };
@@ -170,7 +172,7 @@ struct mt76_driver_ops {
 			      struct ieee80211_sta *sta, u32 *tx_info);
 
 	void (*tx_complete_skb)(struct mt76_dev *dev, struct mt76_queue *q,
-			        struct mt76_queue_entry *e, bool flush);
+				struct mt76_queue_entry *e, bool flush);
 
 	void (*rx_skb)(struct mt76_dev *dev, enum mt76_rxq_id q,
 		       struct sk_buff *skb);
@@ -259,7 +261,7 @@ struct mt76_rate_power {
 #define mt76_hw(dev) (dev)->mt76.hw
 
 bool __mt76_poll(struct mt76_dev *dev, u32 offset, u32 mask, u32 val,
-	         int timeout);
+		 int timeout);
 
 #define mt76_poll(dev, ...) __mt76_poll(&((dev)->mt76), __VA_ARGS__)
 
@@ -318,6 +320,7 @@ static inline struct ieee80211_txq *
 mtxq_to_txq(struct mt76_txq *mtxq)
 {
 	void *ptr = mtxq;
+
 	return container_of(ptr, struct ieee80211_txq, drv_priv);
 }
 
@@ -342,7 +345,7 @@ void mt76_release_buffered_frames(struct ieee80211_hw *hw,
 				  bool more_data);
 void mt76_set_channel(struct mt76_dev *dev);
 int mt76_get_survey(struct ieee80211_hw *hw, int idx,
-		     struct survey_info *survey);
+		    struct survey_info *survey);
 
 /* internal */
 void mt76_tx_free(struct mt76_dev *dev);
