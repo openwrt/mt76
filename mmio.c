@@ -22,14 +22,14 @@ static u32 mt76_mmio_rr(struct mt76_dev *dev, u32 offset)
 	u32 val;
 
 	val = ioread32(dev->regs + offset);
-	trace_reg_read(dev, offset, val);
+	trace_reg_rr(dev, offset, val);
 
 	return val;
 }
 
 static void mt76_mmio_wr(struct mt76_dev *dev, u32 offset, u32 val)
 {
-	trace_reg_write(dev, offset, val);
+	trace_reg_wr(dev, offset, val);
 	iowrite32(val, dev->regs + offset);
 }
 

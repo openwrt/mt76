@@ -51,12 +51,12 @@ DECLARE_EVENT_CLASS(dev_reg_evt,
 	)
 );
 
-DEFINE_EVENT(dev_reg_evt, reg_read,
+DEFINE_EVENT(dev_reg_evt, reg_rr,
 	TP_PROTO(struct mt76_dev *dev, u32 reg, u32 val),
 	TP_ARGS(dev, reg, val)
 );
 
-DEFINE_EVENT(dev_reg_evt, reg_write,
+DEFINE_EVENT(dev_reg_evt, reg_wr,
 	TP_PROTO(struct mt76_dev *dev, u32 reg, u32 val),
 	TP_ARGS(dev, reg, val)
 );
