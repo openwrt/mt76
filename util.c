@@ -75,4 +75,4 @@ int mt76_wcid_alloc(unsigned long *mask, int size)
 }
 EXPORT_SYMBOL_GPL(mt76_wcid_alloc);
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("Dual BSD/GPL");
