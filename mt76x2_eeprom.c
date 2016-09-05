@@ -204,6 +204,7 @@ mt76x2_apply_cal_free_data(struct mt76x2_dev *dev, u8 *efuse)
 static int mt76x2_check_eeprom(struct mt76x2_dev *dev)
 {
 	u16 val = get_unaligned_le16(dev->mt76.eeprom.data);
+
 	switch (val) {
 	case 0x7662:
 	case 0x7612:
@@ -256,7 +257,7 @@ out:
 }
 
 static inline int
-mt76x2_sign_extend(u32 val, unsigned size)
+mt76x2_sign_extend(u32 val, unsigned int size)
 {
 	bool sign = val & BIT(size - 1);
 
@@ -266,7 +267,7 @@ mt76x2_sign_extend(u32 val, unsigned size)
 }
 
 static inline int
-mt76x2_sign_extend_optional(u32 val, unsigned size)
+mt76x2_sign_extend_optional(u32 val, unsigned int size)
 {
 	bool enable = val & BIT(size);
 
@@ -554,7 +555,8 @@ mt76x2_get_power_info_5g(struct mt76x2_dev *dev, struct mt76x2_tx_power_info *t,
 	t->target_power = val & 0xff;
 }
 
-void mt76x2_get_power_info(struct mt76x2_dev *dev, struct mt76x2_tx_power_info *t)
+void mt76x2_get_power_info(struct mt76x2_dev *dev,
+			   struct mt76x2_tx_power_info *t)
 {
 	u16 bw40, bw80;
 

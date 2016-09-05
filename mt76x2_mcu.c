@@ -150,7 +150,7 @@ mt76pci_load_rom_patch(struct mt76x2_dev *dev)
 
 	if (!fw || !fw->data || fw->size <= sizeof(*hdr)) {
 		ret = -EIO;
-		printk("Failed to load firmware\n");
+		dev_err(dev->mt76.dev, "Failed to load firmware\n");
 		goto out;
 	}
 

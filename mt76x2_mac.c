@@ -325,7 +325,8 @@ mt76x2_mac_process_tx_rate(struct ieee80211_tx_rate *txrate, u16 rate,
 }
 
 static void
-mt76x2_mac_fill_tx_status(struct mt76x2_dev *dev, struct ieee80211_tx_info *info,
+mt76x2_mac_fill_tx_status(struct mt76x2_dev *dev,
+			  struct ieee80211_tx_info *info,
 			  struct mt76x2_tx_status *st, int n_frames)
 {
 	struct ieee80211_tx_rate *rate = info->status.rates;
