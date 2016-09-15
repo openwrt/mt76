@@ -43,7 +43,7 @@ mt76x2_eeprom_get_macaddr(struct mt76x2_dev *dev)
 static void
 mt76x2_eeprom_parse_hw_cap(struct mt76x2_dev *dev)
 {
-	u16 val = MT_EE_NIC_CONF_0;
+	u16 val = mt76x2_eeprom_get(dev, MT_EE_NIC_CONF_0);
 
 	switch (FIELD_GET(MT_EE_NIC_CONF_0_BOARD_TYPE, val)) {
 	case BOARD_TYPE_5GHZ:
