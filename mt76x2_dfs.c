@@ -210,32 +210,37 @@ static bool mt76x2_dfs_check_hw_pulse(struct mt76x2_dev *dev,
 
 	switch (dev->dfs_pd.region) {
 	case NL80211_DFS_FCC:
-		if (pulse->engine < 3) {
-			/* check short pulse*/
-			if (pulse->w1 < 120)
-				ret = (pulse->period >= 2900 &&
-				       (pulse->period <= 4700 ||
-					pulse->period >= 6400) &&
-				       (pulse->period <= 6800 ||
-					pulse->period >= 10200) &&
-				       pulse->period <= 61600);
-			else if (pulse->w1 < 130) /* 120 - 130 */
-				ret = (pulse->period >= 2900 &&
-				       pulse->period <= 61600);
-			else
-				ret = (pulse->period >= 3900 &&
-				       pulse->period <= 10100);
-		} else if (pulse->engine == 3) {
+		if (pulse->engine > 3)
+			break;
+
+		if (pulse->engine == 3) {
 			ret = mt76x2_dfs_check_chirp(dev);
+			break;
 		}
+
+		/* check short pulse*/
+		if (pulse->w1 < 120)
+			ret = (pulse->period >= 2900 &&
+			       (pulse->period <= 4700 ||
+				pulse->period >= 6400) &&
+			       (pulse->period <= 6800 ||
+				pulse->period >= 10200) &&
+			       pulse->period <= 61600);
+		else if (pulse->w1 < 130) /* 120 - 130 */
+			ret = (pulse->period >= 2900 &&
+			       pulse->period <= 61600);
+		else
+			ret = (pulse->period >= 3900 &&
+			       pulse->period <= 10100);
 		break;
 	case NL80211_DFS_ETSI:
-		if (pulse->engine < 3) {
-			ret = (pulse->period >= 4900 &&
-			       (pulse->period <= 10200 ||
-				pulse->period >= 12400) &&
-			       pulse->period <= 100100);
-		}
+		if (pulse->engine >= 3)
+			break;
+
+		ret = (pulse->period >= 4900 &&
+		       (pulse->period <= 10200 ||
+			pulse->period >= 12400) &&
+		       pulse->period <= 100100);
 		break;
 	case NL80211_DFS_JP:
 		if (dev->mt76.chandef.chan->center_freq >= 5250 &&
@@ -246,36 +251,41 @@ static bool mt76x2_dfs_check_hw_pulse(struct mt76x2_dev *dev,
 				       (pulse->period <= 28700 ||
 					pulse->period >= 76900) &&
 				       pulse->period <= 76940);
-		} else {
-			if (pulse->engine < 3) {
-				/* check short pulse*/
-				if (pulse->w1 < 120)
-					ret = (pulse->period >= 2900 &&
-					       (pulse->period <= 4700 ||
-						pulse->period >= 6400) &&
-					       (pulse->period <= 6800 ||
-						pulse->period >= 27560) &&
-					       (pulse->period <= 27960 ||
-						pulse->period >= 28360) &&
-					       (pulse->period <= 28700 ||
-						pulse->period >= 79900) &&
-					       pulse->period <= 80100);
-				else if (pulse->w1 < 130) /* 120 - 130 */
-					ret = (pulse->period >= 2900 &&
-					       (pulse->period <= 10100 ||
-						pulse->period >= 27560) &&
-					       (pulse->period <= 27960 ||
-						pulse->period >= 28360) &&
-					       (pulse->period <= 28700 ||
-						pulse->period >= 79900) &&
-					       pulse->period <= 80100);
-				else
-					ret = (pulse->period >= 3900 &&
-					       pulse->period <= 10100);
-			} else if (pulse->engine == 3) {
-				ret = mt76x2_dfs_check_chirp(dev);
-			}
+			break;
 		}
+
+		if (pulse->engine > 3)
+			break;
+
+		if (pulse->engine == 3) {
+			ret = mt76x2_dfs_check_chirp(dev);
+			break;
+		}
+
+		/* check short pulse*/
+		if (pulse->w1 < 120)
+			ret = (pulse->period >= 2900 &&
+			       (pulse->period <= 4700 ||
+				pulse->period >= 6400) &&
+			       (pulse->period <= 6800 ||
+				pulse->period >= 27560) &&
+			       (pulse->period <= 27960 ||
+				pulse->period >= 28360) &&
+			       (pulse->period <= 28700 ||
+				pulse->period >= 79900) &&
+			       pulse->period <= 80100);
+		else if (pulse->w1 < 130) /* 120 - 130 */
+			ret = (pulse->period >= 2900 &&
+			       (pulse->period <= 10100 ||
+				pulse->period >= 27560) &&
+			       (pulse->period <= 27960 ||
+				pulse->period >= 28360) &&
+			       (pulse->period <= 28700 ||
+				pulse->period >= 79900) &&
+			       pulse->period <= 80100);
+		else
+			ret = (pulse->period >= 3900 &&
+			       pulse->period <= 10100);
 		break;
 	case NL80211_DFS_UNSET:
 	default:
@@ -313,9 +323,10 @@ static void mt76x2_dfs_chan_state(struct mt76x2_dev *dev)
 
 void mt76x2_dfs_tasklet(unsigned long arg)
 {
-	u32 engine_mask;
 	struct mt76x2_dev *dev = (struct mt76x2_dev *)arg;
 	struct mt76x2_dfs_pattern_detector *dfs_pd = &dev->dfs_pd;
+	u32 engine_mask;
+	int i;
 
 	if (test_bit(MT76_SCANNING, &dev->mt76.state))
 		goto out;
@@ -329,32 +340,35 @@ void mt76x2_dfs_tasklet(unsigned long arg)
 		goto out;
 
 	engine_mask = mt76_rr(dev, MT_BBP(DFS, 1));
-	if (engine_mask & 0xf) {
-		int i;
+	if (!(engine_mask & 0xf))
+		goto out;
 
-		for (i = 0; i < MT_DFS_NUM_ENGINES; i++) {
-			if (engine_mask & (1 << i)) {
-				struct mt76x2_dfs_hw_pulse pulse;
+	for (i = 0; i < MT_DFS_NUM_ENGINES; i++) {
+		struct mt76x2_dfs_hw_pulse pulse;
 
-				pulse.engine = i;
-				mt76x2_dfs_get_hw_pulse(dev, &pulse);
+		if (!(engine_mask & (1 << i)))
+			continue;
 
-				if (mt76x2_dfs_check_hw_pulse(dev, &pulse)) {
-					/* hw detector rx radar pattern */
-					dfs_pd->stats[i].hw_pattern++;
-					ieee80211_radar_detected(dev->mt76.hw);
-					/* reset hw detector */
-					mt76_wr(dev, MT_BBP(DFS, 1), 0xf);
+		pulse.engine = i;
+		mt76x2_dfs_get_hw_pulse(dev, &pulse);
 
-					return;
-				} else {
-					dfs_pd->stats[i].hw_pulse_discarded++;
-				}
-			}
+		if (!mt76x2_dfs_check_hw_pulse(dev, &pulse)) {
+			dfs_pd->stats[i].hw_pulse_discarded++;
+			continue;
 		}
+
+		/* hw detector rx radar pattern */
+		dfs_pd->stats[i].hw_pattern++;
+		ieee80211_radar_detected(dev->mt76.hw);
+
 		/* reset hw detector */
 		mt76_wr(dev, MT_BBP(DFS, 1), 0xf);
+
+		return;
 	}
+
+	/* reset hw detector */
+	mt76_wr(dev, MT_BBP(DFS, 1), 0xf);
 
 out:
 	mt76x2_irq_enable(dev, MT_INT_GPTIMER);
