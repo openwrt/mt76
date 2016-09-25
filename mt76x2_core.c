@@ -78,6 +78,11 @@ irqreturn_t mt76x2_irq_handler(int irq, void *dev_instance)
 		tasklet_schedule(&dev->tx_tasklet);
 	}
 
+	if (intr & MT_INT_GPTIMER) {
+		mt76x2_irq_disable(dev, MT_INT_GPTIMER);
+		tasklet_schedule(&dev->dfs_pd.dfs_tasklet);
+	}
+
 	return IRQ_HANDLED;
 }
 

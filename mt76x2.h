@@ -41,6 +41,7 @@
 #include "mt76.h"
 #include "mt76x2_regs.h"
 #include "mt76x2_mac.h"
+#include "mt76x2_dfs.h"
 
 struct mt76x2_mcu {
 	struct mutex mutex;
@@ -126,6 +127,8 @@ struct mt76x2_dev {
 
 	u8 coverage_class;
 	u8 slottime;
+
+	struct mt76x2_dfs_pattern_detector dfs_pd;
 };
 
 struct mt76x2_vif {

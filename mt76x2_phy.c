@@ -49,6 +49,9 @@ mt76x2_apply_gain_adj(struct mt76x2_dev *dev)
 
 	mt76x2_adjust_agc_gain(dev, 8, gain_adj[0]);
 	mt76x2_adjust_agc_gain(dev, 9, gain_adj[1]);
+
+	if (dev->mt76.chandef.chan->flags & IEEE80211_CHAN_RADAR)
+		mt76x2_dfs_adjust_agc(dev);
 }
 
 static u32

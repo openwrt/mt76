@@ -282,6 +282,8 @@ int mt76x2_mac_reset(struct mt76x2_dev *dev, bool hard)
 	/* Fire a pre-TBTT interrupt 8 ms before TBTT */
 	mt76_rmw_field(dev, MT_INT_TIMER_CFG, MT_INT_TIMER_CFG_PRE_TBTT,
 		       8 << 4);
+	mt76_rmw_field(dev, MT_INT_TIMER_CFG, MT_INT_TIMER_CFG_GP_TIMER,
+		       MT_DFS_GP_INTERVAL);
 	mt76_wr(dev, MT_INT_TIMER_EN, 0);
 
 	mt76_wr(dev, MT_BCN_BYPASS_MASK, 0xffff);
@@ -642,6 +644,15 @@ struct mt76x2_dev *mt76x2_alloc_device(struct device *pdev)
 	return dev;
 }
 
+static void mt76x2_regd_notifier(struct wiphy *wiphy,
+				 struct regulatory_request *request)
+{
+	struct ieee80211_hw *hw = wiphy_to_ieee80211_hw(wiphy);
+	struct mt76x2_dev *dev = hw->priv;
+
+	dev->dfs_pd.region = request->dfs_region;
+}
+
 #define CCK_RATE(_idx, _rate) {					\
 	.bitrate = _rate,					\
 	.flags = IEEE80211_RATE_SHORT_PREAMBLE,			\
@@ -739,6 +750,8 @@ int mt76x2_register_device(struct mt76x2_dev *dev)
 	wiphy->iface_combinations = if_comb;
 	wiphy->n_iface_combinations = ARRAY_SIZE(if_comb);
 
+	wiphy->reg_notifier = mt76x2_regd_notifier;
+
 	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_VHT_IBSS);
 
 	ieee80211_hw_set(hw, SUPPORTS_HT_CCK_RATES);
@@ -747,6 +760,8 @@ int mt76x2_register_device(struct mt76x2_dev *dev)
 
 	dev->mt76.sband_2g.sband.ht_cap.cap |= IEEE80211_HT_CAP_LDPC_CODING;
 	dev->mt76.sband_5g.sband.ht_cap.cap |= IEEE80211_HT_CAP_LDPC_CODING;
+
+	mt76x2_dfs_init_detector(dev);
 
 	ret = mt76_register_device(&dev->mt76, true, mt76x2_rates,
 				   ARRAY_SIZE(mt76x2_rates));
