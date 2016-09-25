@@ -63,6 +63,11 @@ struct mt76x2_dfs_hw_pulse {
 	u32 burst;
 };
 
+struct mt76x2_dfs_engine_stats {
+	u32 hw_pattern;
+	u32 hw_pulse_discarded;
+};
+
 struct mt76x2_dfs_pattern_detector {
 	enum nl80211_dfs_regions region;
 
@@ -73,6 +78,8 @@ struct mt76x2_dfs_pattern_detector {
 	u64 ch_active_time;
 	u64 ch_busy_time;
 	bool ch_busy;
+
+	struct mt76x2_dfs_engine_stats stats[MT_DFS_NUM_ENGINES];
 
 	struct tasklet_struct dfs_tasklet;
 };

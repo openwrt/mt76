@@ -341,11 +341,14 @@ void mt76x2_dfs_tasklet(unsigned long arg)
 
 				if (mt76x2_dfs_check_hw_pulse(dev, &pulse)) {
 					/* hw detector rx radar pattern */
+					dfs_pd->stats[i].hw_pattern++;
 					ieee80211_radar_detected(dev->mt76.hw);
 					/* reset hw detector */
 					mt76_wr(dev, MT_BBP(DFS, 1), 0xf);
 
 					return;
+				} else {
+					dfs_pd->stats[i].hw_pulse_discarded++;
 				}
 			}
 		}

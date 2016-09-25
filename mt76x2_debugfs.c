@@ -84,6 +84,37 @@ static const struct file_operations fops_ampdu_stat = {
 	.release = single_release,
 };
 
+static int
+mt76x2_dfs_stat_read(struct seq_file *file, void *data)
+{
+	int i;
+	struct mt76x2_dev *dev = file->private;
+	struct mt76x2_dfs_pattern_detector *dfs_pd = &dev->dfs_pd;
+
+	for (i = 0; i < MT_DFS_NUM_ENGINES; i++) {
+		seq_printf(file, "engine: %d\n", i);
+		seq_printf(file, "  hw pattern detected:\t%d\n",
+			   dfs_pd->stats[i].hw_pattern);
+		seq_printf(file, "  hw pulse discarded:\t%d\n",
+			   dfs_pd->stats[i].hw_pulse_discarded);
+	}
+
+	return 0;
+}
+
+static int
+mt76x2_dfs_stat_open(struct inode *inode, struct file *f)
+{
+	return single_open(f, mt76x2_dfs_stat_read, inode->i_private);
+}
+
+static const struct file_operations fops_dfs_stat = {
+	.open = mt76x2_dfs_stat_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 void mt76x2_init_debugfs(struct mt76x2_dev *dev)
 {
 	struct dentry *dir;
@@ -96,6 +127,7 @@ void mt76x2_init_debugfs(struct mt76x2_dev *dev)
 	debugfs_create_bool("tpc", S_IRUSR | S_IWUSR, dir, &dev->enable_tpc);
 
 	debugfs_create_file("ampdu_stat", S_IRUSR, dir, dev, &fops_ampdu_stat);
+	debugfs_create_file("dfs_stats", S_IRUSR, dir, dev, &fops_dfs_stat);
 	debugfs_create_devm_seqfile(dev->mt76.dev, "txpower", dir,
 				    read_txpower);
 }
