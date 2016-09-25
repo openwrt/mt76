@@ -520,8 +520,6 @@ void mt76x2_dfs_init_detector(struct mt76x2_dev *dev)
 {
 	struct mt76x2_dfs_pattern_detector *dfs_pd = &dev->dfs_pd;
 
-	memset(dfs_pd, 0, sizeof(*dfs_pd));
-
 	dfs_pd->region = NL80211_DFS_UNSET;
 	tasklet_init(&dfs_pd->dfs_tasklet, mt76x2_dfs_tasklet,
 		     (unsigned long)dev);
