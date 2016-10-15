@@ -28,10 +28,10 @@ mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76_txq_id qid,
 	int idx;
 
 	tx_info = MT_MCU_MSG_TYPE_CMD |
-		  FIELD_PREP(MT_MCU_MSG_CMD_TYPE, cmd) |
-		  FIELD_PREP(MT_MCU_MSG_CMD_SEQ, seq) |
-		  FIELD_PREP(MT_MCU_MSG_PORT, CPU_TX_PORT) |
-		  FIELD_PREP(MT_MCU_MSG_LEN, skb->len);
+		  MT76_SET(MT_MCU_MSG_CMD_TYPE, cmd) |
+		  MT76_SET(MT_MCU_MSG_CMD_SEQ, seq) |
+		  MT76_SET(MT_MCU_MSG_PORT, CPU_TX_PORT) |
+		  MT76_SET(MT_MCU_MSG_LEN, skb->len);
 
 	addr = dma_map_single(dev->mt76.dev, skb->data, skb->len,
 			      DMA_TO_DEVICE);

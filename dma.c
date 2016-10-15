@@ -66,10 +66,10 @@ mt76_dma_add_buf(struct mt76_dev *dev, struct mt76_queue *q,
 	for (i = 0; i < nbufs; i += 2, buf += 2) {
 		u32 buf0 = buf[0].addr, buf1 = 0;
 
-		ctrl = FIELD_PREP(MT_DMA_CTL_SD_LEN0, buf[0].len);
+		ctrl = MT76_SET(MT_DMA_CTL_SD_LEN0, buf[0].len);
 		if (i < nbufs - 1) {
 			buf1 = buf[1].addr;
-			ctrl |= FIELD_PREP(MT_DMA_CTL_SD_LEN1, buf[1].len);
+			ctrl |= MT76_SET(MT_DMA_CTL_SD_LEN1, buf[1].len);
 		}
 
 		if (i == nbufs - 1)
@@ -106,7 +106,7 @@ mt76_dma_tx_cleanup_idx(struct mt76_dev *dev, struct mt76_queue *q, int idx,
 
 	if (!e->txwi || !e->skb) {
 		__le32 addr = READ_ONCE(q->desc[idx].buf0);
-		u32 len = FIELD_GET(MT_DMA_CTL_SD_LEN0, ctrl);
+		u32 len = MT76_GET(MT_DMA_CTL_SD_LEN0, ctrl);
 
 		dma_unmap_single(dev->dev, le32_to_cpu(addr), len,
 				 DMA_TO_DEVICE);
@@ -114,7 +114,7 @@ mt76_dma_tx_cleanup_idx(struct mt76_dev *dev, struct mt76_queue *q, int idx,
 
 	if (!(ctrl & MT_DMA_CTL_LAST_SEC0)) {
 		__le32 addr = READ_ONCE(q->desc[idx].buf1);
-		u32 len = FIELD_GET(MT_DMA_CTL_SD_LEN1, ctrl);
+		u32 len = MT76_GET(MT_DMA_CTL_SD_LEN1, ctrl);
 
 		dma_unmap_single(dev->dev, le32_to_cpu(addr), len,
 				 DMA_TO_DEVICE);
@@ -197,7 +197,7 @@ mt76_dma_get_buf(struct mt76_dev *dev, struct mt76_queue *q, int idx,
 	buf_addr = READ_ONCE(desc->buf0);
 	if (len) {
 		u32 ctl = READ_ONCE(desc->ctrl);
-		*len = FIELD_GET(MT_DMA_CTL_SD_LEN0, ctl);
+		*len = MT76_GET(MT_DMA_CTL_SD_LEN0, ctl);
 		*more = !(ctl & MT_DMA_CTL_LAST_SEC0);
 	}
 
