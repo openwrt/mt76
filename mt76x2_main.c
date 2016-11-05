@@ -361,8 +361,6 @@ mt76x2_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif, u16 queue,
 	u8 cw_min = 5, cw_max = 10;
 	u32 val;
 
-	queue = dev->mt76.q_tx[queue].hw_idx;
-
 	if (params->cw_min)
 		cw_min = fls(params->cw_min);
 	if (params->cw_max)
