@@ -85,22 +85,22 @@ static void
 mt76_write_mac_initvals(struct mt76x2_dev *dev)
 {
 #define DEFAULT_PROT_CFG				\
-	(FIELD_PREP(MT_PROT_CFG_RATE, 0x2004) |		\
-	 FIELD_PREP(MT_PROT_CFG_NAV, 1) |			\
-	 FIELD_PREP(MT_PROT_CFG_TXOP_ALLOW, 0x3f) |	\
+	(MT76_SET(MT_PROT_CFG_RATE, 0x2004) |		\
+	 MT76_SET(MT_PROT_CFG_NAV, 1) |			\
+	 MT76_SET(MT_PROT_CFG_TXOP_ALLOW, 0x3f) |	\
 	 MT_PROT_CFG_RTS_THRESH)
 
 #define DEFAULT_PROT_CFG_20				\
-	(FIELD_PREP(MT_PROT_CFG_RATE, 0x2004) |		\
-	 FIELD_PREP(MT_PROT_CFG_CTRL, 1) |		\
-	 FIELD_PREP(MT_PROT_CFG_NAV, 1) |			\
-	 FIELD_PREP(MT_PROT_CFG_TXOP_ALLOW, 0x17))
+	(MT76_SET(MT_PROT_CFG_RATE, 0x2004) |		\
+	 MT76_SET(MT_PROT_CFG_CTRL, 1) |		\
+	 MT76_SET(MT_PROT_CFG_NAV, 1) |			\
+	 MT76_SET(MT_PROT_CFG_TXOP_ALLOW, 0x17))
 
 #define DEFAULT_PROT_CFG_40				\
-	(FIELD_PREP(MT_PROT_CFG_RATE, 0x2084) |		\
-	 FIELD_PREP(MT_PROT_CFG_CTRL, 1) |		\
-	 FIELD_PREP(MT_PROT_CFG_NAV, 1) |			\
-	 FIELD_PREP(MT_PROT_CFG_TXOP_ALLOW, 0x3f))
+	(MT76_SET(MT_PROT_CFG_RATE, 0x2084) |		\
+	 MT76_SET(MT_PROT_CFG_CTRL, 1) |		\
+	 MT76_SET(MT_PROT_CFG_NAV, 1) |			\
+	 MT76_SET(MT_PROT_CFG_TXOP_ALLOW, 0x3f))
 
 	static const struct mt76x2_reg_pair vals[] = {
 		/* Copied from MediaTek reference source */
@@ -199,7 +199,7 @@ mt76x2_fixup_xtal(struct mt76x2_dev *dev)
 	mt76_set(dev, MT_XO_CTRL6, MT_XO_CTRL6_C2_CTRL);
 
 	eep_val = mt76x2_eeprom_get(dev, MT_EE_NIC_CONF_2);
-	switch (FIELD_GET(MT_EE_NIC_CONF_2_XTAL_OPTION, eep_val)) {
+	switch (MT76_GET(MT_EE_NIC_CONF_2_XTAL_OPTION, eep_val)) {
 	case 0:
 		mt76_wr(dev, MT_XO_CTRL7, 0x5c1fee80);
 		break;
@@ -245,7 +245,7 @@ int mt76x2_mac_reset(struct mt76x2_dev *dev, bool hard)
 		 MT_WPDMA_GLO_CFG_RX_DMA_EN |
 		 MT_WPDMA_GLO_CFG_RX_DMA_BUSY |
 		 MT_WPDMA_GLO_CFG_DMA_BURST_SIZE);
-	val |= FIELD_PREP(MT_WPDMA_GLO_CFG_DMA_BURST_SIZE, 3);
+	val |= MT76_SET(MT_WPDMA_GLO_CFG_DMA_BURST_SIZE, 3);
 
 	mt76_wr(dev, MT_WPDMA_GLO_CFG, val);
 
@@ -276,7 +276,7 @@ int mt76x2_mac_reset(struct mt76x2_dev *dev, bool hard)
 
 	mt76_wr(dev, MT_MAC_BSSID_DW0, get_unaligned_le32(macaddr));
 	mt76_wr(dev, MT_MAC_BSSID_DW1, get_unaligned_le16(macaddr + 4) |
-		FIELD_PREP(MT_MAC_BSSID_DW1_MBSS_MODE, 3) | /* 8 beacons */
+		MT76_SET(MT_MAC_BSSID_DW1_MBSS_MODE, 3) | /* 8 beacons */
 		MT_MAC_BSSID_DW1_MBSS_LOCAL_BIT);
 
 	/* Fire a pre-TBTT interrupt 8 ms before TBTT */
@@ -313,7 +313,7 @@ int mt76x2_mac_reset(struct mt76x2_dev *dev, bool hard)
 		MT_CH_TIME_CFG_RX_AS_BUSY |
 		MT_CH_TIME_CFG_NAV_AS_BUSY |
 		MT_CH_TIME_CFG_EIFS_AS_BUSY |
-		FIELD_PREP(MT_CH_TIME_CFG_CH_TIMER_CLR, 1));
+		MT76_SET(MT_CH_TIME_CFG_CH_TIMER_CLR, 1));
 
 	mt76x2_init_beacon_offsets(dev);
 

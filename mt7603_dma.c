@@ -68,7 +68,7 @@ void mt7603_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 	__le32 *end = (__le32 *) &skb->data[skb->len];
 	enum rx_pkt_type type;
 
-	type = FIELD_GET(MT_RXD0_PKT_TYPE, le32_to_cpu(rxd[0]));
+	type = MT76_GET(MT_RXD0_PKT_TYPE, le32_to_cpu(rxd[0]));
 
 	switch(type) {
 	case PKT_TYPE_TXS:

@@ -158,7 +158,7 @@ void mt7603_beacon_set_timer(struct mt7603_dev *dev, int idx, int intval)
 
 	dev->beacon_int = intval;
 	mt76_wr(dev, MT_TBTT,
-		FIELD_PREP(MT_TBTT_PERIOD, intval) | MT_TBTT_CAL_ENABLE);
+		MT76_SET(MT_TBTT_PERIOD, intval) | MT_TBTT_CAL_ENABLE);
 
 	mt76_wr(dev, MT_TBTT_TIMER_CFG, 0x99); /* start timer */
 
