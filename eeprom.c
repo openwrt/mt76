@@ -23,7 +23,7 @@
 static int
 mt76_get_of_eeprom(struct mt76_dev *dev, int len)
 {
-#ifdef CONFIG_OF
+#if defined(CONFIG_OF) && defined(CONFIG_MTD)
 	struct device_node *np = dev->dev->of_node;
 	struct mtd_info *mtd;
 	const __be32 *list;
