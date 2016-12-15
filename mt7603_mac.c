@@ -612,6 +612,7 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 	int hdr_len = ieee80211_get_hdrlen_from_skb(skb);
 	int tx_count = 8;
 	u8 frame_type, frame_subtype;
+	u16 fc = le16_to_cpu(hdr->frame_control);
 	u8 bw;
 
 	if (sta) {
@@ -624,10 +625,8 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 	else
 		wlan_idx = MT7603_WTBL_RESERVED;
 
-	frame_type = FIELD_GET(IEEE80211_FCTL_FTYPE,
-			      le16_to_cpu(hdr->frame_control));
-	frame_subtype = FIELD_GET(IEEE80211_FCTL_STYPE,
-				 le16_to_cpu(hdr->frame_control));
+	frame_type = (fc & IEEE80211_FCTL_FTYPE) >> 2;
+	frame_subtype = (fc & IEEE80211_FCTL_STYPE) >> 4;
 
 	txwi[0] = cpu_to_le32(
 		FIELD_PREP(MT_TXD0_TX_BYTES, skb->len + MT_TXD_SIZE) |
