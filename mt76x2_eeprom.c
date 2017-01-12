@@ -354,12 +354,14 @@ void mt76x2_read_rx_gain(struct mt76x2_dev *dev)
 	u8 lna;
 	u16 val;
 
-	if (chan->band == NL80211_BAND_2GHZ)
+	if (chan->band == NL80211_BAND_2GHZ) {
 		val = mt76x2_eeprom_get(dev, MT_EE_RF_2G_RX_HIGH_GAIN) >> 8;
-	else
+	} else if (mt76x2_eeprom_get(dev, MT_EE_WIFI_EXT) & MT_EE_WIFI_EXT_COMP) {
 		val = mt76x2_get_5g_rx_gain(dev, channel);
-
-	mt76x2_set_rx_gain_group(dev, val);
+		mt76x2_set_rx_gain_group(dev, val);
+	} else {
+		val = mt76x2_eeprom_get(dev, MT_EE_RF_2G_RX_HIGH_GAIN);
+	}
 
 	if (chan->band == NL80211_BAND_2GHZ) {
 		val = mt76x2_eeprom_get(dev, MT_EE_RSSI_OFFSET_2G_0);
