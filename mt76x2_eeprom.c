@@ -154,7 +154,7 @@ mt76x2_apply_cal_free_data(struct mt76x2_dev *dev, u8 *efuse)
 		GROUP_5G(4),
 		GROUP_5G(5),
 		MT_EE_RF_2G_TSSI_OFF_TXPOWER,
-		MT_EE_RF_2G_RX_HIGH_GAIN + 1,
+		MT_EE_RF_5G_TSSI_OFF_TXPOWER + 1,
 		MT_EE_RF_5G_GRP0_1_RX_HIGH_GAIN,
 		MT_EE_RF_5G_GRP0_1_RX_HIGH_GAIN + 1,
 		MT_EE_RF_5G_GRP2_3_RX_HIGH_GAIN,
@@ -354,12 +354,14 @@ void mt76x2_read_rx_gain(struct mt76x2_dev *dev)
 	u8 lna;
 	u16 val;
 
-	if (chan->band == NL80211_BAND_2GHZ)
-		val = mt76x2_eeprom_get(dev, MT_EE_RF_2G_RX_HIGH_GAIN) >> 8;
-	else
+	if (chan->band == NL80211_BAND_2GHZ) {
+		val = mt76x2_eeprom_get(dev, MT_EE_RF_2G_TSSI_OFF_TXPOWER);
+	} else if (mt76x2_eeprom_get(dev, MT_EE_WIFI_EXT) & MT_EE_WIFI_EXT_COMP) {
 		val = mt76x2_get_5g_rx_gain(dev, channel);
-
-	mt76x2_set_rx_gain_group(dev, val);
+		mt76x2_set_rx_gain_group(dev, val);
+	} else {
+		val = mt76x2_eeprom_get(dev, MT_EE_RF_5G_TSSI_OFF_TXPOWER);
+	}
 
 	if (chan->band == NL80211_BAND_2GHZ) {
 		val = mt76x2_eeprom_get(dev, MT_EE_RSSI_OFFSET_2G_0);
@@ -371,14 +373,16 @@ void mt76x2_read_rx_gain(struct mt76x2_dev *dev)
 		mt76x2_set_rssi_offset(dev, 1, val >> 8);
 	}
 
-	val = mt76x2_eeprom_get(dev, MT_EE_LNA_GAIN);
+	val = mt76x2_eeprom_get(dev, MT_EE_LNA_GAIN_2G);
 	lna_2g = val & 0xff;
+
+	/*val = mt76x2_eeprom_get(dev, MT_EE_LNA_GAIN_5G_LOW);*/
 	lna_5g[0] = val >> 8;
 
-	val = mt76x2_eeprom_get(dev, MT_EE_RSSI_OFFSET_2G_1);
+	val = mt76x2_eeprom_get(dev, MT_EE_LNA_GAIN_5G_MIDDLE);
 	lna_5g[1] = val >> 8;
 
-	val = mt76x2_eeprom_get(dev, MT_EE_RSSI_OFFSET_5G_1);
+	val = mt76x2_eeprom_get(dev, MT_EE_LNA_GAIN_5G_HIGH);
 	lna_5g[2] = val >> 8;
 
 	if (!field_valid(lna_5g[1]))
@@ -431,47 +435,71 @@ void mt76x2_get_rate_power(struct mt76x2_dev *dev, struct mt76_rate_power *t)
 
 	memset(t, 0, sizeof(*t));
 
-	val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_CCK);
+	val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_CCK_1M);
 	t->cck[0] = t->cck[1] = mt76x2_rate_power_val(val);
-	t->cck[2] = t->cck[3] = mt76x2_rate_power_val(val >> 8);
+
+	val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_CCK_5M);
+	t->cck[2] = t->cck[3] = mt76x2_rate_power_val(val);
 
 	if (is_5ghz)
 		val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_OFDM_5G_6M);
 	else
 		val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_OFDM_2G_6M);
 	t->ofdm[0] = t->ofdm[1] = mt76x2_rate_power_val(val);
-	t->ofdm[2] = t->ofdm[3] = mt76x2_rate_power_val(val >> 8);
+
+	if (is_5ghz)
+		val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_OFDM_5G_12M);
+	else
+		val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_OFDM_2G_12M);
+	t->ofdm[2] = t->ofdm[3] = mt76x2_rate_power_val(val);
 
 	if (is_5ghz)
 		val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_OFDM_5G_24M);
 	else
 		val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_OFDM_2G_24M);
 	t->ofdm[4] = t->ofdm[5] = mt76x2_rate_power_val(val);
-	t->ofdm[6] = t->ofdm[7] = mt76x2_rate_power_val(val >> 8);
+	
+	if (is_5ghz)
+		val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_OFDM_5G_48M);
+	else
+		val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_OFDM_2G_48M);
+	t->ofdm[6] = t->ofdm[7] = mt76x2_rate_power_val(val);
 
 	val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_HT_MCS0);
 	t->ht[0] = t->ht[1] = mt76x2_rate_power_val(val);
-	t->ht[2] = t->ht[3] = mt76x2_rate_power_val(val >> 8);
+
+	val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_HT_MCS2);
+	t->ht[2] = t->ht[3] = mt76x2_rate_power_val(val);
 
 	val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_HT_MCS4);
 	t->ht[4] = t->ht[5] = mt76x2_rate_power_val(val);
-	t->ht[6] = t->ht[7] = mt76x2_rate_power_val(val >> 8);
+
+	val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_HT_MCS6);
+	t->ht[6] = t->ht[7] = mt76x2_rate_power_val(val);
 
 	val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_HT_MCS8);
 	t->ht[8] = t->ht[9] = mt76x2_rate_power_val(val);
-	t->ht[10] = t->ht[11] = mt76x2_rate_power_val(val >> 8);
+
+	val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_HT_MCS10);
+	t->ht[10] = t->ht[11] = mt76x2_rate_power_val(val);
 
 	val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_HT_MCS12);
 	t->ht[12] = t->ht[13] = mt76x2_rate_power_val(val);
-	t->ht[14] = t->ht[15] = mt76x2_rate_power_val(val >> 8);
+
+	val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_HT_MCS14);
+	t->ht[14] = t->ht[15] = mt76x2_rate_power_val(val);
 
 	val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_VHT_MCS0);
 	t->vht[0] = t->vht[1] = mt76x2_rate_power_val(val);
-	t->vht[2] = t->vht[3] = mt76x2_rate_power_val(val >> 8);
+
+	val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_VHT_MCS2);
+	t->vht[2] = t->vht[3] = mt76x2_rate_power_val(val);
 
 	val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_VHT_MCS4);
 	t->vht[4] = t->vht[5] = mt76x2_rate_power_val(val);
-	t->vht[6] = t->vht[7] = mt76x2_rate_power_val(val >> 8);
+
+	val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_VHT_MCS6);
+	t->vht[6] = t->vht[7] = mt76x2_rate_power_val(val);
 
 	val = mt76x2_eeprom_get(dev, MT_EE_TX_POWER_VHT_MCS8);
 	if (!is_5ghz)
@@ -551,7 +579,7 @@ mt76x2_get_power_info_5g(struct mt76x2_dev *dev, struct mt76x2_tx_power_info *t,
 	t->chain[chain].target_power = data[2];
 	t->chain[chain].delta = mt76x2_sign_extend_optional(data[delta_idx], 7);
 
-	val = mt76x2_eeprom_get(dev, MT_EE_RF_2G_RX_HIGH_GAIN);
+	val = mt76x2_eeprom_get(dev, MT_EE_RF_5G_TSSI_OFF_TXPOWER);
 	t->target_power = val & 0xff;
 }
 
