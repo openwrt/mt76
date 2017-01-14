@@ -550,7 +550,7 @@ int mt76x2_mac_wcid_set_key(struct mt76x2_dev *dev, u8 idx,
 
 	cipher = mt76x2_mac_get_key_info(key, key_data);
 	if (cipher == MT_CIPHER_NONE && key)
-		return -EINVAL;
+		return -EOPNOTSUPP;
 
 	mt76_rmw_field(dev, MT_WCID_ATTR(idx), MT_WCID_ATTR_PKEY_MODE, cipher);
 	mt76_wr_copy(dev, MT_WCID_KEY(idx), key_data, sizeof(key_data));
@@ -578,7 +578,7 @@ int mt76x2_mac_shared_key_setup(struct mt76x2_dev *dev, u8 vif_idx, u8 key_idx,
 
 	cipher = mt76x2_mac_get_key_info(key, key_data);
 	if (cipher == MT_CIPHER_NONE && key)
-		return -EINVAL;
+		return -EOPNOTSUPP;
 
 	val = mt76_rr(dev, MT_SKEY_MODE(vif_idx));
 	val &= ~(MT_SKEY_MODE_MASK << MT_SKEY_MODE_SHIFT(vif_idx, key_idx));
