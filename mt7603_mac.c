@@ -581,7 +581,7 @@ int mt7603_wtbl_set_key(struct mt7603_dev *dev, int wcid,
 
 	cipher = mt7603_mac_get_key_info(key, key_data);
 	if (cipher == MT_CIPHER_NONE && key)
-		return -EINVAL;
+		return -EOPNOTSUPP;
 
 	if (key && (cipher == MT_CIPHER_WEP40 || cipher == MT_CIPHER_WEP104)) {
 		addr += key->keyidx * 16;
