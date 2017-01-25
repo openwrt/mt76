@@ -49,9 +49,6 @@ mt76x2_apply_gain_adj(struct mt76x2_dev *dev)
 
 	mt76x2_adjust_agc_gain(dev, 8, gain_adj[0]);
 	mt76x2_adjust_agc_gain(dev, 9, gain_adj[1]);
-
-	if (dev->mt76.chandef.chan->flags & IEEE80211_CHAN_RADAR)
-		mt76x2_dfs_adjust_agc(dev);
 }
 
 static u32
@@ -458,6 +455,9 @@ mt76x2_phy_update_channel_gain(struct mt76x2_dev *dev)
 		val | FIELD_PREP(MT_BBP_AGC_GAIN, gain[0] - gain_delta));
 	mt76_wr(dev, MT_BBP(AGC, 9),
 		val | FIELD_PREP(MT_BBP_AGC_GAIN, gain[1] - gain_delta));
+
+	if (dev->mt76.chandef.chan->flags & IEEE80211_CHAN_RADAR)
+		mt76x2_dfs_adjust_agc(dev);
 }
 
 int mt76x2_phy_set_channel(struct mt76x2_dev *dev,
