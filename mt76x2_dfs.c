@@ -38,27 +38,27 @@
 
 static const struct mt76x2_radar_specs etsi_radar_specs[] = {
 	/* 20MHz */
-	RADAR_SPEC(0, 8, 2, 9, 106, 150, 10, 4900, 100096, 10, 0,
+	RADAR_SPEC(0, 8, 2, 15, 106, 150, 10, 4900, 100096, 10, 0,
 		   0x7fffffff, 0x155cc0, 0x19cc),
-	RADAR_SPEC(0, 40, 4, 44, 96, 380, 150, 4900, 100096, 40, 0,
+	RADAR_SPEC(0, 40, 4, 59, 96, 380, 150, 4900, 100096, 40, 0,
 		   0x7fffffff, 0x155cc0, 0x19cc),
 	RADAR_SPEC(3, 60, 20, 46, 300, 640, 80, 4900, 10100, 80, 0,
 		   0x7fffffff, 0x155cc0, 0x19dd),
 	RADAR_SPEC(8, 8, 2, 9, 106, 150, 32, 4900, 296704, 32, 0,
 		   0x7fffffff, 0x2191c0, 0x15cc),
 	/* 40MHz */
-	RADAR_SPEC(0, 8, 2, 9, 106, 150, 10, 4900, 100096, 10, 0,
+	RADAR_SPEC(0, 8, 2, 15, 106, 150, 10, 4900, 100096, 10, 0,
 		   0x7fffffff, 0x155cc0, 0x19cc),
-	RADAR_SPEC(0, 40, 4, 44, 96, 380, 150, 4900, 100096, 40, 0,
+	RADAR_SPEC(0, 40, 4, 59, 96, 380, 150, 4900, 100096, 40, 0,
 		   0x7fffffff, 0x155cc0, 0x19cc),
 	RADAR_SPEC(3, 60, 20, 46, 300, 640, 80, 4900, 10100, 80, 0,
 		   0x7fffffff, 0x155cc0, 0x19dd),
 	RADAR_SPEC(8, 8, 2, 9, 106, 150, 32, 4900, 296704, 32, 0,
 		   0x7fffffff, 0x2191c0, 0x15cc),
 	/* 80MHz */
-	RADAR_SPEC(0, 8, 2, 9, 106, 150, 10, 4900, 100096, 10, 0,
+	RADAR_SPEC(0, 8, 2, 15, 106, 150, 10, 4900, 100096, 10, 0,
 		   0x7fffffff, 0x155cc0, 0x19cc),
-	RADAR_SPEC(0, 40, 4, 44, 96, 380, 150, 4900, 100096, 40, 0,
+	RADAR_SPEC(0, 40, 4, 59, 96, 380, 150, 4900, 100096, 40, 0,
 		   0x7fffffff, 0x155cc0, 0x19cc),
 	RADAR_SPEC(3, 60, 20, 46, 300, 640, 80, 4900, 10100, 80, 0,
 		   0x7fffffff, 0x155cc0, 0x19dd),
@@ -68,31 +68,31 @@ static const struct mt76x2_radar_specs etsi_radar_specs[] = {
 
 static const struct mt76x2_radar_specs fcc_radar_specs[] = {
 	/* 20MHz */
-	RADAR_SPEC(0, 8, 2, 7, 106, 150, 5, 2900, 80100, 5, 0,
+	RADAR_SPEC(0, 8, 2, 12, 106, 150, 5, 2900, 80100, 5, 0,
 		   0x7fffffff, 0xfe808, 0x13dc),
 	RADAR_SPEC(0, 8, 2, 7, 106, 140, 5, 27600, 27900, 5, 0,
 		   0x7fffffff, 0xfe808, 0x19dd),
-	RADAR_SPEC(0, 40, 4, 44, 96, 480, 150, 2900, 80100, 40, 0,
+	RADAR_SPEC(0, 40, 4, 54, 96, 480, 150, 2900, 80100, 40, 0,
 		   0x7fffffff, 0xfe808, 0x12cc),
-	RADAR_SPEC(2, 60, 15, 48, 640, 2080, 32, 19600, 40200, 32, 0,
+	RADAR_SPEC(2, 60, 15, 63, 640, 2080, 32, 19600, 40200, 32, 0,
 		   0x3938700, 0x57bcf00, 0x1289),
 	/* 40MHz */
-	RADAR_SPEC(0, 8, 2, 7, 106, 150, 5, 2900, 80100, 5, 0,
+	RADAR_SPEC(0, 8, 2, 12, 106, 150, 5, 2900, 80100, 5, 0,
 		   0x7fffffff, 0xfe808, 0x13dc),
 	RADAR_SPEC(0, 8, 2, 7, 106, 140, 5, 27600, 27900, 5, 0,
 		   0x7fffffff, 0xfe808, 0x19dd),
-	RADAR_SPEC(0, 40, 4, 44, 96, 480, 150, 2900, 80100, 40, 0,
+	RADAR_SPEC(0, 40, 4, 54, 96, 480, 150, 2900, 80100, 40, 0,
 		   0x7fffffff, 0xfe808, 0x12cc),
-	RADAR_SPEC(2, 60, 15, 48, 640, 2080, 32, 19600, 40200, 32, 0,
+	RADAR_SPEC(2, 60, 15, 63, 640, 2080, 32, 19600, 40200, 32, 0,
 		   0x3938700, 0x57bcf00, 0x1289),
 	/* 80MHz */
-	RADAR_SPEC(0, 8, 2, 9, 106, 150, 15, 2900, 80100, 15, 0,
+	RADAR_SPEC(0, 8, 2, 14, 106, 150, 15, 2900, 80100, 15, 0,
 		   0x7fffffff, 0xfe808, 0x16cc),
 	RADAR_SPEC(0, 8, 2, 7, 106, 140, 5, 27600, 27900, 5, 0,
 		   0x7fffffff, 0xfe808, 0x19dd),
-	RADAR_SPEC(0, 40, 4, 44, 96, 480, 150, 2900, 80100, 40, 0,
+	RADAR_SPEC(0, 40, 4, 54, 96, 480, 150, 2900, 80100, 40, 0,
 		   0x7fffffff, 0xfe808, 0x12cc),
-	RADAR_SPEC(2, 60, 15, 48, 640, 2080, 32, 19600, 40200, 32, 0,
+	RADAR_SPEC(2, 60, 15, 63, 640, 2080, 32, 19600, 40200, 32, 0,
 		   0x3938700, 0x57bcf00, 0x1289)
 };
 
@@ -230,7 +230,7 @@ static bool mt76x2_dfs_check_hw_pulse(struct mt76x2_dev *dev,
 			ret = (pulse->period >= 2900 &&
 			       pulse->period <= 61600);
 		else
-			ret = (pulse->period >= 3900 &&
+			ret = (pulse->period >= 3500 &&
 			       pulse->period <= 10100);
 		break;
 	case NL80211_DFS_ETSI:
