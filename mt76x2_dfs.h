@@ -21,12 +21,7 @@
 #include <linux/nl80211.h>
 
 #define MT_DFS_GP_INTERVAL		(10 << 4) /* 64 us unit */
-#define MT_DFS_CH_STATE_INTERVAL	20
 #define MT_DFS_NUM_ENGINES		4
-
-/* scaled fraction values */
-#define MT_DFS_SCALE			16
-#define MT_DFS_FRAC(val, div)		(((val) << MT_DFS_SCALE) / div)
 
 /* bbp params */
 #define MT_DFS_SYM_ROUND		0
@@ -74,13 +69,7 @@ struct mt76x2_dfs_pattern_detector {
 	u8 chirp_pulse_cnt;
 	u32 chirp_pulse_ts;
 
-	u16 ch_state_cnt;
-	u64 ch_active_time;
-	u64 ch_busy_time;
-	bool ch_busy;
-
 	struct mt76x2_dfs_engine_stats stats[MT_DFS_NUM_ENGINES];
-
 	struct tasklet_struct dfs_tasklet;
 };
 

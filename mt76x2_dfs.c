@@ -295,32 +295,6 @@ static bool mt76x2_dfs_check_hw_pulse(struct mt76x2_dev *dev,
 	return ret;
 }
 
-static void mt76x2_dfs_chan_state(struct mt76x2_dev *dev)
-{
-	u64 ch_active_time, ch_busy_time;
-	u32 ch_active_delta, ch_busy_delta;
-	struct mt76_channel_state *state;
-	struct cfg80211_chan_def *chandef = &dev->mt76.chandef;
-	struct mt76x2_dfs_pattern_detector *dfs_pd = &dev->dfs_pd;
-
-	mt76x2_update_channel(&dev->mt76);
-	state = mt76_channel_state(&dev->mt76, chandef->chan);
-
-	spin_lock_bh(&dev->mt76.cc_lock);
-	ch_active_time = state->cc_active;
-	ch_busy_time = state->cc_busy;
-	spin_unlock_bh(&dev->mt76.cc_lock);
-
-	ch_active_delta = ch_active_time - dfs_pd->ch_active_time;
-	ch_busy_delta = ch_busy_time - dfs_pd->ch_busy_time;
-
-	dfs_pd->ch_busy = (MT_DFS_FRAC(ch_busy_delta, ch_active_delta) >
-			   MT_DFS_FRAC(80, 100));
-
-	dfs_pd->ch_active_time = ch_active_time;
-	dfs_pd->ch_busy_time = ch_busy_time;
-}
-
 void mt76x2_dfs_tasklet(unsigned long arg)
 {
 	struct mt76x2_dev *dev = (struct mt76x2_dev *)arg;
@@ -329,14 +303,6 @@ void mt76x2_dfs_tasklet(unsigned long arg)
 	int i;
 
 	if (test_bit(MT76_SCANNING, &dev->mt76.state))
-		goto out;
-
-	if (++dfs_pd->ch_state_cnt > MT_DFS_CH_STATE_INTERVAL) {
-		dfs_pd->ch_state_cnt = 0;
-		mt76x2_dfs_chan_state(dev);
-	}
-
-	if (dfs_pd->ch_busy)
 		goto out;
 
 	engine_mask = mt76_rr(dev, MT_BBP(DFS, 1));
