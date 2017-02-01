@@ -168,6 +168,31 @@ mt76_init_sband_5g(struct mt76_dev *dev, struct ieee80211_rate *rates,
 			       rates, n_rates, vht);
 }
 
+static void
+mt76_check_sband(struct mt76_dev *dev, int band)
+{
+	struct ieee80211_supported_band *sband = dev->hw->wiphy->bands[band];
+	bool found = false;
+	int i;
+
+	if (!sband)
+		return;
+
+	for (i = 0; i < sband->n_channels; i++) {
+		if (sband->channels[i].flags & IEEE80211_CHAN_DISABLED)
+			continue;
+
+		found = true;
+		break;
+	}
+
+	if (found)
+		return;
+
+	sband->n_channels = 0;
+	dev->hw->wiphy->bands[band] = NULL;
+}
+
 int mt76_register_device(struct mt76_dev *dev, bool vht,
 			 struct ieee80211_rate *rates, int n_rates)
 {
@@ -180,6 +205,8 @@ int mt76_register_device(struct mt76_dev *dev, bool vht,
 	spin_lock_init(&dev->lock);
 	spin_lock_init(&dev->cc_lock);
 	INIT_LIST_HEAD(&dev->txwi_cache);
+
+	mt76_eeprom_override(dev);
 
 	SET_IEEE80211_DEV(hw, dev->dev);
 	SET_IEEE80211_PERM_ADDR(hw, dev->macaddr);
@@ -220,6 +247,10 @@ int mt76_register_device(struct mt76_dev *dev, bool vht,
 		if (ret)
 			return ret;
 	}
+
+	wiphy_read_of_freq_limits(dev->hw->wiphy);
+	mt76_check_sband(dev, NL80211_BAND_2GHZ);
+	mt76_check_sband(dev, NL80211_BAND_5GHZ);
 
 	return ieee80211_register_hw(hw);
 }

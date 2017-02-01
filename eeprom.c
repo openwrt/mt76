@@ -80,20 +80,10 @@ mt76_eeprom_override(struct mt76_dev *dev)
 {
 #ifdef CONFIG_OF
 	struct device_node *np = dev->dev->of_node;
-	const __be32 *val;
 	const u8 *mac;
-	int size;
 
 	if (!np)
 		return;
-
-	val = of_get_property(np, "mediatek,2ghz", &size);
-	if (val)
-		dev->cap.has_2ghz = be32_to_cpup(val);
-
-	val = of_get_property(np, "mediatek,5ghz", &size);
-	if (val)
-		dev->cap.has_5ghz = be32_to_cpup(val);
 
 	mac = of_get_mac_address(np);
 	if (mac)
@@ -107,7 +97,6 @@ mt76_eeprom_override(struct mt76_dev *dev)
 			 dev->macaddr);
 	}
 }
-EXPORT_SYMBOL_GPL(mt76_eeprom_override);
 
 int
 mt76_eeprom_init(struct mt76_dev *dev, int len)

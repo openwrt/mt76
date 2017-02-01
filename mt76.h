@@ -314,7 +314,6 @@ void mt76_unregister_device(struct mt76_dev *dev);
 struct dentry *mt76_register_debugfs(struct mt76_dev *dev);
 
 int mt76_eeprom_init(struct mt76_dev *dev, int len);
-void mt76_eeprom_override(struct mt76_dev *dev);
 
 static inline struct ieee80211_txq *
 mtxq_to_txq(struct mt76_txq *mtxq)
@@ -351,5 +350,6 @@ int mt76_get_survey(struct ieee80211_hw *hw, int idx,
 void mt76_tx_free(struct mt76_dev *dev);
 void mt76_put_txwi(struct mt76_dev *dev, struct mt76_txwi_cache *t);
 void mt76_rx_complete(struct mt76_dev *dev, enum mt76_rxq_id q);
+void mt76_eeprom_override(struct mt76_dev *dev);
 
 #endif

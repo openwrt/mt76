@@ -157,7 +157,6 @@ int mt7603_eeprom_init(struct mt7603_dev *dev)
 	       ETH_ALEN);
 
 	mt7603_apply_cal_free_data(dev, dev->mt76.otp.data);
-	mt76_eeprom_override(&dev->mt76);
 
 	return 0;
 }
