@@ -206,8 +206,6 @@ int mt76_register_device(struct mt76_dev *dev, bool vht,
 	spin_lock_init(&dev->cc_lock);
 	INIT_LIST_HEAD(&dev->txwi_cache);
 
-	mt76_eeprom_override(dev);
-
 	SET_IEEE80211_DEV(hw, dev->dev);
 	SET_IEEE80211_PERM_ADDR(hw, dev->macaddr);
 
