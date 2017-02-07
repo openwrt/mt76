@@ -158,7 +158,7 @@ int mt76x2_tx_prepare_skb(struct mt76_dev *mdev, void *txwi,
 		return ret;
 
 	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE)
-		qsel = 0;
+		qsel = MT_QSEL_MGMT;
 
 	*tx_info = FIELD_PREP(MT_TXD_INFO_QSEL, qsel) |
 		   MT_TXD_INFO_80211;
