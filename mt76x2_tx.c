@@ -129,16 +129,9 @@ void mt76x2_tx_set_txpwr_auto(struct mt76x2_dev *dev, s8 txpwr)
 static int mt76x2_insert_hdr_pad(struct sk_buff *skb)
 {
 	int len = ieee80211_get_hdrlen_from_skb(skb);
-	int ret;
 
 	if (len % 4 == 0)
 		return 0;
-
-	if (skb_headroom(skb) < 2) {
-		ret = pskb_expand_head(skb, 2, 0, GFP_ATOMIC);
-		if (ret != 0)
-			return ret;
-	}
 
 	skb_push(skb, 2);
 	memmove(skb->data, skb->data + 2, len);
