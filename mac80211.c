@@ -324,7 +324,7 @@ int mt76_get_survey(struct ieee80211_hw *hw, int idx,
 
 	memset(survey, 0, sizeof(*survey));
 	survey->channel = chan;
-	survey->filled = SURVEY_INFO_TIME | SURVEY_INFO_TIME_BUSY;
+	survey->filled = SURVEY_INFO_NOISE_DBM | SURVEY_INFO_TIME | SURVEY_INFO_TIME_BUSY;
 	if (chan == dev->main_chan)
 		survey->filled |= SURVEY_INFO_IN_USE;
 
