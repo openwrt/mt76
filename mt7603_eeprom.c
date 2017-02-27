@@ -144,6 +144,20 @@ mt7603_eeprom_load(struct mt7603_dev *dev)
 	return mt7603_efuse_init(dev);
 }
 
+static int mt7603_check_eeprom(struct mt76_dev *dev)
+{
+	u16 val = get_unaligned_le16(dev->eeprom.data);
+
+	switch (val) {
+	case 0x7628:
+	case 0x7603:
+		return 0;
+	default:
+		return -EINVAL;
+	}
+}
+
+
 int mt7603_eeprom_init(struct mt7603_dev *dev)
 {
 	int ret;
@@ -152,11 +166,16 @@ int mt7603_eeprom_init(struct mt7603_dev *dev)
 	if (ret < 0)
 		return ret;
 
+	if (mt7603_check_eeprom(&dev->mt76) == 0)
+		mt7603_apply_cal_free_data(dev, dev->mt76.otp.data);
+	else
+		memcpy(dev->mt76.eeprom.data, dev->mt76.otp.data,
+		       MT7603_EEPROM_SIZE);
+
 	dev->mt76.cap.has_2ghz = true;
 	memcpy(dev->mt76.macaddr, dev->mt76.eeprom.data + MT_EE_MAC_ADDR,
 	       ETH_ALEN);
 
-	mt7603_apply_cal_free_data(dev, dev->mt76.otp.data);
 	mt76_eeprom_override(&dev->mt76);
 
 	return 0;
