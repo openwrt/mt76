@@ -194,9 +194,9 @@ mt76_dma_get_buf(struct mt76_dev *dev, struct mt76_queue *q, int idx,
 	void *buf = e->buf;
 	int buf_len = SKB_WITH_OVERHEAD(q->buf_size);
 
-	buf_addr = READ_ONCE(desc->buf0);
+	buf_addr = le32_to_cpu(READ_ONCE(desc->buf0));
 	if (len) {
-		u32 ctl = READ_ONCE(desc->ctrl);
+		u32 ctl = le32_to_cpu(READ_ONCE(desc->ctrl));
 		*len = FIELD_GET(MT_DMA_CTL_SD_LEN0, ctl);
 		*more = !(ctl & MT_DMA_CTL_LAST_SEC0);
 	}
