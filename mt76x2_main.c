@@ -330,7 +330,8 @@ mt76x2_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	msta = sta ? (struct mt76x2_sta *) sta->drv_priv : NULL;
 	wcid = msta ? &msta->wcid : &mvif->group_wcid;
 
-	if (vif->type == NL80211_IFTYPE_ADHOC &&
+	if ((vif->type == NL80211_IFTYPE_ADHOC ||
+	     vif->type == NL80211_IFTYPE_MESH_POINT) &&
 	    !(key->flags & IEEE80211_KEY_FLAG_PAIRWISE))
 		return -EOPNOTSUPP;
 
