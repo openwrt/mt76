@@ -501,13 +501,13 @@ int mt7603_mcu_set_timing(struct mt7603_dev *dev, int slot, int sifs, int rifs,
 		u8 sifs_time;
 		u8 rifs_time;
 		u8 __res0;
-		u16 eifs_time;
-		u16 __res1;
+		__le16 eifs_time;
+		__le16 __res1;
 	} req = {
 		.slot_time = slot,
 		.sifs_time = sifs,
-		.rifs_time = rifs,
-		.eifs_time = eifs,
+		.rifs_time = cpu_to_le16(rifs),
+		.eifs_time = cpu_to_le16(eifs),
 	};
 	struct sk_buff *skb;
 
