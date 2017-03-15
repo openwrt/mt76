@@ -272,9 +272,9 @@ mt7603_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		mt7603_txq_init(dev, sta->txq[i]);
 
 	msta->wcid.idx = idx;
+	mt7603_wtbl_init(dev, idx, sta->addr);
 	mt7603_wtbl_update_cap(dev, sta);
 
-	mt7603_wtbl_init(dev, idx, sta->addr);
 	rcu_assign_pointer(dev->wcid[idx], &msta->wcid);
 
 out:
