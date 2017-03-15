@@ -617,12 +617,22 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_tx_rate *rate = &info->control.rates[0];
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
+	struct ieee80211_vif *vif = info->control.vif;
+	struct mt7603_vif *mvif;
 	int wlan_idx;
 	int hdr_len = ieee80211_get_hdrlen_from_skb(skb);
 	int tx_count = 8;
 	u8 frame_type, frame_subtype;
 	u16 fc = le16_to_cpu(hdr->frame_control);
+	u8 vif_idx = 0;
 	u8 bw;
+
+	if (vif) {
+		mvif = (struct mt7603_vif *) vif->drv_priv;
+		vif_idx = mvif->idx;
+		if (vif_idx)
+			vif_idx += 0x10;
+	}
 
 	if (sta) {
 		struct mt7603_sta *msta = (struct mt7603_sta *) sta->drv_priv;
@@ -643,7 +653,7 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 	);
 	txwi[1] = cpu_to_le32(
 		MT_TXD1_LONG_FORMAT |
-		FIELD_PREP(MT_TXD1_OWN_MAC, 0) |
+		FIELD_PREP(MT_TXD1_OWN_MAC, vif_idx) |
 		FIELD_PREP(MT_TXD1_TID, skb->priority &
 				      IEEE80211_QOS_CTL_TID_MASK) |
 		FIELD_PREP(MT_TXD1_HDR_FORMAT, MT_HDR_FORMAT_802_11) |
