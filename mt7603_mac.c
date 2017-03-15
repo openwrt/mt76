@@ -1062,16 +1062,18 @@ void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 
 	set_bit(MT76_RESET, &dev->mt76.state);
 
+	tasklet_disable(&dev->tx_tasklet);
+	tasklet_disable(&dev->pre_tbtt_tasklet);
+	napi_disable(&dev->mt76.napi[0]);
+	napi_disable(&dev->mt76.napi[1]);
+
+	mutex_lock(&dev->mutex);
 	mt76_clear(dev, MT_WPDMA_GLO_CFG,
 		   MT_WPDMA_GLO_CFG_RX_DMA_EN | MT_WPDMA_GLO_CFG_TX_DMA_EN |
 		   MT_WPDMA_GLO_CFG_TX_WRITEBACK_DONE);
 	msleep(1);
 
 	mt7603_irq_disable(dev, mask);
-	tasklet_disable(&dev->tx_tasklet);
-	tasklet_disable(&dev->pre_tbtt_tasklet);
-	napi_disable(&dev->mt76.napi[0]);
-	napi_disable(&dev->mt76.napi[1]);
 
 	mt7603_beacon_set_timer(dev, -1, 0);
 	mt76_set(dev, MT_WPDMA_GLO_CFG, MT_WPDMA_GLO_CFG_FORCE_TX_EOF);
@@ -1086,14 +1088,16 @@ void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 
 	mt7603_mac_dma_start(dev);
 
-	tasklet_enable(&dev->tx_tasklet);
-	tasklet_enable(&dev->pre_tbtt_tasklet);
-	napi_enable(&dev->mt76.napi[0]);
-	napi_enable(&dev->mt76.napi[1]);
 	mt7603_irq_enable(dev, mask);
 	clear_bit(MT76_RESET, &dev->mt76.state);
 
 	mt7603_beacon_set_timer(dev, -1, beacon_int);
+	mutex_unlock(&dev->mutex);
+
+	tasklet_enable(&dev->tx_tasklet);
+	tasklet_enable(&dev->pre_tbtt_tasklet);
+	napi_enable(&dev->mt76.napi[0]);
+	napi_enable(&dev->mt76.napi[1]);
 }
 
 static bool mt7603_rx_dma_busy(struct mt7603_dev *dev)
@@ -1184,6 +1188,7 @@ void mt7603_mac_work(struct work_struct *work)
 	struct mt7603_dev *dev = container_of(work, struct mt7603_dev, mac_work.work);
 	struct sk_buff *skb;
 	int time = MT7603_WATCHDOG_TIME;
+	bool reset = false;
 
 	spin_lock_bh(&dev->status_lock);
 	while ((skb = skb_peek(&dev->status_list)) != NULL) {
@@ -1221,11 +1226,15 @@ void mt7603_mac_work(struct work_struct *work)
 		dev->rx_pse_check = 0;
 		dev->rx_dma_idx = ~0;
 		memset(dev->tx_dma_idx, 0xff, sizeof(dev->tx_dma_idx));
-		mt7603_mac_watchdog_reset(dev);
+		reset = true;
 	}
+
+	mutex_unlock(&dev->mutex);
+
+	if (reset)
+		mt7603_mac_watchdog_reset(dev);
 
 	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mac_work,
 				     msecs_to_jiffies(time));
-	mutex_unlock(&dev->mutex);
 	return;
 }
