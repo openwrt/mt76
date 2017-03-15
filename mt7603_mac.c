@@ -332,12 +332,14 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 	struct ieee80211_supported_band *sband;
 	__le32 *rxd = (__le32 *) skb->data;
 	u32 rxd0 = le32_to_cpu(rxd[0]);
+	u32 rxd1 = le32_to_cpu(rxd[1]);
+	u32 rxd2 = le32_to_cpu(rxd[2]);
 	bool remove_pad;
 	int i;
 
 	memset(status, 0, sizeof(*status));
 
-	i = FIELD_GET(MT_RXD1_NORMAL_CH_FREQ, rxd[1]);
+	i = FIELD_GET(MT_RXD1_NORMAL_CH_FREQ, rxd1);
 	sband = (i & 1) ? &dev->mt76.sband_5g.sband : &dev->mt76.sband_2g.sband;
 	i >>= 1;
 
@@ -345,21 +347,21 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 	if (i < sband->n_channels)
 		status->freq = sband->channels[i].center_freq;
 
-	if (rxd[2] & MT_RXD2_NORMAL_FCS_ERR)
+	if (rxd2 & MT_RXD2_NORMAL_FCS_ERR)
 		status->flag |= RX_FLAG_FAILED_FCS_CRC;
 
-	if (rxd[2] & MT_RXD2_NORMAL_TKIP_MIC_ERR)
+	if (rxd2 & MT_RXD2_NORMAL_TKIP_MIC_ERR)
 		status->flag |= RX_FLAG_MMIC_ERROR;
 
-	if (FIELD_GET(MT_RXD2_NORMAL_SEC_MODE, rxd[2]) != 0 &&
-	    !(rxd[2] & (MT_RXD2_NORMAL_CLM | MT_RXD2_NORMAL_CM))) {
+	if (FIELD_GET(MT_RXD2_NORMAL_SEC_MODE, rxd2) != 0 &&
+	    !(rxd2 & (MT_RXD2_NORMAL_CLM | MT_RXD2_NORMAL_CM))) {
 		status->flag |= RX_FLAG_DECRYPTED;
 		status->flag |= RX_FLAG_IV_STRIPPED | RX_FLAG_MMIC_STRIPPED;
 	}
 
-	remove_pad = rxd[1] & MT_RXD1_NORMAL_HDR_OFFSET;
+	remove_pad = rxd1 & MT_RXD1_NORMAL_HDR_OFFSET;
 
-	if (rxd[2] & MT_RXD2_NORMAL_MAX_LEN_ERROR)
+	if (rxd2 & MT_RXD2_NORMAL_MAX_LEN_ERROR)
 		return -EINVAL;
 
 	if (WARN_ON_ONCE(!sband->channels))
@@ -382,10 +384,12 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 			return -EINVAL;
 	}
 	if (rxd0 & MT_RXD0_NORMAL_GROUP_3) {
+		u32 rxdg0 = le32_to_cpu(rxd[0]);
+		u32 rxdg3 = le32_to_cpu(rxd[3]);
 		bool cck = false;
 
-		i = FIELD_GET(MT_RXV1_TX_RATE, rxd[0]);
-		switch (FIELD_GET(MT_RXV1_TX_MODE, rxd[0])) {
+		i = FIELD_GET(MT_RXV1_TX_RATE, rxdg0);
+		switch (FIELD_GET(MT_RXV1_TX_MODE, rxdg0)) {
 		case MT_PHY_TYPE_CCK:
 			cck = true;
 			/* fall through */
@@ -403,18 +407,18 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 			WARN_ON(1);
 		}
 
-		if (rxd[0] & MT_RXV1_HT_SHORT_GI)
+		if (rxdg0 & MT_RXV1_HT_SHORT_GI)
 			status->flag |= RX_FLAG_SHORT_GI;
 
 		status->flag |= RX_FLAG_STBC_MASK *
-				    FIELD_GET(MT_RXV1_HT_STBC, rxd[0]);
+				    FIELD_GET(MT_RXV1_HT_STBC, rxdg0);
 
 		status->rate_idx = i;
 
 		status->chains = BIT(0) | BIT(1);
-		status->chain_signal[0] = FIELD_GET(MT_RXV4_IB_RSSI0, rxd[3]) +
+		status->chain_signal[0] = FIELD_GET(MT_RXV4_IB_RSSI0, rxdg3) +
 					  dev->rssi_offset[0];
-		status->chain_signal[1] = FIELD_GET(MT_RXV4_IB_RSSI1, rxd[3]) +
+		status->chain_signal[1] = FIELD_GET(MT_RXV4_IB_RSSI1, rxdg3) +
 					  dev->rssi_offset[1];
 		status->signal = max(status->chain_signal[0], status->chain_signal[1]);
 
