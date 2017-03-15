@@ -249,6 +249,11 @@ mt7603_mac_init(struct mt7603_dev *dev)
 	mt76_set(dev, MT_WTBL_RMVTCR, MT_WTBL_RMVTCR_RX_MV_MODE);
 
 	mt76_clear(dev, MT_SEC_SCR, MT_SEC_SCR_MASK_ORDER);
+
+	/* Set secondary beacon time offsets */
+	for (i = 0; i <= 4; i++)
+		mt76_rmw_field(dev, MT_LPON_SBTOR(i), MT_LPON_SBTOR_TIME_OFFSET,
+			       (i + 1) * (20 + 4096));
 }
 
 static int

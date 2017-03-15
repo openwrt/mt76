@@ -176,4 +176,9 @@ void mt7603_beacon_set_timer(struct mt7603_dev *dev, int idx, int intval)
 		 MT_WF_ARB_BCN_START_BSSn(0) |
 		 ((dev->beacon_mask >> 1) * MT_WF_ARB_BCN_START_BSS0n(1)));
 	mt7603_irq_enable(dev, MT_INT_MAC_IRQ3);
+
+	if (dev->beacon_mask & ~BIT(0))
+		mt76_set(dev, MT_LPON_SBTOR(0), MT_LPON_SBTOR_SUB_BSS_EN);
+	else
+		mt76_clear(dev, MT_LPON_SBTOR(0), MT_LPON_SBTOR_SUB_BSS_EN);
 }
