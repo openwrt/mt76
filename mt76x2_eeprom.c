@@ -305,7 +305,7 @@ mt76x2_set_rssi_offset(struct mt76x2_dev *dev, int chain, u8 val)
 		return;
 	}
 
-	dest[chain] = mt76x2_sign_extend(val, 6);
+	dest[chain] = mt76x2_sign_extend_optional(val, 7);
 }
 
 static enum mt76x2_cal_channel_group
