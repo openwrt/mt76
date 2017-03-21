@@ -1023,9 +1023,9 @@ void mt7603_mac_reset(struct mt7603_dev *dev)
 		       MT_CLIENT_RESET_TX_R_E_1_S,
 		       MT_CLIENT_RESET_TX_R_E_1_S, 500);
 
+	mt76_set(dev, addr + MT_CLIENT_RESET_TX, MT_CLIENT_RESET_TX_R_E_2);
 	mt76_set(dev, MT_WPDMA_GLO_CFG, MT_WPDMA_GLO_CFG_SW_RESET);
 
-	mt76_set(dev, addr + MT_CLIENT_RESET_TX, MT_CLIENT_RESET_TX_R_E_2);
 	mt76_poll_msec(dev, addr + MT_CLIENT_RESET_TX,
 		       MT_CLIENT_RESET_TX_R_E_2_S,
 		       MT_CLIENT_RESET_TX_R_E_2_S, 500);
