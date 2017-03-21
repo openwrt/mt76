@@ -410,6 +410,7 @@ mt7603_sw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif, const u8 *mac
 	struct mt7603_dev *dev = hw->priv;
 
 	set_bit(MT76_SCANNING, &dev->mt76.state);
+	mt7603_beacon_set_timer(dev, -1, 0);
 }
 
 static void
@@ -418,6 +419,7 @@ mt7603_sw_scan_complete(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	struct mt7603_dev *dev = hw->priv;
 
 	clear_bit(MT76_SCANNING, &dev->mt76.state);
+	mt7603_beacon_set_timer(dev, -1, dev->beacon_int);
 	mt76_txq_schedule_all(&dev->mt76);
 }
 
