@@ -26,7 +26,6 @@ mt7603_start(struct ieee80211_hw *hw)
 {
 	struct mt7603_dev *dev = hw->priv;
 
-	mt7603_mac_start(dev);
 	mt7603_mac_watchdog_reset(dev);
 	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mac_work,
 				     MT7603_WATCHDOG_TIME);
