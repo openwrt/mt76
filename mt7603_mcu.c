@@ -41,6 +41,12 @@ mt7603_mcu_msg_alloc(struct mt7603_dev *dev, const void *data, int len)
 	return skb;
 }
 
+void mt7603_mcu_rx_event(struct mt7603_dev *dev, struct sk_buff *skb)
+{
+	skb_queue_tail(&dev->mcu.res_q, skb);
+	wake_up(&dev->mcu.wait);
+}
+
 static struct sk_buff *
 mt7603_mcu_get_response(struct mt7603_dev *dev, unsigned long expires)
 {
