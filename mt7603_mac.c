@@ -1018,7 +1018,7 @@ void mt7603_mac_reset(struct mt7603_dev *dev)
 	if (!mt76_poll_msec(dev, MT_PSE_RESET, MT_PSE_RESET_SW_S,
 			    MT_PSE_RESET_SW_S, 500)) {
 		mt76_clear(dev, MT_PSE_RESET, MT_PSE_RESET_SW);
-		return;
+		goto out;
 	}
 	mt76_clear(dev, MT_PSE_RESET, MT_PSE_RESET_SW_S);
 
@@ -1036,6 +1036,8 @@ void mt7603_mac_reset(struct mt7603_dev *dev)
 
 	mt76_clear(dev, addr + MT_CLIENT_RESET_TX,
 		   MT_CLIENT_RESET_TX_R_E_1 | MT_CLIENT_RESET_TX_R_E_2);
+out:
+	mt76_clear(dev, MT_PSE_RESET, MT_PSE_RESET_QUEUES);
 }
 
 void mt7603_mac_dma_start(struct mt7603_dev *dev)
