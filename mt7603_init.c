@@ -75,7 +75,7 @@ mt7603_dma_sched_init(struct mt7603_dev *dev)
 
 	page_count = mt76_get_field(dev, MT_PSE_FC_P0,
 				    MT_PSE_FC_P0_MAX_QUOTA);
-	beacon_pages = max_beacon_len / page_size;
+	beacon_pages = 4 * (max_beacon_len / page_size);
 	mcu_pages = max_mcu_len / page_size;
 
 	mt76_wr(dev, MT_PSE_FRP,
