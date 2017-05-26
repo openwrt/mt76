@@ -715,8 +715,8 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 	if (key) {
 		u64 pn = atomic64_inc_return(&key->tx_pn);
 		txwi[3] |= cpu_to_le32(MT_TXD3_PN_VALID);
-		txwi[4] = pn & GENMASK(31, 0);
-		txwi[5] |= FIELD_PREP(MT_TXD5_PN_HIGH, pn >> 32);
+		txwi[4] = cpu_to_le32(pn & GENMASK(31, 0));
+		txwi[5] |= cpu_to_le32(FIELD_PREP(MT_TXD5_PN_HIGH, pn >> 32));
 	}
 
 	txwi[7] = 0;
