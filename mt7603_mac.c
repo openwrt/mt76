@@ -509,17 +509,17 @@ void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta)
 	bw_prev = bw;
 	val[1] = mt7603_mac_tx_rate_val(dev, &rates[1], stbc, &bw);
 	if (bw_prev < bw && !bw_idx)
-		bw_idx = 1;
+		bw_idx = 2;
 
 	bw_prev = bw;
 	val[2] = mt7603_mac_tx_rate_val(dev, &rates[2], stbc, &bw);
 	if (bw_prev < bw && !bw_idx)
-		bw_idx = 2;
+		bw_idx = 4;
 
 	bw_prev = bw;
 	val[3] = mt7603_mac_tx_rate_val(dev, &rates[3], stbc, &bw);
 	if (bw_prev < bw && !bw_idx)
-		bw_idx = 3;
+		bw_idx = 6;
 
 	w9 |= FIELD_PREP(MT_WTBL2_W9_CHANGE_BW_RATE,
 		       bw_idx ? bw_idx - 1 : 7);
