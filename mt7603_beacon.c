@@ -146,7 +146,7 @@ void mt7603_beacon_set_timer(struct mt7603_dev *dev, int idx, int intval)
 		if (intval)
 			dev->beacon_mask |= BIT(idx);
 		else
-			dev->beacon_mask &= BIT(idx);
+			dev->beacon_mask &= ~BIT(idx);
 	}
 
 	if (!dev->beacon_mask || (!intval && idx < 0)) {
