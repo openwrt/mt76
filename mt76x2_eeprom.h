@@ -23,6 +23,7 @@ enum mt76x2_eeprom_field {
 	MT_EE_CHIP_ID =				0x000,
 	MT_EE_VERSION =				0x002,
 	MT_EE_MAC_ADDR =			0x004,
+	MT_EE_WIFI_EXT =			0x025,
 	MT_EE_NIC_CONF_0 =			0x034,
 	MT_EE_NIC_CONF_1 =			0x036,
 	MT_EE_NIC_CONF_2 =			0x042,
@@ -82,6 +83,8 @@ enum mt76x2_eeprom_field {
 
 	__MT_EE_MAX
 };
+
+#define MT_EE_WIFI_EXT_COMP			BIT(6)
 
 #define MT_EE_NIC_CONF_0_PA_INT_2G		BIT(8)
 #define MT_EE_NIC_CONF_0_PA_INT_5G		BIT(9)
