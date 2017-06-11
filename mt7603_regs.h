@@ -155,8 +155,8 @@
 
 #define MT_AGG_ARUCR			MT_WF_AGG(0x014)
 #define MT_AGG_ARDCR			MT_WF_AGG(0x018)
-#define MT_AGG_ARxCR_LIMIT_SHIFT(_n)	(3 * _n)
-#define MT_AGG_ARxCR_LIMIT(_n)		GENMASK(3 + MT_AGG_ARxCR_LIMIT_SHIFT(_n), \
+#define MT_AGG_ARxCR_LIMIT_SHIFT(_n)	(4 * _n)
+#define MT_AGG_ARxCR_LIMIT(_n)		GENMASK(2 + MT_AGG_ARxCR_LIMIT_SHIFT(_n), \
 						MT_AGG_ARxCR_LIMIT_SHIFT(_n))
 
 #define MT_AGG_LIMIT			MT_WF_AGG(0x040)
