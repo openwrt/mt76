@@ -338,6 +338,7 @@ mt76_txq_send_burst(struct mt76_dev *dev, struct mt76_queue *hwq,
 			break;
 		}
 
+		info = IEEE80211_SKB_CB(skb);
 		cur_ampdu = info->flags & IEEE80211_TX_CTL_AMPDU;
 
 		if (ampdu != cur_ampdu ||
@@ -346,7 +347,6 @@ mt76_txq_send_burst(struct mt76_dev *dev, struct mt76_queue *hwq,
 			break;
 		}
 
-		info = IEEE80211_SKB_CB(skb);
 		info->control.rates[0] = tx_rate;
 
 		if (cur_ampdu)
