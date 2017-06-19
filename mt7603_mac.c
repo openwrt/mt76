@@ -495,7 +495,7 @@ void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta)
 		return;
 
 	for (i = 0, count = 0; i < n_rates; i++)
-		count += max_t(int, MT7603_RATE_RETRY, rates[i].count);
+		count += max_t(int, 2 * MT7603_RATE_RETRY, rates[i].count);
 	for (i = n_rates; i < 4; i++)
 		rates[i] = rates[n_rates - 1];
 
@@ -821,14 +821,32 @@ mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 	if (ampdu && !final_mpdu)
 		return false;
 
-	count = sta->ampdu_tx_count;
-	for (i = 0; i < ARRAY_SIZE(info->status.rates); i++) {
-		int cur_count = min_t(int, count, MT7603_RATE_RETRY);
+	if (fixed_rate) {
+		info->status.ampdu_len = 1;
+		info->status.ampdu_ack_len = !!(info->flags & IEEE80211_TX_STAT_ACK);
+	} else {
+		info->status.ampdu_len = sta->ampdu_count;
+		info->status.ampdu_ack_len = sta->ampdu_acked;
+	}
 
-		if (fixed_rate)
-			cur_count = count;
-		else
-			info->status.rates[i] = sta->rates[i];
+	if (ampdu || (info->flags & IEEE80211_TX_CTL_AMPDU))
+		info->flags |= IEEE80211_TX_STAT_AMPDU | IEEE80211_TX_CTL_AMPDU;
+
+	count = sta->ampdu_tx_count;
+
+	sta->ampdu_count = 0;
+	sta->ampdu_acked = 0;
+	sta->ampdu_tx_count = 0;
+
+	if (fixed_rate) {
+		info->status.rates[0].count = count;
+		return true;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(info->status.rates); i++) {
+		int cur_count = min_t(int, count, 2 * MT7603_RATE_RETRY);
+
+		info->status.rates[i] = sta->rates[i];
 
 		if (i && info->status.rates[i].idx < 0) {
 			info->status.rates[i - 1].count += count;
@@ -844,20 +862,6 @@ mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 		count -= cur_count;
 	}
 
-	if (fixed_rate) {
-		info->status.ampdu_len = 1;
-		info->status.ampdu_ack_len = !!(info->flags & IEEE80211_TX_STAT_ACK);
-	} else {
-		info->status.ampdu_len = sta->ampdu_count;
-		info->status.ampdu_ack_len = sta->ampdu_acked;
-	}
-
-	if (ampdu || (info->flags & IEEE80211_TX_CTL_AMPDU))
-		info->flags |= IEEE80211_TX_STAT_AMPDU | IEEE80211_TX_CTL_AMPDU;
-
-	sta->ampdu_count = 0;
-	sta->ampdu_acked = 0;
-	sta->ampdu_tx_count = 0;
 	return true;
 }
 
