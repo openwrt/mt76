@@ -493,6 +493,7 @@ mt7603_sta_rate_tbl_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct ieee80211_sta_rates *sta_rates = rcu_dereference(sta->rates);
 	int i;
 
+	spin_lock_bh(&dev->mt76.lock);
 	for (i = 0; i < ARRAY_SIZE(msta->rates); i++) {
 		msta->rates[i].idx = sta_rates->rate[i].idx;
 		msta->rates[i].count = sta_rates->rate[i].count;
@@ -502,7 +503,9 @@ mt7603_sta_rate_tbl_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			break;
 	}
 	msta->n_rates = i;
-	mt7603_wtbl_set_rates(dev, msta);
+	mt7603_wtbl_set_rates(dev, msta, NULL, msta->rates);
+	msta->rate_probe = false;
+	spin_unlock_bh(&dev->mt76.lock);
 }
 
 static void mt7603_set_coverage_class(struct ieee80211_hw *hw,

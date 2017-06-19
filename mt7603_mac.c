@@ -478,15 +478,17 @@ mt7603_mac_tx_rate_val(struct mt7603_dev *dev,
 	return rateval;
 }
 
-void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta)
+void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta,
+			   struct ieee80211_tx_rate *probe_rate,
+			   struct ieee80211_tx_rate *rates)
 {
-	struct ieee80211_tx_rate *rates = sta->rates;
 	int wcid = sta->wcid.idx;
 	u32 addr = mt7603_wtbl2_addr(wcid);
 	bool stbc = false;
 	int n_rates = sta->n_rates;
 	u8 bw, bw_prev, bw_idx = 0;
 	u16 val[4];
+	u16 probe_val;
 	u32 w9 = mt76_rr(dev, addr + 9 * 4);
 	int count;
 	int i;
@@ -503,10 +505,19 @@ void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta)
 	      MT_WTBL2_W9_SHORT_GI_80;
 
 	val[0] = mt7603_mac_tx_rate_val(dev, &rates[0], stbc, &bw);
+	bw_prev = bw;
+
+	if (probe_rate) {
+		probe_val = mt7603_mac_tx_rate_val(dev, probe_rate, stbc, &bw);
+		if (bw_prev < bw)
+		    bw_idx = 1;
+	} else {
+		probe_val = val[0];
+	}
+
 	w9 |= FIELD_PREP(MT_WTBL2_W9_CC_BW_SEL, bw);
 	w9 |= FIELD_PREP(MT_WTBL2_W9_BW_CAP, bw);
 
-	bw_prev = bw;
 	val[1] = mt7603_mac_tx_rate_val(dev, &rates[1], stbc, &bw);
 	if (bw_prev < bw && !bw_idx)
 		bw_idx = 3;
@@ -527,7 +538,7 @@ void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta)
 	mt76_wr(dev, MT_WTBL_RIUCR0, w9);
 
 	mt76_wr(dev, MT_WTBL_RIUCR1,
-		FIELD_PREP(MT_WTBL_RIUCR1_RATE0, val[0]) |
+		FIELD_PREP(MT_WTBL_RIUCR1_RATE0, probe_val) |
 		FIELD_PREP(MT_WTBL_RIUCR1_RATE1, val[0]) |
 		FIELD_PREP(MT_WTBL_RIUCR1_RATE2_LO, val[0]));
 
@@ -683,7 +694,8 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 	);
 	txwi[6] = 0;
 
-	if (rate->idx >= 0 && rate->count) {
+	if (rate->idx >= 0 && rate->count &&
+	    !(info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE)) {
 		bool stbc = info->flags & IEEE80211_TX_CTL_STBC;
 		u16 rateval = mt7603_mac_tx_rate_val(dev, rate, stbc, &bw);
 
@@ -779,6 +791,14 @@ int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	if (!pid)
 		skb->next = skb->prev = NULL;
 
+	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE) {
+		spin_lock_bh(&dev->mt76.lock);
+		msta->rate_probe = true;
+		mt7603_wtbl_set_rates(dev, msta, &info->control.rates[0],
+				      msta->rates);
+		spin_unlock_bh(&dev->mt76.lock);
+	}
+
 	mt7603_mac_write_txwi(dev, txwi_ptr, skb, q, wcid, sta, pid, key);
 
 	return 0;
@@ -791,13 +811,16 @@ mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 	bool final_mpdu;
 	bool ack_timeout;
 	bool fixed_rate;
+	bool probe;
 	bool ampdu;
 	int count;
 	u32 txs;
 	u8 pid;
+	int idx;
 	int i;
 
 	fixed_rate = info->status.rates[0].count;
+	probe = !!(info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE);
 
 	txs = le32_to_cpu(txs_data[4]);
 	final_mpdu = txs & MT_TXS4_ACKED_MPDU;
@@ -838,15 +861,20 @@ mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 	sta->ampdu_acked = 0;
 	sta->ampdu_tx_count = 0;
 
-	if (fixed_rate) {
+	if (fixed_rate && !probe) {
 		info->status.rates[0].count = count;
 		return true;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(info->status.rates); i++) {
+	for (i = 0, idx = 0; i < ARRAY_SIZE(info->status.rates); i++) {
 		int cur_count = min_t(int, count, 2 * MT7603_RATE_RETRY);
 
-		info->status.rates[i] = sta->rates[i];
+		if (!i && probe) {
+			cur_count = 1;
+		} else {
+			info->status.rates[i] = sta->rates[idx];
+			idx++;
+		}
 
 		if (i && info->status.rates[i].idx < 0) {
 			info->status.rates[i - 1].count += count;
@@ -919,6 +947,15 @@ mt7603_mac_add_txs_skb(struct mt7603_dev *dev, struct mt7603_sta *sta, int pid,
 
 	if (skb) {
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+
+		if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE) {
+			spin_lock_bh(&dev->mt76.lock);
+			if (sta->rate_probe) {
+				mt7603_wtbl_set_rates(dev, sta, NULL, sta->rates);
+				sta->rate_probe = false;
+			}
+			spin_unlock_bh(&dev->mt76.lock);
+		}
 		mt7603_fill_txs(dev, sta, info, txs_data);
 		mt7603_skb_done(dev, skb, MT7603_CB_TXS_DONE);
 	}
