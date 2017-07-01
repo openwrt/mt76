@@ -649,7 +649,7 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 	if (vif) {
 		mvif = (struct mt7603_vif *) vif->drv_priv;
 		vif_idx = mvif->idx;
-		if (vif_idx)
+		if (vif_idx && q >= &dev->mt76.q_tx[MT_TXQ_BEACON])
 			vif_idx += 0x10;
 	}
 
