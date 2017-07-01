@@ -236,7 +236,7 @@ int mt7603_mcu_set_timing(struct mt7603_dev *dev, int slot, int sifs, int rifs,
 			  int eifs);
 void mt7603_mcu_exit(struct mt7603_dev *dev);
 
-void mt7603_wtbl_init(struct mt7603_dev *dev, int idx, const u8 *addr);
+void mt7603_wtbl_init(struct mt7603_dev *dev, int idx, int vif, const u8 *addr);
 void mt7603_wtbl_clear(struct mt7603_dev *dev, int idx);
 void mt7603_wtbl_update_cap(struct mt7603_dev *dev, struct ieee80211_sta *sta);
 void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta,

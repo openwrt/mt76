@@ -94,7 +94,7 @@ mt7603_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	mvif->sta.wcid.hw_key_idx = -1;
 
 	eth_broadcast_addr(bc_addr);
-	mt7603_wtbl_init(dev, idx, bc_addr);
+	mt7603_wtbl_init(dev, idx, mvif->idx, bc_addr);
 
 	rcu_assign_pointer(dev->wcid[idx], &mvif->sta.wcid);
 	mt7603_txq_init(dev, vif->txq);
@@ -257,6 +257,7 @@ mt7603_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 {
 	struct mt7603_dev *dev = hw->priv;
 	struct mt7603_sta *msta = (struct mt7603_sta *) sta->drv_priv;
+	struct mt7603_vif *mvif = (struct mt7603_vif *) vif->drv_priv;
 	int i, idx;
 	int ret = 0;
 
@@ -272,7 +273,7 @@ mt7603_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		mt7603_txq_init(dev, sta->txq[i]);
 
 	msta->wcid.idx = idx;
-	mt7603_wtbl_init(dev, idx, sta->addr);
+	mt7603_wtbl_init(dev, idx, mvif->idx, sta->addr);
 	mt7603_wtbl_update_cap(dev, sta);
 
 	rcu_assign_pointer(dev->wcid[idx], &msta->wcid);
