@@ -200,20 +200,20 @@ int mt76x2_tx_queue_mcu(struct mt76x2_dev *dev, enum mt76_txq_id qid,
 void mt76x2_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
 	       struct sk_buff *skb);
 void mt76x2_tx_complete(struct mt76x2_dev *dev, struct sk_buff *skb);
-int mt76x2_tx_prepare_skb(struct mt76_dev *dev, void *txwi_ptr,
+int mt76x2_tx_prepare_skb(struct mt76_dev *mdev, void *txwi,
 			  struct sk_buff *skb, struct mt76_queue *q,
 			  struct mt76_wcid *wcid, struct ieee80211_sta *sta,
 			  u32 *tx_info);
 void mt76x2_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 			    struct mt76_queue_entry *e, bool flush);
 
-void mt76x2_pre_tbtt_tasklet(unsigned long data);
+void mt76x2_pre_tbtt_tasklet(unsigned long arg);
 
-void mt76x2_rx_poll_complete(struct mt76_dev *dev, enum mt76_rxq_id q);
+void mt76x2_rx_poll_complete(struct mt76_dev *mdev, enum mt76_rxq_id q);
 void mt76x2_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 			 struct sk_buff *skb);
 
-void mt76x2_update_channel(struct mt76_dev *dev);
+void mt76x2_update_channel(struct mt76_dev *mdev);
 
 s8 mt76x2_tx_get_max_txpwr_adj(struct mt76x2_dev *dev,
 			       const struct ieee80211_tx_rate *rate);

@@ -295,7 +295,7 @@ static bool mt76x2_dfs_check_hw_pulse(struct mt76x2_dev *dev,
 	return ret;
 }
 
-void mt76x2_dfs_tasklet(unsigned long arg)
+static void mt76x2_dfs_tasklet(unsigned long arg)
 {
 	struct mt76x2_dev *dev = (struct mt76x2_dev *)arg;
 	struct mt76x2_dfs_pattern_detector *dfs_pd = &dev->dfs_pd;

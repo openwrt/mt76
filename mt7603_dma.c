@@ -25,7 +25,6 @@ mt7603_tx_queue_mcu(struct mt7603_dev *dev, enum mt76_txq_id qid,
 	struct mt76_queue *q = &dev->mt76.q_tx[qid];
 	struct mt76_queue_buf buf;
 	dma_addr_t addr;
-	int idx;
 
 	addr = dma_map_single(dev->mt76.dev, skb->data, skb->len, DMA_TO_DEVICE);
 	if (dma_mapping_error(dev->mt76.dev, addr))
@@ -34,7 +33,7 @@ mt7603_tx_queue_mcu(struct mt7603_dev *dev, enum mt76_txq_id qid,
 	buf.addr = addr;
 	buf.len = skb->len;
 	spin_lock_bh(&q->lock);
-	idx = mt76_queue_add_buf(dev, q, &buf, 1, 0, skb, NULL);
+	mt76_queue_add_buf(dev, q, &buf, 1, 0, skb, NULL);
 	mt76_queue_kick(dev, q);
 	spin_unlock_bh(&q->lock);
 

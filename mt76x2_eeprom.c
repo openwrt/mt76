@@ -424,7 +424,7 @@ mt76x2_rate_power_val(u8 val)
 
 void mt76x2_get_rate_power(struct mt76x2_dev *dev, struct mt76_rate_power *t)
 {
-	bool is_5ghz = false;
+	bool is_5ghz;
 	u16 val;
 
 	is_5ghz = dev->mt76.chandef.chan->band == NL80211_BAND_5GHZ;
