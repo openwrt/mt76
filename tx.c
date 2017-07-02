@@ -295,7 +295,7 @@ mt76_txq_send_burst(struct mt76_dev *dev, struct mt76_queue *hwq,
 	struct ieee80211_txq *txq = mtxq_to_txq(mtxq);
 	struct ieee80211_tx_info *info;
 	struct mt76_wcid *wcid = mtxq->wcid;
-	struct sk_buff *skb = NULL;
+	struct sk_buff *skb;
 	int n_frames = 1, limit;
 	struct ieee80211_tx_rate tx_rate;
 	bool ampdu;

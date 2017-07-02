@@ -129,7 +129,7 @@ struct mt76x2_tssi_comp {
 
 int mt76x2_mcu_calibrate(struct mt76x2_dev *dev, enum mcu_calibration type,
 			 u32 param);
-int mt76x2_mcu_tssi_comp(struct mt76x2_dev *dev, struct mt76x2_tssi_comp *data);
+int mt76x2_mcu_tssi_comp(struct mt76x2_dev *dev, struct mt76x2_tssi_comp *tssi_data);
 int mt76x2_mcu_init_gain(struct mt76x2_dev *dev, u8 channel, u32 gain,
 			 bool force);
 
