@@ -517,8 +517,10 @@ void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta,
 
 	if (probe_rate) {
 		probe_val = mt7603_mac_tx_rate_val(dev, probe_rate, stbc, &bw);
-		if (bw_prev < bw)
-		    bw_idx = 1;
+		if (bw)
+			bw_idx = 1;
+		else
+			bw_prev = 0;
 	} else {
 		probe_val = val[0];
 	}
@@ -527,17 +529,19 @@ void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta,
 	w9 |= FIELD_PREP(MT_WTBL2_W9_BW_CAP, bw);
 
 	val[1] = mt7603_mac_tx_rate_val(dev, &rates[1], stbc, &bw);
-	if (bw_prev < bw && !bw_idx)
+	if (bw_prev) {
 		bw_idx = 3;
+		bw_prev = bw;
+	}
 
-	bw_prev = bw;
 	val[2] = mt7603_mac_tx_rate_val(dev, &rates[2], stbc, &bw);
-	if (bw_prev < bw && !bw_idx)
+	if (bw_prev) {
 		bw_idx = 5;
+		bw_prev = bw;
+	}
 
-	bw_prev = bw;
 	val[3] = mt7603_mac_tx_rate_val(dev, &rates[3], stbc, &bw);
-	if (bw_prev < bw && !bw_idx)
+	if (bw_prev)
 		bw_idx = 7;
 
 	w9 |= FIELD_PREP(MT_WTBL2_W9_CHANGE_BW_RATE,
