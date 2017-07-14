@@ -1256,7 +1256,6 @@ void mt7603_mac_work(struct work_struct *work)
 {
 	struct mt7603_dev *dev = container_of(work, struct mt7603_dev, mac_work.work);
 	struct sk_buff *skb;
-	int time = MT7603_WATCHDOG_TIME;
 	bool reset = false;
 
 	spin_lock_bh(&dev->status_lock);
@@ -1304,6 +1303,5 @@ void mt7603_mac_work(struct work_struct *work)
 		mt7603_mac_watchdog_reset(dev);
 
 	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mac_work,
-				     msecs_to_jiffies(time));
-	return;
+				     msecs_to_jiffies(MT7603_WATCHDOG_TIME));
 }
