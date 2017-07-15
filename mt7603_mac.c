@@ -1129,6 +1129,7 @@ void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 	u32 mask = dev->irqmask;
 	int i;
 
+	ieee80211_stop_queues(dev->mt76.hw);
 	set_bit(MT76_RESET, &dev->mt76.state);
 
 	tasklet_disable(&dev->tx_tasklet);
@@ -1167,6 +1168,7 @@ void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 	tasklet_enable(&dev->pre_tbtt_tasklet);
 	napi_enable(&dev->mt76.napi[0]);
 	napi_enable(&dev->mt76.napi[1]);
+	ieee80211_wake_queues(dev->mt76.hw);
 }
 
 static bool mt7603_rx_dma_busy(struct mt7603_dev *dev)
