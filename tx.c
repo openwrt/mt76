@@ -332,6 +332,10 @@ mt76_txq_send_burst(struct mt76_dev *dev, struct mt76_queue *hwq,
 		if (probe)
 			break;
 
+		if (test_bit(MT76_SCANNING, &dev->state) ||
+		    test_bit(MT76_RESET, &dev->state))
+			return -EBUSY;
+
 		skb = mt76_txq_dequeue(dev, mtxq, false);
 		if (!skb) {
 			*empty = true;
@@ -417,10 +421,6 @@ restart:
 void mt76_txq_schedule(struct mt76_dev *dev, struct mt76_queue *hwq)
 {
 	int len;
-
-	if (test_bit(MT76_SCANNING, &dev->state) ||
-	    test_bit(MT76_RESET, &dev->state))
-		return;
 
 	do {
 		if (hwq->swq_queued >= 4 || list_empty(&hwq->swq))
