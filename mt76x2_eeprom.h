@@ -23,6 +23,7 @@ enum mt76x2_eeprom_field {
 	MT_EE_CHIP_ID =				0x000,
 	MT_EE_VERSION =				0x002,
 	MT_EE_MAC_ADDR =			0x004,
+	MT_EE_PCI_ID =				0x00A,
 	MT_EE_NIC_CONF_0 =			0x034,
 	MT_EE_NIC_CONF_1 =			0x036,
 	MT_EE_NIC_CONF_2 =			0x042,
