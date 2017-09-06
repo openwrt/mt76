@@ -205,6 +205,9 @@ static int mt76x2_check_eeprom(struct mt76x2_dev *dev)
 {
 	u16 val = get_unaligned_le16(dev->mt76.eeprom.data);
 
+	if (!val)
+		val = get_unaligned_le16(dev->mt76.eeprom.data + MT_EE_PCI_ID);
+
 	switch (val) {
 	case 0x7662:
 	case 0x7612:
