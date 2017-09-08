@@ -1210,9 +1210,9 @@ static bool mt7603_tx_hang(struct mt7603_dev *dev)
 		prev_dma_idx = dev->tx_dma_idx[i];
 		dev->tx_dma_idx[i] = dma_idx = ioread32(&q->regs->dma_idx);
 
-		if (dma_idx != prev_dma_idx ||
-		    dma_idx == ioread32(&q->regs->cpu_idx))
-			continue;
+		if (dma_idx == prev_dma_idx &&
+		    dma_idx != ioread32(&q->regs->cpu_idx))
+			break;
 	}
 
 	return i < 4;
