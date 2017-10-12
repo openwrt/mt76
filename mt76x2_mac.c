@@ -333,6 +333,9 @@ mt76x2_mac_fill_tx_status(struct mt76x2_dev *dev,
 	int cur_idx, last_rate;
 	int i;
 
+	if (!n_frames)
+		return;
+
 	last_rate = min_t(int, st->retry, IEEE80211_TX_MAX_RATES - 1);
 	mt76x2_mac_process_tx_rate(&rate[last_rate], st->rate,
 				 dev->mt76.chandef.chan->band);
@@ -395,19 +398,17 @@ mt76x2_send_tx_status(struct mt76x2_dev *dev, struct mt76x2_tx_status *stat,
 		stat_cache |= ((u32) msta->status.retry) << 16;
 
 		if (*update == 0 && stat_val == stat_cache &&
-		    stat->wcid == msta->status.wcid && ++msta->n_frames < 32)
+		    stat->wcid == msta->status.wcid && msta->n_frames < 32) {
+			msta->n_frames++;
 			goto out;
+		}
 
 		mt76x2_mac_fill_tx_status(dev, &info, &msta->status,
 					  msta->n_frames);
 
 		msta->status = *stat;
-		if (*update == 1) {
-			msta->n_frames = 1;
-			*update = 0;
-		} else {
-			msta->n_frames = 0;
-		}
+		msta->n_frames = 1;
+		*update = 0;
 	} else {
 		mt76x2_mac_fill_tx_status(dev, &info, stat, 1);
 		*update = 1;
