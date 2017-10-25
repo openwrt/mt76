@@ -42,6 +42,13 @@
 #define MT7603_WATCHDOG_TIME	100 /* ms */
 #define MT7603_WATCHDOG_TIMEOUT	10 /* number of checks */
 
+#define MT7603_LED_STATE_ON		0
+#define MT7603_LED_STATE_OFF		1
+#define MT7603_LED_STATE_MAC		2
+#define MT7603_LED_BLINK_ALL		0
+#define MT7603_LED_BLINK_EXCL_BEACON	1
+#define MT7603_LED_BLINK_DATA_ONLY	2
+
 enum {
 	MT7603_REV_E1 = 0x00,
 	MT7603_REV_E2 = 0x10,
@@ -232,6 +239,7 @@ void mt7603_mac_watchdog_reset(struct mt7603_dev *dev);
 int mt7603_mcu_set_channel(struct mt7603_dev *dev);
 int mt7603_mcu_reg_read(struct mt7603_dev *dev, u32 reg, u32 *val, bool rf);
 int mt7603_mcu_set_eeprom(struct mt7603_dev *dev);
+int mt7603_mcu_set_led(struct mt7603_dev *dev, u32 state, u32 blink_sel);
 int mt7603_mcu_set_timing(struct mt7603_dev *dev, int slot, int sifs, int rifs,
 			  int eifs);
 void mt7603_mcu_exit(struct mt7603_dev *dev);
