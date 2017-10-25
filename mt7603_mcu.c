@@ -27,12 +27,12 @@ struct mt7603_fw_trailer {
 	__le32 dl_len;
 } __packed;
 
-static struct sk_buff *mt7603_mcu_msg_alloc(const void *data, int len)
+static struct sk_buff *mt7603_mcu_msg_alloc(const void *data, int len,
+					    gfp_t flags)
 {
 	struct sk_buff *skb;
 
-	skb = alloc_skb(len + sizeof(struct mt7603_mcu_txd),
-			GFP_KERNEL);
+	skb = alloc_skb(len + sizeof(struct mt7603_mcu_txd), flags);
 	skb_reserve(skb, sizeof(struct mt7603_mcu_txd));
 	if (data && len)
 		memcpy(skb_put(skb, len), data, len);
@@ -157,7 +157,8 @@ mt7603_mcu_init_download(struct mt7603_dev *dev, u32 addr, u32 len)
 		.len = cpu_to_le32(len),
 		.mode = cpu_to_le32(BIT(31)),
 	};
-	struct sk_buff *skb = mt7603_mcu_msg_alloc(&req, sizeof(req));
+	struct sk_buff *skb = mt7603_mcu_msg_alloc(&req, sizeof(req),
+						   GFP_KERNEL);
 
 	return mt7603_mcu_msg_send(dev, skb, -MCU_CMD_TARGET_ADDRESS_LEN_REQ, MCU_Q_NA, NULL);
 }
@@ -171,7 +172,7 @@ mt7603_mcu_send_firmware(struct mt7603_dev *dev, const void *data, int len)
 	while (len > 0) {
 		int cur_len = min_t(int, 4096 - sizeof(struct mt7603_mcu_txd), len);
 
-		skb = mt7603_mcu_msg_alloc(data, cur_len);
+		skb = mt7603_mcu_msg_alloc(data, cur_len, GFP_KERNEL);
 		if (!skb)
 			return -ENOMEM;
 
@@ -196,7 +197,8 @@ mt7603_mcu_start_firmware(struct mt7603_dev *dev, u32 addr)
 		.override = cpu_to_le32(addr ? 1 : 0),
 		.addr = cpu_to_le32(addr),
 	};
-	struct sk_buff *skb = mt7603_mcu_msg_alloc(&req, sizeof(req));
+	struct sk_buff *skb = mt7603_mcu_msg_alloc(&req, sizeof(req),
+						   GFP_KERNEL);
 
 	return mt7603_mcu_msg_send(dev, skb, -MCU_CMD_FW_START_REQ, MCU_Q_NA, NULL);
 }
@@ -204,7 +206,7 @@ mt7603_mcu_start_firmware(struct mt7603_dev *dev, u32 addr)
 static int
 mt7603_mcu_restart(struct mt7603_dev *dev)
 {
-	struct sk_buff *skb = mt7603_mcu_msg_alloc(NULL, 0);
+	struct sk_buff *skb = mt7603_mcu_msg_alloc(NULL, 0, GFP_KERNEL);
 
 	return mt7603_mcu_msg_send(dev, skb, -MCU_CMD_RESTART_DL_REQ, MCU_Q_NA, NULL);
 }
@@ -409,7 +411,7 @@ int mt7603_mcu_set_eeprom(struct mt7603_dev *dev)
 
 	BUILD_BUG_ON(ARRAY_SIZE(req_fields) * sizeof(*data) > size);
 
-	skb = mt7603_mcu_msg_alloc(NULL, size + sizeof(req_hdr));
+	skb = mt7603_mcu_msg_alloc(NULL, size + sizeof(req_hdr), GFP_KERNEL);
 	memcpy(skb_put(skb, sizeof(req_hdr)), &req_hdr, sizeof(req_hdr));
 	data = (struct req_data *) skb_put(skb, size);
 	memset(data, 0, size);
@@ -464,7 +466,7 @@ static int mt7603_mcu_set_tx_power(struct mt7603_dev *dev)
 	memcpy(req.temp_comp_power, eep + MT_EE_STEP_NUM_NEG_6_7,
 	       sizeof(req.temp_comp_power));
 
-	skb = mt7603_mcu_msg_alloc(&req, sizeof(req));
+	skb = mt7603_mcu_msg_alloc(&req, sizeof(req), GFP_KERNEL);
 	return mt7603_mcu_msg_send(dev, skb, MCU_EXT_CMD_SET_TX_POWER_CTRL, MCU_Q_SET, NULL);
 }
 
@@ -490,7 +492,7 @@ int mt7603_mcu_set_channel(struct mt7603_dev *dev)
 	int ret;
 
 	memset(req.txpower, 0xff, sizeof(req.txpower));
-	skb = mt7603_mcu_msg_alloc(&req, sizeof(req));
+	skb = mt7603_mcu_msg_alloc(&req, sizeof(req), GFP_KERNEL);
 	ret = mt7603_mcu_msg_send(dev, skb, MCU_EXT_CMD_CHANNEL_SWITCH, MCU_Q_SET, NULL);
 	if (ret)
 		return ret;
@@ -516,7 +518,7 @@ int mt7603_mcu_set_timing(struct mt7603_dev *dev, int slot, int sifs, int rifs,
 	};
 	struct sk_buff *skb;
 
-	skb = mt7603_mcu_msg_alloc(&req, sizeof(req));
+	skb = mt7603_mcu_msg_alloc(&req, sizeof(req), GFP_KERNEL);
 	return mt7603_mcu_msg_send(dev, skb, MCU_EXT_CMD_SLOT_TIME_SET, MCU_Q_SET, NULL);
 }
 
@@ -534,7 +536,7 @@ int mt7603_mcu_reg_read(struct mt7603_dev *dev, u32 reg, u32 *val, bool rf)
 	__le32 *res;
 	int ret;
 
-	skb = mt7603_mcu_msg_alloc(&req, sizeof(req));
+	skb = mt7603_mcu_msg_alloc(&req, sizeof(req), GFP_KERNEL);
 	ret = mt7603_mcu_msg_send(dev, skb, MCU_EXT_CMD_MULTIPLE_REG_ACCESS, MCU_Q_QUERY, &skb);
 	if (ret)
 		return ret;
