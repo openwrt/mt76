@@ -294,6 +294,9 @@ mt7603_init_hardware(struct mt7603_dev *dev)
 	mt7603_phy_init(dev);
 	mt7603_mac_init(dev);
 
+	mt7603_mcu_set_led(dev, MT7603_LED_STATE_OFF,
+				MT7603_LED_BLINK_DATA_ONLY);
+
 	return 0;
 }
 

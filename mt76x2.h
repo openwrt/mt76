@@ -38,6 +38,10 @@
 
 #define MT_CALIBRATE_INTERVAL	HZ
 
+#define MT7662_LED_STATE_ON	0x800000
+#define MT7662_LED_STATE_OFF	0x820000
+#define MT7662_LED_STATE_MAC	0x840000
+
 #include "mt76.h"
 #include "mt76x2_regs.h"
 #include "mt76x2_mac.h"

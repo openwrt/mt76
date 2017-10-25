@@ -547,3 +547,30 @@ int mt7603_mcu_reg_read(struct mt7603_dev *dev, u32 reg, u32 *val, bool rf)
 	*val = le32_to_cpu(res[2]);
 	return 0;
 }
+
+int mt7603_mcu_set_led(struct mt7603_dev *dev, u32 state, u32 blink_sel)
+{
+	struct {
+		__le32 idx;
+		__le32 op;
+	} req = {
+		/* seems to be always 0
+		 * but docs mention 2 LEDs
+		 */
+		.idx = cpu_to_le32(0),
+		/* state is:
+		 *    0 on
+		 *    1 off
+		 *    2 mac controlled?
+		 * blink_sel is:
+		 *    0 all tx frames
+		 *    1 exclude tx beacon and TIM broadcast frames
+		 *    2 data only
+		 */
+		.op = cpu_to_le32(state | (blink_sel << 24)),
+	};
+	struct sk_buff *skb;
+
+	skb = mt7603_mcu_msg_alloc(dev, &req, sizeof(req));
+	return mt7603_mcu_msg_send(dev, skb, MCU_EXT_CMD_LED_CTRL, MCU_Q_SET, NULL);
+}

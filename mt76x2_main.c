@@ -15,6 +15,7 @@
  */
 
 #include "mt76x2.h"
+#include "mt76x2_mcu.h"
 
 static int
 mt76x2_start(struct ieee80211_hw *hw)
@@ -36,6 +37,7 @@ mt76x2_start(struct ieee80211_hw *hw)
 				     MT_CALIBRATE_INTERVAL);
 
 	set_bit(MT76_STATE_RUNNING, &dev->mt76.state);
+	mt76_wr(dev, MT_MCU_LED_CTRL, MT7662_LED_STATE_MAC);
 
 out:
 	mutex_unlock(&dev->mutex);
@@ -48,6 +50,7 @@ mt76x2_stop(struct ieee80211_hw *hw)
 	struct mt76x2_dev *dev = hw->priv;
 
 	mutex_lock(&dev->mutex);
+	mt76_wr(dev, MT_MCU_LED_CTRL, MT7662_LED_STATE_OFF);
 	clear_bit(MT76_STATE_RUNNING, &dev->mt76.state);
 	mt76x2_stop_hardware(dev);
 	mutex_unlock(&dev->mutex);

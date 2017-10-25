@@ -30,6 +30,8 @@ mt7603_start(struct ieee80211_hw *hw)
 				     MT7603_WATCHDOG_TIME);
 	mt7603_mac_start(dev);
 	set_bit(MT76_STATE_RUNNING, &dev->mt76.state);
+	mt7603_mcu_set_led(dev, MT7603_LED_STATE_MAC,
+				MT7603_LED_BLINK_DATA_ONLY);
 
 	return 0;
 }
@@ -39,6 +41,8 @@ mt7603_stop(struct ieee80211_hw *hw)
 {
 	struct mt7603_dev *dev = hw->priv;
 
+	mt7603_mcu_set_led(dev, MT7603_LED_STATE_OFF,
+				MT7603_LED_BLINK_DATA_ONLY);
 	clear_bit(MT76_STATE_RUNNING, &dev->mt76.state);
 	cancel_delayed_work_sync(&dev->mac_work);
 	mt7603_mac_watchdog_reset(dev);
