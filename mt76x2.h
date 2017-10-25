@@ -189,6 +189,7 @@ int mt76x2_mcu_set_radio_state(struct mt76x2_dev *dev, bool on);
 int mt76x2_mcu_load_cr(struct mt76x2_dev *dev, u8 type, u8 temp_level,
 		       u8 channel);
 int mt76x2_mcu_cleanup(struct mt76x2_dev *dev);
+int mt76x2_mcu_set_led_status(struct mt76x2_dev *dev, int index, int value);
 
 int mt76x2_dma_init(struct mt76x2_dev *dev);
 void mt76x2_dma_cleanup(struct mt76x2_dev *dev);

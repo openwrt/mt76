@@ -432,6 +432,21 @@ int mt76x2_mcu_init_gain(struct mt76x2_dev *dev, u8 channel, u32 gain,
 	return mt76x2_mcu_msg_send(dev, skb, CMD_INIT_GAIN_OP);
 }
 
+int mt76x2_mcu_set_led_status(struct mt76x2_dev *dev, int index, int value)
+{
+	struct {
+		__le32 id;
+		__le32 status;
+	} __packed __aligned(4) msg = {
+		.id = cpu_to_le32(index),
+		.status = cpu_to_le32(value),
+	};
+	struct sk_buff *skb;
+
+	skb = mt76x2_mcu_msg_alloc(&msg, sizeof(msg), GFP_ATOMIC);
+	return __mt76x2_mcu_msg_send(dev, skb, CMD_LED_MODE_OP, NULL);
+}
+
 int mt76x2_mcu_init(struct mt76x2_dev *dev)
 {
 	int ret;

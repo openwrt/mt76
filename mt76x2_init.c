@@ -709,6 +709,18 @@ static const struct ieee80211_iface_combination if_comb[] = {
 	}
 };
 
+static void mt76x2_led_set_brightness(struct led_classdev *led_cdev,
+				      enum led_brightness brightness)
+{
+	struct mt76_dev *mt76 = container_of(led_cdev, struct mt76_dev,
+					     led_cdev);
+	struct mt76x2_dev *dev = container_of(mt76, struct mt76x2_dev,
+					      mt76);
+	int val = mt76->led_al ? !brightness : !!brightness;
+
+	mt76x2_mcu_set_led_status(dev, mt76->led_pin, val);
+}
+
 int mt76x2_register_device(struct mt76x2_dev *dev)
 {
 	struct ieee80211_hw *hw = mt76_hw(dev);
@@ -766,6 +778,9 @@ int mt76x2_register_device(struct mt76x2_dev *dev)
 	dev->mt76.sband_5g.sband.ht_cap.cap |= IEEE80211_HT_CAP_LDPC_CODING;
 
 	mt76x2_dfs_init_detector(dev);
+
+	/* init brightness_set callback */
+	dev->mt76.led_cdev.brightness_set = mt76x2_led_set_brightness;
 
 	ret = mt76_register_device(&dev->mt76, true, mt76x2_rates,
 				   ARRAY_SIZE(mt76x2_rates));

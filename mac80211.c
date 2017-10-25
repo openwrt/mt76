@@ -76,6 +76,44 @@ static const struct ieee80211_channel mt76_channels_5ghz[] = {
 	CHAN5G(165, 5825),
 };
 
+static const struct ieee80211_tpt_blink mt76_tpt_blink[] = {
+	{ .throughput =   0 * 1024, .blink_time = 334 },
+	{ .throughput =   1 * 1024, .blink_time = 260 },
+	{ .throughput =   5 * 1024, .blink_time = 220 },
+	{ .throughput =  10 * 1024, .blink_time = 190 },
+	{ .throughput =  20 * 1024, .blink_time = 170 },
+	{ .throughput =  50 * 1024, .blink_time = 150 },
+	{ .throughput =  70 * 1024, .blink_time = 130 },
+	{ .throughput = 100 * 1024, .blink_time = 110 },
+	{ .throughput = 200 * 1024, .blink_time =  80 },
+	{ .throughput = 300 * 1024, .blink_time =  50 },
+};
+
+static int mt76_led_init(struct mt76_dev *dev)
+{
+	struct device_node *np = dev->dev->of_node;
+	struct ieee80211_hw *hw = dev->hw;
+	int led_pin;
+
+	snprintf(dev->led_name, sizeof(dev->led_name),
+		 "mt76-%s", wiphy_name(hw->wiphy));
+
+	dev->led_cdev.name = dev->led_name;
+	dev->led_cdev.default_trigger =
+		ieee80211_create_tpt_led_trigger(hw,
+					IEEE80211_TPT_LEDTRIG_FL_RADIO,
+					mt76_tpt_blink,
+					ARRAY_SIZE(mt76_tpt_blink));
+
+	if (np) {
+		if (!of_property_read_u32(np, "led-sources", &led_pin))
+			dev->led_pin = led_pin;
+		dev->led_al = of_property_read_bool(np, "led-active-low");
+	}
+
+	return devm_led_classdev_register(dev->dev, &dev->led_cdev);
+}
+
 static int
 mt76_init_sband(struct mt76_dev *dev, struct mt76_sband *msband,
 		const struct ieee80211_channel *chan, int n_chan,
@@ -251,6 +289,10 @@ int mt76_register_device(struct mt76_dev *dev, bool vht,
 	wiphy_read_of_freq_limits(dev->hw->wiphy);
 	mt76_check_sband(dev, NL80211_BAND_2GHZ);
 	mt76_check_sband(dev, NL80211_BAND_5GHZ);
+
+	ret = mt76_led_init(dev);
+	if (ret)
+		return ret;
 
 	return ieee80211_register_hw(hw);
 }
