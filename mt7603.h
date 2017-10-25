@@ -235,6 +235,7 @@ int mt7603_mcu_set_eeprom(struct mt7603_dev *dev);
 int mt7603_mcu_set_timing(struct mt7603_dev *dev, int slot, int sifs, int rifs,
 			  int eifs);
 void mt7603_mcu_exit(struct mt7603_dev *dev);
+int mt7603_mcu_set_led_status(struct mt7603_dev *dev, int index, int value);
 
 void mt7603_wtbl_init(struct mt7603_dev *dev, int idx, int vif, const u8 *addr);
 void mt7603_wtbl_clear(struct mt7603_dev *dev, int idx);

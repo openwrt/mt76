@@ -548,3 +548,19 @@ int mt7603_mcu_reg_read(struct mt7603_dev *dev, u32 reg, u32 *val, bool rf)
 	*val = le32_to_cpu(res[2]);
 	return 0;
 }
+
+int mt7603_mcu_set_led_status(struct mt7603_dev *dev, int index, int value)
+{
+	struct {
+		__le32 id;
+		__le32 status;
+	} req = {
+		.id = cpu_to_le32(index),
+		.status = cpu_to_le32(value | (2 << 24)),
+	};
+	struct sk_buff *skb;
+
+	skb = mt7603_mcu_msg_alloc(&req, sizeof(req), GFP_ATOMIC);
+	return __mt7603_mcu_msg_send(dev, skb, MCU_EXT_CMD_LED_CTRL,
+				     MCU_Q_SET, NULL);
+}
