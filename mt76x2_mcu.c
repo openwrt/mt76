@@ -66,6 +66,25 @@ mt76x2_mcu_get_response(struct mt76x2_dev *dev, unsigned long expires)
 }
 
 static int
+__mt76x2_mcu_msg_send(struct mt76x2_dev *dev, struct sk_buff *skb,
+		      enum mcu_cmd cmd, u8 *tx_seq)
+{
+	u8 seq;
+
+	if (!skb)
+		return -EINVAL;
+
+	seq = ++dev->mcu.msg_seq & 0xf;
+	if (!seq)
+		seq = ++dev->mcu.msg_seq & 0xf;
+
+	if (tx_seq)
+		*tx_seq = seq;
+
+	return mt76x2_tx_queue_mcu(dev, MT_TXQ_MCU, skb, cmd, seq);
+}
+
+static int
 mt76x2_mcu_msg_send(struct mt76x2_dev *dev, struct sk_buff *skb,
 		    enum mcu_cmd cmd)
 {
@@ -73,16 +92,9 @@ mt76x2_mcu_msg_send(struct mt76x2_dev *dev, struct sk_buff *skb,
 	int ret;
 	u8 seq;
 
-	if (!skb)
-		return -EINVAL;
-
 	mutex_lock(&dev->mcu.mutex);
 
-	seq = ++dev->mcu.msg_seq & 0xf;
-	if (!seq)
-		seq = ++dev->mcu.msg_seq & 0xf;
-
-	ret = mt76x2_tx_queue_mcu(dev, MT_TXQ_MCU, skb, cmd, seq);
+	ret = __mt76x2_mcu_msg_send(dev, skb, cmd, &seq);
 	if (ret)
 		goto out;
 
