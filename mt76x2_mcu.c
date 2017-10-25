@@ -40,11 +40,12 @@ struct mt76x2_patch_header {
 	u8 pad[2];
 };
 
-static struct sk_buff *mt76x2_mcu_msg_alloc(const void *data, int len)
+static struct sk_buff *mt76x2_mcu_msg_alloc(const void *data, int len,
+					    gfp_t flags)
 {
 	struct sk_buff *skb;
 
-	skb = alloc_skb(len, GFP_KERNEL);
+	skb = alloc_skb(len, flags);
 	memcpy(skb_put(skb, len), data, len);
 
 	return skb;
@@ -278,7 +279,7 @@ mt76x2_mcu_function_select(struct mt76x2_dev *dev, enum mcu_function func,
 	    .value = cpu_to_le32(val),
 	};
 
-	skb = mt76x2_mcu_msg_alloc(&msg, sizeof(msg));
+	skb = mt76x2_mcu_msg_alloc(&msg, sizeof(msg), GFP_KERNEL);
 	return mt76x2_mcu_msg_send(dev, skb, CMD_FUN_SET_OP);
 }
 
@@ -306,7 +307,7 @@ int mt76x2_mcu_load_cr(struct mt76x2_dev *dev, u8 type, u8 temp_level,
 	msg.cfg = cpu_to_le32(val);
 
 	/* first set the channel without the extension channel info */
-	skb = mt76x2_mcu_msg_alloc(&msg, sizeof(msg));
+	skb = mt76x2_mcu_msg_alloc(&msg, sizeof(msg), GFP_KERNEL);
 	return mt76x2_mcu_msg_send(dev, skb, CMD_LOAD_CR);
 }
 
@@ -332,13 +333,13 @@ int mt76x2_mcu_set_channel(struct mt76x2_dev *dev, u8 channel, u8 bw,
 	};
 
 	/* first set the channel without the extension channel info */
-	skb = mt76x2_mcu_msg_alloc(&msg, sizeof(msg));
+	skb = mt76x2_mcu_msg_alloc(&msg, sizeof(msg), GFP_KERNEL);
 	mt76x2_mcu_msg_send(dev, skb, CMD_SWITCH_CHANNEL_OP);
 
 	usleep_range(5000, 10000);
 
 	msg.ext_chan = 0xe0 + bw_index;
-	skb = mt76x2_mcu_msg_alloc(&msg, sizeof(msg));
+	skb = mt76x2_mcu_msg_alloc(&msg, sizeof(msg), GFP_KERNEL);
 	return mt76x2_mcu_msg_send(dev, skb, CMD_SWITCH_CHANNEL_OP);
 }
 
@@ -353,7 +354,7 @@ int mt76x2_mcu_set_radio_state(struct mt76x2_dev *dev, bool on)
 		.level = cpu_to_le32(0),
 	};
 
-	skb = mt76x2_mcu_msg_alloc(&msg, sizeof(msg));
+	skb = mt76x2_mcu_msg_alloc(&msg, sizeof(msg), GFP_KERNEL);
 	return mt76x2_mcu_msg_send(dev, skb, CMD_POWER_SAVING_OP);
 }
 
@@ -372,7 +373,7 @@ int mt76x2_mcu_calibrate(struct mt76x2_dev *dev, enum mcu_calibration type,
 
 	mt76_clear(dev, MT_MCU_COM_REG0, BIT(31));
 
-	skb = mt76x2_mcu_msg_alloc(&msg, sizeof(msg));
+	skb = mt76x2_mcu_msg_alloc(&msg, sizeof(msg), GFP_KERNEL);
 	ret = mt76x2_mcu_msg_send(dev, skb, CMD_CALIBRATION_OP);
 	if (ret)
 		return ret;
@@ -396,7 +397,7 @@ int mt76x2_mcu_tssi_comp(struct mt76x2_dev *dev,
 		.data = *tssi_data,
 	};
 
-	skb = mt76x2_mcu_msg_alloc(&msg, sizeof(msg));
+	skb = mt76x2_mcu_msg_alloc(&msg, sizeof(msg), GFP_KERNEL);
 	return mt76x2_mcu_msg_send(dev, skb, CMD_CALIBRATION_OP);
 }
 
@@ -415,7 +416,7 @@ int mt76x2_mcu_init_gain(struct mt76x2_dev *dev, u8 channel, u32 gain,
 	if (force)
 		msg.channel |= cpu_to_le32(BIT(31));
 
-	skb = mt76x2_mcu_msg_alloc(&msg, sizeof(msg));
+	skb = mt76x2_mcu_msg_alloc(&msg, sizeof(msg), GFP_KERNEL);
 	return mt76x2_mcu_msg_send(dev, skb, CMD_INIT_GAIN_OP);
 }
 
