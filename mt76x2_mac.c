@@ -647,7 +647,7 @@ int mt76x2_mac_set_beacon(struct mt76x2_dev *dev, u8 vif_idx,
 
 	for (i = 0; i < ARRAY_SIZE(dev->beacons); i++) {
 		if (vif_idx == i) {
-			force_update = !!dev->beacons[i] ^ !!skb;
+			force_update = ((!!dev->beacons[i]) ^ (!!skb));
 
 			if (dev->beacons[i])
 				dev_kfree_skb(dev->beacons[i]);
