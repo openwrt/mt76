@@ -157,6 +157,7 @@ mt76_write_mac_initvals(struct mt76x2_dev *dev)
 		{ MT_VHT_HT_FBK_CFG1,		0xedcba980 },
 		{ MT_PROT_AUTO_TX_CFG,		0x00830083 },
 		{ MT_HT_CTRL_CFG,		0x000001ff },
+		{ MT_MCU_LED_CTRL,		0x00840000 },
 	};
 	struct mt76x2_reg_pair prot_vals[] = {
 		{ MT_CCK_PROT_CFG,		DEFAULT_PROT_CFG },
