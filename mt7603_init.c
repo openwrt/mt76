@@ -349,6 +349,57 @@ static const struct ieee80211_iface_combination if_comb[] = {
 	}
 };
 
+static void mt7603_led_set_config(struct mt76_dev *mt76, u8 delay_on,
+				  u8 delay_off)
+{
+	struct mt7603_dev *dev = container_of(mt76, struct mt7603_dev,
+					      mt76);
+	u32 val, addr;
+
+	val = MT_LED_STATUS_DURATION(0xffff) |
+	      MT_LED_STATUS_OFF(delay_off) |
+	      MT_LED_STATUS_ON(delay_on);
+
+	addr = mt7603_reg_map(dev, MT_LED_STATUS_0(mt76->led_pin));
+	mt76_wr(dev, addr, val);
+	addr = mt7603_reg_map(dev, MT_LED_STATUS_1(mt76->led_pin));
+	mt76_wr(dev, addr, val);
+
+	val = MT_LED_CTRL_REPLAY(mt76->led_pin) |
+	      MT_LED_CTRL_KICK(mt76->led_pin);
+	if (mt76->led_al)
+		val |= MT_LED_CTRL_POLARITY(mt76->led_pin);
+	addr = mt7603_reg_map(dev, MT_LED_CTRL);
+	mt76_wr(dev, addr, val);
+}
+
+static int mt7603_led_set_blink(struct led_classdev *led_cdev,
+				unsigned long *delay_on,
+				unsigned long *delay_off)
+{
+	struct mt76_dev *mt76 = container_of(led_cdev, struct mt76_dev,
+					     led_cdev);
+	u8 delta_on, delta_off;
+
+	delta_off = max_t(u8, *delay_off / 10, 1);
+	delta_on = max_t(u8, *delay_on / 10, 1);
+
+	mt7603_led_set_config(mt76, delta_on, delta_off);
+	return 0;
+}
+
+static void mt7603_led_set_brightness(struct led_classdev *led_cdev,
+				      enum led_brightness brightness)
+{
+	struct mt76_dev *mt76 = container_of(led_cdev, struct mt76_dev,
+					     led_cdev);
+
+	if (!brightness)
+		mt7603_led_set_config(mt76, 0, 0xff);
+	else
+		mt7603_led_set_config(mt76, 0xff, 0);
+}
+
 int mt7603_register_device(struct mt7603_dev *dev)
 {
 	struct ieee80211_hw *hw = mt76_hw(dev);
@@ -382,6 +433,10 @@ int mt7603_register_device(struct mt7603_dev *dev)
 	wiphy->n_iface_combinations = ARRAY_SIZE(if_comb);
 
 	ieee80211_hw_set(hw, REPORTS_TX_ACK_STATUS);
+
+	/* init led callbacks */
+	dev->mt76.led_cdev.brightness_set = mt7603_led_set_brightness;
+	dev->mt76.led_cdev.blink_set = mt7603_led_set_blink;
 
 	ret = mt76_register_device(&dev->mt76, true, mt7603_rates,
 				   ARRAY_SIZE(mt7603_rates));
