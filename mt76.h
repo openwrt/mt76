@@ -21,6 +21,7 @@
 #include <linux/io.h>
 #include <linux/spinlock.h>
 #include <linux/skbuff.h>
+#include <linux/leds.h>
 #include <net/mac80211.h>
 #include "util.h"
 
@@ -222,6 +223,11 @@ struct mt76_dev {
 	struct mt76_hw_cap cap;
 
 	u32 debugfs_reg;
+
+	struct led_classdev led_cdev;
+	char led_name[32];
+	bool led_al;
+	u8 led_pin;
 };
 
 enum mt76_phy_type {
