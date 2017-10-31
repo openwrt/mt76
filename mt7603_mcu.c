@@ -519,30 +519,3 @@ int mt7603_mcu_set_timing(struct mt7603_dev *dev, int slot, int sifs, int rifs,
 	skb = mt7603_mcu_msg_alloc(&req, sizeof(req));
 	return mt7603_mcu_msg_send(dev, skb, MCU_EXT_CMD_SLOT_TIME_SET, MCU_Q_SET, NULL);
 }
-
-int mt7603_mcu_reg_read(struct mt7603_dev *dev, u32 reg, u32 *val, bool rf)
-{
-	struct {
-		__le32 type;
-		__le32 addr;
-		__le32 data;
-	} req = {
-		.type = rf ? cpu_to_le32(1) : 0,
-		.addr = cpu_to_le32(reg),
-	};
-	struct sk_buff *skb;
-	__le32 *res;
-	int ret;
-
-	skb = mt7603_mcu_msg_alloc(&req, sizeof(req));
-	ret = mt7603_mcu_msg_send(dev, skb, MCU_EXT_CMD_MULTIPLE_REG_ACCESS, MCU_Q_QUERY, &skb);
-	if (ret)
-		return ret;
-
-	res = (__le32 *) skb_pull(skb, 20);
-	if (skb->len != 12)
-		return -EIO;
-
-	*val = le32_to_cpu(res[2]);
-	return 0;
-}
