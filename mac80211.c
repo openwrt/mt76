@@ -108,6 +108,7 @@ static int mt76_led_init(struct mt76_dev *dev)
 					mt76_tpt_blink,
 					ARRAY_SIZE(mt76_tpt_blink));
 
+	np = of_get_child_by_name(np, "led");
 	if (np) {
 		if (!of_property_read_u32(np, "led-sources", &led_pin))
 			dev->led_pin = led_pin;
