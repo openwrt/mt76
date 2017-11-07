@@ -63,6 +63,7 @@ struct dentry *mt76_register_debugfs(struct mt76_dev *dev)
 	if (!dir)
 		return NULL;
 
+	debugfs_create_u8("led_pin", S_IRUSR | S_IWUSR, dir, &dev->led_pin);
 	debugfs_create_u32("regidx", S_IRUSR | S_IWUSR, dir, &dev->debugfs_reg);
 	debugfs_create_file("regval", S_IRUSR | S_IWUSR, dir, dev,
 			    &fops_regval);
