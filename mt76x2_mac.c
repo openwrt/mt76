@@ -536,6 +536,9 @@ void mt76x2_mac_wcid_setup(struct mt76x2_dev *dev, u8 idx, u8 vif_idx, u8 *mac)
 
 	mt76_wr(dev, MT_WCID_ATTR(idx), attr);
 
+	if (idx >= 128)
+		return;
+
 	if (mac)
 		memcpy(addr.macaddr, mac, ETH_ALEN);
 
