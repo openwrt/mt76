@@ -20,13 +20,13 @@
 #include "mt76x2_eeprom.h"
 
 static void
-mt76x2_adjust_lna_gain(struct mt76x2_dev *dev, int reg, s8 offset)
+mt76x2_adjust_high_lna_gain(struct mt76x2_dev *dev, int reg, s8 offset)
 {
 	s8 gain;
 
-	gain = FIELD_GET(MT_BBP_AGC_LNA_GAIN, mt76_rr(dev, MT_BBP(AGC, reg)));
+	gain = FIELD_GET(MT_BBP_AGC_LNA_HIGH_GAIN, mt76_rr(dev, MT_BBP(AGC, reg)));
 	gain -= offset / 2;
-	mt76_rmw_field(dev, MT_BBP(AGC, reg), MT_BBP_AGC_LNA_GAIN, gain);
+	mt76_rmw_field(dev, MT_BBP(AGC, reg), MT_BBP_AGC_LNA_HIGH_GAIN, gain);
 }
 
 static void
@@ -44,8 +44,8 @@ mt76x2_apply_gain_adj(struct mt76x2_dev *dev)
 {
 	s8 *gain_adj = dev->cal.rx.high_gain;
 
-	mt76x2_adjust_lna_gain(dev, 4, gain_adj[0]);
-	mt76x2_adjust_lna_gain(dev, 5, gain_adj[1]);
+	mt76x2_adjust_high_lna_gain(dev, 4, gain_adj[0]);
+	mt76x2_adjust_high_lna_gain(dev, 5, gain_adj[1]);
 
 	mt76x2_adjust_agc_gain(dev, 8, gain_adj[0]);
 	mt76x2_adjust_agc_gain(dev, 9, gain_adj[1]);
