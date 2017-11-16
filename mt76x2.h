@@ -64,9 +64,12 @@ struct mt76x2_calibration {
 	struct mt76x2_rx_freq_cal rx;
 
 	u8 agc_gain_init[MT_MAX_CHAINS];
+	u8 agc_gain_cur[MT_MAX_CHAINS];
+
 	int avg_rssi[MT_MAX_CHAINS];
 	int avg_rssi_all;
 
+	s8 agc_gain_adjust;
 	s8 low_gain;
 
 	u8 temp;
