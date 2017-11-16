@@ -169,7 +169,7 @@ int mt76x2_dma_init(struct mt76x2_dev *dev)
 
 	q = &dev->mt76.q_rx[MT_RXQ_MAIN];
 	q->buf_offset = MT_RX_HEADROOM - sizeof(struct mt76x2_rxwi);
-	ret = mt76x2_init_rx_queue(dev, q, 0, MT_RX_RING_SIZE, MT_RX_BUF_SIZE);
+	ret = mt76x2_init_rx_queue(dev, q, 0, MT76x2_RX_RING_SIZE, MT_RX_BUF_SIZE);
 	if (ret)
 		return ret;
 
