@@ -261,8 +261,13 @@ mt76x2_phy_set_txpower_regs(struct mt76x2_dev *dev, enum nl80211_band band)
 		pa_mode[0] = 0x0000ffff;
 		pa_mode[1] = 0x00ff00ff;
 
-		mt76_wr(dev, MT_TX_ALC_CFG_2, 0x1b0f0400);
-		mt76_wr(dev, MT_TX_ALC_CFG_3, 0x1b0f0476);
+		if (mt76x2_ext_pa_enabled(dev, band)) {
+			mt76_wr(dev, MT_TX_ALC_CFG_2, 0x2f0f0400);
+			mt76_wr(dev, MT_TX_ALC_CFG_3, 0x2f0f0476);
+		} else {
+			mt76_wr(dev, MT_TX_ALC_CFG_2, 0x1b0f0400);
+			mt76_wr(dev, MT_TX_ALC_CFG_3, 0x1b0f0476);
+		}
 		mt76_wr(dev, MT_TX_ALC_CFG_4, 0);
 
 		if (mt76x2_ext_pa_enabled(dev, band))
@@ -280,7 +285,12 @@ mt76x2_phy_set_txpower_regs(struct mt76x2_dev *dev, enum nl80211_band band)
 	mt76_wr(dev, MT_RF_PA_MODE_CFG1, pa_mode[1]);
 
 	if (mt76x2_ext_pa_enabled(dev, band)) {
-		u32 val = 0x3c3c023c;
+		u32 val;
+
+		if (band == NL80211_BAND_2GHZ)
+			val = 0x3c3c023c;
+		else
+			val = 0x363c023c;
 
 		mt76_wr(dev, MT_TX0_RF_GAIN_CORR, val);
 		mt76_wr(dev, MT_TX1_RF_GAIN_CORR, val);
