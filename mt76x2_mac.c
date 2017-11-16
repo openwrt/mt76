@@ -145,6 +145,16 @@ mt76x2_mac_tx_rate_val(struct mt76x2_dev *dev,
 	return cpu_to_le16(rateval);
 }
 
+void mt76x2_mac_wcid_set_drop(struct mt76x2_dev *dev, u8 idx, bool drop)
+{
+	u32 val = mt76_rr(dev, MT_WCID_DROP(idx));
+	u32 bit = MT_WCID_DROP_MASK(idx);
+
+	/* prevent unnecessary writes */
+	if ((val & bit) != (bit * drop))
+		mt76_wr(dev, MT_WCID_DROP(idx), (val & ~bit) | (bit * drop));
+}
+
 void mt76x2_mac_wcid_set_rate(struct mt76x2_dev *dev, struct mt76_wcid *wcid,
 			      const struct ieee80211_tx_rate *rate)
 {

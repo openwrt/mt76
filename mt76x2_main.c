@@ -263,7 +263,7 @@ mt76x2_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	msta->wcid.idx = idx;
 	msta->wcid.hw_key_idx = -1;
 	mt76x2_mac_wcid_setup(dev, idx, mvif->idx, sta->addr);
-	mt76_clear(dev, MT_WCID_DROP(idx), MT_WCID_DROP_MASK(idx));
+	mt76x2_mac_wcid_set_drop(dev, idx, false);
 	for (i = 0; i < ARRAY_SIZE(sta->txq); i++)
 		mt76x2_txq_init(dev, sta->txq[i]);
 
@@ -288,7 +288,7 @@ mt76x2_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	rcu_assign_pointer(dev->wcid[idx], NULL);
 	for (i = 0; i < ARRAY_SIZE(sta->txq); i++)
 		mt76_txq_remove(&dev->mt76, sta->txq[i]);
-	mt76_set(dev, MT_WCID_DROP(idx), MT_WCID_DROP_MASK(idx));
+	mt76x2_mac_wcid_set_drop(dev, idx, true);
 	mt76_wcid_free(dev->wcid_mask, idx);
 	mt76x2_mac_wcid_setup(dev, idx, 0, NULL);
 	mutex_unlock(&dev->mutex);
@@ -306,11 +306,11 @@ mt76x2_sta_notify(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	switch (cmd) {
 	case STA_NOTIFY_SLEEP:
-		mt76_set(dev, MT_WCID_DROP(idx), MT_WCID_DROP_MASK(idx));
+		mt76x2_mac_wcid_set_drop(dev, idx, true);
 		mt76_stop_tx_queues(&dev->mt76, sta, true);
 		break;
 	case STA_NOTIFY_AWAKE:
-		mt76_clear(dev, MT_WCID_DROP(idx), MT_WCID_DROP_MASK(idx));
+		mt76x2_mac_wcid_set_drop(dev, idx, false);
 		break;
 	}
 }
