@@ -27,6 +27,8 @@
 
 #define MT7603_RATE_RETRY	2
 
+#define MT7603_RX_RING_SIZE     128
+
 #define MT7603_FIRMWARE_E1	"mt7603_e1.bin"
 #define MT7603_FIRMWARE_E2	"mt7603_e2.bin"
 #define MT7628_FIRMWARE_E1	"mt7628_e1.bin"
