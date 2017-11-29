@@ -17,6 +17,7 @@
 #ifndef __MT7603_H
 #define __MT7603_H
 
+#include <linux/interrupt.h>
 #include "mt76.h"
 #include "mt7603_regs.h"
 
