@@ -41,7 +41,6 @@ mt7603_stop(struct ieee80211_hw *hw)
 
 	clear_bit(MT76_STATE_RUNNING, &dev->mt76.state);
 	cancel_delayed_work_sync(&dev->mac_work);
-	mt7603_mac_watchdog_reset(dev);
 	mt7603_mac_stop(dev);
 }
 
