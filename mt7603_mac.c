@@ -1061,7 +1061,7 @@ wait_for_wpdma(struct mt7603_dev *dev)
 			 0, 1000);
 }
 
-void mt7603_mac_reset(struct mt7603_dev *dev)
+static void mt7603_pse_reset(struct mt7603_dev *dev)
 {
 	u32 addr = mt7603_reg_map(dev, MT_CLIENT_BASE_PHYS_ADDR);
 
@@ -1148,7 +1148,7 @@ void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 	mt7603_beacon_set_timer(dev, -1, 0);
 	mt76_set(dev, MT_WPDMA_GLO_CFG, MT_WPDMA_GLO_CFG_FORCE_TX_EOF);
 
-	mt7603_mac_reset(dev);
+	mt7603_pse_reset(dev);
 
 	for (i = 0; i < ARRAY_SIZE(dev->mt76.q_tx); i++)
 		mt76_queue_tx_cleanup(dev, i, true);
