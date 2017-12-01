@@ -1066,14 +1066,14 @@ static void mt7603_pse_reset(struct mt7603_dev *dev)
 	u32 addr = mt7603_reg_map(dev, MT_CLIENT_BASE_PHYS_ADDR);
 
 	/* Reset PSE */
-	mt76_clear(dev, MT_PSE_RESET, MT_PSE_RESET_SW_S);
-	mt76_set(dev, MT_PSE_RESET, MT_PSE_RESET_SW);
-	if (!mt76_poll_msec(dev, MT_PSE_RESET, MT_PSE_RESET_SW_S,
-			    MT_PSE_RESET_SW_S, 500)) {
-		mt76_clear(dev, MT_PSE_RESET, MT_PSE_RESET_SW);
+	mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE_S);
+	mt76_set(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE);
+	if (!mt76_poll_msec(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE_S,
+			    MT_MCU_DEBUG_RESET_PSE_S, 500)) {
+		mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE);
 		goto out;
 	}
-	mt76_clear(dev, MT_PSE_RESET, MT_PSE_RESET_SW_S);
+	mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE_S);
 
 	mt76_set(dev, addr + MT_CLIENT_RESET_TX, MT_CLIENT_RESET_TX_R_E_1);
 	mt76_poll_msec(dev, addr + MT_CLIENT_RESET_TX,
@@ -1090,7 +1090,7 @@ static void mt7603_pse_reset(struct mt7603_dev *dev)
 	mt76_clear(dev, addr + MT_CLIENT_RESET_TX,
 		   MT_CLIENT_RESET_TX_R_E_1 | MT_CLIENT_RESET_TX_R_E_2);
 out:
-	mt76_clear(dev, MT_PSE_RESET, MT_PSE_RESET_QUEUES);
+	mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_QUEUES);
 }
 
 void mt7603_mac_dma_start(struct mt7603_dev *dev)
