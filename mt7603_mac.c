@@ -139,12 +139,17 @@ void mt7603_wtbl_init(struct mt7603_dev *dev, int idx, int vif,
 		mt76_wr(dev, addr + i, 0);
 }
 
-void mt7603_wtbl_set_ps(struct mt7603_dev *dev, int idx, bool val)
+void mt7603_wtbl_set_ps(struct mt7603_dev *dev, int idx, bool enabled)
 {
 	u32 addr = mt7603_wtbl1_addr(idx);
+	u32 reg = mt76_rr(dev, addr + 3 * 4);
+	u32 val = (reg & ~MT_WTBL1_W3_SKIP_TX) | (enabled * MT_WTBL1_W3_SKIP_TX);
+
+	if (reg == val)
+	    return;
 
 	mt76_set(dev, MT_WTBL1_OR, MT_WTBL1_OR_PSM_WRITE);
-	mt76_rmw_field(dev, addr + 3 * 4, MT_WTBL1_W3_POWER_SAVE, val);
+	mt76_wr(dev, addr + 3 * 4, val);
 	mt76_clear(dev, MT_WTBL1_OR, MT_WTBL1_OR_PSM_WRITE);
 }
 
