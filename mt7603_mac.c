@@ -1066,8 +1066,9 @@ static void mt7603_pse_reset(struct mt7603_dev *dev)
 	/* Reset PSE */
 	mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE_S);
 	mt76_set(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE);
-	mt76_poll_msec(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE_S,
-		       MT_MCU_DEBUG_RESET_PSE_S, 500);
+	WARN_ON_ONCE(!mt76_poll_msec(dev, MT_MCU_DEBUG_RESET,
+				     MT_MCU_DEBUG_RESET_PSE_S,
+				     MT_MCU_DEBUG_RESET_PSE_S, 500));
 	mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_QUEUES);
 }
 
