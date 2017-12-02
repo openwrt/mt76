@@ -1063,33 +1063,11 @@ wait_for_wpdma(struct mt7603_dev *dev)
 
 static void mt7603_pse_reset(struct mt7603_dev *dev)
 {
-	u32 addr = mt7603_reg_map(dev, MT_CLIENT_BASE_PHYS_ADDR);
-
 	/* Reset PSE */
 	mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE_S);
 	mt76_set(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE);
-	if (!mt76_poll_msec(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE_S,
-			    MT_MCU_DEBUG_RESET_PSE_S, 500)) {
-		mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE);
-		goto out;
-	}
-	mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE_S);
-
-	mt76_set(dev, addr + MT_CLIENT_RESET_TX, MT_CLIENT_RESET_TX_R_E_1);
-	mt76_poll_msec(dev, addr + MT_CLIENT_RESET_TX,
-		       MT_CLIENT_RESET_TX_R_E_1_S,
-		       MT_CLIENT_RESET_TX_R_E_1_S, 500);
-
-	mt76_set(dev, addr + MT_CLIENT_RESET_TX, MT_CLIENT_RESET_TX_R_E_2);
-	mt76_set(dev, MT_WPDMA_GLO_CFG, MT_WPDMA_GLO_CFG_SW_RESET);
-
-	mt76_poll_msec(dev, addr + MT_CLIENT_RESET_TX,
-		       MT_CLIENT_RESET_TX_R_E_2_S,
-		       MT_CLIENT_RESET_TX_R_E_2_S, 500);
-
-	mt76_clear(dev, addr + MT_CLIENT_RESET_TX,
-		   MT_CLIENT_RESET_TX_R_E_1 | MT_CLIENT_RESET_TX_R_E_2);
-out:
+	mt76_poll_msec(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE_S,
+		       MT_MCU_DEBUG_RESET_PSE_S, 500);
 	mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_QUEUES);
 }
 
