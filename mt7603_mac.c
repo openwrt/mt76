@@ -1150,16 +1150,29 @@ void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 	ieee80211_wake_queues(dev->mt76.hw);
 }
 
-static bool mt7603_rx_dma_busy(struct mt7603_dev *dev)
+static u32 mt7603_dma_debug(struct mt7603_dev *dev, u8 index)
 {
 	u32 val;
 
+	mt76_wr(dev, MT_WPDMA_DEBUG,
+		FIELD_PREP(MT_WPDMA_DEBUG_IDX, index) |
+		MT_WPDMA_DEBUG_SEL);
+
+	val = mt76_rr(dev, MT_WPDMA_DEBUG);
+	return FIELD_GET(MT_WPDMA_DEBUG_VALUE, val);
+}
+
+static bool mt7603_rx_fifo_busy(struct mt7603_dev *dev)
+{
+	return mt7603_dma_debug(dev, 2) & BIT(8);
+}
+
+static bool mt7603_rx_dma_busy(struct mt7603_dev *dev)
+{
 	if (!(mt76_rr(dev, MT_WPDMA_GLO_CFG) & MT_WPDMA_GLO_CFG_RX_DMA_BUSY))
 		return false;
 
-	mt76_wr(dev, 0x4244, 0x28000000);
-	val = mt76_rr(dev, 0x4244);
-	return !!(val & BIT(8));
+	return mt7603_rx_fifo_busy(dev);
 }
 
 static bool mt7603_tx_dma_busy(struct mt7603_dev *dev)
@@ -1169,8 +1182,7 @@ static bool mt7603_tx_dma_busy(struct mt7603_dev *dev)
 	if (!(mt76_rr(dev, MT_WPDMA_GLO_CFG) & MT_WPDMA_GLO_CFG_TX_DMA_BUSY))
 		return false;
 
-	mt76_wr(dev, 0x4244, 0x98000000);
-	val = mt76_rr(dev, 0x4244);
+	val = mt7603_dma_debug(dev, 9);
 	return (val & BIT(8)) && (val & 0xf) != 0xf;
 }
 
@@ -1201,8 +1213,7 @@ static bool mt7603_rx_pse_busy(struct mt7603_dev *dev)
 {
 	u32 addr, val;
 
-	mt76_wr(dev, 0x4244, 0x28000000);
-	if (mt76_rr(dev, 0x4244) & BIT(8))
+	if (mt7603_rx_fifo_busy(dev))
 		return false;
 
 	addr = mt7603_reg_map(dev, MT_CLIENT_BASE_PHYS_ADDR + MT_CLIENT_STATUS);
