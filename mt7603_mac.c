@@ -1274,21 +1274,21 @@ void mt7603_mac_work(struct work_struct *work)
 
 	mutex_lock(&dev->mutex);
 
-	if (WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->tx_dma_check,
-					       RESET_CAUSE_TX_BUSY,
-					       mt7603_tx_dma_busy)) ||
-	    WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->rx_dma_check,
-					       RESET_CAUSE_RX_BUSY,
-					       mt7603_rx_dma_busy)) ||
-	    WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->tx_hang_check,
-					       RESET_CAUSE_TX_HANG,
-					       mt7603_tx_hang)) ||
-	    WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->rx_pse_check,
-					       RESET_CAUSE_RX_PSE_BUSY,
-					       mt7603_rx_pse_busy)) ||
-	    WARN_ON_ONCE(mt7603_watchdog_check(dev, &dev->beacon_check,
-					       RESET_CAUSE_BEACON_STUCK,
-					       NULL))) {
+	if (mt7603_watchdog_check(dev, &dev->tx_dma_check,
+				  RESET_CAUSE_TX_BUSY,
+				  mt7603_tx_dma_busy) ||
+	    mt7603_watchdog_check(dev, &dev->rx_dma_check,
+				  RESET_CAUSE_RX_BUSY,
+				  mt7603_rx_dma_busy) ||
+	    mt7603_watchdog_check(dev, &dev->tx_hang_check,
+				  RESET_CAUSE_TX_HANG,
+				  mt7603_tx_hang) ||
+	    mt7603_watchdog_check(dev, &dev->rx_pse_check,
+				  RESET_CAUSE_RX_PSE_BUSY,
+				  mt7603_rx_pse_busy) ||
+	    mt7603_watchdog_check(dev, &dev->beacon_check,
+				  RESET_CAUSE_BEACON_STUCK,
+				  NULL)) {
 		dev->beacon_check = 0;
 		dev->tx_dma_check = 0;
 		dev->tx_hang_check = 0;
