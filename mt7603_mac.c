@@ -796,8 +796,13 @@ int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	struct ieee80211_key_conf *key = info->control.hw_key;
 	int pid;
 
-	if (!wcid)
+	if (!wcid) {
 		wcid = &dev->global_sta.wcid;
+	} else {
+		if (info->flags & (IEEE80211_TX_CTL_NO_PS_BUFFER |
+				   IEEE80211_TX_CTL_CLEAR_PS_FILT))
+			mt7603_wtbl_set_ps(dev, wcid->idx, false);
+	}
 
 	pid = mt7603_add_tx_status_skb(dev, msta, skb);
 	if (!pid)
