@@ -326,7 +326,7 @@ mt7603_get_rate(struct mt7603_dev *dev, struct ieee80211_supported_band *sband,
 	int i;
 
 	if (cck) {
-		if (WARN_ON_ONCE(sband == &dev->mt76.sband_5g.sband))
+		if (sband == &dev->mt76.sband_5g.sband)
 			return 0;
 
 		idx &= ~BIT(2); /* short preamble */
@@ -339,7 +339,6 @@ mt7603_get_rate(struct mt7603_dev *dev, struct ieee80211_supported_band *sband,
 			return i;
 	}
 
-	WARN_ON_ONCE(1);
 	return 0;
 }
 
@@ -422,7 +421,7 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 			status->flag |= RX_FLAG_VHT;
 			break;
 		default:
-			WARN_ON(1);
+			return -EINVAL;
 		}
 
 		if (rxdg0 & MT_RXV1_HT_SHORT_GI)
