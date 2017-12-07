@@ -22,10 +22,29 @@
 
 void mt76x2_mac_set_bssid(struct mt76x2_dev *dev, u8 idx, const u8 *addr)
 {
-	idx &= 7;
-	mt76_wr(dev, MT_MAC_APC_BSSID_L(idx), get_unaligned_le32(addr));
-	mt76_rmw_field(dev, MT_MAC_APC_BSSID_H(idx), MT_MAC_APC_BSSID_H_ADDR,
-		       get_unaligned_le16(addr + 4));
+	u32 lo = 0, hi = 0;
+
+	if (addr) {
+		lo = get_unaligned_le32(addr);
+		hi = get_unaligned_le16(addr + 4);
+		hi |= MT_MAC_APC_BSSID0_H_EN;
+	}
+
+	mt76_wr(dev, MT_MAC_APC_BSSID_L(idx), lo);
+	mt76_wr(dev, MT_MAC_APC_BSSID_H(idx), hi);
+}
+
+void mt76x2_mac_set_ext_mac(struct mt76x2_dev *dev, u8 idx, const u8 *addr)
+{
+	u32 lo = 0, hi = 0;
+
+	if (addr) {
+		lo = get_unaligned_le32(addr);
+		hi = get_unaligned_le16(addr + 4);
+	}
+
+	mt76_wr(dev, MT_MAC_ADDR_EXT_L(idx), lo);
+	mt76_wr(dev, MT_MAC_ADDR_EXT_H(idx), hi);
 }
 
 static int
