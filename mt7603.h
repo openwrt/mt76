@@ -232,8 +232,6 @@ void mt7603_mac_tx_ba_reset(struct mt7603_dev *dev, int wcid, int tid, int ssn,
 
 int mt7603_mcu_set_channel(struct mt7603_dev *dev);
 int mt7603_mcu_set_eeprom(struct mt7603_dev *dev);
-int mt7603_mcu_set_timing(struct mt7603_dev *dev, int slot, int sifs, int rifs,
-			  int eifs);
 void mt7603_mcu_exit(struct mt7603_dev *dev);
 
 void mt7603_wtbl_init(struct mt7603_dev *dev, int idx, int vif, const u8 *mac_addr);

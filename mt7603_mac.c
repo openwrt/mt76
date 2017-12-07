@@ -60,9 +60,17 @@ void mt7603_mac_set_timing(struct mt7603_dev *dev)
 	else
 		sifs = 10;
 
-	mt7603_mcu_set_timing(dev, dev->slottime + offset, sifs, 2, 360);
+	mt7603_mac_stop(dev);
+
 	mt76_wr(dev, MT_TIMEOUT_CCK, cck + reg_offset);
 	mt76_wr(dev, MT_TIMEOUT_OFDM, ofdm + reg_offset);
+	mt76_wr(dev, MT_IFS,
+		FIELD_PREP(MT_IFS_EIFS, 360) |
+		FIELD_PREP(MT_IFS_RIFS, 2) |
+		FIELD_PREP(MT_IFS_SIFS, sifs) |
+		FIELD_PREP(MT_IFS_SLOT, dev->slottime));
+
+	mt7603_mac_start(dev);
 }
 
 static void
