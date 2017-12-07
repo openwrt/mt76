@@ -796,7 +796,7 @@ int mt76x2_register_device(struct mt76x2_dev *dev)
 	struct wiphy *wiphy = hw->wiphy;
 	void *status_fifo;
 	int fifo_size;
-	int i, ret;
+	int ret;
 
 	fifo_size = roundup_pow_of_two(32 * sizeof(struct mt76x2_tx_status));
 	status_fifo = devm_kzalloc(dev->mt76.dev, fifo_size, GFP_KERNEL);
@@ -817,20 +817,6 @@ int mt76x2_register_device(struct mt76x2_dev *dev)
 
 	hw->sta_data_size = sizeof(struct mt76x2_sta);
 	hw->vif_data_size = sizeof(struct mt76x2_vif);
-
-	for (i = 0; i < ARRAY_SIZE(dev->macaddr_list); i++) {
-		u8 *addr = dev->macaddr_list[i].addr;
-
-		memcpy(addr, dev->mt76.macaddr, ETH_ALEN);
-
-		if (!i)
-			continue;
-
-		addr[0] |= BIT(1);
-		addr[0] ^= ((i - 1) << 2);
-	}
-	wiphy->addresses = dev->macaddr_list;
-	wiphy->n_addresses = ARRAY_SIZE(dev->macaddr_list);
 
 	wiphy->iface_combinations = if_comb;
 	wiphy->n_iface_combinations = ARRAY_SIZE(if_comb);

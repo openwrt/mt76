@@ -84,8 +84,6 @@ struct mt76x2_calibration {
 struct mt76x2_dev {
 	struct mt76_dev mt76; /* must be first */
 
-	struct mac_address macaddr_list[8];
-
 	struct mutex mutex;
 
 	const u16 *beacon_offsets;
