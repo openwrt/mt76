@@ -583,6 +583,8 @@ int mt76x2_init_hardware(struct mt76x2_dev *dev)
 	if (ret)
 		return ret;
 
+	dev->rxfilter = mt76_rr(dev, MT_RX_FILTR_CFG);
+
 	ret = mt76x2_dma_init(dev);
 	if (ret)
 		return ret;
@@ -597,7 +599,6 @@ int mt76x2_init_hardware(struct mt76x2_dev *dev)
 		return ret;
 
 	mt76x2_mac_stop(dev, false);
-	dev->rxfilter = mt76_rr(dev, MT_RX_FILTR_CFG);
 
 	return 0;
 }
