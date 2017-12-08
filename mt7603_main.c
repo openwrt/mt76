@@ -168,6 +168,15 @@ mt7603_config(struct ieee80211_hw *hw, u32 changed)
 		mt7603_mac_set_timing(dev);
 	}
 
+	if (changed & IEEE80211_CONF_CHANGE_MONITOR) {
+		if (!(hw->conf.flags & IEEE80211_CONF_MONITOR))
+			dev->rxfilter |= MT_WF_RFCR_DROP_OTHER_UC;
+		else
+			dev->rxfilter &= ~MT_WF_RFCR_DROP_OTHER_UC;
+
+		mt76_wr(dev, MT_WF_RFCR, dev->rxfilter);
+	}
+
 	mutex_unlock(&dev->mutex);
 
 	return ret;
@@ -198,8 +207,7 @@ mt7603_configure_filter(struct ieee80211_hw *hw, unsigned int changed_flags,
 			   MT_WF_RFCR_DROP_UNWANTED_CTL |
 			   MT_WF_RFCR_DROP_STBC_MULTI);
 
-	MT76_FILTER(OTHER_BSS, MT_WF_RFCR_DROP_OTHER_UC |
-			       MT_WF_RFCR_DROP_OTHER_TIM |
+	MT76_FILTER(OTHER_BSS, MT_WF_RFCR_DROP_OTHER_TIM |
 			       MT_WF_RFCR_DROP_A3_MAC |
 			       MT_WF_RFCR_DROP_A3_BSSID);
 
