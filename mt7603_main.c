@@ -127,10 +127,12 @@ mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 {
 	u8 *rssi_data = (u8 *) dev->mt76.eeprom.data;
 	int idx, ret;
-
 	u8 bw = MT_BW_20;
 
 	mt7603_mac_stop(dev);
+
+	if (def->width == NL80211_CHAN_WIDTH_40)
+		bw = MT_BW_40;
 
 	dev->mt76.chandef = *def;
 	mt76_rmw_field(dev, MT_AGG_BWCR, MT_AGG_BWCR_BW, bw);
