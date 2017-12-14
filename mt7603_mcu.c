@@ -470,6 +470,7 @@ static int mt7603_mcu_set_tx_power(struct mt7603_dev *dev)
 
 int mt7603_mcu_set_channel(struct mt7603_dev *dev)
 {
+	struct cfg80211_chan_def *chandef = &dev->mt76.chandef;
 	struct {
 		u8 control_chan;
 		u8 center_chan;
@@ -480,14 +481,22 @@ int mt7603_mcu_set_channel(struct mt7603_dev *dev)
 		u8 txpower[21];
 		u8 _res1[3];
 	} req = {
-		.control_chan = dev->mt76.chandef.chan->hw_value,
-		.center_chan = dev->mt76.chandef.chan->hw_value,
+		.control_chan = chandef->chan->hw_value,
+		.center_chan = chandef->chan->hw_value,
 		.bw = MT_BW_20,
 		.tx_streams = dev->tx_chains,
 		.rx_streams = dev->rx_chains,
 	};
 	struct sk_buff *skb;
 	int ret;
+
+	if (dev->mt76.chandef.width == NL80211_CHAN_WIDTH_40) {
+		req.bw = MT_BW_40;
+		if (chandef->center_freq1 > chandef->chan->center_freq)
+			req.center_chan += 2;
+		else
+			req.center_chan -= 2;
+	}
 
 	memset(req.txpower, 0xff, sizeof(req.txpower));
 	skb = mt7603_mcu_msg_alloc(&req, sizeof(req));
