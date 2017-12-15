@@ -33,6 +33,9 @@ static struct sk_buff *mt7603_mcu_msg_alloc(const void *data, int len)
 
 	skb = alloc_skb(len + sizeof(struct mt7603_mcu_txd),
 			GFP_KERNEL);
+	if (!skb)
+		return NULL;
+
 	skb_reserve(skb, sizeof(struct mt7603_mcu_txd));
 	if (data && len)
 		memcpy(skb_put(skb, len), data, len);
