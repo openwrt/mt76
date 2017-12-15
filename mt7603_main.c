@@ -456,13 +456,15 @@ mt7603_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct ieee80211_sta *sta = params->sta;
 	struct ieee80211_txq *txq = sta->txq[params->tid];
 	struct mt7603_sta *msta = (struct mt7603_sta *) sta->drv_priv;
-	struct mt76_txq *mtxq = (struct mt76_txq *) txq->drv_priv;
 	u16 tid = params->tid;
 	u16 *ssn = &params->ssn;
 	u8 ba_size = params->buf_size;
+	struct mt76_txq *mtxq;
 
 	if (!txq)
 		return -EINVAL;
+
+	mtxq = (struct mt76_txq *)txq->drv_priv;
 
 	switch (action) {
 	case IEEE80211_AMPDU_RX_START:
