@@ -90,7 +90,6 @@ struct mt76x2_dev {
 
 	const u16 *beacon_offsets;
 	unsigned long wcid_mask[128 / BITS_PER_LONG];
-	unsigned long vif_mask;
 
 	int txpower_conf;
 	int txpower_cur;
