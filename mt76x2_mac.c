@@ -28,6 +28,19 @@ void mt76x2_mac_set_bssid(struct mt76x2_dev *dev, u8 idx, const u8 *addr)
 		       get_unaligned_le16(addr + 4));
 }
 
+void mt76x2_mac_set_ext_mac(struct mt76x2_dev *dev, u8 idx, const u8 *addr)
+{
+	u32 lo = 0, hi = 0;
+
+	if (addr) {
+		lo = get_unaligned_le32(addr);
+		hi = get_unaligned_le16(addr + 4);
+	}
+
+	mt76_wr(dev, MT_MAC_ADDR_EXT_L(idx), lo);
+	mt76_wr(dev, MT_MAC_ADDR_EXT_H(idx), hi);
+}
+
 static int
 mt76x2_mac_process_rate(struct ieee80211_rx_status *status, u16 rate)
 {
