@@ -451,6 +451,7 @@ int mt7603_register_device(struct mt7603_dev *dev)
 
 void mt7603_unregister_device(struct mt7603_dev *dev)
 {
+	tasklet_disable(&dev->pre_tbtt_tasklet);
 	mt76_unregister_device(&dev->mt76);
 	mt7603_mac_status_skb(dev, NULL, -1);
 	mt7603_mcu_exit(dev);
