@@ -353,7 +353,7 @@ mt7603_get_rate(struct mt7603_dev *dev, struct ieee80211_supported_band *sband,
 int
 mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 {
-	struct ieee80211_rx_status *status = IEEE80211_SKB_RXCB(skb);
+	struct mt76_rx_status *status = (struct mt76_rx_status *) skb->cb;
 	struct ieee80211_supported_band *sband;
 	__le32 *rxd = (__le32 *) skb->data;
 	u32 rxd0 = le32_to_cpu(rxd[0]);
