@@ -3,7 +3,7 @@ EXTRA_CFLAGS += -Werror
 obj-m := mt76.o mt76x2e.o mt7603e.o
 
 mt76-y := \
-	mmio.o util.o trace.o dma.o mac80211.o debugfs.o eeprom.o tx.o
+	mmio.o util.o trace.o dma.o mac80211.o debugfs.o eeprom.o tx.o agg-rx.o
 
 mt76x2e-y := \
 	mt76x2_pci.o mt76x2_dma.o \
