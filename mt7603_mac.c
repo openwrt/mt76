@@ -364,6 +364,7 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 {
 	struct mt76_rx_status *status = (struct mt76_rx_status *) skb->cb;
 	struct ieee80211_supported_band *sband;
+	struct ieee80211_hdr *hdr;
 	__le32 *rxd = (__le32 *) skb->data;
 	u32 rxd0 = le32_to_cpu(rxd[0]);
 	u32 rxd1 = le32_to_cpu(rxd[1]);
@@ -466,6 +467,14 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 	}
 
 	skb_pull(skb, (u8 *) rxd - skb->data + 2 * remove_pad);
+
+	hdr = (struct ieee80211_hdr *) skb->data;
+	if (!status->wcid || !ieee80211_is_data_qos(hdr->frame_control))
+		return 0;
+
+	status->aggr = true;
+	status->tid = *ieee80211_get_qos_ctl(hdr) & IEEE80211_QOS_CTL_TID_MASK;
+	status->seqno = hdr->seq_ctrl >> 4;
 
 	return 0;
 }
