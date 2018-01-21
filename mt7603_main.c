@@ -282,6 +282,7 @@ mt7603_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	for (i = 0; i < ARRAY_SIZE(sta->txq); i++)
 		mt7603_txq_init(dev, sta->txq[i]);
 
+	msta->wcid.sta = 1;
 	msta->wcid.idx = idx;
 	mt7603_wtbl_init(dev, idx, mvif->idx, sta->addr);
 	mt7603_wtbl_update_cap(dev, sta);
