@@ -422,6 +422,15 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 			return -EINVAL;
 	}
 	if (rxd0 & MT_RXD0_NORMAL_GROUP_1) {
+		u8 *data = (u8 *) rxd;
+
+		status->iv[0] = data[5];
+		status->iv[1] = data[4];
+		status->iv[2] = data[3];
+		status->iv[3] = data[2];
+		status->iv[4] = data[1];
+		status->iv[5] = data[0];
+
 		rxd += 4;
 		if ((u8 *) rxd - skb->data >= skb->len)
 			return -EINVAL;

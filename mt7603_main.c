@@ -368,6 +368,7 @@ mt7603_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 
 		key = NULL;
 	}
+	mt76_wcid_key_setup(&dev->mt76, wcid, key);
 
 	return mt7603_wtbl_set_key(dev, wcid->idx, key);
 }

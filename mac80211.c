@@ -384,6 +384,27 @@ int mt76_get_survey(struct ieee80211_hw *hw, int idx,
 }
 EXPORT_SYMBOL_GPL(mt76_get_survey);
 
+void mt76_wcid_key_setup(struct mt76_dev *dev, struct mt76_wcid *wcid,
+			 struct ieee80211_key_conf *key)
+{
+	struct ieee80211_key_seq seq;
+	int i;
+
+	wcid->rx_check_pn = false;
+
+	if (!key)
+		return;
+
+	if (key->cipher == WLAN_CIPHER_SUITE_CCMP)
+		wcid->rx_check_pn = true;
+
+	for (i = 0; i < IEEE80211_NUM_TIDS; i++) {
+		ieee80211_get_key_rx_seq(key, i, &seq);
+		memcpy(wcid->rx_key_pn[i], seq.ccmp.pn, sizeof(seq.ccmp.pn));
+	}
+}
+EXPORT_SYMBOL(mt76_wcid_key_setup);
+
 static struct ieee80211_sta *mt76_rx_convert(struct sk_buff *skb)
 {
 	struct ieee80211_rx_status *status = IEEE80211_SKB_RXCB(skb);
@@ -409,6 +430,31 @@ static struct ieee80211_sta *mt76_rx_convert(struct sk_buff *skb)
 	return wcid_to_sta(mstat.wcid);
 }
 
+static int
+mt76_check_ccmp_pn(struct sk_buff *skb)
+{
+	struct mt76_rx_status *status = (struct mt76_rx_status *) skb->cb;
+	struct mt76_wcid *wcid = status->wcid;
+	int ret;
+
+	if (!(status->flag & RX_FLAG_DECRYPTED))
+		return 0;
+
+	if (!wcid || !wcid->rx_check_pn)
+		return 0;
+
+	BUILD_BUG_ON(sizeof(status->iv) != sizeof(wcid->rx_key_pn[0]));
+	ret = memcmp(status->iv, wcid->rx_key_pn[status->tid],
+		     sizeof(status->iv));
+	if (ret <= 0)
+		return -EINVAL; /* replay */
+
+	memcpy(wcid->rx_key_pn[status->tid], status->iv, sizeof(status->iv));
+	status->flag |= RX_FLAG_PN_VALIDATED;
+
+	return 0;
+}
+
 void mt76_rx_complete(struct mt76_dev *dev, struct sk_buff_head *frames,
 		      int queue)
 {
@@ -420,6 +466,11 @@ void mt76_rx_complete(struct mt76_dev *dev, struct sk_buff_head *frames,
 	    napi = &dev->napi[queue];
 
 	while ((skb = __skb_dequeue(frames)) != NULL) {
+		if (mt76_check_ccmp_pn(skb)) {
+			dev_kfree_skb(skb);
+			continue;
+		}
+
 		sta = mt76_rx_convert(skb);
 		ieee80211_rx_napi(dev->hw, sta, skb, napi);
 	}

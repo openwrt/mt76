@@ -270,12 +270,16 @@ void mt76x2_mac_write_txwi(struct mt76x2_dev *dev, struct mt76x2_txwi *txwi,
 	txwi->len_ctl = cpu_to_le16(skb->len);
 }
 
-static void mt76x2_remove_hdr_pad(struct sk_buff *skb)
+static void mt76x2_remove_hdr_pad(struct sk_buff *skb, int len)
 {
-	int len = ieee80211_get_hdrlen_from_skb(skb);
+	int hdrlen;
 
-	memmove(skb->data + 2, skb->data, len);
-	skb_pull(skb, 2);
+	if (!len)
+		return;
+
+	hdrlen = ieee80211_get_hdrlen_from_skb(skb);
+	memmove(skb->data + len, skb->data, hdrlen);
+	skb_pull(skb, len);
 }
 
 static struct mt76_wcid *
@@ -300,28 +304,49 @@ int mt76x2_mac_process_rx(struct mt76x2_dev *dev, struct sk_buff *skb,
 {
 	struct mt76_rx_status *status = (struct mt76_rx_status *) skb->cb;
 	struct mt76x2_rxwi *rxwi = rxi;
+	u32 rxinfo = le32_to_cpu(rxwi->rxinfo);
 	u32 ctl = le32_to_cpu(rxwi->ctl);
 	u16 rate = le16_to_cpu(rxwi->rate);
 	u16 tid_sn = le16_to_cpu(rxwi->tid_sn);
 	bool unicast = rxwi->rxinfo & cpu_to_le32(MT_RXINFO_UNICAST);
+	int pad_len = 0;
+	u8 pn_len;
 	u8 wcid;
 	int len;
+
+	if (rxinfo & MT_RXINFO_L2PAD)
+		pad_len += 2;
+
+	len = FIELD_GET(MT_RXWI_CTL_MPDU_LEN, ctl);
+	pn_len = FIELD_GET(MT_RXINFO_PN_LEN, rxinfo);
+	if (pn_len) {
+		int offset = ieee80211_get_hdrlen_from_skb(skb) + pad_len;
+		u8 *data = skb->data + offset;
+
+		status->iv[0] = data[7];
+		status->iv[1] = data[6];
+		status->iv[2] = data[5];
+		status->iv[3] = data[4];
+		status->iv[4] = data[1];
+		status->iv[5] = data[0];
+
+		pad_len += pn_len << 2;
+		len -= pn_len << 2;
+	}
+
+	mt76x2_remove_hdr_pad(skb, pad_len);
 
 	wcid = FIELD_GET(MT_RXWI_CTL_WCID, ctl);
 	status->wcid = mt76x2_rx_get_sta_wcid(dev, wcid, unicast);
 
-	if (rxwi->rxinfo & cpu_to_le32(MT_RXINFO_L2PAD))
-		mt76x2_remove_hdr_pad(skb);
-
-	if (rxwi->rxinfo & cpu_to_le32(MT_RXINFO_BA))
+	if (rxinfo & MT_RXINFO_BA)
 		status->aggr = true;
 
-	if (rxwi->rxinfo & cpu_to_le32(MT_RXINFO_DECRYPT)) {
+	if (rxinfo & MT_RXINFO_DECRYPT) {
 		status->flag |= RX_FLAG_DECRYPTED;
 		status->flag |= RX_FLAG_IV_STRIPPED | RX_FLAG_MMIC_STRIPPED;
 	}
 
-	len = FIELD_GET(MT_RXWI_CTL_MPDU_LEN, ctl);
 	if (WARN_ON_ONCE(len > skb->len))
 		return -EINVAL;
 
