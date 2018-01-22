@@ -58,7 +58,7 @@ mt7603_txq_init(struct mt7603_dev *dev, struct ieee80211_txq *txq)
 		mtxq->wcid = &sta->wcid;
 	} else {
 		struct mt7603_vif *mvif = (struct mt7603_vif *) txq->vif->drv_priv;
-		mtxq->wcid = &mvif->sta.wcid;
+		mtxq->wcid = &mvif->wcid;
 	}
 
 	mt76_txq_init(&dev->mt76, txq);
@@ -89,14 +89,14 @@ mt7603_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 	idx = MT7603_WTBL_RESERVED - 1 - mvif->idx;
 	dev->vif_mask |= BIT(mvif->idx);
-	mvif->sta.wcid.idx = idx;
-	mvif->sta.wcid.hw_key_idx = -1;
+	mvif->wcid.idx = idx;
+	mvif->wcid.hw_key_idx = -1;
 
 	eth_broadcast_addr(bc_addr);
 	mt7603_wtbl_init(dev, idx, mvif->idx, bc_addr);
 	mt7603_wtbl_set_ps(dev, idx, false);
 
-	rcu_assign_pointer(dev->wcid[idx], &mvif->sta.wcid);
+	rcu_assign_pointer(dev->wcid[idx], &mvif->wcid);
 	mt7603_txq_init(dev, vif->txq);
 
 out:
@@ -110,7 +110,7 @@ mt7603_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
 	struct mt7603_vif *mvif = (struct mt7603_vif *) vif->drv_priv;
 	struct mt7603_dev *dev = hw->priv;
-	int idx = mvif->sta.wcid.idx;
+	int idx = mvif->wcid.idx;
 
 	mt7603_beacon_set_timer(dev, mvif->idx, 0);
 
@@ -345,7 +345,7 @@ mt7603_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	struct mt7603_dev *dev = hw->priv;
 	struct mt7603_vif *mvif = (struct mt7603_vif *) vif->drv_priv;
 	struct mt7603_sta *msta = sta ? (struct mt7603_sta *) sta->drv_priv : NULL;
-	struct mt76_wcid *wcid = msta ? &msta->wcid : &mvif->sta.wcid;
+	struct mt76_wcid *wcid = msta ? &msta->wcid : &mvif->wcid;
 	int idx = key->keyidx;
 
 	/*

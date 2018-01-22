@@ -351,12 +351,20 @@ mt7603_get_rate(struct mt7603_dev *dev, struct ieee80211_supported_band *sband,
 }
 
 static struct mt76_wcid *
-mt7603_rx_get_wcid(struct mt7603_dev *dev, u8 idx)
+mt7603_rx_get_wcid(struct mt7603_dev *dev, u8 idx, bool unicast)
 {
+	struct mt7603_sta *sta;
+	struct mt76_wcid *wcid;
+
 	if (idx >= ARRAY_SIZE(dev->wcid))
 		return NULL;
 
-	return rcu_dereference(dev->wcid[idx]);
+	wcid = rcu_dereference(dev->wcid[idx]);
+	if (unicast || !wcid)
+		return wcid;
+
+	sta = container_of(wcid, struct mt7603_sta, wcid);
+	return &sta->vif->wcid;
 }
 
 int
@@ -369,6 +377,7 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 	u32 rxd0 = le32_to_cpu(rxd[0]);
 	u32 rxd1 = le32_to_cpu(rxd[1]);
 	u32 rxd2 = le32_to_cpu(rxd[2]);
+	bool unicast = rxd1 & MT_RXD1_NORMAL_U2M;
 	bool remove_pad;
 	int idx;
 	int i;
@@ -380,7 +389,7 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 	i >>= 1;
 
 	idx = FIELD_GET(MT_RXD2_NORMAL_WLAN_IDX, rxd2);
-	status->wcid = mt7603_rx_get_wcid(dev, idx);
+	status->wcid = mt7603_rx_get_wcid(dev, idx, unicast);
 
 	status->band = sband->band;
 	if (i < sband->n_channels)
@@ -472,7 +481,7 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 	if (!status->wcid || !ieee80211_is_data_qos(hdr->frame_control))
 		return 0;
 
-	status->aggr = true;
+	status->aggr = unicast;
 	status->tid = *ieee80211_get_qos_ctl(hdr) & IEEE80211_QOS_CTL_TID_MASK;
 	status->seqno = hdr->seq_ctrl >> 4;
 

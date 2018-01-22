@@ -69,9 +69,16 @@ struct mt7603_mcu {
 	bool running;
 };
 
+struct mt7603_vif {
+	u8 idx;
+
+	struct mt76_wcid wcid;
+};
+
 struct mt7603_sta {
 	struct mt76_wcid wcid; /* must be first */
 
+	struct mt7603_vif *vif;
 	struct ieee80211_tx_rate rates[8];
 	int rate_count;
 	int n_rates;
@@ -82,12 +89,6 @@ struct mt7603_sta {
 	int ampdu_count;
 	int ampdu_tx_count;
 	int ampdu_acked;
-};
-
-struct mt7603_vif {
-	u8 idx;
-
-	struct mt7603_sta sta;
 };
 
 #define MT7603_CB_DMA_DONE		BIT(0)
