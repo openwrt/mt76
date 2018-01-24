@@ -317,6 +317,16 @@ int mt76x2_mac_process_rx(struct mt76x2_dev *dev, struct sk_buff *skb,
 	if (rxinfo & MT_RXINFO_L2PAD)
 		pad_len += 2;
 
+	if (rxinfo & MT_RXINFO_DECRYPT) {
+		status->flag |= RX_FLAG_DECRYPTED;
+		status->flag |= RX_FLAG_MMIC_STRIPPED;
+		status->flag |= RX_FLAG_MIC_STRIPPED;
+		status->flag |= RX_FLAG_IV_STRIPPED;
+	}
+
+	wcid = FIELD_GET(MT_RXWI_CTL_WCID, ctl);
+	status->wcid = mt76x2_rx_get_sta_wcid(dev, wcid, unicast);
+
 	len = FIELD_GET(MT_RXWI_CTL_MPDU_LEN, ctl);
 	pn_len = FIELD_GET(MT_RXINFO_PN_LEN, rxinfo);
 	if (pn_len) {
@@ -330,22 +340,22 @@ int mt76x2_mac_process_rx(struct mt76x2_dev *dev, struct sk_buff *skb,
 		status->iv[4] = data[1];
 		status->iv[5] = data[0];
 
-		pad_len += pn_len << 2;
-		len -= pn_len << 2;
+		/*
+		 * Driver CCMP validation can't deal with fragments.
+		 * Let mac80211 take care of it.
+		 */
+		if (rxinfo & MT_RXINFO_FRAG) {
+			status->flag &= ~RX_FLAG_IV_STRIPPED;
+		} else {
+			pad_len += pn_len << 2;
+			len -= pn_len << 2;
+		}
 	}
 
 	mt76x2_remove_hdr_pad(skb, pad_len);
 
-	wcid = FIELD_GET(MT_RXWI_CTL_WCID, ctl);
-	status->wcid = mt76x2_rx_get_sta_wcid(dev, wcid, unicast);
-
 	if (rxinfo & MT_RXINFO_BA)
 		status->aggr = true;
-
-	if (rxinfo & MT_RXINFO_DECRYPT) {
-		status->flag |= RX_FLAG_DECRYPTED;
-		status->flag |= RX_FLAG_IV_STRIPPED | RX_FLAG_MMIC_STRIPPED;
-	}
 
 	if (WARN_ON_ONCE(len > skb->len))
 		return -EINVAL;
