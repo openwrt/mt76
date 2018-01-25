@@ -496,6 +496,8 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 
 		if (rxdg0 & MT_RXV1_HT_SHORT_GI)
 			status->enc_flags |= RX_ENC_FLAG_SHORT_GI;
+		if (rxdg0 & MT_RXV1_HT_AD_CODE)
+			status->enc_flags |= RX_ENC_FLAG_LDPC;
 
 		status->enc_flags |= RX_ENC_FLAG_STBC_MASK *
 				    FIELD_GET(MT_RXV1_HT_STBC, rxdg0);
