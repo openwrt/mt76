@@ -509,6 +509,9 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 					  dev->rssi_offset[1];
 		status->signal = max(status->chain_signal[0], status->chain_signal[1]);
 
+		if (FIELD_GET(MT_RXV1_FRAME_MODE, rxdg0) == 1)
+			status->flag |= RX_FLAG_40MHZ;
+
 		rxd += 6;
 		if ((u8 *) rxd - skb->data >= skb->len)
 			return -EINVAL;
