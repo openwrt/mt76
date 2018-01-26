@@ -287,6 +287,9 @@ mt7603_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	mt7603_wtbl_init(dev, idx, mvif->idx, sta->addr);
 	mt7603_wtbl_update_cap(dev, sta);
 
+	if (vif->type == NL80211_IFTYPE_AP)
+		set_bit(MT_WCID_FLAG_CHECK_PS, &msta->wcid.flags);
+
 	rcu_assign_pointer(dev->wcid[idx], &msta->wcid);
 
 out:
@@ -318,23 +321,14 @@ mt7603_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	return 0;
 }
 
-static void
-mt7603_sta_notify(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-		enum sta_notify_cmd cmd, struct ieee80211_sta *sta)
+void
+mt7603_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps)
 {
-	struct mt7603_dev *dev = hw->priv;
+	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
 	struct mt7603_sta *msta = (struct mt7603_sta *) sta->drv_priv;
 	int idx = msta->wcid.idx;
 
-	switch (cmd) {
-	case STA_NOTIFY_SLEEP:
-		mt7603_wtbl_set_ps(dev, idx, true);
-		mt76_stop_tx_queues(&dev->mt76, sta, false);
-		break;
-	case STA_NOTIFY_AWAKE:
-		mt7603_wtbl_set_ps(dev, idx, false);
-		break;
-	}
+	mt7603_wtbl_set_ps(dev, idx, ps);
 }
 
 static int
@@ -543,6 +537,12 @@ static void mt7603_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *cont
 	mt76_tx(&dev->mt76, control->sta, wcid, skb);
 }
 
+static int
+mt7603_set_tim(struct ieee80211_hw *hw, struct ieee80211_sta *sta, bool set)
+{
+	return 0;
+}
+
 const struct ieee80211_ops mt7603_ops = {
 	.tx = mt7603_tx,
 	.start = mt7603_start,
@@ -554,7 +554,6 @@ const struct ieee80211_ops mt7603_ops = {
 	.bss_info_changed = mt7603_bss_info_changed,
 	.sta_add = mt7603_sta_add,
 	.sta_remove = mt7603_sta_remove,
-	.sta_notify = mt7603_sta_notify,
 	.set_key = mt7603_set_key,
 	.conf_tx = mt7603_conf_tx,
 	.sw_scan_start = mt7603_sw_scan,
@@ -566,6 +565,7 @@ const struct ieee80211_ops mt7603_ops = {
 	.sta_rate_tbl_update = mt7603_sta_rate_tbl_update,
 	.release_buffered_frames = mt76_release_buffered_frames,
 	.set_coverage_class = mt7603_set_coverage_class,
+	.set_tim = mt7603_set_tim,
 };
 
 MODULE_LICENSE("Dual BSD/GPL");
