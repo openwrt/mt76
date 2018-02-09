@@ -530,7 +530,7 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 	if (!status->wcid || !ieee80211_is_data_qos(hdr->frame_control))
 		return 0;
 
-	status->aggr = unicast;
+	status->aggr = unicast && !ieee80211_is_qos_nullfunc(hdr->frame_control);
 	status->tid = *ieee80211_get_qos_ctl(hdr) & IEEE80211_QOS_CTL_TID_MASK;
 	status->seqno = hdr->seq_ctrl >> 4;
 
