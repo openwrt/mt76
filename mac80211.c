@@ -179,6 +179,7 @@ mt76_init_sband(struct mt76_dev *dev, struct mt76_sband *msband,
 
 	vht_cap->vht_mcs.rx_mcs_map = cpu_to_le16(mcs_map);
 	vht_cap->vht_mcs.tx_mcs_map = cpu_to_le16(mcs_map);
+	vht_cap->ampdu_factor = IEEE80211_VHT_MAX_AMPDU_1024K;
 	vht_cap->cap |= IEEE80211_VHT_CAP_RXLDPC |
 			IEEE80211_VHT_CAP_TXSTBC |
 			IEEE80211_VHT_CAP_RXSTBC_1 |
