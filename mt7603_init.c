@@ -440,6 +440,9 @@ int mt7603_register_device(struct mt7603_dev *dev)
 	dev->mt76.led_cdev.brightness_set = mt7603_led_set_brightness;
 	dev->mt76.led_cdev.blink_set = mt7603_led_set_blink;
 
+	/* init antenna configuration */
+	dev->mt76.antenna_mask = 3;
+
 	ret = mt76_register_device(&dev->mt76, true, mt7603_rates,
 				   ARRAY_SIZE(mt7603_rates));
 	if (ret)
