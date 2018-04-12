@@ -917,6 +917,8 @@ static bool
 mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 		struct ieee80211_tx_info *info, __le32 *txs_data)
 {
+	int final_idx = 0;
+	u32 final_rate;
 	bool final_mpdu;
 	bool ack_timeout;
 	bool fixed_rate;
@@ -938,6 +940,7 @@ mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 	count = FIELD_GET(MT_TXS4_TX_COUNT, txs);
 
 	txs = le32_to_cpu(txs_data[0]);
+	final_rate = FIELD_GET(MT_TXS0_TX_RATE, txs);
 	ack_timeout = txs & MT_TXS0_ACK_TIMEOUT;
 
 	if (!(txs & MT_TXS0_ACK_ERROR_MASK)) {
@@ -998,8 +1001,12 @@ mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 		}
 
 		info->status.rates[i].count = cur_count;
+		final_idx = i;
 		count -= cur_count;
 	}
+
+	if (sta->rates[final_idx].flags & IEEE80211_TX_RC_MCS)
+		info->status.rates[final_idx].idx = final_rate & GENMASK(5, 0);
 
 	return true;
 }
