@@ -959,6 +959,8 @@ mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 	} else {
 		info->status.ampdu_len = sta->ampdu_count;
 		info->status.ampdu_ack_len = sta->ampdu_acked;
+		if (info->status.ampdu_ack_len)
+			info->flags |= IEEE80211_TX_STAT_ACK;
 	}
 
 	if (ampdu || (info->flags & IEEE80211_TX_CTL_AMPDU))
