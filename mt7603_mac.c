@@ -486,9 +486,8 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 		case MT_PHY_TYPE_HT_GF:
 		case MT_PHY_TYPE_HT:
 			status->encoding = RX_ENC_HT;
-			break;
-		case MT_PHY_TYPE_VHT:
-			status->encoding = RX_ENC_VHT;
+			if (i > 15)
+				return -EINVAL;
 			break;
 		default:
 			return -EINVAL;
@@ -517,6 +516,8 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 		rxd += 6;
 		if ((u8 *) rxd - skb->data >= skb->len)
 			return -EINVAL;
+	} else {
+		return -EINVAL;
 	}
 
 	skb_pull(skb, (u8 *) rxd - skb->data + 2 * remove_pad);
