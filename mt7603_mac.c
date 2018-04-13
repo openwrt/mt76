@@ -438,7 +438,7 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 	if (rxd2 & MT_RXD2_NORMAL_MAX_LEN_ERROR)
 		return -EINVAL;
 
-	if (WARN_ON_ONCE(!sband->channels))
+	if (!sband->channels)
 		return -EINVAL;
 
 	rxd += 4;
