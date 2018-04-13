@@ -1218,6 +1218,9 @@ static void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 	ieee80211_stop_queues(dev->mt76.hw);
 	set_bit(MT76_RESET, &dev->mt76.state);
 
+	/* lock/unlock all queues to ensure that no tx is pending */
+	mt76_txq_schedule_all(&dev->mt76);
+
 	tasklet_disable(&dev->tx_tasklet);
 	tasklet_disable(&dev->pre_tbtt_tasklet);
 	napi_disable(&dev->mt76.napi[0]);
