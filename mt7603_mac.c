@@ -363,7 +363,13 @@ mt7603_rx_get_wcid(struct mt7603_dev *dev, u8 idx, bool unicast)
 	if (unicast || !wcid)
 		return wcid;
 
+	if (!wcid->sta)
+		return NULL;
+
 	sta = container_of(wcid, struct mt7603_sta, wcid);
+	if (!sta->vif)
+		return NULL;
+
 	return &sta->vif->wcid;
 }
 
