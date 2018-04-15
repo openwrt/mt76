@@ -410,6 +410,7 @@ int mt7603_register_device(struct mt7603_dev *dev)
 
 	mutex_init(&dev->mutex);
 	spin_lock_init(&dev->status_lock);
+	spin_lock_init(&dev->irq_lock);
 	__skb_queue_head_init(&dev->status_list);
 
 	INIT_DELAYED_WORK(&dev->mac_work, mt7603_mac_work);
