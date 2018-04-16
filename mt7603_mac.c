@@ -370,7 +370,7 @@ mt7603_rx_get_wcid(struct mt7603_dev *dev, u8 idx, bool unicast)
 	if (!sta->vif)
 		return NULL;
 
-	return &sta->vif->wcid;
+	return &sta->vif->sta.wcid;
 }
 
 static void
@@ -1095,7 +1095,6 @@ void mt7603_mac_add_txs(struct mt7603_dev *dev, void *data)
 	struct mt7603_sta *msta = NULL;
 	struct mt76_wcid *wcid;
 	__le32 *txs_data = data;
-	void *priv;
 	u32 txs;
 	u8 wcidx;
 	u8 pid;
@@ -1117,14 +1116,14 @@ void mt7603_mac_add_txs(struct mt7603_dev *dev, void *data)
 	if (!wcid)
 		goto out;
 
-	priv = msta = container_of(wcid, struct mt7603_sta, wcid);
-	sta = container_of(priv, struct ieee80211_sta, drv_priv);
+	msta = container_of(wcid, struct mt7603_sta, wcid);
+	sta = wcid_to_sta(wcid);
 
 	pid &= MT_PID_INDEX;
 	if (mt7603_mac_add_txs_skb(dev, msta, pid, txs_data))
 		goto out;
 
-	if (wcidx >= MT7603_WTBL_STA)
+	if (wcidx >= MT7603_WTBL_STA || !sta)
 		goto out;
 
 	if (mt7603_fill_txs(dev, msta, &info, txs_data))

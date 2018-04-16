@@ -45,6 +45,9 @@
 #define MT7603_WATCHDOG_TIME	100 /* ms */
 #define MT7603_WATCHDOG_TIMEOUT	10 /* number of checks */
 
+struct mt7603_vif;
+struct mt7603_sta;
+
 enum {
 	MT7603_REV_E1 = 0x00,
 	MT7603_REV_E2 = 0x10,
@@ -69,12 +72,6 @@ struct mt7603_mcu {
 	bool running;
 };
 
-struct mt7603_vif {
-	u8 idx;
-
-	struct mt76_wcid wcid;
-};
-
 struct mt7603_sta {
 	struct mt76_wcid wcid; /* must be first */
 
@@ -89,6 +86,12 @@ struct mt7603_sta {
 	int ampdu_count;
 	int ampdu_tx_count;
 	int ampdu_acked;
+};
+
+struct mt7603_vif {
+	u8 idx;
+
+	struct mt7603_sta sta;
 };
 
 #define MT7603_CB_DMA_DONE		BIT(0)
