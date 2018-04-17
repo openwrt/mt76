@@ -279,6 +279,7 @@ int mt76_register_device(struct mt76_dev *dev, bool vht,
 
 	spin_lock_init(&dev->lock);
 	spin_lock_init(&dev->cc_lock);
+	spin_lock_init(&dev->rx_lock);
 	INIT_LIST_HEAD(&dev->txwi_cache);
 
 	SET_IEEE80211_DEV(hw, dev->dev);
@@ -561,6 +562,7 @@ void mt76_rx_complete(struct mt76_dev *dev, struct sk_buff_head *frames,
 	if (queue >= 0)
 	    napi = &dev->napi[queue];
 
+	spin_lock(&dev->rx_lock);
 	while ((skb = __skb_dequeue(frames)) != NULL) {
 		if (mt76_check_ccmp_pn(skb)) {
 			dev_kfree_skb(skb);
@@ -570,6 +572,7 @@ void mt76_rx_complete(struct mt76_dev *dev, struct sk_buff_head *frames,
 		sta = mt76_rx_convert(skb);
 		ieee80211_rx_napi(dev->hw, sta, skb, napi);
 	}
+	spin_unlock(&dev->rx_lock);
 }
 
 void mt76_rx_poll_complete(struct mt76_dev *dev, enum mt76_rxq_id q)
