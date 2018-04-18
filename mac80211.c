@@ -279,7 +279,6 @@ int mt76_register_device(struct mt76_dev *dev, bool vht,
 
 	spin_lock_init(&dev->lock);
 	spin_lock_init(&dev->cc_lock);
-	spin_lock_init(&dev->rx_lock);
 	INIT_LIST_HEAD(&dev->txwi_cache);
 
 	SET_IEEE80211_DEV(hw, dev->dev);
