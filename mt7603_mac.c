@@ -1284,6 +1284,9 @@ static u32 mt7603_dma_debug(struct mt7603_dev *dev, u8 index)
 
 static bool mt7603_rx_fifo_busy(struct mt7603_dev *dev)
 {
+	if (is_mt7628(dev))
+		return mt7603_dma_debug(dev, 9) & BIT(9);
+
 	return mt7603_dma_debug(dev, 2) & BIT(8);
 }
 
