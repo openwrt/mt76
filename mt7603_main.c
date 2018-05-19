@@ -129,6 +129,10 @@ mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 	int idx, ret;
 	u8 bw = MT_BW_20;
 
+	cancel_delayed_work_sync(&dev->mac_work);
+
+	set_bit(MT76_RESET, &dev->mt76.state);
+
 	mt7603_mac_stop(dev);
 
 	if (def->width == NL80211_CHAN_WIDTH_40)
@@ -153,6 +157,14 @@ mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 	idx |= (def->chan - mt76_hw(dev)->wiphy->bands[def->chan->band]->channels) << 1;
 	mt76_wr(dev, MT_WF_RMAC_CH_FREQ, idx);
 	mt7603_mac_start(dev);
+	mt7603_mac_set_timing(dev);
+
+	clear_bit(MT76_RESET, &dev->mt76.state);
+
+	mt76_txq_schedule_all(&dev->mt76);
+
+	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mac_work,
+				     MT7603_WATCHDOG_TIME);
 
 	return 0;
 }
@@ -167,7 +179,6 @@ mt7603_config(struct ieee80211_hw *hw, u32 changed)
 
 	if (changed & IEEE80211_CONF_CHANGE_CHANNEL) {
 		ret = mt7603_set_channel(dev, &hw->conf.chandef);
-		mt7603_mac_set_timing(dev);
 	}
 
 	if (changed & IEEE80211_CONF_CHANGE_MONITOR) {
@@ -441,7 +452,6 @@ mt7603_sw_scan_complete(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 	clear_bit(MT76_SCANNING, &dev->mt76.state);
 	mt7603_beacon_set_timer(dev, -1, dev->beacon_int);
-	mt76_txq_schedule_all(&dev->mt76);
 }
 
 static void
