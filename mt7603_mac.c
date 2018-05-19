@@ -1181,9 +1181,10 @@ static void mt7603_pse_reset(struct mt7603_dev *dev)
 
 	if (!mt76_poll_msec(dev, MT_MCU_DEBUG_RESET,
 			    MT_MCU_DEBUG_RESET_PSE_S,
-			    MT_MCU_DEBUG_RESET_PSE_S, 500))
+			    MT_MCU_DEBUG_RESET_PSE_S, 500)) {
+		mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE);
 		dev->pse_reset_failed++;
-	else
+	} else
 		dev->pse_reset_failed = 0;
 
 	mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_QUEUES);
