@@ -29,17 +29,21 @@ struct mt7603_dev *mt7603_alloc_device(struct device *pdev)
 		.rx_poll_complete = mt7603_rx_poll_complete,
 		.sta_ps = mt7603_sta_ps,
 	};
-	struct ieee80211_hw *hw;
 	struct mt7603_dev *dev;
+	struct mt76_dev *mdev;
 
-	hw = ieee80211_alloc_hw(sizeof(*dev), &mt7603_ops);
-	if (!hw)
+	mdev = mt76_alloc_device(sizeof(*dev), &mt7603_ops);
+	if (!mdev)
 		return NULL;
 
-	dev = hw->priv;
-	dev->mt76.dev = pdev;
-	dev->mt76.hw = hw;
-	dev->mt76.drv = &drv_ops;
+	dev = container_of(mdev, struct mt7603_dev, mt76);
+	mdev->dev = pdev;
+	mdev->drv = &drv_ops;
+
+	mutex_init(&dev->mutex);
+	spin_lock_init(&dev->status_lock);
+	spin_lock_init(&dev->irq_lock);
+	__skb_queue_head_init(&dev->status_list);
 
 	return dev;
 }
@@ -408,11 +412,6 @@ int mt7603_register_device(struct mt7603_dev *dev)
 	struct wiphy *wiphy = hw->wiphy;
 	int ret;
 
-	mutex_init(&dev->mutex);
-	spin_lock_init(&dev->status_lock);
-	spin_lock_init(&dev->irq_lock);
-	spin_lock_init(&dev->mt76.rx_lock);
-	__skb_queue_head_init(&dev->status_list);
 
 	INIT_DELAYED_WORK(&dev->mac_work, mt7603_mac_work);
 	tasklet_init(&dev->pre_tbtt_tasklet, mt7603_pre_tbtt_tasklet, (unsigned long) dev);
