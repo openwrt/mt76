@@ -131,6 +131,7 @@ mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 
 	cancel_delayed_work_sync(&dev->mac_work);
 
+	mutex_lock(&dev->mutex);
 	set_bit(MT76_RESET, &dev->mt76.state);
 
 	mt7603_mac_stop(dev);
@@ -166,6 +167,8 @@ mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mac_work,
 				     MT7603_WATCHDOG_TIME);
 
+	mutex_unlock(&dev->mutex);
+
 	return 0;
 }
 
@@ -175,22 +178,23 @@ mt7603_config(struct ieee80211_hw *hw, u32 changed)
 	struct mt7603_dev *dev = hw->priv;
 	int ret = 0;
 
-	mutex_lock(&dev->mutex);
 
-	if (changed & IEEE80211_CONF_CHANGE_CHANNEL) {
+	if (changed & IEEE80211_CONF_CHANGE_CHANNEL)
 		ret = mt7603_set_channel(dev, &hw->conf.chandef);
-	}
 
 	if (changed & IEEE80211_CONF_CHANGE_MONITOR) {
+		mutex_lock(&dev->mutex);
+
 		if (!(hw->conf.flags & IEEE80211_CONF_MONITOR))
 			dev->rxfilter |= MT_WF_RFCR_DROP_OTHER_UC;
 		else
 			dev->rxfilter &= ~MT_WF_RFCR_DROP_OTHER_UC;
 
 		mt76_wr(dev, MT_WF_RFCR, dev->rxfilter);
+
+		mutex_unlock(&dev->mutex);
 	}
 
-	mutex_unlock(&dev->mutex);
 
 	return ret;
 }
