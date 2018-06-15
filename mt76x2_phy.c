@@ -502,19 +502,20 @@ mt76x2_phy_adjust_vga_gain(struct mt76x2_dev *dev)
 static void
 mt76x2_phy_update_channel_gain(struct mt76x2_dev *dev)
 {
-	u32 val = mt76_rr(dev, MT_BBP(AGC, 20));
-	int rssi0 = (s8) FIELD_GET(MT_BBP_AGC20_RSSI0, val);
-	int rssi1 = (s8) FIELD_GET(MT_BBP_AGC20_RSSI1, val);
 	u8 *gain = dev->cal.agc_gain_init;
 	u8 gain_delta;
 	int low_gain;
+	u32 rssi_count;
+	u32 val;
 
-	dev->cal.avg_rssi[0] = (dev->cal.avg_rssi[0] * 15) / 16 +
-			       (rssi0 << 8) / 16;
-	dev->cal.avg_rssi[1] = (dev->cal.avg_rssi[1] * 15) / 16 +
-			       (rssi1 << 8) / 16;
-	dev->cal.avg_rssi_all = (dev->cal.avg_rssi[0] +
-				 dev->cal.avg_rssi[1]) / 512;
+	spin_lock_bh(&dev->mt76.rx_lock);
+	dev->cal.avg_rssi_all = ewma_signal_read(&dev->cal.rssi);
+	rssi_count = dev->cal.rssi_count;
+	dev->cal.rssi_count = 0;
+	spin_unlock_bh(&dev->mt76.rx_lock);
+
+	if (!rssi_count)
+		dev->cal.avg_rssi_all = -75;
 
 	low_gain = (dev->cal.avg_rssi_all > mt76x2_get_rssi_gain_thresh(dev)) +
 		   (dev->cal.avg_rssi_all > mt76x2_get_low_rssi_gain_thresh(dev));

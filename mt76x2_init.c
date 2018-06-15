@@ -657,6 +657,7 @@ struct mt76x2_dev *mt76x2_alloc_device(struct device *pdev)
 	mdev->drv = &drv_ops;
 	mutex_init(&dev->mutex);
 	spin_lock_init(&dev->irq_lock);
+	ewma_signal_init(&dev->cal.rssi);
 
 	return dev;
 }
