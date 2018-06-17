@@ -374,7 +374,7 @@ int mt76x2_mac_process_rx(struct mt76x2_dev *dev, struct sk_buff *skb,
 	status->tid = FIELD_GET(MT_RXWI_TID, tid_sn);
 	status->seqno = FIELD_GET(MT_RXWI_SN, tid_sn);
 
-	if (unicast) {
+	if (status->wcid) {
 		ewma_signal_add(&dev->cal.rssi, status->signal);
 		dev->cal.rssi_count++;
 	}
