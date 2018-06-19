@@ -500,6 +500,53 @@ mt76x2_phy_adjust_vga_gain(struct mt76x2_dev *dev)
 	mt76x2_phy_set_gain_val(dev);
 }
 
+static int
+mt76x2_phy_get_min_avg_rssi(struct mt76x2_dev *dev)
+{
+	struct mt76x2_sta *sta;
+	struct mt76_wcid *wcid;
+	int i, j, min_rssi = 0;
+	s8 cur_rssi;
+
+	local_bh_disable();
+	rcu_read_lock();
+
+	for (i = 0; i < ARRAY_SIZE(dev->wcid_mask); i++) {
+		unsigned long mask = dev->wcid_mask[i];
+
+		if (!mask)
+			continue;
+
+		for (j = i * BITS_PER_LONG; mask; j++, mask >>= 1) {
+			if (!(mask & 1))
+				continue;
+
+			wcid = rcu_dereference(dev->wcid[j]);
+			if (!wcid)
+				continue;
+
+			sta = container_of(wcid, struct mt76x2_sta, wcid);
+			spin_lock(&dev->mt76.rx_lock);
+			if (sta->inactive_count++ < 5)
+				cur_rssi = ewma_signal_read(&sta->rssi);
+			else
+				cur_rssi = 0;
+			spin_unlock(&dev->mt76.rx_lock);
+
+			if (cur_rssi < min_rssi)
+				min_rssi = cur_rssi;
+		}
+	}
+
+	rcu_read_unlock();
+	local_bh_enable();
+
+	if (!min_rssi)
+		return -75;
+
+	return min_rssi;
+}
+
 static void
 mt76x2_phy_update_channel_gain(struct mt76x2_dev *dev)
 {
@@ -507,17 +554,9 @@ mt76x2_phy_update_channel_gain(struct mt76x2_dev *dev)
 	u8 low_gain_delta, gain_delta;
 	bool gain_change;
 	int low_gain;
-	u32 rssi_count;
 	u32 val;
 
-	spin_lock_bh(&dev->mt76.rx_lock);
-	dev->cal.avg_rssi_all = ewma_signal_read(&dev->cal.rssi);
-	rssi_count = dev->cal.rssi_count;
-	dev->cal.rssi_count = 0;
-	spin_unlock_bh(&dev->mt76.rx_lock);
-
-	if (!rssi_count)
-		dev->cal.avg_rssi_all = -75;
+	dev->cal.avg_rssi_all = mt76x2_phy_get_min_avg_rssi(dev);
 
 	low_gain = (dev->cal.avg_rssi_all > mt76x2_get_rssi_gain_thresh(dev)) +
 		   (dev->cal.avg_rssi_all > mt76x2_get_low_rssi_gain_thresh(dev));

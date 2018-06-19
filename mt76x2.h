@@ -69,9 +69,6 @@ struct mt76x2_rx_freq_cal {
 struct mt76x2_calibration {
 	struct mt76x2_rx_freq_cal rx;
 
-	struct ewma_signal rssi;
-	u32 rssi_count;
-
 	u8 agc_gain_init[MT_MAX_CHAINS];
 	u8 agc_gain_cur[MT_MAX_CHAINS];
 
@@ -157,6 +154,9 @@ struct mt76x2_sta {
 	struct mt76x2_vif *vif;
 	struct mt76x2_tx_status status;
 	int n_frames;
+
+	struct ewma_signal rssi;
+	int inactive_count;
 };
 
 static inline bool is_mt7612(struct mt76x2_dev *dev)
