@@ -505,7 +505,7 @@ void mt76x2_set_tx_ackto(struct mt76x2_dev *dev)
 		       MT_TX_TIMEOUT_CFG_ACKTO, ackto);
 }
 
-static void
+void
 mt76x2_set_wlan_state(struct mt76x2_dev *dev, bool enable)
 {
 	u32 val = mt76_rr(dev, MT_WLAN_FUN_CTRL);
