@@ -3,6 +3,7 @@ EXTRA_CFLAGS += -Werror
 obj-m := mt76.o mt76x2-common.o mt76x2e.o mt7603e.o
 obj-$(CONFIG_MT76_USB) += mt76-usb.o
 obj-$(CONFIG_MT76X2U) += mt76x2u.o
+obj-$(CONFIG_MT76x0U) += mt76x0/
 
 mt76-y := \
 	mmio.o util.o trace.o dma.o mac80211.o debugfs.o eeprom.o tx.o agg-rx.o
