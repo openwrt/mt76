@@ -450,6 +450,14 @@ int mt7603_register_device(struct mt7603_dev *dev)
 	/* init antenna configuration */
 	dev->mt76.antenna_mask = 3;
 
+	wiphy->interface_modes =
+		BIT(NL80211_IFTYPE_STATION) |
+		BIT(NL80211_IFTYPE_AP) |
+#ifdef CONFIG_MAC80211_MESH
+		BIT(NL80211_IFTYPE_MESH_POINT) |
+#endif
+		BIT(NL80211_IFTYPE_ADHOC);
+
 	ret = mt76_register_device(&dev->mt76, true, mt7603_rates,
 				   ARRAY_SIZE(mt7603_rates));
 	if (ret)
