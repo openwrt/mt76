@@ -6,7 +6,7 @@ mt76-y := \
 	mmio.o util.o trace.o dma.o mac80211.o debugfs.o eeprom.o tx.o agg-rx.o
 
 mt76x2-common-y := \
-	mt76x2_eeprom.o
+	mt76x2_eeprom.o mt76x2_tx_common.o
 
 mt76x2e-y := \
 	mt76x2_pci.o mt76x2_dma.o \
