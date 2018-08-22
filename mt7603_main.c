@@ -29,6 +29,7 @@ mt7603_start(struct ieee80211_hw *hw)
 	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mac_work,
 				     MT7603_WATCHDOG_TIME);
 	mt7603_mac_start(dev);
+	dev->survey_time = ktime_get_boottime();
 	set_bit(MT76_STATE_RUNNING, &dev->mt76.state);
 
 	return 0;
@@ -134,6 +135,7 @@ mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 	mutex_lock(&dev->mutex);
 	set_bit(MT76_RESET, &dev->mt76.state);
 
+	mt76_set_channel(&dev->mt76);
 	mt7603_mac_stop(dev);
 
 	if (def->width == NL80211_CHAN_WIDTH_40)
@@ -166,6 +168,14 @@ mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 
 	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mac_work,
 				     MT7603_WATCHDOG_TIME);
+
+	/* reset channel stats */
+	mt76_clear(dev, MT_MIB_CTL, MT_MIB_CTL_READ_CLR_DIS);
+	mt76_set(dev, MT_MIB_CTL,
+		 MT_MIB_CTL_CCA_NAV_TX | MT_MIB_CTL_PSCCA_TIME);
+	mt76_rr(dev, MT_MIB_STAT_PSCCA);
+
+	dev->survey_time = ktime_get_boottime();
 
 	mutex_unlock(&dev->mutex);
 
@@ -593,6 +603,7 @@ const struct ieee80211_ops mt7603_ops = {
 	.release_buffered_frames = mt76_release_buffered_frames,
 	.set_coverage_class = mt7603_set_coverage_class,
 	.set_tim = mt7603_set_tim,
+	.get_survey = mt76_get_survey,
 };
 
 MODULE_LICENSE("Dual BSD/GPL");

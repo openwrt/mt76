@@ -15,6 +15,7 @@
  */
 
 #include <linux/etherdevice.h>
+#include <linux/timekeeping.h>
 #include "mt7603.h"
 #include "mt7603_mac.h"
 
@@ -1371,6 +1372,27 @@ mt7603_watchdog_check(struct mt7603_dev *dev, u8 *counter,
 	return true;
 }
 
+void mt7603_update_channel(struct mt76_dev *mdev)
+{
+	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
+	struct mt76_channel_state *state;
+	ktime_t cur_time;
+	u32 busy;
+
+	if (!test_bit(MT76_STATE_RUNNING, &dev->mt76.state))
+		return;
+
+	state = mt76_channel_state(&dev->mt76, dev->mt76.chandef.chan);
+	busy = mt76_rr(dev, MT_MIB_STAT_PSCCA);
+
+	spin_lock_bh(&dev->mt76.cc_lock);
+	cur_time = ktime_get_boottime();
+	state->cc_busy += busy;
+	state->cc_active += ktime_to_us(ktime_sub(cur_time, dev->survey_time));
+	dev->survey_time = cur_time;
+	spin_unlock_bh(&dev->mt76.cc_lock);
+}
+
 void mt7603_mac_work(struct work_struct *work)
 {
 	struct mt7603_dev *dev = container_of(work, struct mt7603_dev, mac_work.work);
@@ -1390,6 +1412,8 @@ void mt7603_mac_work(struct work_struct *work)
 	spin_unlock_bh(&dev->status_lock);
 
 	mutex_lock(&dev->mutex);
+
+	mt7603_update_channel(&dev->mt76);
 
 	if (mt7603_watchdog_check(dev, &dev->tx_dma_check,
 				  RESET_CAUSE_TX_BUSY,

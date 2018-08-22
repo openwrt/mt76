@@ -18,6 +18,7 @@
 #define __MT7603_H
 
 #include <linux/interrupt.h>
+#include <linux/ktime.h>
 #include "mt76.h"
 #include "mt7603_regs.h"
 
@@ -141,6 +142,7 @@ struct mt7603_dev {
 	u8 slottime;
 	s16 coverage_class;
 
+	ktime_t survey_time;
 	int beacon_int;
 
 	struct mt7603_mcu mcu;
@@ -264,5 +266,7 @@ void mt7603_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps);
 
 void mt7603_tbtt(struct mt7603_dev *dev);
 void mt7603_pre_tbtt_tasklet(unsigned long arg);
+
+void mt7603_update_channel(struct mt76_dev *mdev);
 
 #endif
