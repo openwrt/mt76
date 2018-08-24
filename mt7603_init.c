@@ -212,6 +212,10 @@ mt7603_mac_init(struct mt7603_dev *dev)
 
 	mt76_rmw_field(dev, MT_AGG_PCR_RTS, MT_AGG_PCR_RTS_PKT_THR, 3);
 	mt76_set(dev, MT_TMAC_PCR, MT_TMAC_PCR_SPE_EN);
+
+	/* include preamble detection in CCA trigger signal */
+	mt76_rmw_field(dev, MT_TXREQ, MT_TXREQ_CCA_SRC_SEL, 2);
+
 	mt76_wr(dev, MT_RXREQ, 4);
 
 	/* Configure all rx packets to HIF */
