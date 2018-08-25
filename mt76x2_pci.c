@@ -54,8 +54,6 @@ mt76pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	mt76_mmio_init(&dev->mt76, pcim_iomap_table(pdev)[0]);
 
-	mt76x2_set_wlan_state(dev, false);
-
 	dev->mt76.rev = mt76_rr(dev, MT_ASIC_VERSION);
 	dev_info(dev->mt76.dev, "ASIC revision: %08x\n", dev->mt76.rev);
 
