@@ -285,8 +285,6 @@ static int mt76x2_mac_reset(struct mt76x2_dev *dev, bool hard)
 		FIELD_PREP(MT_MAC_BSSID_DW1_MBSS_MODE, 3) | /* 8 beacons */
 		MT_MAC_BSSID_DW1_MBSS_LOCAL_BIT);
 
-	mt76_set(dev, MT_MAC_ADDR_EXT_CTL, MT_MAC_ADDR_EXT_CTL_EN);
-
 	/* Fire a pre-TBTT interrupt 8 ms before TBTT */
 	mt76_rmw_field(dev, MT_INT_TIMER_CFG, MT_INT_TIMER_CFG_PRE_TBTT,
 		       8 << 4);
@@ -307,12 +305,9 @@ static int mt76x2_mac_reset(struct mt76x2_dev *dev, bool hard)
 	for (i = 0; i < MT_MAX_VIFS; i++)
 		mt76x2_mac_wcid_setup(dev, MT_VIF_WCID(i), i, NULL);
 
-	for (i = 0; i < 16; i++) {
+	for (i = 0; i < 16; i++)
 		for (k = 0; k < 4; k++)
 			mt76x2_mac_shared_key_setup(dev, i, k, NULL);
-
-		mt76x2_mac_set_ext_mac(dev, i, NULL);
-	}
 
 	for (i = 0; i < 8; i++) {
 		mt76x2_mac_set_bssid(dev, i, null_addr);
