@@ -81,7 +81,7 @@ static void mt76x0_remove_interface(struct ieee80211_hw *hw,
 	struct mt76x02_vif *mvif = (struct mt76x02_vif *) vif->drv_priv;
 	unsigned int wcid = mvif->group_wcid.idx;
 
-	dev->wcid_mask[wcid / BITS_PER_LONG] &= ~BIT(wcid % BITS_PER_LONG);
+	dev->mt76.wcid_mask[wcid / BITS_PER_LONG] &= ~BIT(wcid % BITS_PER_LONG);
 	mt76_txq_remove(&dev->mt76, vif->txq);
 }
 
@@ -169,7 +169,7 @@ mt76x0_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	mutex_lock(&dev->mt76.mutex);
 
-	idx = mt76_wcid_alloc(dev->wcid_mask, ARRAY_SIZE(dev->wcid));
+	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, ARRAY_SIZE(dev->mt76.wcid));
 	if (idx < 0) {
 		ret = -ENOSPC;
 		goto out;
@@ -180,7 +180,7 @@ mt76x0_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	mt76x02_mac_wcid_setup(&dev->mt76, idx, mvif->idx, sta->addr);
 	mt76x02_mac_wcid_set_drop(&dev->mt76, idx, false);
 	mt76_clear(dev, MT_WCID_DROP(idx), MT_WCID_DROP_MASK(idx));
-	rcu_assign_pointer(dev->wcid[idx], &msta->wcid);
+	rcu_assign_pointer(dev->mt76.wcid[idx], &msta->wcid);
 	for (i = 0; i < ARRAY_SIZE(sta->txq); i++)
 		mt76x02_txq_init(&dev->mt76, sta->txq[i]);
 	mt76x0_mac_set_ampdu_factor(dev);
@@ -201,9 +201,9 @@ mt76x0_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	int i;
 
 	mutex_lock(&dev->mt76.mutex);
-	rcu_assign_pointer(dev->wcid[idx], NULL);
+	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
 	mt76x02_mac_wcid_set_drop(&dev->mt76, idx, true);
-	mt76_wcid_free(dev->wcid_mask, idx);
+	mt76_wcid_free(dev->mt76.wcid_mask, idx);
 	for (i = 0; i < ARRAY_SIZE(sta->txq); i++)
 		mt76_txq_remove(&dev->mt76, sta->txq[i]);
 	mt76x02_mac_wcid_setup(&dev->mt76, idx, 0, NULL);
