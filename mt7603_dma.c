@@ -47,7 +47,7 @@ mt7603_init_tx_queue(struct mt7603_dev *dev, struct mt76_queue *q,
 	int ret;
 
 	q->hw_idx = idx;
-	q->regs = dev->mt76.regs + MT_TX_RING_BASE + idx * MT_RING_SIZE;
+	q->regs = dev->mt76.mmio.regs + MT_TX_RING_BASE + idx * MT_RING_SIZE;
 	q->ndesc = n_desc;
 
 	ret = mt76_queue_alloc(dev, q);
@@ -96,7 +96,7 @@ mt7603_init_rx_queue(struct mt7603_dev *dev, struct mt76_queue *q,
 {
 	int ret;
 
-	q->regs = dev->mt76.regs + MT_RX_RING_BASE + idx * MT_RING_SIZE;
+	q->regs = dev->mt76.mmio.regs + MT_RX_RING_BASE + idx * MT_RING_SIZE;
 	q->ndesc = n_desc;
 	q->buf_size = bufsize;
 
