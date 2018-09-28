@@ -306,7 +306,7 @@ TRACE_EVENT(mt76x0_set_shared_key,
 #endif
 
 #undef TRACE_INCLUDE_PATH
-#define TRACE_INCLUDE_PATH .
+#define TRACE_INCLUDE_PATH mt76x0
 #undef TRACE_INCLUDE_FILE
 #define TRACE_INCLUDE_FILE trace
 
