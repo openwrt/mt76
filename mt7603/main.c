@@ -19,7 +19,7 @@
 #include <linux/pci.h>
 #include <linux/module.h>
 #include "mt7603.h"
-#include "mt7603_eeprom.h"
+#include "eeprom.h"
 
 static int
 mt7603_start(struct ieee80211_hw *hw)

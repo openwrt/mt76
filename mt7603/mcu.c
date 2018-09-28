@@ -16,8 +16,8 @@
 
 #include <linux/firmware.h>
 #include "mt7603.h"
-#include "mt7603_mcu.h"
-#include "mt7603_eeprom.h"
+#include "mcu.h"
+#include "eeprom.h"
 
 #define MCU_SKB_RESERVE	8
 

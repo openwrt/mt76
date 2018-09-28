@@ -16,8 +16,8 @@
 
 #include <linux/etherdevice.h>
 #include "mt7603.h"
-#include "mt7603_mac.h"
-#include "mt7603_eeprom.h"
+#include "mac.h"
+#include "eeprom.h"
 
 struct mt7603_dev *mt7603_alloc_device(struct device *pdev)
 {

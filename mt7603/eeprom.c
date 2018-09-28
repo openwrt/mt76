@@ -15,7 +15,7 @@
  */
 
 #include "mt7603.h"
-#include "mt7603_eeprom.h"
+#include "eeprom.h"
 
 static int
 mt7603_efuse_read(struct mt7603_dev *dev, u32 base, u16 addr, u8 *data)

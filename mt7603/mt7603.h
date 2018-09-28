@@ -19,8 +19,8 @@
 
 #include <linux/interrupt.h>
 #include <linux/ktime.h>
-#include "mt76.h"
-#include "mt7603_regs.h"
+#include "../mt76.h"
+#include "regs.h"
 
 #define MT7603_MAX_INTERFACES	4
 #define MT7603_WTBL_SIZE	128

@@ -17,7 +17,7 @@
 #include <linux/etherdevice.h>
 #include <linux/timekeeping.h>
 #include "mt7603.h"
-#include "mt7603_mac.h"
+#include "mac.h"
 
 #define MT_PSE_PAGE_SIZE	128
 
