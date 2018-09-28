@@ -50,7 +50,7 @@ mt7603_init_tx_queue(struct mt7603_dev *dev, struct mt76_queue *q,
 	q->regs = dev->mt76.mmio.regs + MT_TX_RING_BASE + idx * MT_RING_SIZE;
 	q->ndesc = n_desc;
 
-	ret = mt76_queue_alloc(dev, q);
+	ret = __mt76_queue_alloc(&dev->mt76, q);
 	if (ret)
 		return ret;
 
@@ -100,7 +100,7 @@ mt7603_init_rx_queue(struct mt7603_dev *dev, struct mt76_queue *q,
 	q->ndesc = n_desc;
 	q->buf_size = bufsize;
 
-	ret = mt76_queue_alloc(dev, q);
+	ret = __mt76_queue_alloc(&dev->mt76, q);
 	if (ret)
 		return ret;
 
@@ -186,7 +186,7 @@ int mt7603_dma_init(struct mt7603_dev *dev)
 		return ret;
 
 	mt76_wr(dev, MT_DELAY_INT_CFG, 0);
-	return mt76_init_queues(dev);
+	return __mt76_init_queues(&dev->mt76);
 }
 
 void mt7603_dma_cleanup(struct mt7603_dev *dev)
