@@ -785,10 +785,8 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 		FIELD_PREP(MT_TXD1_PROTECTED, !!key)
 	);
 
-	if (info->flags & IEEE80211_TX_CTL_NO_ACK) {
+	if (info->flags & IEEE80211_TX_CTL_NO_ACK)
 		txwi[1] |= cpu_to_le32(MT_TXD1_NO_ACK);
-		pid = MT_PID_NOACK;
-	}
 
 	txwi[2] = cpu_to_le32(
 		FIELD_PREP(MT_TXD2_FRAME_TYPE, frame_type) |
@@ -848,43 +846,6 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 	return 0;
 }
 
-static int
-mt7603_add_tx_status_skb(struct mt7603_dev *dev, struct mt7603_sta *msta,
-			 struct sk_buff *skb)
-{
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	struct mt7603_cb *cb = mt7603_skb_cb(skb);
-	int pid;
-
-	if (!msta)
-		return 0;
-
-	if (info->flags & IEEE80211_TX_CTL_NO_ACK)
-		return 0;
-
-	if (!(info->flags & (IEEE80211_TX_CTL_REQ_TX_STATUS |
-			  IEEE80211_TX_CTL_RATE_CTRL_PROBE)) &&
-	    info->control.rates[0].idx < 0)
-		return 0;
-
-	spin_lock_bh(&dev->status_lock);
-
-	memset(cb, 0, sizeof(*cb));
-	msta->pid = (msta->pid + 1) & MT_PID_INDEX;
-	if (!msta->pid || msta->pid == MT_PID_NOACK)
-	    msta->pid = 1;
-
-	pid = msta->pid;
-	cb->wcid = msta->wcid.idx;
-	cb->pktid = pid;
-	cb->jiffies = jiffies;
-
-	__skb_queue_tail(&dev->status_list, skb);
-
-	spin_unlock_bh(&dev->status_lock);
-	return pid;
-}
-
 int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  struct sk_buff *skb, struct mt76_queue *q,
 			  struct mt76_wcid *wcid, struct ieee80211_sta *sta,
@@ -904,9 +865,7 @@ int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			mt7603_wtbl_set_ps(dev, wcid->idx, false);
 	}
 
-	pid = mt7603_add_tx_status_skb(dev, msta, skb);
-	if (!pid)
-		skb->next = skb->prev = NULL;
+	pid = mt76_tx_status_skb_add(mdev, wcid, skb);
 
 	if (info->flags & IEEE80211_TX_CTL_RATE_CTRL_PROBE) {
 		spin_lock_bh(&dev->mt76.lock);
@@ -1019,58 +978,18 @@ mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 	return true;
 }
 
-static void
-mt7603_skb_done(struct mt7603_dev *dev, struct sk_buff *skb, u8 flags)
-{
-	struct mt7603_cb *cb = mt7603_skb_cb(skb);
-	u8 done = MT7603_CB_DMA_DONE | MT7603_CB_TXS_DONE;
-
-	flags |= cb->flags;
-	cb->flags = flags;
-
-	if ((flags & done) != done)
-		return;
-
-	if (flags & MT7603_CB_TXS_FAILED)
-		ieee80211_free_txskb(mt76_hw(dev), skb);
-	else
-		ieee80211_tx_status(mt76_hw(dev), skb);
-}
-
-struct sk_buff *
-mt7603_mac_status_skb(struct mt7603_dev *dev, struct mt7603_sta *sta, int pktid)
-{
-	struct sk_buff *skb, *tmp;
-
-	skb_queue_walk_safe(&dev->status_list, skb, tmp) {
-		struct mt7603_cb *cb = mt7603_skb_cb(skb);
-		if (sta && cb->wcid != sta->wcid.idx)
-			continue;
-
-		__skb_unlink(skb, &dev->status_list);
-		if (cb->pktid == pktid)
-			return skb;
-
-		mt7603_skb_done(dev, skb,
-				MT7603_CB_TXS_FAILED | MT7603_CB_TXS_DONE);
-	}
-
-	return NULL;
-}
-
 static bool
 mt7603_mac_add_txs_skb(struct mt7603_dev *dev, struct mt7603_sta *sta, int pid,
 		       __le32 *txs_data)
 {
+	struct mt76_dev *mdev = &dev->mt76;
 	struct sk_buff *skb;
 
 	if (!pid)
 		return false;
 
-	spin_lock_bh(&dev->status_lock);
-	skb = mt7603_mac_status_skb(dev, sta, pid);
-	spin_unlock_bh(&dev->status_lock);
-
+	spin_lock_bh(&mdev->status_list.lock);
+	skb = mt76_tx_status_skb_get(mdev, &sta->wcid, pid);
 	if (skb) {
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 
@@ -1083,8 +1002,9 @@ mt7603_mac_add_txs_skb(struct mt7603_dev *dev, struct mt7603_sta *sta, int pid,
 			spin_unlock_bh(&dev->mt76.lock);
 		}
 		mt7603_fill_txs(dev, sta, info, txs_data);
-		mt7603_skb_done(dev, skb, MT7603_CB_TXS_DONE);
+		mt76_tx_status_skb_done(mdev, skb);
 	}
+	spin_unlock_bh(&mdev->status_list.lock);
 
 	return !!skb;
 }
@@ -1105,7 +1025,7 @@ void mt7603_mac_add_txs(struct mt7603_dev *dev, void *data)
 	txs = le32_to_cpu(txs_data[3]);
 	wcidx = FIELD_GET(MT_TXS3_WCID, txs);
 
-	if (pid == MT_PID_NOACK)
+	if (pid == MT_PACKET_ID_NO_ACK)
 		return;
 
 	if (wcidx >= ARRAY_SIZE(dev->wcid))
@@ -1120,7 +1040,6 @@ void mt7603_mac_add_txs(struct mt7603_dev *dev, void *data)
 	msta = container_of(wcid, struct mt7603_sta, wcid);
 	sta = wcid_to_sta(wcid);
 
-	pid &= MT_PID_INDEX;
 	if (mt7603_mac_add_txs_skb(dev, msta, pid, txs_data))
 		goto out;
 
@@ -1139,7 +1058,6 @@ void mt7603_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 {
 	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
 	struct sk_buff *skb = e->skb;
-	bool free = true;
 
 	if (!e->txwi) {
 		dev_kfree_skb_any(skb);
@@ -1149,20 +1067,7 @@ void mt7603_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue *q,
 	if (q - dev->mt76.q_tx < 4)
 		dev->tx_hang_check = 0;
 
-	/* will be freed by tx status handling codepath */
-	if (skb->prev) {
-		spin_lock_bh(&dev->status_lock);
-		if (!flush) {
-			mt7603_skb_done(dev, skb, MT7603_CB_DMA_DONE);
-			free = false;
-		} else {
-			__skb_unlink(skb, &dev->status_list);
-		}
-		spin_unlock_bh(&dev->status_lock);
-	}
-
-	if (free)
-		ieee80211_free_txskb(mdev->hw, skb);
+	mt76_tx_complete_skb(mdev, skb);
 }
 
 static bool
@@ -1396,20 +1301,9 @@ void mt7603_update_channel(struct mt76_dev *mdev)
 void mt7603_mac_work(struct work_struct *work)
 {
 	struct mt7603_dev *dev = container_of(work, struct mt7603_dev, mac_work.work);
-	struct sk_buff *skb;
 	bool reset = false;
 
-	spin_lock_bh(&dev->status_lock);
-	while ((skb = skb_peek(&dev->status_list)) != NULL) {
-		struct mt7603_cb *cb = mt7603_skb_cb(skb);
-		if (time_is_after_jiffies(cb->jiffies + MT7603_STATUS_TIMEOUT))
-			break;
-
-		__skb_unlink(skb, &dev->status_list);
-		mt7603_skb_done(dev, skb,
-				MT7603_CB_TXS_FAILED | MT7603_CB_TXS_DONE);
-	}
-	spin_unlock_bh(&dev->status_lock);
+	mt76_tx_status_check(&dev->mt76);
 
 	mutex_lock(&dev->mutex);
 

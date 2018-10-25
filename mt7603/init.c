@@ -42,9 +42,7 @@ struct mt7603_dev *mt7603_alloc_device(struct device *pdev)
 	mdev->drv = &drv_ops;
 
 	mutex_init(&dev->mutex);
-	spin_lock_init(&dev->status_lock);
 	spin_lock_init(&dev->irq_lock);
-	__skb_queue_head_init(&dev->status_list);
 
 	return dev;
 }
@@ -440,7 +438,6 @@ int mt7603_register_device(struct mt7603_dev *dev)
 	wiphy->iface_combinations = if_comb;
 	wiphy->n_iface_combinations = ARRAY_SIZE(if_comb);
 
-	ieee80211_hw_set(hw, REPORTS_TX_ACK_STATUS);
 	ieee80211_hw_set(hw, SUPPORTS_REORDERING_BUFFER);
 
 	/* init led callbacks */
@@ -472,7 +469,6 @@ void mt7603_unregister_device(struct mt7603_dev *dev)
 {
 	tasklet_disable(&dev->pre_tbtt_tasklet);
 	mt76_unregister_device(&dev->mt76);
-	mt7603_mac_status_skb(dev, NULL, -1);
 	mt7603_mcu_exit(dev);
 	mt7603_dma_cleanup(dev);
 	ieee80211_free_hw(mt76_hw(dev));

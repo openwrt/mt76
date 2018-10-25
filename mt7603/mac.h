@@ -253,7 +253,4 @@ enum mt7603_tx_header_format {
 #define MT_TXS4_F0_SEQNO		GENMASK(11, 0)
 #define MT_TXS4_F1_TSSI			GENMASK(11, 0)
 
-#define MT_PID_NOACK			GENMASK(7, 0)
-#define MT_PID_INDEX			GENMASK(7, 0)
-
 #endif

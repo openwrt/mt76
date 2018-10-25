@@ -42,7 +42,6 @@
 
 #define MT7603_PRE_TBTT_TIME	5000 /* ms */
 
-#define MT7603_STATUS_TIMEOUT	(10 * HZ)
 #define MT7603_WATCHDOG_TIME	100 /* ms */
 #define MT7603_WATCHDOG_TIMEOUT	10 /* number of checks */
 
@@ -70,8 +69,6 @@ struct mt7603_sta {
 	int n_rates;
 	bool rate_probe;
 
-	int pid;
-
 	int ampdu_count;
 	int ampdu_tx_count;
 	int ampdu_acked;
@@ -83,10 +80,6 @@ struct mt7603_vif {
 	struct mt7603_sta sta;
 };
 
-#define MT7603_CB_DMA_DONE		BIT(0)
-#define MT7603_CB_TXS_DONE		BIT(1)
-#define MT7603_CB_TXS_FAILED	BIT(2)
-
 enum mt7603_reset_cause {
 	RESET_CAUSE_TX_HANG,
 	RESET_CAUSE_TX_BUSY,
@@ -94,13 +87,6 @@ enum mt7603_reset_cause {
 	RESET_CAUSE_BEACON_STUCK,
 	RESET_CAUSE_RX_PSE_BUSY,
 	__RESET_CAUSE_MAX
-};
-
-struct mt7603_cb {
-	unsigned long jiffies;
-	u8 wcid;
-	u8 pktid;
-	u8 flags;
 };
 
 struct mt7603_dev {
@@ -116,9 +102,6 @@ struct mt7603_dev {
 	u8 vif_mask;
 	unsigned long wcid_mask[MT7603_WTBL_SIZE / BITS_PER_LONG];
 	struct mt76_wcid __rcu *wcid[MT7603_WTBL_SIZE];
-
-	spinlock_t status_lock;
-	struct sk_buff_head status_list;
 
 	struct mt7603_sta global_sta;
 
@@ -173,17 +156,6 @@ static inline bool is_mt7628(struct mt7603_dev *dev)
 /* need offset to prevent conflict with ampdu_ack_len */
 #define MT_RATE_DRIVER_DATA_OFFSET	4
 
-static inline struct mt7603_cb *mt7603_skb_cb(struct sk_buff *skb)
-{
-	BUILD_BUG_ON(offsetof(struct ieee80211_tx_info, status.ampdu_len) >=
-		     (offsetof(struct ieee80211_tx_info, rate_driver_data) +
-		      MT_RATE_DRIVER_DATA_OFFSET));
-	BUILD_BUG_ON(sizeof(struct mt7603_cb) + MT_RATE_DRIVER_DATA_OFFSET >
-		     IEEE80211_TX_INFO_RATE_DRIVER_DATA_SIZE);
-	return ((void *) IEEE80211_SKB_CB(skb)->rate_driver_data) +
-	       MT_RATE_DRIVER_DATA_OFFSET;
-}
-
 u32 mt7603_reg_map(struct mt7603_dev *dev, u32 addr);
 
 struct mt7603_dev *mt7603_alloc_device(struct device *pdev);
@@ -220,8 +192,6 @@ void mt7603_mac_set_timing(struct mt7603_dev *dev);
 void mt7603_beacon_set_timer(struct mt7603_dev *dev, int idx, int intval);
 int mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb);
 void mt7603_mac_add_txs(struct mt7603_dev *dev, void *data);
-struct sk_buff *mt7603_mac_status_skb(struct mt7603_dev *dev,
-				      struct mt7603_sta *sta, int pktid);
 void mt7603_mac_rx_ba_reset(struct mt7603_dev *dev, void *addr, u8 tid);
 void mt7603_mac_tx_ba_reset(struct mt7603_dev *dev, int wcid, int tid, int ssn,
 			    int ba_size);
