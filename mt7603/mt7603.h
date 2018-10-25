@@ -61,18 +61,6 @@ enum mt7603_bw {
 	MT_BW_80,
 };
 
-struct mt7603_mcu {
-	struct mutex mutex;
-
-	wait_queue_head_t wait;
-	struct sk_buff_head res_q;
-
-	struct mt76_queue q_rx;
-	u32 msg_seq;
-
-	bool running;
-};
-
 struct mt7603_sta {
 	struct mt76_wcid wcid; /* must be first */
 
@@ -145,8 +133,9 @@ struct mt7603_dev {
 	ktime_t survey_time;
 	int beacon_int;
 
-	struct mt7603_mcu mcu;
 	struct mt76_queue q_rx;
+
+	bool mcu_running;
 
 	u8 beacon_mask;
 

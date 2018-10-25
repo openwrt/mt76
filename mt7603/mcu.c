@@ -45,37 +45,39 @@ static struct sk_buff *mt7603_mcu_msg_alloc(const void *data, int len)
 
 void mt7603_mcu_rx_event(struct mt7603_dev *dev, struct sk_buff *skb)
 {
-	skb_queue_tail(&dev->mcu.res_q, skb);
-	wake_up(&dev->mcu.wait);
+	skb_queue_tail(&dev->mt76.mmio.mcu.res_q, skb);
+	wake_up(&dev->mt76.mmio.mcu.wait);
 }
 
 static struct sk_buff *
 mt7603_mcu_get_response(struct mt7603_dev *dev, unsigned long expires)
 {
+	struct mt76_dev *mdev = &dev->mt76;
 	unsigned long timeout;
 
 	if (!time_is_after_jiffies(expires))
 		return NULL;
 
 	timeout = expires - jiffies;
-	wait_event_timeout(dev->mcu.wait, !skb_queue_empty(&dev->mcu.res_q),
+	wait_event_timeout(mdev->mmio.mcu.wait, !skb_queue_empty(&mdev->mmio.mcu.res_q),
 			   timeout);
-	return skb_dequeue(&dev->mcu.res_q);
+	return skb_dequeue(&mdev->mmio.mcu.res_q);
 }
 
 static int
 __mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd, int query, int *wait_seq)
 {
-	int hdrlen = dev->mcu.running ? sizeof(struct mt7603_mcu_txd) : 12;
+	int hdrlen = dev->mcu_running ? sizeof(struct mt7603_mcu_txd) : 12;
+	struct mt76_dev *mdev = &dev->mt76;
 	struct mt7603_mcu_txd *txd;
 	u8 seq;
 
 	if (!skb)
 		return -EINVAL;
 
-	seq = ++dev->mcu.msg_seq & 0xf;
+	seq = ++mdev->mmio.mcu.msg_seq & 0xf;
 	if (!seq)
-		seq = ++dev->mcu.msg_seq & 0xf;
+		seq = ++mdev->mmio.mcu.msg_seq & 0xf;
 
 	txd = (struct mt7603_mcu_txd *) skb_push(skb, hdrlen);
 	memset(txd, 0, hdrlen);
@@ -109,11 +111,12 @@ static int
 mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd, int query,
 		    struct sk_buff **skb_ret)
 {
+	struct mt76_dev *mdev = &dev->mt76;
 	unsigned long expires = jiffies + HZ;
 	struct mt7603_mcu_rxd *rxd;
 	int ret, seq;
 
-	mutex_lock(&dev->mcu.mutex);
+	mutex_lock(&mdev->mmio.mcu.mutex);
 
 	ret = __mt7603_mcu_msg_send(dev, skb, cmd, query, &seq);
 	if (ret)
@@ -143,7 +146,7 @@ mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd, int qu
 	}
 
 out:
-	mutex_unlock(&dev->mcu.mutex);
+	mutex_unlock(&mdev->mmio.mcu.mutex);
 
 	return ret;
 }
@@ -301,7 +304,7 @@ running:
 	mt76_set(dev, MT_SCH_4, BIT(8));
 	mt76_clear(dev, MT_SCH_4, BIT(8));
 
-	dev->mcu.running = true;
+	dev->mcu_running = true;
 	printk("firmware init done\n");
 
 out:
@@ -312,18 +315,14 @@ out:
 
 int mt7603_mcu_init(struct mt7603_dev *dev)
 {
-	mutex_init(&dev->mcu.mutex);
+	mutex_init(&dev->mt76.mmio.mcu.mutex);
 	return mt7603_load_firmware(dev);
 }
 
 void mt7603_mcu_exit(struct mt7603_dev *dev)
 {
-	struct sk_buff *skb;
-
 	mt7603_mcu_restart(dev);
-
-	while ((skb = skb_dequeue(&dev->mcu.res_q)) != NULL)
-		dev_kfree_skb(skb);
+	skb_queue_purge(&dev->mt76.mmio.mcu.res_q);
 }
 
 int mt7603_mcu_set_eeprom(struct mt7603_dev *dev)

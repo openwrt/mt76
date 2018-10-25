@@ -135,8 +135,8 @@ int mt7603_dma_init(struct mt7603_dev *dev)
 
 	mt76_dma_attach(&dev->mt76);
 
-	init_waitqueue_head(&dev->mcu.wait);
-	skb_queue_head_init(&dev->mcu.res_q);
+	init_waitqueue_head(&dev->mt76.mmio.mcu.wait);
+	skb_queue_head_init(&dev->mt76.mmio.mcu.res_q);
 
 	tasklet_init(&dev->tx_tasklet, mt7603_tx_tasklet, (unsigned long) dev);
 
