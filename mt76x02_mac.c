@@ -459,6 +459,9 @@ void mt76x02_send_tx_status(struct mt76x02_dev *dev,
 		priv = msta = container_of(wcid, struct mt76x02_sta, wcid);
 		status.sta = container_of(priv, struct ieee80211_sta,
 					  drv_priv);
+	}
+
+	if (wcid) {
 		if (stat->pktid)
 			status.skb = mt76_tx_status_skb_get(mdev, wcid,
 							    stat->pktid);

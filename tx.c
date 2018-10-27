@@ -143,7 +143,7 @@ mt76_tx_status_skb_add(struct mt76_dev *dev, struct mt76_wcid *wcid,
 	struct mt76_tx_cb *cb = mt76_tx_skb_cb(skb);
 	int pid;
 
-	if (!wcid || !wcid->sta)
+	if (!wcid)
 		return 0;
 
 	if (info->flags & IEEE80211_TX_CTL_NO_ACK)
