@@ -1,4 +1,4 @@
-EXTRA_CFLAGS += -Werror
+EXTRA_CFLAGS += -Werror -DCONFIG_MT76_LEDS
 
 obj-m := mt76.o
 obj-$(CONFIG_MT7603E) += mt7603/
