@@ -333,6 +333,7 @@ mt7603_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	int i;
 
 	mutex_lock(&dev->mutex);
+	mt76_tx_status_check(&dev->mt76, &msta->wcid, true);
 	rcu_assign_pointer(dev->wcid[idx], NULL);
 	mt7603_wtbl_clear(dev, idx);
 

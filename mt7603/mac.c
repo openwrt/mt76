@@ -983,13 +983,14 @@ mt7603_mac_add_txs_skb(struct mt7603_dev *dev, struct mt7603_sta *sta, int pid,
 		       __le32 *txs_data)
 {
 	struct mt76_dev *mdev = &dev->mt76;
+	struct sk_buff_head list;
 	struct sk_buff *skb;
 
 	if (!pid)
 		return false;
 
-	spin_lock_bh(&mdev->status_list.lock);
-	skb = mt76_tx_status_skb_get(mdev, &sta->wcid, pid);
+	mt76_tx_status_lock(mdev, &list);
+	skb = mt76_tx_status_skb_get(mdev, &sta->wcid, pid, &list);
 	if (skb) {
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 
@@ -1002,9 +1003,9 @@ mt7603_mac_add_txs_skb(struct mt7603_dev *dev, struct mt7603_sta *sta, int pid,
 			spin_unlock_bh(&dev->mt76.lock);
 		}
 		mt7603_fill_txs(dev, sta, info, txs_data);
-		mt76_tx_status_skb_done(mdev, skb);
+		mt76_tx_status_skb_done(mdev, skb, &list);
 	}
-	spin_unlock_bh(&mdev->status_list.lock);
+	mt76_tx_status_unlock(mdev, &list);
 
 	return !!skb;
 }
@@ -1303,7 +1304,7 @@ void mt7603_mac_work(struct work_struct *work)
 	struct mt7603_dev *dev = container_of(work, struct mt7603_dev, mac_work.work);
 	bool reset = false;
 
-	mt76_tx_status_check(&dev->mt76);
+	mt76_tx_status_check(&dev->mt76, NULL, false);
 
 	mutex_lock(&dev->mutex);
 
