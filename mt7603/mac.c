@@ -816,8 +816,9 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 		bool stbc = info->flags & IEEE80211_TX_CTL_STBC;
 		u16 rateval = mt7603_mac_tx_rate_val(dev, rate, stbc, &bw);
 
-		val = MT_TXD6_FIXED_RATE |
-		      MT_TXD6_FIXED_BW |
+		txwi[2] |= cpu_to_le32(MT_TXD2_FIX_RATE);
+
+		val = MT_TXD6_FIXED_BW |
 		      FIELD_PREP(MT_TXD6_BW, bw) |
 		      FIELD_PREP(MT_TXD6_TX_RATE, rateval);
 		txwi[6] |= cpu_to_le32(val);
