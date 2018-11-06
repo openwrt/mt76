@@ -54,7 +54,6 @@ enum mt7603_eeprom_field {
 
 	MT_EE_TX_POWER_1_START_5G =		0x080,
 
-
 	MT_EE_TX_POWER_CCK =			0x0a0,
 	MT_EE_TX_POWER_OFDM_2G_6M =		0x0a2,
 	MT_EE_TX_POWER_OFDM_2G_24M =		0x0a4,

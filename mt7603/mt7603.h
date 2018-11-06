@@ -39,7 +39,7 @@
 
 #define MT7603_EEPROM_SIZE	1024
 
-#define MT_AGG_SIZE_LIMIT(n)	((4 + 2 * (n & 1)) << (n / 2))
+#define MT_AGG_SIZE_LIMIT(n)	((4 + 2 * ((n) & 1)) << ((n) / 2))
 
 #define MT7603_PRE_TBTT_TIME	5000 /* ms */
 
@@ -66,13 +66,14 @@ struct mt7603_sta {
 
 	struct mt7603_vif *vif;
 	struct ieee80211_tx_rate rates[8];
-	int rate_count;
-	int n_rates;
-	bool rate_probe;
+	u8 rate_count;
+	u8 n_rates;
 
-	int ampdu_count;
-	int ampdu_tx_count;
-	int ampdu_acked;
+	u8 rate_probe;
+
+	u8 ampdu_count;
+	u8 ampdu_tx_count;
+	u8 ampdu_acked;
 };
 
 struct mt7603_vif {
@@ -114,7 +115,7 @@ struct mt7603_dev {
 
 	struct mt76_queue q_rx;
 
-	bool mcu_running;
+	u8 mcu_running;
 
 	u8 beacon_mask;
 
@@ -198,7 +199,8 @@ int mt7603_mcu_set_channel(struct mt7603_dev *dev);
 int mt7603_mcu_set_eeprom(struct mt7603_dev *dev);
 void mt7603_mcu_exit(struct mt7603_dev *dev);
 
-void mt7603_wtbl_init(struct mt7603_dev *dev, int idx, int vif, const u8 *mac_addr);
+void mt7603_wtbl_init(struct mt7603_dev *dev, int idx, int vif,
+		      const u8 *mac_addr);
 void mt7603_wtbl_clear(struct mt7603_dev *dev, int idx);
 void mt7603_wtbl_update_cap(struct mt7603_dev *dev, struct ieee80211_sta *sta);
 void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta,

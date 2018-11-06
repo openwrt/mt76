@@ -56,10 +56,10 @@ mt7603_txq_init(struct mt7603_dev *dev, struct ieee80211_txq *txq)
 
 	mtxq = (struct mt76_txq *) txq->drv_priv;
 	if (txq->sta) {
-		struct mt7603_sta *sta = (struct mt7603_sta *) txq->sta->drv_priv;
+		struct mt7603_sta *sta = (struct mt7603_sta *)txq->sta->drv_priv;
 		mtxq->wcid = &sta->wcid;
 	} else {
-		struct mt7603_vif *mvif = (struct mt7603_vif *) txq->vif->drv_priv;
+		struct mt7603_vif *mvif = (struct mt7603_vif *)txq->vif->drv_priv;
 		mtxq->wcid = &mvif->sta.wcid;
 	}
 
@@ -69,7 +69,7 @@ mt7603_txq_init(struct mt7603_dev *dev, struct ieee80211_txq *txq)
 static int
 mt7603_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
-	struct mt7603_vif *mvif = (struct mt7603_vif *) vif->drv_priv;
+	struct mt7603_vif *mvif = (struct mt7603_vif *)vif->drv_priv;
 	struct mt7603_dev *dev = hw->priv;
 	u8 bc_addr[ETH_ALEN];
 	int idx;
@@ -110,7 +110,7 @@ out:
 static void
 mt7603_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
-	struct mt7603_vif *mvif = (struct mt7603_vif *) vif->drv_priv;
+	struct mt7603_vif *mvif = (struct mt7603_vif *)vif->drv_priv;
 	struct mt7603_dev *dev = hw->priv;
 	int idx = mvif->sta.wcid.idx;
 
@@ -158,7 +158,8 @@ mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 
 	memcpy(dev->rssi_offset, rssi_data, sizeof(dev->rssi_offset));
 
-	idx |= (def->chan - mt76_hw(dev)->wiphy->bands[def->chan->band]->channels) << 1;
+	idx |= (def->chan -
+		mt76_hw(dev)->wiphy->bands[def->chan->band]->channels) << 1;
 	mt76_wr(dev, MT_WF_RMAC_CH_FREQ, idx);
 	mt7603_mac_start(dev);
 	mt7603_mac_set_timing(dev);
@@ -190,7 +191,6 @@ mt7603_config(struct ieee80211_hw *hw, u32 changed)
 	struct mt7603_dev *dev = hw->priv;
 	int ret = 0;
 
-
 	if (changed & IEEE80211_CONF_CHANGE_CHANNEL)
 		ret = mt7603_set_channel(dev, &hw->conf.chandef);
 
@@ -207,13 +207,12 @@ mt7603_config(struct ieee80211_hw *hw, u32 changed)
 		mutex_unlock(&dev->mt76.mutex);
 	}
 
-
 	return ret;
 }
 
 static void
 mt7603_configure_filter(struct ieee80211_hw *hw, unsigned int changed_flags,
-		      unsigned int *total_flags, u64 multicast)
+			unsigned int *total_flags, u64 multicast)
 {
 	struct mt7603_dev *dev = hw->priv;
 	u32 flags = 0;
@@ -256,7 +255,7 @@ mt7603_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			struct ieee80211_bss_conf *info, u32 changed)
 {
 	struct mt7603_dev *dev = hw->priv;
-	struct mt7603_vif *mvif = (struct mt7603_vif *) vif->drv_priv;
+	struct mt7603_vif *mvif = (struct mt7603_vif *)vif->drv_priv;
 
 	mutex_lock(&dev->mt76.mutex);
 
@@ -280,6 +279,7 @@ mt7603_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	if (changed & (BSS_CHANGED_BEACON_ENABLED | BSS_CHANGED_BEACON_INT)) {
 		int beacon_int = !!info->enable_beacon * info->beacon_int;
+
 		tasklet_disable(&dev->pre_tbtt_tasklet);
 		mt7603_beacon_set_timer(dev, mvif->idx, beacon_int);
 		tasklet_enable(&dev->pre_tbtt_tasklet);
@@ -290,11 +290,11 @@ mt7603_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 static int
 mt7603_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-	     struct ieee80211_sta *sta)
+	       struct ieee80211_sta *sta)
 {
 	struct mt7603_dev *dev = hw->priv;
-	struct mt7603_sta *msta = (struct mt7603_sta *) sta->drv_priv;
-	struct mt7603_vif *mvif = (struct mt7603_vif *) vif->drv_priv;
+	struct mt7603_sta *msta = (struct mt7603_sta *)sta->drv_priv;
+	struct mt7603_vif *mvif = (struct mt7603_vif *)vif->drv_priv;
 	int i, idx;
 	int ret = 0;
 
@@ -327,10 +327,10 @@ out:
 
 static int
 mt7603_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-		struct ieee80211_sta *sta)
+		  struct ieee80211_sta *sta)
 {
 	struct mt7603_dev *dev = hw->priv;
-	struct mt7603_sta *msta = (struct mt7603_sta *) sta->drv_priv;
+	struct mt7603_sta *msta = (struct mt7603_sta *)sta->drv_priv;
 	int idx = msta->wcid.idx;
 	int i;
 
@@ -353,7 +353,7 @@ void
 mt7603_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps)
 {
 	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
-	struct mt7603_sta *msta = (struct mt7603_sta *) sta->drv_priv;
+	struct mt7603_sta *msta = (struct mt7603_sta *)sta->drv_priv;
 	int idx = msta->wcid.idx;
 
 	mt76_stop_tx_queues(&dev->mt76, sta, false);
@@ -362,12 +362,12 @@ mt7603_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps)
 
 static int
 mt7603_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
-	     struct ieee80211_vif *vif, struct ieee80211_sta *sta,
-	     struct ieee80211_key_conf *key)
+	       struct ieee80211_vif *vif, struct ieee80211_sta *sta,
+	       struct ieee80211_key_conf *key)
 {
 	struct mt7603_dev *dev = hw->priv;
-	struct mt7603_vif *mvif = (struct mt7603_vif *) vif->drv_priv;
-	struct mt7603_sta *msta = sta ? (struct mt7603_sta *) sta->drv_priv :
+	struct mt7603_vif *mvif = (struct mt7603_vif *)vif->drv_priv;
+	struct mt7603_sta *msta = sta ? (struct mt7603_sta *)sta->drv_priv :
 				  &mvif->sta;
 	struct mt76_wcid *wcid = &msta->wcid;
 	int idx = key->keyidx;
@@ -410,7 +410,7 @@ mt7603_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 
 static int
 mt7603_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif, u16 queue,
-	     const struct ieee80211_tx_queue_params *params)
+	       const struct ieee80211_tx_queue_params *params)
 {
 	struct mt7603_dev *dev = hw->priv;
 	u16 cw_min = (1 << 5) - 1;
@@ -454,7 +454,8 @@ mt7603_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif, u16 queue,
 }
 
 static void
-mt7603_sw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif, const u8 *mac)
+mt7603_sw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+	       const u8 *mac)
 {
 	struct mt7603_dev *dev = hw->priv;
 
@@ -473,7 +474,7 @@ mt7603_sw_scan_complete(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 static void
 mt7603_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-	   u32 queues, bool drop)
+	     u32 queues, bool drop)
 {
 }
 
@@ -491,7 +492,7 @@ mt7603_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct mt7603_dev *dev = hw->priv;
 	struct ieee80211_sta *sta = params->sta;
 	struct ieee80211_txq *txq = sta->txq[params->tid];
-	struct mt7603_sta *msta = (struct mt7603_sta *) sta->drv_priv;
+	struct mt7603_sta *msta = (struct mt7603_sta *)sta->drv_priv;
 	u16 tid = params->tid;
 	u16 *ssn = &params->ssn;
 	u8 ba_size = params->buf_size;
@@ -538,10 +539,10 @@ mt7603_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 static void
 mt7603_sta_rate_tbl_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-			 struct ieee80211_sta *sta)
+			   struct ieee80211_sta *sta)
 {
 	struct mt7603_dev *dev = hw->priv;
-	struct mt7603_sta *msta = (struct mt7603_sta *) sta->drv_priv;
+	struct mt7603_sta *msta = (struct mt7603_sta *)sta->drv_priv;
 	struct ieee80211_sta_rates *sta_rates = rcu_dereference(sta->rates);
 	int i;
 
@@ -561,9 +562,10 @@ mt7603_sta_rate_tbl_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 }
 
 static void mt7603_set_coverage_class(struct ieee80211_hw *hw,
-				    s16 coverage_class)
+				      s16 coverage_class)
 {
 	struct mt7603_dev *dev = hw->priv;
+
 	dev->coverage_class = coverage_class;
 	mt7603_mac_set_timing(dev);
 }
@@ -571,7 +573,7 @@ static void mt7603_set_coverage_class(struct ieee80211_hw *hw,
 static void mt7603_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
 		      struct sk_buff *skb)
 {
-	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_vif *vif = info->control.vif;
 	struct mt7603_dev *dev = hw->priv;

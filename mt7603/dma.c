@@ -27,7 +27,8 @@ mt7603_tx_queue_mcu(struct mt7603_dev *dev, enum mt76_txq_id qid,
 	struct mt76_queue_buf buf;
 	dma_addr_t addr;
 
-	addr = dma_map_single(dev->mt76.dev, skb->data, skb->len, DMA_TO_DEVICE);
+	addr = dma_map_single(dev->mt76.dev, skb->data, skb->len,
+			      DMA_TO_DEVICE);
 	if (dma_mapping_error(dev->mt76.dev, addr))
 		return -ENOMEM;
 
@@ -43,7 +44,7 @@ mt7603_tx_queue_mcu(struct mt7603_dev *dev, enum mt76_txq_id qid,
 
 static int
 mt7603_init_tx_queue(struct mt7603_dev *dev, struct mt76_queue *q,
-		   int idx, int n_desc)
+		     int idx, int n_desc)
 {
 	int ret;
 
@@ -64,13 +65,13 @@ void mt7603_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 			 struct sk_buff *skb)
 {
 	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
-	__le32 *rxd = (__le32 *) skb->data;
-	__le32 *end = (__le32 *) &skb->data[skb->len];
+	__le32 *rxd = (__le32 *)skb->data;
+	__le32 *end = (__le32 *)&skb->data[skb->len];
 	enum rx_pkt_type type;
 
 	type = FIELD_GET(MT_RXD0_PKT_TYPE, le32_to_cpu(rxd[0]));
 
-	switch(type) {
+	switch (type) {
 	case PKT_TYPE_TXS:
 		for (rxd++; rxd + 5 <= end; rxd += 5)
 			mt7603_mac_add_txs(dev, rxd);
@@ -93,7 +94,7 @@ void mt7603_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 
 static int
 mt7603_init_rx_queue(struct mt7603_dev *dev, struct mt76_queue *q,
-		   int idx, int n_desc, int bufsize)
+		     int idx, int n_desc, int bufsize)
 {
 	int ret;
 
@@ -113,7 +114,7 @@ mt7603_init_rx_queue(struct mt7603_dev *dev, struct mt76_queue *q,
 static void
 mt7603_tx_tasklet(unsigned long data)
 {
-	struct mt7603_dev *dev = (struct mt7603_dev *) data;
+	struct mt7603_dev *dev = (struct mt7603_dev *)data;
 	int i;
 
 	dev->tx_dma_check = 0;
@@ -139,7 +140,7 @@ int mt7603_dma_init(struct mt7603_dev *dev)
 	init_waitqueue_head(&dev->mt76.mmio.mcu.wait);
 	skb_queue_head_init(&dev->mt76.mmio.mcu.res_q);
 
-	tasklet_init(&dev->tx_tasklet, mt7603_tx_tasklet, (unsigned long) dev);
+	tasklet_init(&dev->tx_tasklet, mt7603_tx_tasklet, (unsigned long)dev);
 
 	mt76_clear(dev, MT_WPDMA_GLO_CFG,
 		   MT_WPDMA_GLO_CFG_TX_DMA_EN |
@@ -150,8 +151,9 @@ int mt7603_dma_init(struct mt7603_dev *dev)
 	mt76_wr(dev, MT_WPDMA_RST_IDX, ~0);
 
 	for (i = 0; i < ARRAY_SIZE(wmm_queue_map); i++) {
-		ret = mt7603_init_tx_queue(dev, &dev->mt76.q_tx[i], wmm_queue_map[i],
-					 MT_TX_RING_SIZE);
+		ret = mt7603_init_tx_queue(dev, &dev->mt76.q_tx[i],
+					   wmm_queue_map[i],
+					   MT_TX_RING_SIZE);
 		if (ret)
 			return ret;
 	}

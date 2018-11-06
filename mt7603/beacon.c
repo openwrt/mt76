@@ -27,8 +27,8 @@ struct beacon_bc_data {
 static void
 mt7603_update_beacon_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 {
-	struct mt7603_dev *dev = (struct mt7603_dev *) priv;
-	struct mt7603_vif *mvif = (struct mt7603_vif *) vif->drv_priv;
+	struct mt7603_dev *dev = (struct mt7603_dev *)priv;
+	struct mt7603_vif *mvif = (struct mt7603_vif *)vif->drv_priv;
 	struct sk_buff *skb = NULL;
 
 	if (!(dev->beacon_mask & BIT(mvif->idx)))
@@ -39,7 +39,7 @@ mt7603_update_beacon_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 		return;
 
 	mt76_dma_tx_queue_skb(&dev->mt76, &dev->mt76.q_tx[MT_TXQ_BEACON], skb,
-			  &mvif->sta.wcid, NULL);
+			      &mvif->sta.wcid, NULL);
 }
 
 static void
@@ -47,7 +47,7 @@ mt7603_add_buffered_bc(void *priv, u8 *mac, struct ieee80211_vif *vif)
 {
 	struct beacon_bc_data *data = priv;
 	struct mt7603_dev *dev = data->dev;
-	struct mt7603_vif *mvif = (struct mt7603_vif *) vif->drv_priv;
+	struct mt7603_vif *mvif = (struct mt7603_vif *)vif->drv_priv;
 	struct ieee80211_tx_info *info;
 	struct sk_buff *skb;
 
@@ -78,7 +78,7 @@ void mt7603_tbtt(struct mt7603_dev *dev)
 
 void mt7603_pre_tbtt_tasklet(unsigned long arg)
 {
-	struct mt7603_dev *dev = (struct mt7603_dev *) arg;
+	struct mt7603_dev *dev = (struct mt7603_dev *)arg;
 	struct mt76_queue *q;
 	struct beacon_bc_data data = {};
 	struct sk_buff *skb;
@@ -122,9 +122,10 @@ void mt7603_pre_tbtt_tasklet(unsigned long arg)
 	while ((skb = __skb_dequeue(&data.q)) != NULL) {
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 		struct ieee80211_vif *vif = info->control.vif;
-		struct mt7603_vif *mvif = (struct mt7603_vif *) vif->drv_priv;
+		struct mt7603_vif *mvif = (struct mt7603_vif *)vif->drv_priv;
 
-		mt76_dma_tx_queue_skb(&dev->mt76, q, skb, &mvif->sta.wcid, NULL);
+		mt76_dma_tx_queue_skb(&dev->mt76, q, skb, &mvif->sta.wcid,
+				      NULL);
 	}
 	mt76_queue_kick(dev, q);
 	spin_unlock_bh(&q->lock);

@@ -31,6 +31,7 @@ void mt7603_set_irq_mask(struct mt7603_dev *dev, u32 clear, u32 set)
 void mt7603_rx_poll_complete(struct mt76_dev *mdev, enum mt76_rxq_id q)
 {
 	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
+
 	mt7603_irq_enable(dev, MT_INT_RX_DONE(q));
 }
 
@@ -49,6 +50,7 @@ irqreturn_t mt7603_irq_handler(int irq, void *dev_instance)
 
 	if (intr & MT_INT_MAC_IRQ3) {
 		u32 hwintr = mt76_rr(dev, MT_HW_INT_STATUS(3));
+
 		mt76_wr(dev, MT_HW_INT_STATUS(3), hwintr);
 		if (hwintr & MT_HW_INT3_PRE_TBTT0)
 			tasklet_schedule(&dev->pre_tbtt_tasklet);

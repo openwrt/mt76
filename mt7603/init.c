@@ -307,14 +307,14 @@ mt7603_init_hardware(struct mt7603_dev *dev)
 #define CCK_RATE(_idx, _rate) {					\
 	.bitrate = _rate,					\
 	.flags = IEEE80211_RATE_SHORT_PREAMBLE,			\
-	.hw_value = (MT_PHY_TYPE_CCK << 8) | _idx,		\
+	.hw_value = (MT_PHY_TYPE_CCK << 8) | (_idx),		\
 	.hw_value_short = (MT_PHY_TYPE_CCK << 8) | (4 + _idx),	\
 }
 
 #define OFDM_RATE(_idx, _rate) {				\
 	.bitrate = _rate,					\
-	.hw_value = (MT_PHY_TYPE_OFDM << 8) | _idx,		\
-	.hw_value_short = (MT_PHY_TYPE_OFDM << 8) | _idx,	\
+	.hw_value = (MT_PHY_TYPE_OFDM << 8) | (_idx),		\
+	.hw_value_short = (MT_PHY_TYPE_OFDM << 8) | (_idx),	\
 }
 
 static struct ieee80211_rate mt7603_rates[] = {
@@ -413,9 +413,9 @@ int mt7603_register_device(struct mt7603_dev *dev)
 	struct wiphy *wiphy = hw->wiphy;
 	int ret;
 
-
 	INIT_DELAYED_WORK(&dev->mac_work, mt7603_mac_work);
-	tasklet_init(&dev->pre_tbtt_tasklet, mt7603_pre_tbtt_tasklet, (unsigned long) dev);
+	tasklet_init(&dev->pre_tbtt_tasklet, mt7603_pre_tbtt_tasklet,
+		     (unsigned long)dev);
 
 	dev->rx_chains = 2;
 	dev->tx_chains = 2;

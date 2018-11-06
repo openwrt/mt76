@@ -54,7 +54,7 @@ mt76pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	dev->mt76.rev = (mt76_rr(dev, MT_HW_CHIPID) << 16) |
 			(mt76_rr(dev, MT_HW_REV) & 0xff);
-	dev_printk(KERN_INFO, dev->mt76.dev, "ASIC revision: %04x\n", dev->mt76.rev);
+	dev_info(dev->mt76.dev, "ASIC revision: %04x\n", dev->mt76.rev);
 
 	ret = devm_request_irq(dev->mt76.dev, pdev->irq, mt7603_irq_handler,
 			       IRQF_SHARED, KBUILD_MODNAME, dev);

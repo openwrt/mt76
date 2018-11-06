@@ -44,8 +44,8 @@ mt7603_efuse_read(struct mt7603_dev *dev, u32 base, u16 addr, u8 *data)
 	}
 
 	for (i = 0; i < 4; i++) {
-	    val = mt76_rr(dev, base + MT_EFUSE_RDATA(i));
-	    put_unaligned_le32(val, data + 4 * i);
+		val = mt76_rr(dev, base + MT_EFUSE_RDATA(i));
+		put_unaligned_le32(val, data + 4 * i);
 	}
 
 	return 0;
@@ -101,7 +101,6 @@ mt7603_has_cal_free_data(struct mt7603_dev *dev, u8 *efuse)
 	return true;
 }
 
-
 static void
 mt7603_apply_cal_free_data(struct mt7603_dev *dev, u8 *efuse)
 {
@@ -121,17 +120,17 @@ mt7603_apply_cal_free_data(struct mt7603_dev *dev, u8 *efuse)
 	int i;
 
 	if (!mt7603_has_cal_free_data(dev, efuse))
-	    return;
+		return;
 
 	if (is_mt7628(dev))
 		n -= 2;
 
 	for (i = 0; i < n; i++) {
-	    int offset = cal_free_bytes[i];
-	    eeprom[offset] = efuse[offset];
+		int offset = cal_free_bytes[i];
+
+		eeprom[offset] = efuse[offset];
 	}
 }
-
 
 static int
 mt7603_eeprom_load(struct mt7603_dev *dev)
@@ -157,7 +156,6 @@ static int mt7603_check_eeprom(struct mt76_dev *dev)
 		return -EINVAL;
 	}
 }
-
 
 int mt7603_eeprom_init(struct mt7603_dev *dev)
 {

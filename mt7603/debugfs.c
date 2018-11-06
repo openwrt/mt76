@@ -34,7 +34,8 @@ mt7603_reset_read(struct seq_file *s, void *data)
 		if (!reset_cause_str[i])
 			continue;
 
-		seq_printf(s, "%20s: %u\n", reset_cause_str[i], dev->reset_cause[i]);
+		seq_printf(s, "%20s: %u\n", reset_cause_str[i],
+			   dev->reset_cause[i]);
 	}
 
 	return 0;
@@ -49,5 +50,6 @@ void mt7603_init_debugfs(struct mt7603_dev *dev)
 		return;
 
 	debugfs_create_u32("reset_test", 0600, dir, &dev->reset_test);
-	debugfs_create_devm_seqfile(dev->mt76.dev, "reset", dir, mt7603_reset_read);
+	debugfs_create_devm_seqfile(dev->mt76.dev, "reset", dir,
+				    mt7603_reset_read);
 }

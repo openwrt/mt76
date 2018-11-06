@@ -134,10 +134,10 @@ enum rx_pkt_type {
 #define MT_RXV6_NF0			GENMASK(7, 0)
 
 enum mt7603_tx_header_format {
-    MT_HDR_FORMAT_802_3,
-    MT_HDR_FORMAT_CMD,
-    MT_HDR_FORMAT_802_11,
-    MT_HDR_FORMAT_802_11_EXT,
+	MT_HDR_FORMAT_802_3,
+	MT_HDR_FORMAT_CMD,
+	MT_HDR_FORMAT_802_11,
+	MT_HDR_FORMAT_802_11_EXT,
 };
 
 #define MT_TXD_SIZE			(8 * 4)

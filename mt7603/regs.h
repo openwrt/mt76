@@ -43,7 +43,7 @@
 #define MT_INT_RX_DONE(_n)		BIT(_n)
 #define MT_INT_RX_DONE_ALL		GENMASK(1, 0)
 #define MT_INT_TX_DONE_ALL		GENMASK(19, 4)
-#define MT_INT_TX_DONE(_n)		BIT(_n + 4)
+#define MT_INT_TX_DONE(_n)		BIT((_n) + 4)
 
 #define MT_INT_RX_COHERENT		BIT(20)
 #define MT_INT_TX_COHERENT		BIT(21)
@@ -158,16 +158,16 @@
 #define MT_AGG_ARCR_RATE_UP_EXTRA_TH	GENMASK(22, 20)
 #define MT_AGG_ARCR_SPE_DIS_TH		GENMASK(27, 24)
 
-
 #define MT_AGG_ARUCR			MT_WF_AGG(0x014)
 #define MT_AGG_ARDCR			MT_WF_AGG(0x018)
-#define MT_AGG_ARxCR_LIMIT_SHIFT(_n)	(4 * _n)
-#define MT_AGG_ARxCR_LIMIT(_n)		GENMASK(2 + MT_AGG_ARxCR_LIMIT_SHIFT(_n), \
+#define MT_AGG_ARxCR_LIMIT_SHIFT(_n)	(4 * (_n))
+#define MT_AGG_ARxCR_LIMIT(_n)		GENMASK(2 + \
+						MT_AGG_ARxCR_LIMIT_SHIFT(_n), \
 						MT_AGG_ARxCR_LIMIT_SHIFT(_n))
 
 #define MT_AGG_LIMIT			MT_WF_AGG(0x040)
 #define MT_AGG_LIMIT_1			MT_WF_AGG(0x044)
-#define MT_AGG_LIMIT_AC(n)		GENMASK(((n) + 1) * 8 - 1, (n) * 8)
+#define MT_AGG_LIMIT_AC(_n)		GENMASK(((_n) + 1) * 8 - 1, (_n) * 8)
 
 #define MT_AGG_BA_SIZE_LIMIT_0		MT_WF_AGG(0x048)
 #define MT_AGG_BA_SIZE_LIMIT_1		MT_WF_AGG(0x04c)
@@ -244,7 +244,7 @@
 
 #define MT_ARB_SCR			MT_WF_ARB(0x080)
 #define MT_ARB_SCR_BCNQ_OPMODE_MASK	GENMASK(1, 0)
-#define MT_ARB_SCR_BCNQ_OPMODE_SHIFT(n)	(n * 2)
+#define MT_ARB_SCR_BCNQ_OPMODE_SHIFT(n)	((n) * 2)
 #define MT_ARB_SCR_TX_DISABLE		BIT(8)
 #define MT_ARB_SCR_RX_DISABLE		BIT(9)
 #define MT_ARB_SCR_BCNQ_EMPTY_SKIP	BIT(28)
@@ -321,7 +321,7 @@ enum {
 
 #define MT_WMM_TXOP_BASE		MT_WF_TMAC(0x010)
 #define MT_WMM_TXOP(_n)			(MT_WMM_TXOP_BASE + (((_n) / 2) << 2))
-#define MT_WMM_TXOP_SHIFT(_n)		((_n & 1) * 16)
+#define MT_WMM_TXOP_SHIFT(_n)		(((_n) & 1) * 16)
 #define MT_WMM_TXOP_MASK		GENMASK(15, 0)
 
 #define MT_TIMEOUT_CCK			MT_WF_TMAC(0x090)
@@ -376,12 +376,12 @@ enum {
 #define MT_WF_RFCR_DROP_NDPA		BIT(20)
 #define MT_WF_RFCR_DROP_UNWANTED_CTL	BIT(21)
 
-#define MT_BSSID0(idx)			MT_WF_RMAC(0x004 + idx * 8)
-#define MT_BSSID1(idx)			MT_WF_RMAC(0x008 + idx * 8)
+#define MT_BSSID0(idx)			MT_WF_RMAC(0x004 + (idx) * 8)
+#define MT_BSSID1(idx)			MT_WF_RMAC(0x008 + (idx) * 8)
 #define MT_BSSID1_VALID			BIT(16)
 
-#define MT_MAC_ADDR0(idx)		MT_WF_RMAC(0x024 + idx * 8)
-#define MT_MAC_ADDR1(idx)		MT_WF_RMAC(0x028 + idx * 8)
+#define MT_MAC_ADDR0(idx)		MT_WF_RMAC(0x024 + (idx) * 8)
+#define MT_MAC_ADDR1(idx)		MT_WF_RMAC(0x028 + (idx) * 8)
 #define MT_MAC_ADDR1_ADDR		GENMASK(15, 0)
 #define MT_MAC_ADDR1_VALID		BIT(16)
 
@@ -525,13 +525,16 @@ enum {
 #define MT_LED_STATUS_0(_n)		MT_LED_PHYS(0x10 + ((_n) * 8))
 #define MT_LED_STATUS_1(_n)		MT_LED_PHYS(0x14 + ((_n) * 8))
 #define MT_LED_STATUS_OFF_MASK		GENMASK(31, 24)
-#define MT_LED_STATUS_OFF(_v)		(((_v) << __ffs(MT_LED_STATUS_OFF_MASK)) & \
+#define MT_LED_STATUS_OFF(_v)		(((_v) << \
+					  __ffs(MT_LED_STATUS_OFF_MASK)) & \
 					 MT_LED_STATUS_OFF_MASK)
 #define MT_LED_STATUS_ON_MASK		GENMASK(23, 16)
-#define MT_LED_STATUS_ON(_v)		(((_v) << __ffs(MT_LED_STATUS_ON_MASK)) & \
+#define MT_LED_STATUS_ON(_v)		(((_v) << \
+					  __ffs(MT_LED_STATUS_ON_MASK)) & \
 					 MT_LED_STATUS_ON_MASK)
 #define MT_LED_STATUS_DURATION_MASK	GENMASK(15, 0)
-#define MT_LED_STATUS_DURATION(_v)	(((_v) << __ffs(MT_LED_STATUS_DURATION_MASK)) & \
+#define MT_LED_STATUS_DURATION(_v)	(((_v) << \
+					  __ffs(MT_LED_STATUS_DURATION_MASK)) &\
 					 MT_LED_STATUS_DURATION_MASK)
 
 #define MT_CLIENT_BASE_PHYS_ADDR	0x800c0000
@@ -545,7 +548,6 @@ enum {
 #define MT_CLIENT_RESET_TX_R_E_2	BIT(17)
 #define MT_CLIENT_RESET_TX_R_E_1_S	BIT(20)
 #define MT_CLIENT_RESET_TX_R_E_2_S	BIT(21)
-
 
 #define MT_EFUSE_BASE			0x81070000
 
@@ -633,7 +635,6 @@ enum {
 #define MT_WTBL1_W4_WTBL3_ENTRY_ID	GENMASK(16, 11)
 #define MT_WTBL1_W4_WTBL4_ENTRY_ID	GENMASK(22, 17)
 #define MT_WTBL1_W4_PARTIAL_AID		GENMASK(31, 23)
-
 
 #define MT_WTBL2_W0_PN_LO		GENMASK(31, 0)
 
@@ -723,6 +724,5 @@ enum mt7603_cipher_type {
 	MT_CIPHER_WEP128,
 	MT_CIPHER_WAPI,
 };
-
 
 #endif
