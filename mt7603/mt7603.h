@@ -127,6 +127,8 @@ struct mt7603_dev {
 	u16 tx_dma_idx[4];
 	u16 rx_dma_idx;
 
+	u32 reset_test;
+
 	unsigned int reset_cause[__RESET_CAUSE_MAX];
 
 	struct delayed_work mac_work;

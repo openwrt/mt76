@@ -1265,6 +1265,11 @@ mt7603_watchdog_check(struct mt7603_dev *dev, u8 *counter,
 		      enum mt7603_reset_cause cause,
 		      bool (*check)(struct mt7603_dev *dev))
 {
+	if (dev->reset_test == cause + 1) {
+		dev->reset_test = 0;
+		goto trigger;
+	}
+
 	if (check) {
 		if (!check(dev) && *counter < MT7603_WATCHDOG_TIMEOUT) {
 			*counter = 0;
@@ -1276,7 +1281,7 @@ mt7603_watchdog_check(struct mt7603_dev *dev, u8 *counter,
 
 	if (*counter < MT7603_WATCHDOG_TIMEOUT)
 		return false;
-
+trigger:
 	dev->reset_cause[cause]++;
 	return true;
 }
