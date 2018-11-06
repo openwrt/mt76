@@ -891,13 +891,16 @@ static bool
 mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 		struct ieee80211_tx_info *info, __le32 *txs_data)
 {
+	struct ieee80211_supported_band *sband;
 	int final_idx = 0;
 	u32 final_rate;
+	u32 final_rate_flags;
 	bool final_mpdu;
 	bool ack_timeout;
 	bool fixed_rate;
 	bool probe;
 	bool ampdu;
+	bool cck = false;
 	int count;
 	u32 txs;
 	u8 pid;
@@ -952,7 +955,7 @@ mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 
 	if (fixed_rate && !probe) {
 		info->status.rates[0].count = count;
-		return true;
+		goto out;
 	}
 
 	for (i = 0, idx = 0; i < ARRAY_SIZE(info->status.rates); i++) {
@@ -980,8 +983,35 @@ mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 		count -= cur_count;
 	}
 
-	if (sta->rates[final_idx].flags & IEEE80211_TX_RC_MCS)
-		info->status.rates[final_idx].idx = final_rate & GENMASK(5, 0);
+out:
+	final_rate_flags = info->status.rates[final_idx].flags;
+
+	switch (FIELD_GET(MT_TX_RATE_MODE, final_rate)) {
+	case MT_PHY_TYPE_CCK:
+		cck = true;
+		/* fall through */
+	case MT_PHY_TYPE_OFDM:
+		if (dev->mt76.chandef.chan->band == NL80211_BAND_5GHZ)
+			sband = &dev->mt76.sband_5g.sband;
+		else
+			sband = &dev->mt76.sband_2g.sband;
+		final_rate &= GENMASK(5, 0);
+		final_rate = mt7603_get_rate(dev, sband, final_rate, cck);
+		final_rate_flags = 0;
+		break;
+	case MT_PHY_TYPE_HT_GF:
+	case MT_PHY_TYPE_HT:
+		final_rate_flags |= IEEE80211_TX_RC_MCS;
+		final_rate &= GENMASK(5, 0);
+		if (i > 15)
+			return false;
+		break;
+	default:
+		return false;
+	}
+
+	info->status.rates[final_idx].idx = final_rate;
+	info->status.rates[final_idx].flags = final_rate_flags;
 
 	return true;
 }
