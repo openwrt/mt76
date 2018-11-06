@@ -41,7 +41,6 @@ struct mt7603_dev *mt7603_alloc_device(struct device *pdev)
 	mdev->dev = pdev;
 	mdev->drv = &drv_ops;
 
-	mutex_init(&dev->mutex);
 	spin_lock_init(&dev->irq_lock);
 
 	return dev;

@@ -92,8 +92,6 @@ enum mt7603_reset_cause {
 struct mt7603_dev {
 	struct mt76_dev mt76; /* must be first */
 
-	struct mutex mutex;
-
 	u32 irqmask;
 	spinlock_t irq_lock;
 
