@@ -20,11 +20,11 @@ void mt7603_set_irq_mask(struct mt7603_dev *dev, u32 clear, u32 set)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&dev->irq_lock, flags);
-	dev->irqmask &= ~clear;
-	dev->irqmask |= set;
-	mt76_wr(dev, MT_INT_MASK_CSR, dev->irqmask);
-	spin_unlock_irqrestore(&dev->irq_lock, flags);
+	spin_lock_irqsave(&dev->mt76.mmio.irq_lock, flags);
+	dev->mt76.mmio.irqmask &= ~clear;
+	dev->mt76.mmio.irqmask |= set;
+	mt76_wr(dev, MT_INT_MASK_CSR, dev->mt76.mmio.irqmask);
+	spin_unlock_irqrestore(&dev->mt76.mmio.irq_lock, flags);
 }
 
 void mt7603_rx_poll_complete(struct mt76_dev *mdev, enum mt76_rxq_id q)
@@ -44,7 +44,7 @@ irqreturn_t mt7603_irq_handler(int irq, void *dev_instance)
 	if (!test_bit(MT76_STATE_INITIALIZED, &dev->mt76.state))
 		return IRQ_NONE;
 
-	intr &= dev->irqmask;
+	intr &= dev->mt76.mmio.irqmask;
 
 	if (intr & MT_INT_MAC_IRQ3) {
 		u32 hwintr = mt76_rr(dev, MT_HW_INT_STATUS(3));

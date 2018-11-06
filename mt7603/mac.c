@@ -1130,7 +1130,7 @@ void mt7603_mac_stop(struct mt7603_dev *dev)
 static void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 {
 	int beacon_int = dev->beacon_int;
-	u32 mask = dev->irqmask;
+	u32 mask = dev->mt76.mmio.irqmask;
 	int i;
 
 	ieee80211_stop_queues(dev->mt76.hw);
