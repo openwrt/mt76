@@ -145,7 +145,7 @@ mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 	mt76_rmw_field(dev, MT_AGG_BWCR, MT_AGG_BWCR_BW, bw);
 	ret = mt7603_mcu_set_channel(dev);
 	if (ret)
-		return ret;
+		goto out;
 
 	if (def->chan->band == NL80211_BAND_5GHZ) {
 		idx = 1;
@@ -177,9 +177,10 @@ mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 
 	dev->survey_time = ktime_get_boottime();
 
+out:
 	mutex_unlock(&dev->mt76.mutex);
 
-	return 0;
+	return ret;
 }
 
 static int
