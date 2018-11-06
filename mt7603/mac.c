@@ -1145,6 +1145,9 @@ static void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 	napi_disable(&dev->mt76.napi[1]);
 
 	mutex_lock(&dev->mt76.mutex);
+
+	mt7603_mac_stop(dev);
+
 	mt76_clear(dev, MT_WPDMA_GLO_CFG,
 		   MT_WPDMA_GLO_CFG_RX_DMA_EN | MT_WPDMA_GLO_CFG_TX_DMA_EN |
 		   MT_WPDMA_GLO_CFG_TX_WRITEBACK_DONE);
