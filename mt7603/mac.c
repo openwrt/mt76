@@ -1375,12 +1375,16 @@ void mt7603_mac_work(struct work_struct *work)
 	    mt7603_watchdog_check(dev, &dev->beacon_check,
 				  RESET_CAUSE_BEACON_STUCK,
 				  NULL) ||
+	    mt7603_watchdog_check(dev, &dev->mcu_hang,
+				  RESET_CAUSE_MCU_HANG,
+				  NULL) ||
 	    dev->pse_reset_failed) {
 		dev->beacon_check = 0;
 		dev->tx_dma_check = 0;
 		dev->tx_hang_check = 0;
 		dev->rx_dma_check = 0;
 		dev->rx_pse_check = 0;
+		dev->mcu_hang = 0;
 		dev->rx_dma_idx = ~0;
 		memset(dev->tx_dma_idx, 0xff, sizeof(dev->tx_dma_idx));
 		reset = true;

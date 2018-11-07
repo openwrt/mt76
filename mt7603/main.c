@@ -27,11 +27,10 @@ mt7603_start(struct ieee80211_hw *hw)
 {
 	struct mt7603_dev *dev = hw->priv;
 
-	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mac_work,
-				     MT7603_WATCHDOG_TIME);
 	mt7603_mac_start(dev);
 	dev->survey_time = ktime_get_boottime();
 	set_bit(MT76_STATE_RUNNING, &dev->mt76.state);
+	mt7603_mac_work(&dev->mac_work.work);
 
 	return 0;
 }
@@ -130,6 +129,7 @@ mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 	u8 *rssi_data = (u8 *) dev->mt76.eeprom.data;
 	int idx, ret;
 	u8 bw = MT_BW_20;
+	bool failed = true;
 
 	cancel_delayed_work_sync(&dev->mac_work);
 
@@ -145,8 +145,10 @@ mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 	dev->mt76.chandef = *def;
 	mt76_rmw_field(dev, MT_AGG_BWCR, MT_AGG_BWCR_BW, bw);
 	ret = mt7603_mcu_set_channel(dev);
-	if (ret)
+	if (ret) {
+		failed = true;
 		goto out;
+	}
 
 	if (def->chan->band == NL80211_BAND_5GHZ) {
 		idx = 1;
@@ -181,6 +183,9 @@ mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 
 out:
 	mutex_unlock(&dev->mt76.mutex);
+
+	if (failed)
+		mt7603_mac_work(&dev->mac_work.work);
 
 	return ret;
 }

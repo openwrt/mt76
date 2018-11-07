@@ -88,6 +88,7 @@ enum mt7603_reset_cause {
 	RESET_CAUSE_RX_BUSY,
 	RESET_CAUSE_BEACON_STUCK,
 	RESET_CAUSE_RX_PSE_BUSY,
+	RESET_CAUSE_MCU_HANG,
 	__RESET_CAUSE_MAX
 };
 
@@ -124,6 +125,7 @@ struct mt7603_dev {
 	u8 tx_dma_check;
 	u8 rx_dma_check;
 	u8 rx_pse_check;
+	u8 mcu_hang;
 	u8 pse_reset_failed;
 
 	u16 tx_dma_idx[4];
