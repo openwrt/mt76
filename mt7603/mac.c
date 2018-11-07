@@ -1240,6 +1240,38 @@ void mt7603_mac_stop(struct mt7603_dev *dev)
 	mt76_clear(dev, MT_WF_ARB_RQCR, MT_WF_ARB_RQCR_RX_START);
 }
 
+static void mt7603_pse_client_reset(struct mt7603_dev *dev)
+{
+	u32 addr;
+
+	addr = mt7603_reg_map(dev, MT_CLIENT_BASE_PHYS_ADDR +
+				   MT_CLIENT_RESET_TX);
+
+	/* Clear previous reset state */
+	mt76_clear(dev, addr,
+		   MT_CLIENT_RESET_TX_R_E_1 |
+		   MT_CLIENT_RESET_TX_R_E_2 |
+		   MT_CLIENT_RESET_TX_R_E_1_S |
+		   MT_CLIENT_RESET_TX_R_E_2_S);
+
+	/* Start PSE client TX abort */
+	mt76_set(dev, addr, MT_CLIENT_RESET_TX_R_E_1);
+	mt76_poll_msec(dev, addr, MT_CLIENT_RESET_TX_R_E_1_S,
+		       MT_CLIENT_RESET_TX_R_E_1_S, 500);
+
+	mt76_set(dev, addr, MT_CLIENT_RESET_TX_R_E_2);
+	mt76_set(dev, MT_WPDMA_GLO_CFG, MT_WPDMA_GLO_CFG_SW_RESET);
+
+	/* Wait for PSE client to clear TX FIFO */
+	mt76_poll_msec(dev, addr, MT_CLIENT_RESET_TX_R_E_2_S,
+		       MT_CLIENT_RESET_TX_R_E_2_S, 500);
+
+	/* Clear PSE client TX abort state */
+	mt76_clear(dev, addr,
+		   MT_CLIENT_RESET_TX_R_E_1 |
+		   MT_CLIENT_RESET_TX_R_E_2);
+}
+
 static void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 {
 	int beacon_int = dev->beacon_int;
@@ -1274,6 +1306,8 @@ static void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 
 	mt7603_beacon_set_timer(dev, -1, 0);
 	mt76_set(dev, MT_WPDMA_GLO_CFG, MT_WPDMA_GLO_CFG_FORCE_TX_EOF);
+
+	mt7603_pse_client_reset(dev);
 
 	for (i = 0; i < ARRAY_SIZE(dev->mt76.q_tx); i++)
 		mt76_queue_tx_cleanup(dev, i, true);
