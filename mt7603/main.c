@@ -129,7 +129,7 @@ mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 	u8 *rssi_data = (u8 *) dev->mt76.eeprom.data;
 	int idx, ret;
 	u8 bw = MT_BW_20;
-	bool failed = true;
+	bool failed = false;
 
 	cancel_delayed_work_sync(&dev->mac_work);
 
