@@ -335,21 +335,8 @@ mt7603_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		  struct ieee80211_sta *sta)
 {
 	struct mt7603_dev *dev = hw->priv;
-	struct mt7603_sta *msta = (struct mt7603_sta *)sta->drv_priv;
-	int idx = msta->wcid.idx;
-	int i;
 
-	mutex_lock(&dev->mt76.mutex);
-	mt76_tx_status_check(&dev->mt76, &msta->wcid, true);
-	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
-	mt7603_wtbl_clear(dev, idx);
-
-	for (i = 0; i < ARRAY_SIZE(sta->txq); i++)
-		mt76_txq_remove(&dev->mt76, sta->txq[i]);
-
-	mt76_wcid_free(dev->mt76.wcid_mask, idx);
-
-	mutex_unlock(&dev->mt76.mutex);
+	mt76_sta_remove(&dev->mt76, vif, sta);
 
 	return 0;
 }
