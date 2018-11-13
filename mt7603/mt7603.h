@@ -98,8 +98,6 @@ struct mt7603_dev {
 	u32 rxfilter;
 
 	u8 vif_mask;
-	unsigned long wcid_mask[MT7603_WTBL_SIZE / BITS_PER_LONG];
-	struct mt76_wcid __rcu *wcid[MT7603_WTBL_SIZE];
 
 	struct mt7603_sta global_sta;
 

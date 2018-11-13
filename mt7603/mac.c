@@ -361,10 +361,10 @@ mt7603_rx_get_wcid(struct mt7603_dev *dev, u8 idx, bool unicast)
 	struct mt7603_sta *sta;
 	struct mt76_wcid *wcid;
 
-	if (idx >= ARRAY_SIZE(dev->wcid))
+	if (idx >= ARRAY_SIZE(dev->mt76.wcid))
 		return NULL;
 
-	wcid = rcu_dereference(dev->wcid[idx]);
+	wcid = rcu_dereference(dev->mt76.wcid[idx]);
 	if (unicast || !wcid)
 		return wcid;
 
@@ -1068,12 +1068,12 @@ void mt7603_mac_add_txs(struct mt7603_dev *dev, void *data)
 	if (pid == MT_PACKET_ID_NO_ACK)
 		return;
 
-	if (wcidx >= ARRAY_SIZE(dev->wcid))
+	if (wcidx >= ARRAY_SIZE(dev->mt76.wcid))
 		return;
 
 	rcu_read_lock();
 
-	wcid = rcu_dereference(dev->wcid[wcidx]);
+	wcid = rcu_dereference(dev->mt76.wcid[wcidx]);
 	if (!wcid)
 		goto out;
 

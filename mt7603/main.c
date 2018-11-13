@@ -97,7 +97,7 @@ mt7603_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	mt7603_wtbl_init(dev, idx, mvif->idx, bc_addr);
 	mt7603_wtbl_set_ps(dev, idx, false);
 
-	rcu_assign_pointer(dev->wcid[idx], &mvif->sta.wcid);
+	rcu_assign_pointer(dev->mt76.wcid[idx], &mvif->sta.wcid);
 	mt7603_txq_init(dev, vif->txq);
 
 out:
@@ -115,7 +115,7 @@ mt7603_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 	mt7603_beacon_set_timer(dev, mvif->idx, 0);
 
-	rcu_assign_pointer(dev->wcid[idx], NULL);
+	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
 	mt76_txq_remove(&dev->mt76, vif->txq);
 
 	mutex_lock(&dev->mt76.mutex);
@@ -305,7 +305,7 @@ mt7603_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	mutex_lock(&dev->mt76.mutex);
 
-	idx = mt76_wcid_alloc(dev->wcid_mask, MT7603_WTBL_STA - 1);
+	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7603_WTBL_STA - 1);
 	if (idx < 0) {
 		ret = -ENOSPC;
 		goto out;
@@ -322,7 +322,7 @@ mt7603_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	if (vif->type == NL80211_IFTYPE_AP)
 		set_bit(MT_WCID_FLAG_CHECK_PS, &msta->wcid.flags);
 
-	rcu_assign_pointer(dev->wcid[idx], &msta->wcid);
+	rcu_assign_pointer(dev->mt76.wcid[idx], &msta->wcid);
 
 out:
 	mutex_unlock(&dev->mt76.mutex);
@@ -341,13 +341,13 @@ mt7603_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	mutex_lock(&dev->mt76.mutex);
 	mt76_tx_status_check(&dev->mt76, &msta->wcid, true);
-	rcu_assign_pointer(dev->wcid[idx], NULL);
+	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
 	mt7603_wtbl_clear(dev, idx);
 
 	for (i = 0; i < ARRAY_SIZE(sta->txq); i++)
 		mt76_txq_remove(&dev->mt76, sta->txq[i]);
 
-	mt76_wcid_free(dev->wcid_mask, idx);
+	mt76_wcid_free(dev->mt76.wcid_mask, idx);
 
 	mutex_unlock(&dev->mt76.mutex);
 
