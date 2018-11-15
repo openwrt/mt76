@@ -77,9 +77,9 @@ struct mt7603_sta {
 };
 
 struct mt7603_vif {
-	u8 idx;
+	struct mt7603_sta sta; /* must be first */
 
-	struct mt7603_sta sta;
+	u8 idx;
 };
 
 enum mt7603_reset_cause {
