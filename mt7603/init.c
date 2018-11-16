@@ -29,6 +29,7 @@ struct mt7603_dev *mt7603_alloc_device(struct device *pdev)
 		.rx_skb = mt7603_queue_rx_skb,
 		.rx_poll_complete = mt7603_rx_poll_complete,
 		.sta_ps = mt7603_sta_ps,
+		.sta_add = mt7603_sta_add,
 		.update_survey = mt7603_update_channel,
 	};
 	struct mt7603_dev *dev;

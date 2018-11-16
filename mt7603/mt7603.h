@@ -222,6 +222,8 @@ void mt7603_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 			 struct sk_buff *skb);
 void mt7603_rx_poll_complete(struct mt76_dev *mdev, enum mt76_rxq_id q);
 void mt7603_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps);
+int mt7603_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+		   struct ieee80211_sta *sta);
 
 void mt7603_tbtt(struct mt7603_dev *dev);
 void mt7603_pre_tbtt_tasklet(unsigned long arg);

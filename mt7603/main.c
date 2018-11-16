@@ -293,26 +293,19 @@ mt7603_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	mutex_unlock(&dev->mt76.mutex);
 }
 
-static int
-mt7603_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+int
+mt7603_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	       struct ieee80211_sta *sta)
 {
-	struct mt7603_dev *dev = hw->priv;
+	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
 	struct mt7603_sta *msta = (struct mt7603_sta *)sta->drv_priv;
 	struct mt7603_vif *mvif = (struct mt7603_vif *)vif->drv_priv;
-	int i, idx;
+	int idx;
 	int ret = 0;
 
-	mutex_lock(&dev->mt76.mutex);
-
 	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7603_WTBL_STA - 1);
-	if (idx < 0) {
-		ret = -ENOSPC;
-		goto out;
-	}
-
-	for (i = 0; i < ARRAY_SIZE(sta->txq); i++)
-		mt7603_txq_init(dev, sta->txq[i]);
+	if (idx < 0)
+		return -ENOSPC;
 
 	msta->wcid.sta = 1;
 	msta->wcid.idx = idx;
@@ -322,23 +315,7 @@ mt7603_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	if (vif->type == NL80211_IFTYPE_AP)
 		set_bit(MT_WCID_FLAG_CHECK_PS, &msta->wcid.flags);
 
-	rcu_assign_pointer(dev->mt76.wcid[idx], &msta->wcid);
-
-out:
-	mutex_unlock(&dev->mt76.mutex);
-
 	return ret;
-}
-
-static int
-mt7603_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-		  struct ieee80211_sta *sta)
-{
-	struct mt7603_dev *dev = hw->priv;
-
-	mt76_sta_remove(&dev->mt76, vif, sta);
-
-	return 0;
 }
 
 void
@@ -607,8 +584,7 @@ const struct ieee80211_ops mt7603_ops = {
 	.config = mt7603_config,
 	.configure_filter = mt7603_configure_filter,
 	.bss_info_changed = mt7603_bss_info_changed,
-	.sta_add = mt7603_sta_add,
-	.sta_remove = mt7603_sta_remove,
+	.sta_state = mt76_sta_state,
 	.set_key = mt7603_set_key,
 	.conf_tx = mt7603_conf_tx,
 	.sw_scan_start = mt7603_sw_scan,
