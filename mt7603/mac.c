@@ -885,8 +885,9 @@ int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	if (!wcid) {
 		wcid = &dev->global_sta.wcid;
 	} else {
-		if (info->flags & (IEEE80211_TX_CTL_NO_PS_BUFFER |
-				   IEEE80211_TX_CTL_CLEAR_PS_FILT))
+		if ((info->flags & (IEEE80211_TX_CTL_NO_PS_BUFFER |
+				    IEEE80211_TX_CTL_CLEAR_PS_FILT)) &&
+		    test_bit(MT_WCID_FLAG_PS, &wcid->flags))
 			mt7603_wtbl_set_skip_tx(dev, wcid->idx, false);
 	}
 
