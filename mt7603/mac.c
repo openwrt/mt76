@@ -118,10 +118,16 @@ void mt7603_wtbl_init(struct mt7603_dev *dev, int idx, int vif,
 {
 	const void *_mac = mac_addr;
 	u32 addr = mt7603_wtbl1_addr(idx);
-	u32 w0;
+	u32 w0 = 0, w1 = 0;
 	int i;
 
-	w0 = FIELD_PREP(MT_WTBL1_W0_ADDR_HI, get_unaligned_le16(_mac + 4));
+	if (_mac) {
+		w0 = FIELD_PREP(MT_WTBL1_W0_ADDR_HI,
+				get_unaligned_le16(_mac + 4));
+		w1 = FIELD_PREP(MT_WTBL1_W1_ADDR_LO,
+				get_unaligned_le32(_mac));
+	}
+
 	if (vif < 0)
 		vif = 0;
 	else
@@ -131,8 +137,7 @@ void mt7603_wtbl_init(struct mt7603_dev *dev, int idx, int vif,
 	mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000);
 
 	mt76_set(dev, addr + 0 * 4, w0);
-	mt76_set(dev, addr + 1 * 4,
-		 FIELD_PREP(MT_WTBL1_W1_ADDR_LO, get_unaligned_le32(_mac)));
+	mt76_set(dev, addr + 1 * 4, w1);
 	mt76_set(dev, addr + 2 * 4, MT_WTBL1_W2_ADMISSION_CONTROL);
 
 	mt76_stop_tx_ac(dev, GENMASK(3, 0));

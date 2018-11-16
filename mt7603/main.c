@@ -319,6 +319,16 @@ mt7603_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 }
 
 void
+mt7603_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+		  struct ieee80211_sta *sta)
+{
+	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
+	struct mt76_wcid *wcid = (struct mt76_wcid *) sta->drv_priv;
+
+	mt7603_wtbl_init(dev, wcid->idx, 0, NULL);
+}
+
+void
 mt7603_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps)
 {
 	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
