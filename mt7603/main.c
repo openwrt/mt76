@@ -310,6 +310,7 @@ mt7603_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	msta->wcid.sta = 1;
 	msta->wcid.idx = idx;
 	mt7603_wtbl_init(dev, idx, mvif->idx, sta->addr);
+	mt7603_wtbl_set_skip_tx(dev, idx, false);
 	mt7603_wtbl_update_cap(dev, sta);
 
 	if (vif->type == NL80211_IFTYPE_AP)
@@ -325,6 +326,7 @@ mt7603_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
 	struct mt76_wcid *wcid = (struct mt76_wcid *) sta->drv_priv;
 
+	mt7603_wtbl_set_skip_tx(dev, wcid->idx, true);
 	mt7603_wtbl_init(dev, wcid->idx, 0, NULL);
 }
 
