@@ -95,7 +95,7 @@ mt7603_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 	eth_broadcast_addr(bc_addr);
 	mt7603_wtbl_init(dev, idx, mvif->idx, bc_addr);
-	mt7603_wtbl_set_ps(dev, idx, false);
+	mt7603_wtbl_set_skip_tx(dev, idx, false);
 
 	rcu_assign_pointer(dev->mt76.wcid[idx], &mvif->sta.wcid);
 	mt7603_txq_init(dev, vif->txq);
@@ -336,7 +336,7 @@ mt7603_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps)
 	int idx = msta->wcid.idx;
 
 	mt76_stop_tx_queues(&dev->mt76, sta, false);
-	mt7603_wtbl_set_ps(dev, idx, ps);
+	mt7603_wtbl_set_skip_tx(dev, idx, ps);
 }
 
 static int
