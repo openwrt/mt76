@@ -648,6 +648,9 @@ mt76_sta_add(struct mt76_dev *dev, struct ieee80211_vif *vif,
 	for (i = 0; i < ARRAY_SIZE(sta->txq); i++) {
 		struct mt76_txq *mtxq;
 
+		if (!sta->txq[i])
+			continue;
+
 		mtxq = (struct mt76_txq *)sta->txq[i]->drv_priv;
 		mtxq->wcid = wcid;
 
