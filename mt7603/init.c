@@ -69,10 +69,11 @@ mt7603_dma_sched_init(struct mt7603_dev *dev)
 	int page_size = 128;
 	int page_count;
 	int max_len = 1792;
-	int max_amsdu_len = 4096;
+	int max_amsdu_pages = 4096 / page_size;
 	int max_mcu_len = 4096;
 	int max_beacon_len = 512 * 8 + max_len;
-	int max_mcast_count = 3;
+	int max_mcast_pages = 4 * max_len / page_size;
+	int reserved_count = 0;
 	int beacon_pages;
 	int mcu_pages;
 	int i;
@@ -99,15 +100,22 @@ mt7603_dma_sched_init(struct mt7603_dev *dev)
 	mt76_wr(dev, MT_SCH_2, max_len / page_size);
 
 	for (i = 0; i <= 4; i++)
-		mt76_wr(dev, MT_PAGE_COUNT(i), max_amsdu_len / page_size);
+		mt76_wr(dev, MT_PAGE_COUNT(i), max_amsdu_pages);
+	reserved_count += 5 * max_amsdu_pages;
 
 	mt76_wr(dev, MT_PAGE_COUNT(5), mcu_pages);
+	reserved_count += mcu_pages;
+
 	mt76_wr(dev, MT_PAGE_COUNT(7), beacon_pages);
+	reserved_count += beacon_pages;
 
-	mt76_wr(dev, MT_PAGE_COUNT(8),
-		(max_mcast_count + 1) * max_len / page_size);
+	mt76_wr(dev, MT_PAGE_COUNT(8), max_mcast_pages);
+	reserved_count += max_mcast_pages;
 
-	mt76_wr(dev, MT_RSV_MAX_THRESH, page_count);
+	if (is_mt7603(dev))
+		reserved_count = 0;
+
+	mt76_wr(dev, MT_RSV_MAX_THRESH, page_count - reserved_count);
 
 	if (is_mt7603(dev) && mt76xx_rev(dev) >= MT7603_REV_E2) {
 		mt76_wr(dev, MT_GROUP_THRESH(0),
