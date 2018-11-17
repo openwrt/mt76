@@ -97,7 +97,7 @@ mt7603_dma_sched_init(struct mt7603_dev *dev)
 	mt76_wr(dev, MT_PRIORITY_MASK, 0xffffffff);
 
 	mt76_wr(dev, MT_SCH_1, page_count | (2 << 28));
-	mt76_wr(dev, MT_SCH_2, max_len / page_size);
+	mt76_wr(dev, MT_SCH_2, max_amsdu_pages);
 
 	for (i = 0; i <= 4; i++)
 		mt76_wr(dev, MT_PAGE_COUNT(i), max_amsdu_pages);
