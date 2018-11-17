@@ -109,16 +109,16 @@ mt7603_dma_sched_init(struct mt7603_dev *dev)
 
 	mt76_wr(dev, MT_RSV_MAX_THRESH, page_count);
 
-	if (is_mt7603(dev) && mt76xx_rev(dev) < MT7603_REV_E2) {
-		mt76_wr(dev, MT_GROUP_THRESH(0), page_count);
-		mt76_wr(dev, MT_BMAP_0, 0xffff);
-	} else {
+	if (is_mt7603(dev) && mt76xx_rev(dev) >= MT7603_REV_E2) {
 		mt76_wr(dev, MT_GROUP_THRESH(0),
 			page_count - beacon_pages - mcu_pages);
 		mt76_wr(dev, MT_GROUP_THRESH(1), beacon_pages);
 		mt76_wr(dev, MT_BMAP_0, 0x0080ff5f);
 		mt76_wr(dev, MT_GROUP_THRESH(2), mcu_pages);
 		mt76_wr(dev, MT_BMAP_1, 0x00000020);
+	} else {
+		mt76_wr(dev, MT_GROUP_THRESH(0), page_count);
+		mt76_wr(dev, MT_BMAP_0, 0xffff);
 	}
 
 	mt76_wr(dev, MT_SCH_4, 0);
