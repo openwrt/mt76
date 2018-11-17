@@ -71,7 +71,7 @@ mt7603_dma_sched_init(struct mt7603_dev *dev)
 	int max_len = 1792;
 	int max_amsdu_pages = 4096 / page_size;
 	int max_mcu_len = 4096;
-	int max_beacon_len = 512 * 8 + max_len;
+	int max_beacon_len = 512 * 4 + max_len;
 	int max_mcast_pages = 4 * max_len / page_size;
 	int reserved_count = 0;
 	int beacon_pages;
