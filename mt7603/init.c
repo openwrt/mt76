@@ -417,11 +417,55 @@ static void mt7603_led_set_brightness(struct led_classdev *led_cdev,
 		mt7603_led_set_config(mt76, 0xff, 0);
 }
 
+static u32 __mt7603_reg_addr(struct mt7603_dev *dev, u32 addr)
+{
+	if (addr < 0x100000)
+		return addr;
+
+	return mt7603_reg_map(dev, addr);
+}
+
+static u32 mt7603_rr(struct mt76_dev *mdev, u32 offset)
+{
+	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
+	u32 addr = __mt7603_reg_addr(dev, offset);
+
+	return dev->bus_ops->rr(mdev, addr);
+}
+
+static void mt7603_wr(struct mt76_dev *mdev, u32 offset, u32 val)
+{
+	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
+	u32 addr = __mt7603_reg_addr(dev, offset);
+
+	dev->bus_ops->wr(mdev, addr, val);
+}
+
+static u32 mt7603_rmw(struct mt76_dev *mdev, u32 offset, u32 mask, u32 val)
+{
+	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
+	u32 addr = __mt7603_reg_addr(dev, offset);
+
+	return dev->bus_ops->rmw(mdev, addr, mask, val);
+}
+
 int mt7603_register_device(struct mt7603_dev *dev)
 {
+	struct mt76_bus_ops *bus_ops;
 	struct ieee80211_hw *hw = mt76_hw(dev);
 	struct wiphy *wiphy = hw->wiphy;
 	int ret;
+
+	dev->bus_ops = dev->mt76.bus;
+	bus_ops = devm_kmemdup(dev->mt76.dev, dev->bus_ops, sizeof(*bus_ops),
+			       GFP_KERNEL);
+	if (!bus_ops)
+		return -ENOMEM;
+
+	bus_ops->rr = mt7603_rr;
+	bus_ops->wr = mt7603_wr;
+	bus_ops->rmw = mt7603_rmw;
+	dev->mt76.bus = bus_ops;
 
 	INIT_DELAYED_WORK(&dev->mac_work, mt7603_mac_work);
 	tasklet_init(&dev->pre_tbtt_tasklet, mt7603_pre_tbtt_tasklet,

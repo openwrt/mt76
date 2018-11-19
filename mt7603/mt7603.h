@@ -95,6 +95,8 @@ enum mt7603_reset_cause {
 struct mt7603_dev {
 	struct mt76_dev mt76; /* must be first */
 
+	const struct mt76_bus_ops *bus_ops;
+
 	u32 rxfilter;
 
 	u8 vif_mask;
