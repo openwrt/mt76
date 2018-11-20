@@ -236,7 +236,6 @@ mt7603_mac_init(struct mt7603_dev *dev)
 	mt76_wr(dev, MT_DMA_TCFR1,
 		FIELD_PREP(MT_DMA_TCFR_TXS_AGGR_TIMEOUT, 1) | /* 32 us */
 		MT_DMA_TCFR_TXS_AGGR_COUNT | /* Maximum count */
-		MT_DMA_TCFR_TXS_QUEUE | /* Queue 1 */
 		MT_DMA_TCFR_TXS_BIT_MAP);
 
 	mt76_wr(dev, MT_MCU_PCIE_REMAP_1, MT_PSE_WTBL_2_PHYS_ADDR);
