@@ -285,7 +285,7 @@ mt7603_mac_init(struct mt7603_dev *dev)
 static int
 mt7603_init_hardware(struct mt7603_dev *dev)
 {
-	int ret;
+	int i, ret;
 
 	mt76_wr(dev, MT_INT_SOURCE_CSR, ~0);
 
@@ -301,6 +301,12 @@ mt7603_init_hardware(struct mt7603_dev *dev)
 	mt7603_mac_dma_start(dev);
 	dev->rxfilter = mt76_rr(dev, MT_WF_RFCR);
 	set_bit(MT76_STATE_INITIALIZED, &dev->mt76.state);
+
+	for (i = 0; i < MT7603_WTBL_SIZE; i++) {
+		mt76_wr(dev, MT_PSE_RTA, MT_PSE_RTA_BUSY | MT_PSE_RTA_WRITE |
+			FIELD_PREP(MT_PSE_RTA_TAG_ID, i));
+		mt76_poll(dev, MT_PSE_RTA, MT_PSE_RTA_BUSY, 0, 5000);
+	}
 
 	ret = mt7603_mcu_init(dev);
 	if (ret)
