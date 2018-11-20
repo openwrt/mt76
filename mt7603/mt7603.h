@@ -65,6 +65,9 @@ struct mt7603_sta {
 	struct mt76_wcid wcid; /* must be first */
 
 	struct mt7603_vif *vif;
+
+	struct sk_buff_head psq;
+
 	struct ieee80211_tx_rate rates[8];
 	u8 rate_count;
 	u8 n_rates;
@@ -74,6 +77,8 @@ struct mt7603_sta {
 	u8 ampdu_count;
 	u8 ampdu_tx_count;
 	u8 ampdu_acked;
+
+	u8 ps;
 };
 
 struct mt7603_vif {
@@ -115,6 +120,8 @@ struct mt7603_dev {
 	int beacon_int;
 
 	struct mt76_queue q_rx;
+
+	spinlock_t ps_lock;
 
 	u8 mcu_running;
 
@@ -210,8 +217,9 @@ void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta,
 			   struct ieee80211_tx_rate *rates);
 int mt7603_wtbl_set_key(struct mt7603_dev *dev, int wcid,
 			struct ieee80211_key_conf *key);
-void mt7603_wtbl_set_ps(struct mt7603_dev *dev, int idx, bool enabled);
-void mt7603_wtbl_set_skip_tx(struct mt7603_dev *dev, int idx, bool val);
+void mt7603_wtbl_set_ps(struct mt7603_dev *dev, struct mt7603_sta *sta,
+			bool enabled);
+void mt7603_filter_tx(struct mt7603_dev *dev, int idx, bool abort);
 
 int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  struct sk_buff *skb, struct mt76_queue *q,

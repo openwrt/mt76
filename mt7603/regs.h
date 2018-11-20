@@ -218,6 +218,17 @@
 
 #define MT_DMA_DCR0			MT_WF_DMA(0x000)
 #define MT_DMA_DCR1			MT_WF_DMA(0x004)
+
+#define MT_DMA_FQCR0			MT_WF_DMA(0x008)
+#define MT_DMA_FQCR0_TARGET_WCID	GENMASK(7, 0)
+#define MT_DMA_FQCR0_TARGET_BSS		GENMASK(13, 8)
+#define MT_DMA_FQCR0_TARGET_QID		GENMASK(20, 16)
+#define MT_DMA_FQCR0_DEST_PORT_ID	GENMASK(23, 22)
+#define MT_DMA_FQCR0_DEST_QUEUE_ID	GENMASK(28, 24)
+#define MT_DMA_FQCR0_MODE		BIT(29)
+#define MT_DMA_FQCR0_STATUS		BIT(30)
+#define MT_DMA_FQCR0_BUSY		BIT(31)
+
 #define MT_DMA_RCFR0			MT_WF_DMA(0x070)
 #define MT_DMA_VCFR0			MT_WF_DMA(0x07c)
 
@@ -305,6 +316,10 @@ enum {
 #define MT_WF_ARB_CAB_COUNT_B0_SHIFT(n)	(((n) > 12 ? (n) - 12 : \
 					 ((n) > 4 ? (n) - 4 : \
 					  (n) ? (n) + 3 : 0)) * 4)
+
+#define MT_TX_ABORT			MT_WF_ARB(0x134)
+#define MT_TX_ABORT_EN			BIT(0)
+#define MT_TX_ABORT_WCID		GENMASK(15, 8)
 
 #define MT_WF_TMAC_BASE			0x21600
 #define MT_WF_TMAC(ofs)			(MT_WF_TMAC_BASE + (ofs))

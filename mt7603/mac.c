@@ -156,32 +156,83 @@ void mt7603_wtbl_init(struct mt7603_dev *dev, int idx, int vif,
 		mt76_wr(dev, addr + i, 0);
 }
 
-void mt7603_wtbl_set_ps(struct mt7603_dev *dev, int idx, bool enabled)
+static void
+mt7603_wtbl_set_skip_tx(struct mt7603_dev *dev, int idx, bool enabled)
 {
 	u32 addr = mt7603_wtbl1_addr(idx);
-	u32 reg = mt76_rr(dev, addr + 3 * 4);
-	u32 val = (reg & ~MT_WTBL1_W3_POWER_SAVE) |
-		  (enabled * MT_WTBL1_W3_POWER_SAVE);
+	u32 val = mt76_rr(dev, addr + 3 * 4);
 
-	if (reg == val)
-		return;
+	val &= ~MT_WTBL1_W3_SKIP_TX;
+	val |= enabled * MT_WTBL1_W3_SKIP_TX;
 
-	mt76_set(dev, MT_WTBL1_OR, MT_WTBL1_OR_PSM_WRITE);
 	mt76_wr(dev, addr + 3 * 4, val);
-	mt76_clear(dev, MT_WTBL1_OR, MT_WTBL1_OR_PSM_WRITE);
 }
 
-void mt7603_wtbl_set_skip_tx(struct mt7603_dev *dev, int idx, bool enabled)
+void mt7603_filter_tx(struct mt7603_dev *dev, int idx, bool abort)
 {
-	u32 addr = mt7603_wtbl1_addr(idx);
-	u32 reg = mt76_rr(dev, addr + 3 * 4);
-	u32 val = (reg & ~MT_WTBL1_W3_SKIP_TX) |
-		  (enabled * MT_WTBL1_W3_SKIP_TX);
+	int i, port, queue;
 
-	if (reg == val)
-		return;
+	if (abort) {
+		port = 3; /* PSE */
+		queue = 8; /* free queue */
+	} else {
+		port = 0; /* HIF */
+		queue = 1; /* MCU queue */
+	}
 
-	mt76_wr(dev, addr + 3 * 4, val);
+	mt7603_wtbl_set_skip_tx(dev, idx, true);
+
+	mt76_wr(dev, MT_TX_ABORT, MT_TX_ABORT_EN |
+			FIELD_PREP(MT_TX_ABORT_WCID, idx));
+
+	for (i = 0; i < 4; i++) {
+		mt76_wr(dev, MT_DMA_FQCR0, MT_DMA_FQCR0_BUSY |
+			FIELD_PREP(MT_DMA_FQCR0_TARGET_WCID, idx) |
+			FIELD_PREP(MT_DMA_FQCR0_TARGET_QID, i) |
+			FIELD_PREP(MT_DMA_FQCR0_DEST_PORT_ID, port) |
+			FIELD_PREP(MT_DMA_FQCR0_DEST_QUEUE_ID, queue));
+
+		WARN_ON_ONCE(!mt76_poll(dev, MT_DMA_FQCR0, MT_DMA_FQCR0_BUSY,
+					0, 5000));
+	}
+
+	mt76_wr(dev, MT_TX_ABORT, 0);
+
+	mt7603_wtbl_set_skip_tx(dev, idx, false);
+}
+
+void mt7603_wtbl_set_ps(struct mt7603_dev *dev, struct mt7603_sta *sta,
+			bool enabled)
+{
+	int idx = sta->wcid.idx;
+	u32 addr;
+
+	spin_lock_bh(&dev->ps_lock);
+
+	if (sta->ps == enabled)
+		goto out;
+
+	mt76_wr(dev, MT_PSE_RTA,
+		FIELD_PREP(MT_PSE_RTA_TAG_ID, idx) |
+		FIELD_PREP(MT_PSE_RTA_PORT_ID, 0) |
+		FIELD_PREP(MT_PSE_RTA_QUEUE_ID, 1) |
+		FIELD_PREP(MT_PSE_RTA_REDIRECT_EN, enabled) |
+		MT_PSE_RTA_WRITE | MT_PSE_RTA_BUSY);
+
+	mt76_poll(dev, MT_PSE_RTA, MT_PSE_RTA_BUSY, 0, 5000);
+
+	if (enabled)
+		mt7603_filter_tx(dev, idx, false);
+
+	addr = mt7603_wtbl1_addr(idx);
+	mt76_set(dev, MT_WTBL1_OR, MT_WTBL1_OR_PSM_WRITE);
+	mt76_rmw(dev, addr + 3 * 4, MT_WTBL1_W3_POWER_SAVE,
+		 enabled * MT_WTBL1_W3_POWER_SAVE);
+	mt76_clear(dev, MT_WTBL1_OR, MT_WTBL1_OR_PSM_WRITE);
+	sta->ps = enabled;
+
+out:
+	spin_unlock_bh(&dev->ps_lock);
 }
 
 void mt7603_wtbl_clear(struct mt7603_dev *dev, int idx)
@@ -882,13 +933,16 @@ int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	struct ieee80211_key_conf *key = info->control.hw_key;
 	int pid;
 
-	if (!wcid) {
+	if (!wcid)
 		wcid = &dev->global_sta.wcid;
-	} else {
+
+	if (sta) {
+		msta = (struct mt7603_sta *) sta->drv_priv;
+
 		if ((info->flags & (IEEE80211_TX_CTL_NO_PS_BUFFER |
-				    IEEE80211_TX_CTL_CLEAR_PS_FILT)) &&
-		    test_bit(MT_WCID_FLAG_PS, &wcid->flags))
-			mt7603_wtbl_set_skip_tx(dev, wcid->idx, false);
+				    IEEE80211_TX_CTL_CLEAR_PS_FILT)) ||
+		    (info->control.flags & IEEE80211_TX_CTRL_PS_RESPONSE))
+			mt7603_wtbl_set_ps(dev, msta, false);
 	}
 
 	pid = mt76_tx_status_skb_add(mdev, wcid, skb);

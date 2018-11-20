@@ -95,7 +95,6 @@ mt7603_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 	eth_broadcast_addr(bc_addr);
 	mt7603_wtbl_init(dev, idx, mvif->idx, bc_addr);
-	mt7603_wtbl_set_skip_tx(dev, idx, false);
 
 	rcu_assign_pointer(dev->mt76.wcid[idx], &mvif->sta.wcid);
 	mt7603_txq_init(dev, vif->txq);
@@ -307,10 +306,12 @@ mt7603_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	if (idx < 0)
 		return -ENOSPC;
 
+	__skb_queue_head_init(&msta->psq);
+	msta->ps = ~0;
 	msta->wcid.sta = 1;
 	msta->wcid.idx = idx;
 	mt7603_wtbl_init(dev, idx, mvif->idx, sta->addr);
-	mt7603_wtbl_set_skip_tx(dev, idx, false);
+	mt7603_wtbl_set_ps(dev, msta, false);
 	mt7603_wtbl_update_cap(dev, sta);
 
 	if (vif->type == NL80211_IFTYPE_AP)
@@ -324,10 +325,24 @@ mt7603_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		  struct ieee80211_sta *sta)
 {
 	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
+	struct mt7603_sta *msta = (struct mt7603_sta *)sta->drv_priv;
 	struct mt76_wcid *wcid = (struct mt76_wcid *) sta->drv_priv;
 
-	mt7603_wtbl_set_skip_tx(dev, wcid->idx, true);
+	spin_lock_bh(&dev->ps_lock);
+	__skb_queue_purge(&msta->psq);
+	mt7603_filter_tx(dev, wcid->idx, true);
+	spin_unlock_bh(&dev->ps_lock);
+
 	mt7603_wtbl_init(dev, wcid->idx, 0, NULL);
+}
+
+static void
+mt7603_ps_tx_list(struct mt7603_dev *dev, struct sk_buff_head *list)
+{
+	struct sk_buff *skb;
+
+	while ((skb = __skb_dequeue(list)) != NULL)
+		mt7603_tx_queue_mcu(dev, skb_get_queue_mapping(skb), skb);
 }
 
 void
@@ -335,10 +350,55 @@ mt7603_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps)
 {
 	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
 	struct mt7603_sta *msta = (struct mt7603_sta *)sta->drv_priv;
-	int idx = msta->wcid.idx;
+	struct sk_buff_head list;
 
 	mt76_stop_tx_queues(&dev->mt76, sta, false);
-	mt7603_wtbl_set_skip_tx(dev, idx, ps);
+	mt7603_wtbl_set_ps(dev, msta, ps);
+	if (ps)
+		return;
+
+	__skb_queue_head_init(&list);
+
+	spin_lock_bh(&dev->ps_lock);
+	skb_queue_splice_tail_init(&msta->psq, &list);
+	spin_unlock_bh(&dev->ps_lock);
+
+	mt7603_ps_tx_list(dev, &list);
+}
+
+static void
+mt7603_release_buffered_frames(struct ieee80211_hw *hw,
+			       struct ieee80211_sta *sta,
+			       u16 tids, int nframes,
+			       enum ieee80211_frame_release_type reason,
+			       bool more_data)
+{
+	struct mt7603_dev *dev = hw->priv;
+	struct mt7603_sta *msta = (struct mt7603_sta *)sta->drv_priv;
+	struct sk_buff_head list;
+	struct sk_buff *skb, *tmp;
+
+	__skb_queue_head_init(&list);
+
+	spin_lock_bh(&dev->ps_lock);
+	skb_queue_walk_safe(&msta->psq, skb, tmp) {
+		if (!nframes)
+			break;
+
+		if (!(tids & BIT(skb->priority)))
+			continue;
+
+		skb_set_queue_mapping(skb, MT_TXQ_PSD);
+		__skb_unlink(skb, &msta->psq);
+		__skb_queue_tail(&list, skb);
+	}
+	spin_unlock_bh(&dev->ps_lock);
+
+	mt7603_ps_tx_list(dev, &list);
+
+	if (nframes)
+		mt76_release_buffered_frames(hw, sta, tids, nframes, reason,
+					     more_data);
 }
 
 static int
@@ -606,7 +666,7 @@ const struct ieee80211_ops mt7603_ops = {
 	.get_txpower = mt7603_get_txpower,
 	.wake_tx_queue = mt76_wake_tx_queue,
 	.sta_rate_tbl_update = mt7603_sta_rate_tbl_update,
-	.release_buffered_frames = mt76_release_buffered_frames,
+	.release_buffered_frames = mt7603_release_buffered_frames,
 	.set_coverage_class = mt7603_set_coverage_class,
 	.set_tim = mt7603_set_tim,
 	.get_survey = mt76_get_survey,

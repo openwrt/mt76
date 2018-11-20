@@ -61,6 +61,42 @@ mt7603_init_tx_queue(struct mt7603_dev *dev, struct mt76_queue *q,
 	return 0;
 }
 
+static void
+mt7603_rx_loopback_skb(struct mt7603_dev *dev, struct sk_buff *skb)
+{
+	__le32 *txd = (__le32 *)skb->data;
+	struct mt7603_sta *msta;
+	struct mt76_wcid *wcid;
+	int idx;
+	u32 val;
+
+	if (skb->len < sizeof(MT_TXD_SIZE) + sizeof(struct ieee80211_hdr))
+		goto free;
+
+	val = le32_to_cpu(txd[1]);
+	idx = FIELD_GET(MT_TXD1_WLAN_IDX, val);
+	skb->priority = FIELD_GET(MT_TXD1_TID, val);
+
+	if (idx >= MT7603_WTBL_STA - 1)
+		goto free;
+
+	wcid = rcu_dereference(dev->mt76.wcid[idx]);
+	if (!wcid)
+		goto free;
+
+	msta = container_of(wcid, struct mt7603_sta, wcid);
+	val = le32_to_cpu(txd[0]);
+	skb_set_queue_mapping(skb, FIELD_GET(MT_TXD0_Q_IDX, val));
+
+	spin_lock_bh(&dev->ps_lock);
+	__skb_queue_tail(&msta->psq, skb);
+	spin_unlock_bh(&dev->ps_lock);
+	return;
+
+free:
+	dev_kfree_skb(skb);
+}
+
 void mt7603_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 			 struct sk_buff *skb)
 {
@@ -70,6 +106,14 @@ void mt7603_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 	enum rx_pkt_type type;
 
 	type = FIELD_GET(MT_RXD0_PKT_TYPE, le32_to_cpu(rxd[0]));
+
+	if (q == MT_RXQ_MCU) {
+		if (type == PKT_TYPE_RX_EVENT)
+			mt7603_mcu_rx_event(dev, skb);
+		else
+			mt7603_rx_loopback_skb(dev, skb);
+		return;
+	}
 
 	switch (type) {
 	case PKT_TYPE_TXS:
