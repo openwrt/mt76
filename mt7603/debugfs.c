@@ -28,6 +28,7 @@ mt7603_reset_read(struct seq_file *s, void *data)
 		[RESET_CAUSE_RX_PSE_BUSY] = "RX PSE busy stuck",
 		[RESET_CAUSE_BEACON_STUCK] = "Beacon stuck",
 		[RESET_CAUSE_MCU_HANG] = "MCU hang",
+		[RESET_CAUSE_RESET_FAILED] = "PSE reset failed",
 	};
 	int i;
 

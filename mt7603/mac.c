@@ -1202,9 +1202,9 @@ static void mt7603_pse_reset(struct mt7603_dev *dev)
 			    MT_MCU_DEBUG_RESET_PSE_S,
 			    MT_MCU_DEBUG_RESET_PSE_S, 500)) {
 		mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE);
-		dev->pse_reset_failed++;
+		dev->reset_cause[RESET_CAUSE_RESET_FAILED]++;
 	} else {
-		dev->pse_reset_failed = 0;
+		dev->reset_cause[RESET_CAUSE_RESET_FAILED] = 0;
 	}
 
 	mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_QUEUES);
@@ -1260,7 +1260,7 @@ static void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 	mutex_lock(&dev->mt76.mutex);
 
 	mt7603_pse_reset(dev);
-	if (dev->pse_reset_failed)
+	if (dev->reset_cause[RESET_CAUSE_RESET_FAILED])
 		goto skip_dma_reset;
 
 	mt7603_mac_stop(dev);
@@ -1456,7 +1456,7 @@ void mt7603_mac_work(struct work_struct *work)
 	    mt7603_watchdog_check(dev, &dev->mcu_hang,
 				  RESET_CAUSE_MCU_HANG,
 				  NULL) ||
-	    dev->pse_reset_failed) {
+	    dev->reset_cause[RESET_CAUSE_RESET_FAILED]) {
 		dev->beacon_check = 0;
 		dev->tx_dma_check = 0;
 		dev->tx_hang_check = 0;
