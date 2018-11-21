@@ -39,7 +39,7 @@
 
 #define MT7603_EEPROM_SIZE	1024
 
-#define MT_AGG_SIZE_LIMIT(n)	((4 + 2 * ((n) & 1)) << ((n) / 2))
+#define MT_AGG_SIZE_LIMIT(_n)	(((_n) + 1) * 4)
 
 #define MT7603_PRE_TBTT_TIME	5000 /* ms */
 
