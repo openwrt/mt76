@@ -1293,7 +1293,10 @@ static void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 
 	mt7603_beacon_set_timer(dev, -1, 0);
 
-	mt7603_pse_reset(dev);
+	if (dev->reset_cause[RESET_CAUSE_RESET_FAILED] ||
+	    dev->cur_reset_cause == RESET_CAUSE_RX_PSE_BUSY)
+		mt7603_pse_reset(dev);
+
 	if (dev->reset_cause[RESET_CAUSE_RESET_FAILED])
 		goto skip_dma_reset;
 
@@ -1442,6 +1445,7 @@ mt7603_watchdog_check(struct mt7603_dev *dev, u8 *counter,
 	if (*counter < MT7603_WATCHDOG_TIMEOUT)
 		return false;
 trigger:
+	dev->cur_reset_cause = cause;
 	dev->reset_cause[cause]++;
 	return true;
 }

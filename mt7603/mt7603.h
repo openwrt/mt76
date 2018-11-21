@@ -135,6 +135,8 @@ struct mt7603_dev {
 	u8 rx_pse_check;
 	u8 mcu_hang;
 
+	enum mt7603_reset_cause cur_reset_cause;
+
 	u16 tx_dma_idx[4];
 	u16 rx_dma_idx;
 
