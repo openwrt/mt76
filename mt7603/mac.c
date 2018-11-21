@@ -1410,6 +1410,9 @@ static bool mt7603_rx_pse_busy(struct mt7603_dev *dev)
 {
 	u32 addr, val;
 
+	if (mt76_rr(dev, MT_MCU_DEBUG_RESET) & MT_MCU_DEBUG_RESET_QUEUES)
+		return true;
+
 	if (mt7603_rx_fifo_busy(dev))
 		return false;
 
