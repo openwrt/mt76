@@ -1291,6 +1291,8 @@ static void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 
 	mutex_lock(&dev->mt76.mutex);
 
+	mt7603_beacon_set_timer(dev, -1, 0);
+
 	mt7603_pse_reset(dev);
 	if (dev->reset_cause[RESET_CAUSE_RESET_FAILED])
 		goto skip_dma_reset;
@@ -1304,7 +1306,6 @@ static void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 
 	mt7603_irq_disable(dev, mask);
 
-	mt7603_beacon_set_timer(dev, -1, 0);
 	mt76_set(dev, MT_WPDMA_GLO_CFG, MT_WPDMA_GLO_CFG_FORCE_TX_EOF);
 
 	mt7603_pse_client_reset(dev);
@@ -1319,16 +1320,22 @@ static void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 
 	mt7603_irq_enable(dev, mask);
 
-	mt7603_beacon_set_timer(dev, -1, beacon_int);
-
 skip_dma_reset:
 	clear_bit(MT76_RESET, &dev->mt76.state);
 	mutex_unlock(&dev->mt76.mutex);
 
 	tasklet_enable(&dev->tx_tasklet);
+	tasklet_schedule(&dev->tx_tasklet);
+
 	tasklet_enable(&dev->pre_tbtt_tasklet);
+	mt7603_beacon_set_timer(dev, -1, beacon_int);
+
 	napi_enable(&dev->mt76.napi[0]);
+	napi_schedule(&dev->mt76.napi[0]);
+
 	napi_enable(&dev->mt76.napi[1]);
+	napi_schedule(&dev->mt76.napi[1]);
+
 	ieee80211_wake_queues(dev->mt76.hw);
 	mt76_txq_schedule_all(&dev->mt76);
 }
