@@ -333,7 +333,7 @@ mt7603_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	mt7603_filter_tx(dev, wcid->idx, true);
 	spin_unlock_bh(&dev->ps_lock);
 
-	mt7603_wtbl_init(dev, wcid->idx, 0, NULL);
+	mt7603_wtbl_clear(dev, wcid->idx);
 }
 
 static void
