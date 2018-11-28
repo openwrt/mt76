@@ -76,7 +76,7 @@ void mt7603_pre_tbtt_tasklet(unsigned long arg)
 	int i, nframes;
 
 	/* Flush all previous CAB queue packets */
-	mt76_wr(dev, MT_WF_ARB_CAB_FLUSH, GENMASK(30, 0));
+	mt76_wr(dev, MT_WF_ARB_CAB_FLUSH, GENMASK(30, 16) | BIT(0));
 
 	data.dev = dev;
 	__skb_queue_head_init(&data.q);
