@@ -1294,7 +1294,8 @@ static void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 	mt7603_beacon_set_timer(dev, -1, 0);
 
 	if (dev->reset_cause[RESET_CAUSE_RESET_FAILED] ||
-	    dev->cur_reset_cause == RESET_CAUSE_RX_PSE_BUSY)
+	    dev->cur_reset_cause == RESET_CAUSE_RX_PSE_BUSY ||
+	    dev->cur_reset_cause == RESET_CAUSE_BEACON_STUCK)
 		mt7603_pse_reset(dev);
 
 	if (dev->reset_cause[RESET_CAUSE_RESET_FAILED])
