@@ -54,8 +54,6 @@ irqreturn_t mt7603_irq_handler(int irq, void *dev_instance)
 		mt76_wr(dev, MT_HW_INT_STATUS(3), hwintr);
 		if (hwintr & MT_HW_INT3_PRE_TBTT0)
 			tasklet_schedule(&dev->pre_tbtt_tasklet);
-		if (hwintr & MT_HW_INT3_TBTT0)
-			mt7603_tbtt(dev);
 	}
 
 	if (intr & MT_INT_TX_DONE_ALL) {

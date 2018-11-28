@@ -67,15 +67,6 @@ mt7603_add_buffered_bc(void *priv, u8 *mac, struct ieee80211_vif *vif)
 	data->count[mvif->idx]++;
 }
 
-void mt7603_tbtt(struct mt7603_dev *dev)
-{
-	u32 mask = MT_WF_ARB_CAB_START_BSSn(0) |
-		   (MT_WF_ARB_CAB_START_BSS0n(1) *
-		    ((1 << (MT7603_MAX_INTERFACES - 1)) - 1));
-
-	mt76_wr(dev, MT_WF_ARB_CAB_START, mask);
-}
-
 void mt7603_pre_tbtt_tasklet(unsigned long arg)
 {
 	struct mt7603_dev *dev = (struct mt7603_dev *)arg;
@@ -134,6 +125,11 @@ void mt7603_pre_tbtt_tasklet(unsigned long arg)
 	for (i = 0; i < ARRAY_SIZE(data.count); i++)
 		mt76_wr(dev, MT_WF_ARB_CAB_COUNT(i),
 			data.count[i] << MT_WF_ARB_CAB_COUNT_B0_SHIFT(i));
+
+	mt76_wr(dev, MT_WF_ARB_CAB_START,
+		MT_WF_ARB_CAB_START_BSSn(0) |
+		(MT_WF_ARB_CAB_START_BSS0n(1) *
+		 ((1 << (MT7603_MAX_INTERFACES - 1)) - 1)));
 
 out:
 	mt76_queue_tx_cleanup(dev, MT_TXQ_BEACON, false);
