@@ -171,8 +171,8 @@ mt7603_tx_tasklet(unsigned long data)
 int mt7603_dma_init(struct mt7603_dev *dev)
 {
 	static const u8 wmm_queue_map[] = {
-		[IEEE80211_AC_BE] = 0,
-		[IEEE80211_AC_BK] = 1,
+		[IEEE80211_AC_BK] = 0,
+		[IEEE80211_AC_BE] = 1,
 		[IEEE80211_AC_VI] = 2,
 		[IEEE80211_AC_VO] = 3,
 	};
