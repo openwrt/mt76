@@ -140,8 +140,8 @@ mt7603_dma_sched_init(struct mt7603_dev *dev)
 static void
 mt7603_phy_init(struct mt7603_dev *dev)
 {
-	int rx_chains = BIT(dev->rx_chains) - 1;
-	int tx_chains = dev->tx_chains - 1;
+	int rx_chains = dev->mt76.antenna_mask;
+	int tx_chains = __sw_hweight8(rx_chains) - 1;
 
 	mt76_rmw(dev, MT_WF_RMAC_RMCR,
 		 (MT_WF_RMAC_RMCR_SMPS_MODE |
@@ -476,8 +476,11 @@ int mt7603_register_device(struct mt7603_dev *dev)
 	tasklet_init(&dev->pre_tbtt_tasklet, mt7603_pre_tbtt_tasklet,
 		     (unsigned long)dev);
 
-	dev->rx_chains = 2;
-	dev->tx_chains = 2;
+	/* Check for 7688, which only has 1SS */
+	dev->mt76.antenna_mask = 3;
+	if (mt76_rr(dev, MT_EFUSE_BASE + 0x64) & BIT(4))
+		dev->mt76.antenna_mask = 1;
+
 	dev->slottime = 9;
 
 	ret = mt7603_init_hardware(dev);
@@ -500,9 +503,6 @@ int mt7603_register_device(struct mt7603_dev *dev)
 	/* init led callbacks */
 	dev->mt76.led_cdev.brightness_set = mt7603_led_set_brightness;
 	dev->mt76.led_cdev.blink_set = mt7603_led_set_blink;
-
-	/* init antenna configuration */
-	dev->mt76.antenna_mask = 3;
 
 	wiphy->interface_modes =
 		BIT(NL80211_IFTYPE_STATION) |

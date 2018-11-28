@@ -109,9 +109,6 @@ struct mt7603_dev {
 
 	struct mt7603_sta global_sta;
 
-	u8 rx_chains;
-	u8 tx_chains;
-
 	u8 rssi_offset[3];
 
 	u8 slottime;

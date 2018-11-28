@@ -481,6 +481,7 @@ static int mt7603_mcu_set_tx_power(struct mt7603_dev *dev)
 int mt7603_mcu_set_channel(struct mt7603_dev *dev)
 {
 	struct cfg80211_chan_def *chandef = &dev->mt76.chandef;
+	int n_chains = __sw_hweight8(dev->mt76.antenna_mask);
 	struct {
 		u8 control_chan;
 		u8 center_chan;
@@ -494,8 +495,8 @@ int mt7603_mcu_set_channel(struct mt7603_dev *dev)
 		.control_chan = chandef->chan->hw_value,
 		.center_chan = chandef->chan->hw_value,
 		.bw = MT_BW_20,
-		.tx_streams = dev->tx_chains,
-		.rx_streams = dev->rx_chains,
+		.tx_streams = n_chains,
+		.rx_streams = n_chains,
 	};
 	struct sk_buff *skb;
 	int ret;
