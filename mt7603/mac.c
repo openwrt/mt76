@@ -770,6 +770,9 @@ mt7603_mac_get_key_info(struct ieee80211_key_conf *key, u8 *key_data)
 	case WLAN_CIPHER_SUITE_WEP104:
 		return MT_CIPHER_WEP104;
 	case WLAN_CIPHER_SUITE_TKIP:
+		/* Rx/Tx MIC keys are swapped */
+		memcpy(key_data + 16, key->key + 24, 8);
+		memcpy(key_data + 24, key->key + 16, 8);
 		return MT_CIPHER_TKIP;
 	case WLAN_CIPHER_SUITE_CCMP:
 		return MT_CIPHER_AES_CCMP;
