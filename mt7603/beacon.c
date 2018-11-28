@@ -106,9 +106,10 @@ void mt7603_pre_tbtt_tasklet(unsigned long arg)
 		ieee80211_iterate_active_interfaces_atomic(mt76_hw(dev),
 			IEEE80211_IFACE_ITER_RESUME_ALL,
 			mt7603_add_buffered_bc, &data);
-	} while (nframes != skb_queue_len(&data.q) && nframes < 8);
+	} while (nframes != skb_queue_len(&data.q) &&
+		 skb_queue_len(&data.q) < 8);
 
-	if (!nframes)
+	if (skb_queue_empty(&data.q))
 		goto out;
 
 	for (i = 0; i < ARRAY_SIZE(data.tail); i++) {
