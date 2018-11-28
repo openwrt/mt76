@@ -147,7 +147,7 @@
 #define MT_WF_PHY_OFFSET		0x1000
 #define MT_WF_PHY(ofs)			(MT_WF_PHY_BASE + (ofs))
 
-#define MT_WF_PHY_CR_RXTD_BASE		MT_WF_PHY(0x65c)
+#define MT_WF_PHY_CR_RXTD_BASE		MT_WF_PHY(0x600)
 #define MT_WF_PHY_CR_RXTD(n)		(MT_WF_PHY_CR_RXTD_BASE + ((n) * 4))
 
 #define MT_WF_PHY_CR_TSSI_BASE		MT_WF_PHY(0xd00)
