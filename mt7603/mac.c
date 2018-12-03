@@ -1478,6 +1478,91 @@ void mt7603_update_channel(struct mt76_dev *mdev)
 	spin_unlock_bh(&dev->mt76.cc_lock);
 }
 
+void
+mt7603_edcca_set_strict(struct mt7603_dev *dev, bool val)
+{
+	u32 rxtd_6 = 0xd7c80000;
+
+	if (val == dev->ed_strict_mode)
+		return;
+
+	dev->ed_strict_mode = val;
+
+	/* Ensure that ED/CCA does not trigger if disabled */
+	if (!dev->ed_monitor)
+		rxtd_6 |= FIELD_PREP(MT_RXTD_6_CCAED_TH, 0x34);
+	else
+		rxtd_6 |= FIELD_PREP(MT_RXTD_6_CCAED_TH, 0x7d);
+
+	if (dev->ed_monitor && !dev->ed_strict_mode)
+		rxtd_6 |= FIELD_PREP(MT_RXTD_6_ACI_TH, 0x0f);
+	else
+		rxtd_6 |= FIELD_PREP(MT_RXTD_6_ACI_TH, 0x10);
+
+	mt76_wr(dev, MT_RXTD(6), rxtd_6);
+
+	mt76_rmw_field(dev, MT_RXTD(13), MT_RXTD_13_ACI_TH_EN,
+		       dev->ed_monitor && !dev->ed_strict_mode);
+}
+
+static void
+mt7603_edcca_check(struct mt7603_dev *dev)
+{
+	u32 val = mt76_rr(dev, MT_AGC(41));
+	ktime_t cur_time;
+	int rssi0, rssi1;
+	u32 active;
+	u32 ed_busy;
+
+	if (!dev->ed_monitor)
+		return;
+
+	rssi0 = FIELD_GET(MT_AGC_41_RSSI_0, val);
+	if (rssi0 > 128)
+		rssi0 -= 256;
+
+	rssi1 = FIELD_GET(MT_AGC_41_RSSI_1, val);
+	if (rssi1 > 128)
+		rssi1 -= 256;
+
+	if (max(rssi0, rssi1) >= -40 &&
+	    dev->ed_strong_signal < MT7603_EDCCA_BLOCK_TH)
+		dev->ed_strong_signal++;
+	else if (dev->ed_strong_signal > 0)
+		dev->ed_strong_signal--;
+
+	cur_time = ktime_get_boottime();
+	ed_busy = mt76_rr(dev, MT_MIB_STAT_ED) & MT_MIB_STAT_ED_MASK;
+
+	active = ktime_to_us(ktime_sub(cur_time, dev->ed_time));
+	dev->ed_time = cur_time;
+
+	if (!active)
+		return;
+
+	if (100 * ed_busy / active > 90) {
+		if (dev->ed_trigger < 0)
+			dev->ed_trigger = 0;
+		dev->ed_trigger++;
+	} else {
+		if (dev->ed_trigger > 0)
+			dev->ed_trigger = 0;
+		dev->ed_trigger--;
+	}
+
+	if (dev->ed_trigger > MT7603_EDCCA_BLOCK_TH ||
+	    dev->ed_strong_signal < MT7603_EDCCA_BLOCK_TH / 2) {
+		mt7603_edcca_set_strict(dev, true);
+	} else if (dev->ed_trigger < -MT7603_EDCCA_BLOCK_TH) {
+		mt7603_edcca_set_strict(dev, false);
+	}
+
+	if (dev->ed_trigger > MT7603_EDCCA_BLOCK_TH)
+		dev->ed_trigger = MT7603_EDCCA_BLOCK_TH;
+	else if (dev->ed_trigger < -MT7603_EDCCA_BLOCK_TH)
+		dev->ed_trigger = -MT7603_EDCCA_BLOCK_TH;
+}
+
 void mt7603_mac_work(struct work_struct *work)
 {
 	struct mt7603_dev *dev = container_of(work, struct mt7603_dev,
@@ -1489,6 +1574,7 @@ void mt7603_mac_work(struct work_struct *work)
 	mutex_lock(&dev->mt76.mutex);
 
 	mt7603_update_channel(&dev->mt76);
+	mt7603_edcca_check(dev);
 
 	if (mt7603_watchdog_check(dev, &dev->rx_pse_check,
 				  RESET_CAUSE_RX_PSE_BUSY,

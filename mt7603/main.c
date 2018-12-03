@@ -122,6 +122,27 @@ mt7603_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	mutex_unlock(&dev->mt76.mutex);
 }
 
+static void
+mt7603_init_edcca(struct mt7603_dev *dev)
+{
+	/* Set lower signal level to -65dBm */
+	mt76_rmw_field(dev, MT_RXTD(8), MT_RXTD_8_LOWER_SIGNAL, 0x23);
+
+	/* clear previous energy detect monitor results */
+	mt76_rr(dev, MT_MIB_STAT_ED);
+
+	if (dev->ed_monitor)
+		mt76_set(dev, MT_MIB_CTL, MT_MIB_CTL_ED_TIME);
+	else
+		mt76_clear(dev, MT_MIB_CTL, MT_MIB_CTL_ED_TIME);
+
+	dev->ed_strict_mode = 0xff;
+	dev->ed_strong_signal = 0;
+	dev->ed_time = ktime_get_boottime();
+
+	mt7603_edcca_set_strict(dev, false);
+}
+
 static int
 mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 {
@@ -179,6 +200,8 @@ mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 	mt76_rr(dev, MT_MIB_STAT_PSCCA);
 
 	dev->survey_time = ktime_get_boottime();
+
+	mt7603_init_edcca(dev);
 
 out:
 	mutex_unlock(&dev->mt76.mutex);

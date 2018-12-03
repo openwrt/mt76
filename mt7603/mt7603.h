@@ -46,6 +46,8 @@
 #define MT7603_WATCHDOG_TIME	100 /* ms */
 #define MT7603_WATCHDOG_TIMEOUT	10 /* number of checks */
 
+#define MT7603_EDCCA_BLOCK_TH	10
+
 struct mt7603_vif;
 struct mt7603_sta;
 
@@ -115,6 +117,7 @@ struct mt7603_dev {
 	s16 coverage_class;
 
 	ktime_t survey_time;
+	ktime_t ed_time;
 	int beacon_int;
 
 	struct mt76_queue q_rx;
@@ -122,6 +125,11 @@ struct mt7603_dev {
 	spinlock_t ps_lock;
 
 	u8 mcu_running;
+	u8 ed_monitor;
+
+	s8 ed_trigger;
+	u8 ed_strict_mode;
+	u8 ed_strong_signal;
 
 	u8 beacon_mask;
 
@@ -240,5 +248,7 @@ void mt7603_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 void mt7603_pre_tbtt_tasklet(unsigned long arg);
 
 void mt7603_update_channel(struct mt76_dev *mdev);
+
+void mt7603_edcca_set_strict(struct mt7603_dev *dev, bool val);
 
 #endif

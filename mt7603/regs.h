@@ -147,8 +147,21 @@
 #define MT_WF_PHY_OFFSET		0x1000
 #define MT_WF_PHY(ofs)			(MT_WF_PHY_BASE + (ofs))
 
-#define MT_WF_PHY_CR_RXTD_BASE		MT_WF_PHY(0x600)
-#define MT_WF_PHY_CR_RXTD(n)		(MT_WF_PHY_CR_RXTD_BASE + ((n) * 4))
+#define MT_AGC_BASE			MT_WF_PHY(0x500)
+#define MT_AGC(n)			(MT_AGC_BASE + ((n) * 4))
+
+#define MT_AGC_41_RSSI_0		GENMASK(23, 16)
+#define MT_AGC_41_RSSI_1		GENMASK(7, 0)
+
+#define MT_RXTD_BASE			MT_WF_PHY(0x600)
+#define MT_RXTD(n)			(MT_RXTD_BASE + ((n) * 4))
+
+#define MT_RXTD_6_ACI_TH		GENMASK(4, 0)
+#define MT_RXTD_6_CCAED_TH		GENMASK(14, 8)
+
+#define MT_RXTD_8_LOWER_SIGNAL		GENMASK(5, 0)
+
+#define MT_RXTD_13_ACI_TH_EN		BIT(0)
 
 #define MT_WF_PHY_CR_TSSI_BASE		MT_WF_PHY(0xd00)
 #define MT_WF_PHY_CR_TSSI(phy, n)	(MT_WF_PHY_CR_TSSI_BASE +	\
@@ -515,8 +528,9 @@ enum {
 #define MT_MIB(_n)			(MT_MIB_BASE + (_n))
 
 #define MT_MIB_CTL			MT_MIB(0x00)
-#define MT_MIB_CTL_CCA_NAV_TX		GENMASK(16, 14)
 #define MT_MIB_CTL_PSCCA_TIME		GENMASK(13, 11)
+#define MT_MIB_CTL_CCA_NAV_TX		GENMASK(16, 14)
+#define MT_MIB_CTL_ED_TIME		GENMASK(30, 28)
 #define MT_MIB_CTL_READ_CLR_DIS		BIT(31)
 
 #define MT_MIB_STAT(_n)			MT_MIB(0x08 + (_n) * 4)
@@ -526,6 +540,9 @@ enum {
 
 #define MT_MIB_STAT_PSCCA		MT_MIB_STAT(16)
 #define MT_MIB_STAT_PSCCA_MASK		GENMASK(23, 0)
+
+#define MT_MIB_STAT_ED			MT_MIB_STAT(18)
+#define MT_MIB_STAT_ED_MASK		GENMASK(23, 0)
 
 #define MT_PCIE_REMAP_BASE_1		0x40000
 #define MT_PCIE_REMAP_BASE_2		0x80000
