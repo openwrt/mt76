@@ -274,6 +274,7 @@ mt7603_mac_init(struct mt7603_dev *dev)
 	mt76_set(dev, MT_WTBL_RMVTCR, MT_WTBL_RMVTCR_RX_MV_MODE);
 
 	mt76_clear(dev, MT_SEC_SCR, MT_SEC_SCR_MASK_ORDER);
+	mt76_clear(dev, MT_SEC_SCR, BIT(18));
 
 	/* Set secondary beacon time offsets */
 	for (i = 0; i <= 4; i++)
