@@ -113,7 +113,7 @@ static int
 mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd, int query)
 {
 	struct mt76_dev *mdev = &dev->mt76;
-	unsigned long expires = jiffies + HZ;
+	unsigned long expires = jiffies + 3 * HZ;
 	struct mt7603_mcu_rxd *rxd;
 	int ret, seq;
 
