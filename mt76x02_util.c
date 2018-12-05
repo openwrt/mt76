@@ -189,7 +189,7 @@ int mt76x02_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	if (vif->type == NL80211_IFTYPE_AP)
 		set_bit(MT_WCID_FLAG_CHECK_PS, &msta->wcid.flags);
 
-	ewma_signal_init(&msta->rssi);
+	ewma_signal_init(&msta->wcid.rssi);
 
 	return 0;
 }
