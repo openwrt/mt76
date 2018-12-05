@@ -1197,20 +1197,27 @@ wait_for_wpdma(struct mt7603_dev *dev)
 
 static void mt7603_pse_reset(struct mt7603_dev *dev)
 {
+	/* Clear previous reset result */
+	if (!dev->reset_cause[RESET_CAUSE_RESET_FAILED])
+		mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE_S);
+
 	/* Reset PSE */
-	mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE_S);
 	mt76_set(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE);
 
 	if (!mt76_poll_msec(dev, MT_MCU_DEBUG_RESET,
 			    MT_MCU_DEBUG_RESET_PSE_S,
 			    MT_MCU_DEBUG_RESET_PSE_S, 500)) {
-		mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE);
 		dev->reset_cause[RESET_CAUSE_RESET_FAILED]++;
 	} else {
 		dev->reset_cause[RESET_CAUSE_RESET_FAILED] = 0;
 	}
 
 	mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_QUEUES);
+
+	if (dev->reset_cause[RESET_CAUSE_RESET_FAILED] >= 3) {
+		dev->reset_cause[RESET_CAUSE_RESET_FAILED] = 0;
+		mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE);
+	}
 }
 
 void mt7603_mac_dma_start(struct mt7603_dev *dev)
