@@ -151,6 +151,9 @@ mt7603_phy_init(struct mt7603_dev *dev)
 
 	mt76_rmw_field(dev, MT_TMAC_TCR, MT_TMAC_TCR_TX_STREAMS,
 		       tx_chains);
+
+	dev->agc0 = mt76_rr(dev, MT_AGC(0));
+	dev->agc3 = mt76_rr(dev, MT_AGC(3));
 }
 
 static void

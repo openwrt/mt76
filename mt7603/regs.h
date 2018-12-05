@@ -150,6 +150,9 @@
 #define MT_AGC_BASE			MT_WF_PHY(0x500)
 #define MT_AGC(n)			(MT_AGC_BASE + ((n) * 4))
 
+#define MT_AGC1_BASE			MT_WF_PHY(0x1500)
+#define MT_AGC1(n)			(MT_AGC1_BASE + ((n) * 4))
+
 #define MT_AGC_41_RSSI_0		GENMASK(23, 16)
 #define MT_AGC_41_RSSI_1		GENMASK(7, 0)
 
@@ -167,6 +170,20 @@
 #define MT_WF_PHY_CR_TSSI(phy, n)	(MT_WF_PHY_CR_TSSI_BASE +	\
 					 ((phy) * MT_WF_PHY_OFFSET) +	\
 					 ((n) * 4))
+
+#define MT_PHYCTRL_BASE			MT_WF_PHY(0x4100)
+#define MT_PHYCTRL(n)			(MT_PHYCTRL_BASE + ((n) * 4))
+
+#define MT_PHYCTRL_2_STATUS_RESET	BIT(6)
+#define MT_PHYCTRL_2_STATUS_EN		BIT(7)
+
+#define MT_PHYCTRL_STAT_PD		MT_PHYCTRL(3)
+#define MT_PHYCTRL_STAT_PD_OFDM		GENMASK(31, 16)
+#define MT_PHYCTRL_STAT_PD_CCK		GENMASK(15, 0)
+
+#define MT_PHYCTRL_STAT_MDRDY		MT_PHYCTRL(8)
+#define MT_PHYCTRL_STAT_MDRDY_OFDM	GENMASK(31, 16)
+#define MT_PHYCTRL_STAT_MDRDY_CCK	GENMASK(15, 0)
 
 #define MT_WF_AGG_BASE			0x21200
 #define MT_WF_AGG(ofs)			(MT_WF_AGG_BASE + (ofs))

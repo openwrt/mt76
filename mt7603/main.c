@@ -198,6 +198,7 @@ mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 	mt76_set(dev, MT_MIB_CTL,
 		 MT_MIB_CTL_CCA_NAV_TX | MT_MIB_CTL_PSCCA_TIME);
 	mt76_rr(dev, MT_MIB_STAT_PSCCA);
+	mt7603_cca_stats_reset(dev);
 
 	dev->survey_time = ktime_get_boottime();
 

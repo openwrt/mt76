@@ -1570,6 +1570,115 @@ mt7603_edcca_check(struct mt7603_dev *dev)
 		dev->ed_trigger = -MT7603_EDCCA_BLOCK_TH;
 }
 
+void mt7603_cca_stats_reset(struct mt7603_dev *dev)
+{
+	mt76_set(dev, MT_PHYCTRL(2), MT_PHYCTRL_2_STATUS_RESET);
+	mt76_clear(dev, MT_PHYCTRL(2), MT_PHYCTRL_2_STATUS_RESET);
+	mt76_set(dev, MT_PHYCTRL(2), MT_PHYCTRL_2_STATUS_EN);
+}
+
+static void
+mt7603_adjust_sensitivity(struct mt7603_dev *dev)
+{
+	u32 agc0 = dev->agc0, agc3 = dev->agc3;
+	u32 adj;
+
+	if (!dev->sensitivity || dev->sensitivity < -100) {
+		dev->sensitivity = 0;
+	} else if (dev->sensitivity <= -84) {
+		adj = 7 + (dev->sensitivity + 92) / 2;
+
+		agc0 = 0x56f0076f;
+		agc0 |= adj << 12;
+		agc0 |= adj << 16;
+		agc3 = 0x81d0d5e3;
+	} else if (dev->sensitivity <= -72) {
+		adj = 7 + (dev->sensitivity + 80) / 2;
+
+		agc0 = 0x6af0006f;
+		agc0 |= adj << 8;
+		agc0 |= adj << 12;
+		agc0 |= adj << 16;
+
+		agc3 = 0x8181d5e3;
+	} else {
+		if (dev->sensitivity > -54)
+			dev->sensitivity = -54;
+
+		adj = 7 + (dev->sensitivity + 80) / 2;
+
+		agc0 = 0x7ff0000f;
+		agc0 |= adj << 4;
+		agc0 |= adj << 8;
+		agc0 |= adj << 12;
+		agc0 |= adj << 16;
+
+		agc3 = 0x818181e3;
+	}
+
+	mt76_wr(dev, MT_AGC(0), agc0);
+	mt76_wr(dev, MT_AGC1(0), agc0);
+
+	mt76_wr(dev, MT_AGC(3), agc3);
+	mt76_wr(dev, MT_AGC1(3), agc3);
+}
+
+static void
+mt7603_false_cca_check(struct mt7603_dev *dev)
+{
+	int pd_cck, pd_ofdm, mdrdy_cck, mdrdy_ofdm;
+	int false_cca;
+	int min_signal;
+	u32 val;
+
+	val = mt76_rr(dev, MT_PHYCTRL_STAT_PD);
+	pd_cck = FIELD_GET(MT_PHYCTRL_STAT_PD_CCK, val);
+	pd_ofdm = FIELD_GET(MT_PHYCTRL_STAT_PD_OFDM, val);
+
+	val = mt76_rr(dev, MT_PHYCTRL_STAT_MDRDY);
+	mdrdy_cck = FIELD_GET(MT_PHYCTRL_STAT_MDRDY_CCK, val);
+	mdrdy_ofdm = FIELD_GET(MT_PHYCTRL_STAT_MDRDY_OFDM, val);
+
+	dev->false_cca_ofdm = pd_ofdm - mdrdy_ofdm;
+	dev->false_cca_cck = pd_cck - mdrdy_cck;
+
+	mt7603_cca_stats_reset(dev);
+
+	min_signal = mt76_get_min_avg_rssi(&dev->mt76);
+	if (!min_signal) {
+		dev->sensitivity = 0;
+		dev->last_cca_adj = jiffies;
+		goto out;
+	}
+
+	min_signal -= 15;
+
+	false_cca = dev->false_cca_ofdm + dev->false_cca_cck;
+	if (false_cca > 600) {
+		if (!dev->sensitivity)
+			dev->sensitivity = -92;
+		else
+			dev->sensitivity += 2;
+		dev->last_cca_adj = jiffies;
+	} else if (false_cca < 100 ||
+		time_after(jiffies, dev->last_cca_adj + 10 * HZ)) {
+
+		dev->last_cca_adj = jiffies;
+		if (!dev->sensitivity)
+			goto out;
+
+		dev->sensitivity -= 2;
+	}
+
+	if (dev->sensitivity && dev->sensitivity > min_signal) {
+		dev->sensitivity = min_signal;
+		dev->last_cca_adj = jiffies;
+	}
+
+out:
+	mt7603_adjust_sensitivity(dev);
+}
+
 void mt7603_mac_work(struct work_struct *work)
 {
 	struct mt7603_dev *dev = container_of(work, struct mt7603_dev,
@@ -1580,8 +1689,12 @@ void mt7603_mac_work(struct work_struct *work)
 
 	mutex_lock(&dev->mt76.mutex);
 
+	dev->mac_work_count++;
 	mt7603_update_channel(&dev->mt76);
 	mt7603_edcca_check(dev);
+
+	if (dev->mac_work_count == 10)
+		mt7603_false_cca_check(dev);
 
 	if (mt7603_watchdog_check(dev, &dev->rx_pse_check,
 				  RESET_CAUSE_RX_PSE_BUSY,
@@ -1611,7 +1724,11 @@ void mt7603_mac_work(struct work_struct *work)
 		dev->rx_dma_idx = ~0;
 		memset(dev->tx_dma_idx, 0xff, sizeof(dev->tx_dma_idx));
 		reset = true;
+		dev->mac_work_count = 0;
 	}
+
+	if (dev->mac_work_count >= 10)
+		dev->mac_work_count = 0;
 
 	mutex_unlock(&dev->mt76.mutex);
 

@@ -111,6 +111,10 @@ struct mt7603_dev {
 
 	struct mt7603_sta global_sta;
 
+	u32 agc0, agc3;
+	u32 false_cca_ofdm, false_cca_cck;
+	unsigned long last_cca_adj;
+
 	u8 rssi_offset[3];
 
 	u8 slottime;
@@ -124,12 +128,16 @@ struct mt7603_dev {
 
 	spinlock_t ps_lock;
 
+	u8 mac_work_count;
+
 	u8 mcu_running;
 	u8 ed_monitor;
 
 	s8 ed_trigger;
 	u8 ed_strict_mode;
 	u8 ed_strong_signal;
+
+	s8 sensitivity;
 
 	u8 beacon_mask;
 
@@ -250,5 +258,6 @@ void mt7603_pre_tbtt_tasklet(unsigned long arg);
 void mt7603_update_channel(struct mt76_dev *mdev);
 
 void mt7603_edcca_set_strict(struct mt7603_dev *dev, bool val);
+void mt7603_cca_stats_reset(struct mt7603_dev *dev);
 
 #endif
