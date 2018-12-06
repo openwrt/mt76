@@ -481,6 +481,7 @@ static int mt7603_mcu_set_tx_power(struct mt7603_dev *dev)
 int mt7603_mcu_set_channel(struct mt7603_dev *dev)
 {
 	struct cfg80211_chan_def *chandef = &dev->mt76.chandef;
+	struct ieee80211_hw *hw = mt76_hw(dev);
 	int n_chains = __sw_hweight8(dev->mt76.antenna_mask);
 	struct {
 		u8 control_chan;
@@ -499,7 +500,9 @@ int mt7603_mcu_set_channel(struct mt7603_dev *dev)
 		.rx_streams = n_chains,
 	};
 	struct sk_buff *skb;
+	s8 tx_power;
 	int ret;
+	int i;
 
 	if (dev->mt76.chandef.width == NL80211_CHAN_WIDTH_40) {
 		req.bw = MT_BW_40;
@@ -509,7 +512,16 @@ int mt7603_mcu_set_channel(struct mt7603_dev *dev)
 			req.center_chan -= 2;
 	}
 
-	memset(req.txpower, 0xff, sizeof(req.txpower));
+	tx_power = hw->conf.power_level * 2;
+	if (dev->mt76.antenna_mask == 3)
+		tx_power -= 6;
+	tx_power = min(tx_power, dev->tx_power_limit);
+
+	dev->mt76.txpower_cur = tx_power;
+
+	for (i = 0; i < ARRAY_SIZE(req.txpower); i++)
+		req.txpower[i] = tx_power;
+
 	skb = mt7603_mcu_msg_alloc(&req, sizeof(req));
 	ret = mt7603_mcu_msg_send(dev, skb, MCU_EXT_CMD_CHANNEL_SWITCH,
 				  MCU_Q_SET);

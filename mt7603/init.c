@@ -503,7 +503,12 @@ mt7603_init_txpower(struct mt7603_dev *dev,
 		max_offset = max(max_offset, cur_offset);
 	}
 
-	target_power = DIV_ROUND_UP(target_power + max_offset, 2);
+	target_power += max_offset;
+
+	dev->tx_power_limit = target_power;
+	dev->mt76.txpower_cur = target_power;
+
+	target_power = DIV_ROUND_UP(target_power, 2);
 
 	/* add 3 dBm for 2SS devices (combined output) */
 	if (dev->mt76.antenna_mask & BIT(1))

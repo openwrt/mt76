@@ -219,7 +219,8 @@ mt7603_config(struct ieee80211_hw *hw, u32 changed)
 	struct mt7603_dev *dev = hw->priv;
 	int ret = 0;
 
-	if (changed & IEEE80211_CONF_CHANGE_CHANNEL)
+	if (changed & (IEEE80211_CONF_CHANGE_CHANNEL |
+		       IEEE80211_CONF_CHANGE_POWER))
 		ret = mt7603_set_channel(dev, &hw->conf.chandef);
 
 	if (changed & IEEE80211_CONF_CHANGE_MONITOR) {
@@ -542,12 +543,6 @@ mt7603_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 }
 
 static int
-mt7603_get_txpower(struct ieee80211_hw *hw, struct ieee80211_vif *vif, int *dbm)
-{
-	return -EINVAL;
-}
-
-static int
 mt7603_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		    struct ieee80211_ampdu_params *params)
 {
@@ -685,7 +680,7 @@ const struct ieee80211_ops mt7603_ops = {
 	.sw_scan_complete = mt7603_sw_scan_complete,
 	.flush = mt7603_flush,
 	.ampdu_action = mt7603_ampdu_action,
-	.get_txpower = mt7603_get_txpower,
+	.get_txpower = mt76_get_txpower,
 	.wake_tx_queue = mt76_wake_tx_queue,
 	.sta_rate_tbl_update = mt7603_sta_rate_tbl_update,
 	.release_buffered_frames = mt7603_release_buffered_frames,
