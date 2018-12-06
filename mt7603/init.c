@@ -468,6 +468,54 @@ mt7603_regd_notifier(struct wiphy *wiphy,
 	dev->ed_monitor = request->dfs_region == NL80211_DFS_ETSI;
 }
 
+static int
+mt7603_txpower_signed(int val)
+{
+	bool sign = val & BIT(6);
+
+	if (!(val & BIT(7)))
+		return 0;
+
+	val &= GENMASK(5, 0);
+	if (!sign)
+		val = -val;
+
+	return val;
+}
+
+static void
+mt7603_init_txpower(struct mt7603_dev *dev,
+		    struct ieee80211_supported_band *sband)
+{
+	struct ieee80211_channel *chan;
+	u8 *eeprom = (u8 *) dev->mt76.eeprom.data;
+	int target_power = eeprom[MT_EE_TX_POWER_0_START_2G + 2] & ~BIT(7);
+	u8 *rate_power = &eeprom[MT_EE_TX_POWER_CCK];
+	int max_offset, cur_offset;
+	int i;
+
+	if (target_power & BIT(6))
+		target_power = -(target_power & GENMASK(5, 0));
+
+	max_offset = 0;
+	for (i = 0; i < 14; i++) {
+		cur_offset = mt7603_txpower_signed(rate_power[i]);
+		max_offset = max(max_offset, cur_offset);
+	}
+
+	target_power = DIV_ROUND_UP(target_power + max_offset, 2);
+
+	/* add 3 dBm for 2SS devices (combined output) */
+	if (dev->mt76.antenna_mask & BIT(1))
+		target_power += 3;
+
+	for (i = 0; i < sband->n_channels; i++) {
+		chan = &sband->channels[i];
+		chan->max_power = target_power;
+	}
+}
+
+
 int mt7603_register_device(struct mt7603_dev *dev)
 {
 	struct mt76_bus_ops *bus_ops;
@@ -534,6 +582,7 @@ int mt7603_register_device(struct mt7603_dev *dev)
 		return ret;
 
 	mt7603_init_debugfs(dev);
+	mt7603_init_txpower(dev, &dev->mt76.sband_2g.sband);
 
 	return 0;
 }
