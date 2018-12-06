@@ -685,6 +685,9 @@ struct ieee80211_sta *mt76_rx_convert(struct sk_buff *skb);
 
 int mt76_get_min_avg_rssi(struct mt76_dev *dev);
 
+int mt76_get_txpower(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+		     int *dbm);
+
 /* internal */
 void mt76_tx_free(struct mt76_dev *dev);
 struct mt76_txwi_cache *mt76_get_txwi(struct mt76_dev *dev);
