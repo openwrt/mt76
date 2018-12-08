@@ -165,11 +165,13 @@ int mt7603_eeprom_init(struct mt7603_dev *dev)
 	if (ret < 0)
 		return ret;
 
-	if (mt7603_check_eeprom(&dev->mt76) == 0)
-		mt7603_apply_cal_free_data(dev, dev->mt76.otp.data);
-	else
-		memcpy(dev->mt76.eeprom.data, dev->mt76.otp.data,
-		       MT7603_EEPROM_SIZE);
+	if (dev->mt76.otp.data) {
+		if (mt7603_check_eeprom(&dev->mt76) == 0)
+			mt7603_apply_cal_free_data(dev, dev->mt76.otp.data);
+		else
+			memcpy(dev->mt76.eeprom.data, dev->mt76.otp.data,
+			       MT7603_EEPROM_SIZE);
+	}
 
 	dev->mt76.cap.has_2ghz = true;
 	memcpy(dev->mt76.macaddr, dev->mt76.eeprom.data + MT_EE_MAC_ADDR,
