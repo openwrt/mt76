@@ -88,6 +88,7 @@
 #define MT_SCH_4			MT_HIF(0x594)
 #define MT_SCH_4_FORCE_QID		GENMASK(4, 0)
 #define MT_SCH_4_BYPASS			BIT(5)
+#define MT_SCH_4_RESET			BIT(8)
 
 #define MT_GROUP_THRESH_BASE		MT_HIF(0x598)
 #define MT_GROUP_THRESH(n)		(MT_GROUP_THRESH_BASE + ((n) * 4))

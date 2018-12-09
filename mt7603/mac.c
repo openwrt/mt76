@@ -1282,6 +1282,15 @@ static void mt7603_pse_client_reset(struct mt7603_dev *dev)
 		   MT_CLIENT_RESET_TX_R_E_2);
 }
 
+static void mt7603_dma_sched_reset(struct mt7603_dev *dev)
+{
+	if (!is_mt7628(dev))
+		return;
+
+	mt76_set(dev, MT_SCH_4, MT_SCH_4_RESET);
+	mt76_clear(dev, MT_SCH_4, MT_SCH_4_RESET);
+}
+
 static void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 {
 	int beacon_int = dev->beacon_int;
@@ -1329,6 +1338,8 @@ static void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 
 	for (i = 0; i < ARRAY_SIZE(dev->mt76.q_rx); i++)
 		mt76_queue_rx_reset(dev, i);
+
+	mt7603_dma_sched_reset(dev);
 
 	mt7603_mac_dma_start(dev);
 
