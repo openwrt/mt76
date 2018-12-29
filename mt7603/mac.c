@@ -842,6 +842,7 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 
 	if (sta) {
 		struct mt7603_sta *msta = (struct mt7603_sta *)sta->drv_priv;
+
 		tx_count = msta->rate_count;
 	}
 
@@ -944,7 +945,7 @@ int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 		wcid = &dev->global_sta.wcid;
 
 	if (sta) {
-		msta = (struct mt7603_sta *) sta->drv_priv;
+		msta = (struct mt7603_sta *)sta->drv_priv;
 
 		if ((info->flags & (IEEE80211_TX_CTL_NO_PS_BUFFER |
 				    IEEE80211_TX_CTL_CLEAR_PS_FILT)) ||
@@ -1242,14 +1243,16 @@ void mt7603_mac_dma_start(struct mt7603_dev *dev)
 
 void mt7603_mac_start(struct mt7603_dev *dev)
 {
-	mt76_clear(dev, MT_ARB_SCR, MT_ARB_SCR_TX_DISABLE | MT_ARB_SCR_RX_DISABLE);
+	mt76_clear(dev, MT_ARB_SCR,
+		   MT_ARB_SCR_TX_DISABLE | MT_ARB_SCR_RX_DISABLE);
 	mt76_wr(dev, MT_WF_ARB_TX_START_0, ~0);
 	mt76_set(dev, MT_WF_ARB_RQCR, MT_WF_ARB_RQCR_RX_START);
 }
 
 void mt7603_mac_stop(struct mt7603_dev *dev)
 {
-	mt76_set(dev, MT_ARB_SCR, MT_ARB_SCR_TX_DISABLE | MT_ARB_SCR_RX_DISABLE);
+	mt76_set(dev, MT_ARB_SCR,
+		 MT_ARB_SCR_TX_DISABLE | MT_ARB_SCR_RX_DISABLE);
 	mt76_wr(dev, MT_WF_ARB_TX_START_0, 0);
 	mt76_clear(dev, MT_WF_ARB_RQCR, MT_WF_ARB_RQCR_RX_START);
 }
@@ -1676,8 +1679,7 @@ mt7603_false_cca_check(struct mt7603_dev *dev)
 			dev->sensitivity += 2;
 		dev->last_cca_adj = jiffies;
 	} else if (false_cca < 100 ||
-		time_after(jiffies, dev->last_cca_adj + 10 * HZ)) {
-
+		   time_after(jiffies, dev->last_cca_adj + 10 * HZ)) {
 		dev->last_cca_adj = jiffies;
 		if (!dev->sensitivity)
 			goto out;
@@ -1717,7 +1719,7 @@ void mt7603_mac_work(struct work_struct *work)
 	    mt7603_watchdog_check(dev, &dev->beacon_check,
 				  RESET_CAUSE_BEACON_STUCK,
 				  NULL) ||
-		mt7603_watchdog_check(dev, &dev->tx_dma_check,
+	    mt7603_watchdog_check(dev, &dev->tx_dma_check,
 				  RESET_CAUSE_TX_BUSY,
 				  mt7603_tx_dma_busy) ||
 	    mt7603_watchdog_check(dev, &dev->rx_dma_check,

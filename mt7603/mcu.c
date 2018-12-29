@@ -67,7 +67,8 @@ mt7603_mcu_get_response(struct mt7603_dev *dev, unsigned long expires)
 }
 
 static int
-__mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd, int query, int *wait_seq)
+__mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd,
+		      int query, int *wait_seq)
 {
 	int hdrlen = dev->mcu_running ? sizeof(struct mt7603_mcu_txd) : 12;
 	struct mt76_dev *mdev = &dev->mt76;
@@ -110,7 +111,8 @@ __mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd, int 
 }
 
 static int
-mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd, int query)
+mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd,
+		    int query)
 {
 	struct mt76_dev *mdev = &dev->mt76;
 	unsigned long expires = jiffies + 3 * HZ;
@@ -177,7 +179,8 @@ mt7603_mcu_send_firmware(struct mt7603_dev *dev, const void *data, int len)
 	int ret = 0;
 
 	while (len > 0) {
-		int cur_len = min_t(int, 4096 - sizeof(struct mt7603_mcu_txd), len);
+		int cur_len = min_t(int, 4096 - sizeof(struct mt7603_mcu_txd),
+				    len);
 
 		skb = mt7603_mcu_msg_alloc(data, cur_len);
 		if (!skb)
@@ -413,14 +416,14 @@ int mt7603_mcu_set_eeprom(struct mt7603_dev *dev)
 	struct sk_buff *skb;
 	struct req_data *data;
 	const int size = 0xff * sizeof(struct req_data);
-	u8 *eep = (u8 *) dev->mt76.eeprom.data;
+	u8 *eep = (u8 *)dev->mt76.eeprom.data;
 	int i;
 
 	BUILD_BUG_ON(ARRAY_SIZE(req_fields) * sizeof(*data) > size);
 
 	skb = mt7603_mcu_msg_alloc(NULL, size + sizeof(req_hdr));
 	memcpy(skb_put(skb, sizeof(req_hdr)), &req_hdr, sizeof(req_hdr));
-	data = (struct req_data *) skb_put(skb, size);
+	data = (struct req_data *)skb_put(skb, size);
 	memset(data, 0, size);
 
 	for (i = 0; i < ARRAY_SIZE(req_fields); i++) {
@@ -429,7 +432,8 @@ int mt7603_mcu_set_eeprom(struct mt7603_dev *dev)
 		data[i].pad = 0;
 	}
 
-	return mt7603_mcu_msg_send(dev, skb, MCU_EXT_CMD_EFUSE_BUFFER_MODE, MCU_Q_SET);
+	return mt7603_mcu_msg_send(dev, skb, MCU_EXT_CMD_EFUSE_BUFFER_MODE,
+				   MCU_Q_SET);
 }
 
 static int mt7603_mcu_set_tx_power(struct mt7603_dev *dev)
@@ -465,7 +469,7 @@ static int mt7603_mcu_set_tx_power(struct mt7603_dev *dev)
 #undef EEP_VAL
 	};
 	struct sk_buff *skb;
-	u8 *eep = (u8 *) dev->mt76.eeprom.data;
+	u8 *eep = (u8 *)dev->mt76.eeprom.data;
 
 	memcpy(req.rate_power_delta, eep + MT_EE_TX_POWER_CCK,
 	       sizeof(req.rate_power_delta));

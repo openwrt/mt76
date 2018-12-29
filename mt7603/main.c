@@ -53,12 +53,16 @@ mt7603_txq_init(struct mt7603_dev *dev, struct ieee80211_txq *txq)
 	if (!txq)
 		return;
 
-	mtxq = (struct mt76_txq *) txq->drv_priv;
+	mtxq = (struct mt76_txq *)txq->drv_priv;
 	if (txq->sta) {
-		struct mt7603_sta *sta = (struct mt7603_sta *)txq->sta->drv_priv;
+		struct mt7603_sta *sta;
+
+		sta = (struct mt7603_sta *)txq->sta->drv_priv;
 		mtxq->wcid = &sta->wcid;
 	} else {
-		struct mt7603_vif *mvif = (struct mt7603_vif *)txq->vif->drv_priv;
+		struct mt7603_vif *mvif;
+
+		mvif = (struct mt7603_vif *)txq->vif->drv_priv;
 		mtxq->wcid = &mvif->sta.wcid;
 	}
 
@@ -146,7 +150,7 @@ mt7603_init_edcca(struct mt7603_dev *dev)
 static int
 mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 {
-	u8 *rssi_data = (u8 *) dev->mt76.eeprom.data;
+	u8 *rssi_data = (u8 *)dev->mt76.eeprom.data;
 	int idx, ret;
 	u8 bw = MT_BW_20;
 	bool failed = false;
@@ -351,7 +355,7 @@ mt7603_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 {
 	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
 	struct mt7603_sta *msta = (struct mt7603_sta *)sta->drv_priv;
-	struct mt76_wcid *wcid = (struct mt76_wcid *) sta->drv_priv;
+	struct mt76_wcid *wcid = (struct mt76_wcid *)sta->drv_priv;
 
 	spin_lock_bh(&dev->ps_lock);
 	__skb_queue_purge(&msta->psq);
@@ -619,8 +623,8 @@ mt7603_sta_rate_tbl_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	spin_unlock_bh(&dev->mt76.lock);
 }
 
-static void mt7603_set_coverage_class(struct ieee80211_hw *hw,
-				      s16 coverage_class)
+static void
+mt7603_set_coverage_class(struct ieee80211_hw *hw, s16 coverage_class)
 {
 	struct mt7603_dev *dev = hw->priv;
 
