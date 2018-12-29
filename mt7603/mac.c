@@ -677,14 +677,11 @@ void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta,
 	u16 val[4];
 	u16 probe_val;
 	u32 w9 = mt76_rr(dev, addr + 9 * 4);
-	int count;
 	int i;
 
 	if (!mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000))
 		return;
 
-	for (i = 0, count = 0; i < n_rates; i++)
-		count += max_t(int, 2 * MT7603_RATE_RETRY, rates[i].count);
 	for (i = n_rates; i < 4; i++)
 		rates[i] = rates[n_rates - 1];
 
@@ -752,7 +749,7 @@ void mt7603_wtbl_set_rates(struct mt7603_dev *dev, struct mt7603_sta *sta,
 	if (!sta->wcid.tx_rate_set)
 		mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY, 0, 5000);
 
-	sta->rate_count = count;
+	sta->rate_count = 2 * MT7603_RATE_RETRY * n_rates;
 	sta->wcid.tx_rate_set = true;
 }
 
