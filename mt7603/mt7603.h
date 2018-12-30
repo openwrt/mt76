@@ -48,6 +48,9 @@
 
 #define MT7603_EDCCA_BLOCK_TH	10
 
+#define MT7603_CFEND_RATE_DEFAULT	0x69 /* chip default (24M) */
+#define MT7603_CFEND_RATE_11B		0x03 /* 11B LP, 11M */
+
 struct mt7603_vif;
 struct mt7603_sta;
 
