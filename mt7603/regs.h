@@ -376,7 +376,8 @@ enum {
 #define MT_TMAC_TCR_SMOOTHING		BIT(31)
 
 #define MT_WMM_TXOP_BASE		MT_WF_TMAC(0x010)
-#define MT_WMM_TXOP(_n)			(MT_WMM_TXOP_BASE + (((_n) / 2) << 2))
+#define MT_WMM_TXOP(_n)			(MT_WMM_TXOP_BASE + \
+					 ((((_n) / 2) ^ 0x1) << 2))
 #define MT_WMM_TXOP_SHIFT(_n)		(((_n) & 1) * 16)
 #define MT_WMM_TXOP_MASK		GENMASK(15, 0)
 
