@@ -92,6 +92,14 @@ mt7603_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 		(get_unaligned_le16(vif->addr + 4) |
 		 MT_MAC_ADDR1_VALID));
 
+	if (vif->type == NL80211_IFTYPE_AP) {
+		mt76_wr(dev, MT_BSSID0(mvif->idx),
+			get_unaligned_le32(vif->addr));
+		mt76_wr(dev, MT_BSSID1(mvif->idx),
+			(get_unaligned_le16(vif->addr + 4) |
+			 MT_BSSID1_VALID));
+	}
+
 	idx = MT7603_WTBL_RESERVED - 1 - mvif->idx;
 	dev->vif_mask |= BIT(mvif->idx);
 	mvif->sta.wcid.idx = idx;
@@ -116,6 +124,10 @@ mt7603_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	struct mt7603_dev *dev = hw->priv;
 	int idx = mvif->sta.wcid.idx;
 
+	mt76_wr(dev, MT_MAC_ADDR0(mvif->idx), 0);
+	mt76_wr(dev, MT_MAC_ADDR1(mvif->idx), 0);
+	mt76_wr(dev, MT_BSSID0(mvif->idx), 0);
+	mt76_wr(dev, MT_BSSID1(mvif->idx), 0);
 	mt7603_beacon_set_timer(dev, mvif->idx, 0);
 
 	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
