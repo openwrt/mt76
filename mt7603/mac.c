@@ -1102,7 +1102,7 @@ mt7603_mac_add_txs_skb(struct mt7603_dev *dev, struct mt7603_sta *sta, int pid,
 	struct sk_buff_head list;
 	struct sk_buff *skb;
 
-	if (!pid)
+	if (pid < MT_PACKET_ID_FIRST)
 		return false;
 
 	mt76_tx_status_lock(mdev, &list);
