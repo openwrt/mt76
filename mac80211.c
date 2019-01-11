@@ -660,6 +660,7 @@ mt76_sta_add(struct mt76_dev *dev, struct ieee80211_vif *vif,
 		mt76_txq_init(dev, sta->txq[i]);
 	}
 
+	ewma_signal_init(&wcid->rssi);
 	rcu_assign_pointer(dev->wcid[wcid->idx], wcid);
 
 out:
