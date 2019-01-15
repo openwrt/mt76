@@ -442,6 +442,7 @@ mt7603_release_buffered_frames(struct ieee80211_hw *hw,
 		skb_set_queue_mapping(skb, MT_TXQ_PSD);
 		__skb_unlink(skb, &msta->psq);
 		__skb_queue_tail(&list, skb);
+		nframes--;
 	}
 	spin_unlock_bh(&dev->ps_lock);
 
