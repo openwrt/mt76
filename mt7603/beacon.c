@@ -91,6 +91,10 @@ void mt7603_pre_tbtt_tasklet(unsigned long arg)
 
 	mt76_queue_tx_cleanup(dev, MT_TXQ_CAB, false);
 
+	mt76_csa_check(&dev->mt76);
+	if (dev->mt76.csa_complete)
+		goto out;
+
 	q = &dev->mt76.q_tx[MT_TXQ_CAB];
 	do {
 		nframes = skb_queue_len(&data.q);

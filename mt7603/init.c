@@ -579,6 +579,8 @@ int mt7603_register_device(struct mt7603_dev *dev)
 #endif
 		BIT(NL80211_IFTYPE_ADHOC);
 
+	wiphy->flags |= WIPHY_FLAG_HAS_CHANNEL_SWITCH;
+
 	wiphy->reg_notifier = mt7603_regd_notifier;
 
 	ret = mt76_register_device(&dev->mt76, true, mt7603_rates,
