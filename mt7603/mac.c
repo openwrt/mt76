@@ -829,6 +829,12 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 	u8 vif_idx = 0;
 	u32 val;
 	u8 bw;
+	int q_idx;
+
+	/* Use 802.11e ACI (BE/BK are swapped relative to hw queue index) */
+	q_idx = dev->mt76.q_tx[skb_get_queue_mapping(skb)].hw_idx;
+	if (q_idx < 2)
+		q_idx ^= 1;
 
 	if (vif) {
 		mvif = (struct mt7603_vif *)vif->drv_priv;
@@ -852,7 +858,7 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 	frame_subtype = (fc & IEEE80211_FCTL_STYPE) >> 4;
 
 	val = FIELD_PREP(MT_TXD0_TX_BYTES, skb->len + MT_TXD_SIZE) |
-	      FIELD_PREP(MT_TXD0_Q_IDX, q->hw_idx);
+	      FIELD_PREP(MT_TXD0_Q_IDX, q_idx);
 	txwi[0] = cpu_to_le32(val);
 
 	val = MT_TXD1_LONG_FORMAT |
