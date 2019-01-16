@@ -1102,7 +1102,12 @@ mt7603_mac_add_txs_skb(struct mt7603_dev *dev, struct mt7603_sta *sta, int pid,
 			}
 			spin_unlock_bh(&dev->mt76.lock);
 		}
-		mt7603_fill_txs(dev, sta, info, txs_data);
+
+		if (!mt7603_fill_txs(dev, sta, info, txs_data)) {
+			ieee80211_tx_info_clear_status(info);
+			info->status.rates[0].idx = -1;
+		}
+
 		mt76_tx_status_skb_done(mdev, skb, &list);
 	}
 	mt76_tx_status_unlock(mdev, &list);
