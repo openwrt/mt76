@@ -79,10 +79,6 @@ struct mt7603_sta {
 
 	u8 rate_probe;
 
-	u8 ampdu_count;
-	u8 ampdu_tx_count;
-	u8 ampdu_acked;
-
 	u8 ps;
 };
 

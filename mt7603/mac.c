@@ -998,38 +998,21 @@ mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 	final_rate = FIELD_GET(MT_TXS0_TX_RATE, txs);
 	ack_timeout = txs & MT_TXS0_ACK_TIMEOUT;
 
-	if (!(txs & MT_TXS0_ACK_ERROR_MASK)) {
-		if (!fixed_rate && !ack_timeout)
-			sta->ampdu_acked++;
-		info->flags |= IEEE80211_TX_STAT_ACK;
-	}
-
-	if (!fixed_rate)
-		sta->ampdu_count++;
-
-	sta->ampdu_tx_count = max_t(int, sta->ampdu_tx_count, count);
-	if (ampdu && !final_mpdu)
+	if (!ampdu && (txs & MT_TXS0_RTS_TIMEOUT))
 		return false;
 
-	if (fixed_rate) {
-		info->status.ampdu_len = 1;
-		info->status.ampdu_ack_len = !!(info->flags &
-						IEEE80211_TX_STAT_ACK);
-	} else {
-		info->status.ampdu_len = sta->ampdu_count;
-		info->status.ampdu_ack_len = sta->ampdu_acked;
-		if (info->status.ampdu_ack_len)
-			info->flags |= IEEE80211_TX_STAT_ACK;
-	}
+	if (txs & MT_TXS0_QUEUE_TIMEOUT)
+		return false;
+
+	if (!ack_timeout)
+		info->flags |= IEEE80211_TX_STAT_ACK;
+
+	info->status.ampdu_len = 1;
+	info->status.ampdu_ack_len = !!(info->flags &
+					IEEE80211_TX_STAT_ACK);
 
 	if (ampdu || (info->flags & IEEE80211_TX_CTL_AMPDU))
 		info->flags |= IEEE80211_TX_STAT_AMPDU | IEEE80211_TX_CTL_AMPDU;
-
-	count = sta->ampdu_tx_count;
-
-	sta->ampdu_count = 0;
-	sta->ampdu_acked = 0;
-	sta->ampdu_tx_count = 0;
 
 	if (fixed_rate && !probe) {
 		info->status.rates[0].count = count;
