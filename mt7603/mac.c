@@ -1204,16 +1204,14 @@ static void mt7603_pse_reset(struct mt7603_dev *dev)
 			    MT_MCU_DEBUG_RESET_PSE_S,
 			    MT_MCU_DEBUG_RESET_PSE_S, 500)) {
 		dev->reset_cause[RESET_CAUSE_RESET_FAILED]++;
+		mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE);
 	} else {
 		dev->reset_cause[RESET_CAUSE_RESET_FAILED] = 0;
+		mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_QUEUES);
 	}
 
-	mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_QUEUES);
-
-	if (dev->reset_cause[RESET_CAUSE_RESET_FAILED] >= 3) {
+	if (dev->reset_cause[RESET_CAUSE_RESET_FAILED] >= 3)
 		dev->reset_cause[RESET_CAUSE_RESET_FAILED] = 0;
-		mt76_clear(dev, MT_MCU_DEBUG_RESET, MT_MCU_DEBUG_RESET_PSE);
-	}
 }
 
 void mt7603_mac_dma_start(struct mt7603_dev *dev)
