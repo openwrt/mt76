@@ -912,8 +912,8 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 		tx_count = rate->count;
 	}
 
-	/* use maximum tx count for beacons */
-	if (q->hw_idx == MT_TX_HW_QUEUE_BCN)
+	/* use maximum tx count for beacons and buffered multicast */
+	if (q >= &dev->mt76.q_tx[MT_TXQ_BEACON])
 		tx_count = 0x1f;
 
 	val = FIELD_PREP(MT_TXD3_REM_TX_COUNT, tx_count) |
