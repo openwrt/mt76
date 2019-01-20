@@ -201,6 +201,18 @@ void mt7603_filter_tx(struct mt7603_dev *dev, int idx, bool abort)
 	mt7603_wtbl_set_skip_tx(dev, idx, false);
 }
 
+void mt7603_wtbl_set_smps(struct mt7603_dev *dev, struct mt7603_sta *sta,
+			  bool enabled)
+{
+	u32 addr = mt7603_wtbl1_addr(sta->wcid.idx);
+
+	if (sta->smps == enabled)
+		return;
+
+	mt76_rmw_field(dev, addr + 2 * 4, MT_WTBL1_W2_SMPS, enabled);
+	sta->smps = enabled;
+}
+
 void mt7603_wtbl_set_ps(struct mt7603_dev *dev, struct mt7603_sta *sta,
 			bool enabled)
 {

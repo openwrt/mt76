@@ -78,6 +78,7 @@ struct mt7603_sta {
 	u8 n_rates;
 
 	u8 rate_probe;
+	u8 smps;
 
 	u8 ps;
 };
@@ -235,6 +236,8 @@ int mt7603_wtbl_set_key(struct mt7603_dev *dev, int wcid,
 			struct ieee80211_key_conf *key);
 void mt7603_wtbl_set_ps(struct mt7603_dev *dev, struct mt7603_sta *sta,
 			bool enabled);
+void mt7603_wtbl_set_smps(struct mt7603_dev *dev, struct mt7603_sta *sta,
+			  bool enabled);
 void mt7603_filter_tx(struct mt7603_dev *dev, int idx, bool abort);
 
 int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,

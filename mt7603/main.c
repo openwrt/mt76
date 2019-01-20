@@ -359,6 +359,7 @@ mt7603_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 
 	__skb_queue_head_init(&msta->psq);
 	msta->ps = ~0;
+	msta->smps = ~0;
 	msta->wcid.sta = 1;
 	msta->wcid.idx = idx;
 	mt7603_wtbl_init(dev, idx, mvif->idx, sta->addr);
@@ -643,6 +644,8 @@ mt7603_sta_rate_tbl_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	msta->n_rates = i;
 	mt7603_wtbl_set_rates(dev, msta, NULL, msta->rates);
 	msta->rate_probe = false;
+	mt7603_wtbl_set_smps(dev, msta,
+			     sta->smps_mode == IEEE80211_SMPS_DYNAMIC);
 	spin_unlock_bh(&dev->mt76.lock);
 }
 
