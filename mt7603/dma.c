@@ -90,6 +90,10 @@ mt7603_rx_loopback_skb(struct mt7603_dev *dev, struct sk_buff *skb)
 
 	spin_lock_bh(&dev->ps_lock);
 	__skb_queue_tail(&msta->psq, skb);
+	if (skb_queue_len(&msta->psq) >= 64) {
+		skb = __skb_dequeue(&msta->psq);
+		dev_kfree_skb(skb);
+	}
 	spin_unlock_bh(&dev->ps_lock);
 	return;
 
