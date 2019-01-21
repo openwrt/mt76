@@ -318,8 +318,12 @@ mt7603_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	}
 
 	if (changed & BSS_CHANGED_ERP_SLOT) {
-		dev->slottime = info->use_short_slot ? 9 : 20;
-		mt7603_mac_set_timing(dev);
+		int slottime = info->use_short_slot ? 9 : 20;
+
+		if (slottime != dev->slottime) {
+			dev->slottime = slottime;
+			mt7603_mac_set_timing(dev);
+		}
 	}
 
 	if (changed & (BSS_CHANGED_BEACON_ENABLED | BSS_CHANGED_BEACON_INT)) {
