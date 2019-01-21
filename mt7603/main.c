@@ -318,18 +318,8 @@ mt7603_bss_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	}
 
 	if (changed & BSS_CHANGED_ERP_SLOT) {
-		u32 val;
-
 		dev->slottime = info->use_short_slot ? 9 : 20;
 		mt7603_mac_set_timing(dev);
-
-		if (info->use_short_slot)
-			val = MT7603_CFEND_RATE_DEFAULT;
-		else
-			val = MT7603_CFEND_RATE_11B;
-
-		mt76_rmw_field(dev, MT_AGG_CONTROL, MT_AGG_CONTROL_CFEND_RATE,
-			       val);
 	}
 
 	if (changed & (BSS_CHANGED_BEACON_ENABLED | BSS_CHANGED_BEACON_INT)) {
