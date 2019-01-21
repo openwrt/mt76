@@ -48,10 +48,10 @@ mt76_start_tx_ac(struct mt7603_dev *dev, u32 mask)
 
 void mt7603_mac_set_timing(struct mt7603_dev *dev)
 {
-	u32 cck = FIELD_PREP(MT_TIMEOUT_VAL_PLCP, 247) |
-		  FIELD_PREP(MT_TIMEOUT_VAL_CCA, 64);
-	u32 ofdm = FIELD_PREP(MT_TIMEOUT_VAL_PLCP, 113) |
-		   FIELD_PREP(MT_TIMEOUT_VAL_CCA, 64);
+	u32 cck = FIELD_PREP(MT_TIMEOUT_VAL_PLCP, 231) |
+		  FIELD_PREP(MT_TIMEOUT_VAL_CCA, 48);
+	u32 ofdm = FIELD_PREP(MT_TIMEOUT_VAL_PLCP, 60) |
+		   FIELD_PREP(MT_TIMEOUT_VAL_CCA, 24);
 	int offset = 3 * dev->coverage_class;
 	u32 reg_offset = FIELD_PREP(MT_TIMEOUT_VAL_PLCP, offset) |
 			 FIELD_PREP(MT_TIMEOUT_VAL_CCA, offset);
@@ -62,7 +62,9 @@ void mt7603_mac_set_timing(struct mt7603_dev *dev)
 	else
 		sifs = 10;
 
-	mt7603_mac_stop(dev);
+	mt76_set(dev, MT_ARB_SCR,
+		 MT_ARB_SCR_TX_DISABLE | MT_ARB_SCR_RX_DISABLE);
+	udelay(1);
 
 	mt76_wr(dev, MT_TIMEOUT_CCK, cck + reg_offset);
 	mt76_wr(dev, MT_TIMEOUT_OFDM, ofdm + reg_offset);
@@ -72,7 +74,8 @@ void mt7603_mac_set_timing(struct mt7603_dev *dev)
 		FIELD_PREP(MT_IFS_SIFS, sifs) |
 		FIELD_PREP(MT_IFS_SLOT, dev->slottime));
 
-	mt7603_mac_start(dev);
+	mt76_clear(dev, MT_ARB_SCR,
+		   MT_ARB_SCR_TX_DISABLE | MT_ARB_SCR_RX_DISABLE);
 }
 
 static void
