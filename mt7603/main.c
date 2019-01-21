@@ -199,8 +199,8 @@ mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 	idx |= (def->chan -
 		mt76_hw(dev)->wiphy->bands[def->chan->band]->channels) << 1;
 	mt76_wr(dev, MT_WF_RMAC_CH_FREQ, idx);
-	mt7603_mac_start(dev);
 	mt7603_mac_set_timing(dev);
+	mt7603_mac_start(dev);
 
 	clear_bit(MT76_RESET, &dev->mt76.state);
 
