@@ -127,7 +127,7 @@ void mt7603_pre_tbtt_tasklet(unsigned long arg)
 	spin_unlock_bh(&q->lock);
 
 	for (i = 0; i < ARRAY_SIZE(data.count); i++)
-		mt76_wr(dev, MT_WF_ARB_CAB_COUNT(i),
+		mt76_wr(dev, MT_WF_ARB_CAB_COUNT_B0_REG(i),
 			data.count[i] << MT_WF_ARB_CAB_COUNT_B0_SHIFT(i));
 
 	mt76_wr(dev, MT_WF_ARB_CAB_START,
