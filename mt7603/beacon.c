@@ -40,6 +40,17 @@ mt7603_update_beacon_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 
 	mt76_dma_tx_queue_skb(&dev->mt76, &dev->mt76.q_tx[MT_TXQ_BEACON], skb,
 			      &mvif->sta.wcid, NULL);
+
+	spin_lock_bh(&dev->ps_lock);
+	mt76_wr(dev, MT_DMA_FQCR0, MT_DMA_FQCR0_BUSY |
+		FIELD_PREP(MT_DMA_FQCR0_TARGET_WCID, mvif->sta.wcid.idx) |
+		FIELD_PREP(MT_DMA_FQCR0_TARGET_QID, dev->mt76.q_tx[MT_TXQ_CAB].hw_idx) |
+		FIELD_PREP(MT_DMA_FQCR0_DEST_PORT_ID, 3) |
+		FIELD_PREP(MT_DMA_FQCR0_DEST_QUEUE_ID, 8));
+
+	WARN_ON_ONCE(!mt76_poll(dev, MT_DMA_FQCR0, MT_DMA_FQCR0_BUSY,
+				0, 5000));
+	spin_unlock_bh(&dev->ps_lock);
 }
 
 static void
@@ -75,9 +86,6 @@ void mt7603_pre_tbtt_tasklet(unsigned long arg)
 	struct sk_buff *skb;
 	int i, nframes;
 
-	/* Flush all previous CAB queue packets */
-	mt76_wr(dev, MT_WF_ARB_CAB_FLUSH, GENMASK(30, 16) | BIT(0));
-
 	data.dev = dev;
 	__skb_queue_head_init(&data.q);
 
@@ -88,6 +96,9 @@ void mt7603_pre_tbtt_tasklet(unsigned long arg)
 		mt7603_update_beacon_iter, dev);
 	mt76_queue_kick(dev, q);
 	spin_unlock_bh(&q->lock);
+
+	/* Flush all previous CAB queue packets */
+	mt76_wr(dev, MT_WF_ARB_CAB_FLUSH, GENMASK(30, 16) | BIT(0));
 
 	mt76_queue_tx_cleanup(dev, MT_TXQ_CAB, false);
 
