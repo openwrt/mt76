@@ -197,6 +197,7 @@ int mt7603_dma_init(struct mt7603_dev *dev)
 		   MT_WPDMA_GLO_CFG_TX_WRITEBACK_DONE);
 
 	mt76_wr(dev, MT_WPDMA_RST_IDX, ~0);
+	mt7603_pse_client_reset(dev);
 
 	for (i = 0; i < ARRAY_SIZE(wmm_queue_map); i++) {
 		ret = mt7603_init_tx_queue(dev, &dev->mt76.q_tx[i],
