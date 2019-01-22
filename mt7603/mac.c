@@ -1327,7 +1327,8 @@ static void mt7603_mac_watchdog_reset(struct mt7603_dev *dev)
 
 	if (dev->reset_cause[RESET_CAUSE_RESET_FAILED] ||
 	    dev->cur_reset_cause == RESET_CAUSE_RX_PSE_BUSY ||
-	    dev->cur_reset_cause == RESET_CAUSE_BEACON_STUCK)
+	    dev->cur_reset_cause == RESET_CAUSE_BEACON_STUCK ||
+	    dev->cur_reset_cause == RESET_CAUSE_TX_HANG)
 		mt7603_pse_reset(dev);
 
 	if (dev->reset_cause[RESET_CAUSE_RESET_FAILED])
@@ -1725,15 +1726,15 @@ void mt7603_mac_work(struct work_struct *work)
 	    mt7603_watchdog_check(dev, &dev->beacon_check,
 				  RESET_CAUSE_BEACON_STUCK,
 				  NULL) ||
+	    mt7603_watchdog_check(dev, &dev->tx_hang_check,
+				  RESET_CAUSE_TX_HANG,
+				  mt7603_tx_hang) ||
 	    mt7603_watchdog_check(dev, &dev->tx_dma_check,
 				  RESET_CAUSE_TX_BUSY,
 				  mt7603_tx_dma_busy) ||
 	    mt7603_watchdog_check(dev, &dev->rx_dma_check,
 				  RESET_CAUSE_RX_BUSY,
 				  mt7603_rx_dma_busy) ||
-	    mt7603_watchdog_check(dev, &dev->tx_hang_check,
-				  RESET_CAUSE_TX_HANG,
-				  mt7603_tx_hang) ||
 	    mt7603_watchdog_check(dev, &dev->mcu_hang,
 				  RESET_CAUSE_MCU_HANG,
 				  NULL) ||
