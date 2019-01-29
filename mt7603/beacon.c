@@ -44,12 +44,14 @@ mt7603_update_beacon_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 	spin_lock_bh(&dev->ps_lock);
 	mt76_wr(dev, MT_DMA_FQCR0, MT_DMA_FQCR0_BUSY |
 		FIELD_PREP(MT_DMA_FQCR0_TARGET_WCID, mvif->sta.wcid.idx) |
-		FIELD_PREP(MT_DMA_FQCR0_TARGET_QID, dev->mt76.q_tx[MT_TXQ_CAB].hw_idx) |
+		FIELD_PREP(MT_DMA_FQCR0_TARGET_QID,
+			   dev->mt76.q_tx[MT_TXQ_CAB].hw_idx) |
 		FIELD_PREP(MT_DMA_FQCR0_DEST_PORT_ID, 3) |
 		FIELD_PREP(MT_DMA_FQCR0_DEST_QUEUE_ID, 8));
 
-	WARN_ON_ONCE(!mt76_poll(dev, MT_DMA_FQCR0, MT_DMA_FQCR0_BUSY,
-				0, 5000));
+	if (!mt76_poll(dev, MT_DMA_FQCR0, MT_DMA_FQCR0_BUSY, 0, 5000))
+		dev->beacon_check = MT7603_WATCHDOG_TIMEOUT;
+
 	spin_unlock_bh(&dev->ps_lock);
 }
 
