@@ -45,35 +45,12 @@ mt7603_stop(struct ieee80211_hw *hw)
 	mt7603_mac_stop(dev);
 }
 
-static void
-mt7603_txq_init(struct mt7603_dev *dev, struct ieee80211_txq *txq)
-{
-	struct mt76_txq *mtxq;
-
-	if (!txq)
-		return;
-
-	mtxq = (struct mt76_txq *)txq->drv_priv;
-	if (txq->sta) {
-		struct mt7603_sta *sta;
-
-		sta = (struct mt7603_sta *)txq->sta->drv_priv;
-		mtxq->wcid = &sta->wcid;
-	} else {
-		struct mt7603_vif *mvif;
-
-		mvif = (struct mt7603_vif *)txq->vif->drv_priv;
-		mtxq->wcid = &mvif->sta.wcid;
-	}
-
-	mt76_txq_init(&dev->mt76, txq);
-}
-
 static int
 mt7603_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
 	struct mt7603_vif *mvif = (struct mt7603_vif *)vif->drv_priv;
 	struct mt7603_dev *dev = hw->priv;
+	struct mt76_txq *mtxq;
 	u8 bc_addr[ETH_ALEN];
 	int idx;
 	int ret = 0;
@@ -108,8 +85,10 @@ mt7603_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	eth_broadcast_addr(bc_addr);
 	mt7603_wtbl_init(dev, idx, mvif->idx, bc_addr);
 
+	mtxq = (struct mt76_txq *)vif->txq->drv_priv;
+	mtxq->wcid = &mvif->sta.wcid;
+	mt76_txq_init(&dev->mt76, vif->txq);
 	rcu_assign_pointer(dev->mt76.wcid[idx], &mvif->sta.wcid);
-	mt7603_txq_init(dev, vif->txq);
 
 out:
 	mutex_unlock(&dev->mt76.mutex);
