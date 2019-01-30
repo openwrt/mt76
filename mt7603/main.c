@@ -337,12 +337,20 @@ mt7603_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	msta->wcid.idx = idx;
 	mt7603_wtbl_init(dev, idx, mvif->idx, sta->addr);
 	mt7603_wtbl_set_ps(dev, msta, false);
-	mt7603_wtbl_update_cap(dev, sta);
 
 	if (vif->type == NL80211_IFTYPE_AP)
 		set_bit(MT_WCID_FLAG_CHECK_PS, &msta->wcid.flags);
 
 	return ret;
+}
+
+void
+mt7603_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+		 struct ieee80211_sta *sta)
+{
+	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
+
+	mt7603_wtbl_update_cap(dev, sta);
 }
 
 void
