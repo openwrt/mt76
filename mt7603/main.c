@@ -627,7 +627,6 @@ mt7603_set_coverage_class(struct ieee80211_hw *hw, s16 coverage_class)
 static void mt7603_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
 		      struct sk_buff *skb)
 {
-	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_vif *vif = info->control.vif;
 	struct mt7603_dev *dev = hw->priv;
@@ -638,13 +637,7 @@ static void mt7603_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *cont
 
 		msta = (struct mt7603_sta *)control->sta->drv_priv;
 		wcid = &msta->wcid;
-		/* sw encrypted frames */
-		if (!info->control.hw_key && wcid->hw_key_idx != 0xff &&
-		    ieee80211_has_protected(hdr->frame_control))
-			control->sta = NULL;
-	}
-
-	if (vif && !control->sta) {
+	} else if (vif) {
 		struct mt7603_vif *mvif;
 
 		mvif = (struct mt7603_vif *)vif->drv_priv;
