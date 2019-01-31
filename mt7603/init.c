@@ -5,33 +5,18 @@
 #include "mac.h"
 #include "eeprom.h"
 
-struct mt7603_dev *mt7603_alloc_device(struct device *pdev)
-{
-	static const struct mt76_driver_ops drv_ops = {
-		.txwi_size = MT_TXD_SIZE,
-		.tx_prepare_skb = mt7603_tx_prepare_skb,
-		.tx_complete_skb = mt7603_tx_complete_skb,
-		.rx_skb = mt7603_queue_rx_skb,
-		.rx_poll_complete = mt7603_rx_poll_complete,
-		.sta_ps = mt7603_sta_ps,
-		.sta_add = mt7603_sta_add,
-		.sta_assoc = mt7603_sta_assoc,
-		.sta_remove = mt7603_sta_remove,
-		.update_survey = mt7603_update_channel,
-	};
-	struct mt7603_dev *dev;
-	struct mt76_dev *mdev;
-
-	mdev = mt76_alloc_device(sizeof(*dev), &mt7603_ops);
-	if (!mdev)
-		return NULL;
-
-	dev = container_of(mdev, struct mt7603_dev, mt76);
-	mdev->dev = pdev;
-	mdev->drv = &drv_ops;
-
-	return dev;
-}
+const struct mt76_driver_ops mt7603_drv_ops = {
+	.txwi_size = MT_TXD_SIZE,
+	.tx_prepare_skb = mt7603_tx_prepare_skb,
+	.tx_complete_skb = mt7603_tx_complete_skb,
+	.rx_skb = mt7603_queue_rx_skb,
+	.rx_poll_complete = mt7603_rx_poll_complete,
+	.sta_ps = mt7603_sta_ps,
+	.sta_add = mt7603_sta_add,
+	.sta_assoc = mt7603_sta_assoc,
+	.sta_remove = mt7603_sta_remove,
+	.update_survey = mt7603_update_channel,
+};
 
 static void
 mt7603_set_tmac_template(struct mt7603_dev *dev)
