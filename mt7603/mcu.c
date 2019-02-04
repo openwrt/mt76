@@ -19,22 +19,6 @@ void mt7603_mcu_rx_event(struct mt7603_dev *dev, struct sk_buff *skb)
 	wake_up(&dev->mt76.mmio.mcu.wait);
 }
 
-static struct sk_buff *
-mt7603_mcu_get_response(struct mt7603_dev *dev, unsigned long expires)
-{
-	struct mt76_dev *mdev = &dev->mt76;
-	unsigned long timeout;
-
-	if (!time_is_after_jiffies(expires))
-		return NULL;
-
-	timeout = expires - jiffies;
-	wait_event_timeout(mdev->mmio.mcu.wait,
-			   !skb_queue_empty(&mdev->mmio.mcu.res_q),
-			   timeout);
-	return skb_dequeue(&mdev->mmio.mcu.res_q);
-}
-
 static int
 __mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd,
 		      int query, int *wait_seq)
@@ -97,7 +81,7 @@ mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd,
 	while (1) {
 		bool check_seq = false;
 
-		skb = mt7603_mcu_get_response(dev, expires);
+		skb = mt76_mcu_get_response(&dev->mt76, expires);
 		if (!skb) {
 			dev_err(mdev->dev,
 				"MCU message %d (seq %d) timed out\n",
