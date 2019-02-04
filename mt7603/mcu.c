@@ -13,12 +13,6 @@ struct mt7603_fw_trailer {
 	__le32 dl_len;
 } __packed;
 
-void mt7603_mcu_rx_event(struct mt7603_dev *dev, struct sk_buff *skb)
-{
-	skb_queue_tail(&dev->mt76.mmio.mcu.res_q, skb);
-	wake_up(&dev->mt76.mmio.mcu.wait);
-}
-
 static int
 __mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd,
 		      int query, int *wait_seq)

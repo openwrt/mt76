@@ -98,7 +98,7 @@ void mt7603_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 
 	if (q == MT_RXQ_MCU) {
 		if (type == PKT_TYPE_RX_EVENT)
-			mt7603_mcu_rx_event(dev, skb);
+			mt76_mcu_rx_event(&dev->mt76, skb);
 		else
 			mt7603_rx_loopback_skb(dev, skb);
 		return;
@@ -111,7 +111,7 @@ void mt7603_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 		dev_kfree_skb(skb);
 		break;
 	case PKT_TYPE_RX_EVENT:
-		mt7603_mcu_rx_event(dev, skb);
+		mt76_mcu_rx_event(&dev->mt76, skb);
 		return;
 	case PKT_TYPE_NORMAL:
 		if (mt7603_mac_fill_rx(dev, skb) == 0) {
