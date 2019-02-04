@@ -9,7 +9,8 @@ obj-$(CONFIG_MT76x2_COMMON) += mt76x2/
 obj-$(CONFIG_MT76x0_COMMON) += mt76x0/
 
 mt76-y := \
-	mmio.o util.o trace.o dma.o mac80211.o debugfs.o eeprom.o tx.o agg-rx.o
+	mmio.o util.o trace.o dma.o mac80211.o debugfs.o eeprom.o \
+	tx.o agg-rx.o mcu.o
 
 mt76-usb-y := usb.o usb_trace.o usb_mcu.o
 
