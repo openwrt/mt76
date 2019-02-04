@@ -100,4 +100,11 @@ enum {
 	MCU_EXT_EVENT_BCN_UPDATE = 0x31,
 };
 
+static inline struct sk_buff *
+mt7603_mcu_msg_alloc(const void *data, int len)
+{
+	return mt76_mcu_msg_alloc(data, sizeof(struct mt7603_mcu_txd),
+				  len, 0);
+}
+
 #endif
