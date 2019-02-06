@@ -177,8 +177,6 @@ int mt7603_eeprom_init(struct mt7603_dev *dev);
 int mt7603_dma_init(struct mt7603_dev *dev);
 void mt7603_dma_cleanup(struct mt7603_dev *dev);
 int mt7603_mcu_init(struct mt7603_dev *dev);
-int mt7603_tx_queue_mcu(struct mt7603_dev *dev, enum mt76_txq_id qid,
-			struct sk_buff *skb);
 void mt7603_init_debugfs(struct mt7603_dev *dev);
 
 void mt7603_set_irq_mask(struct mt7603_dev *dev, u32 clear, u32 set);

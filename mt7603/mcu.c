@@ -54,7 +54,7 @@ __mt7603_mcu_msg_send(struct mt7603_dev *dev, struct sk_buff *skb, int cmd,
 	if (wait_seq)
 		*wait_seq = seq;
 
-	return mt7603_tx_queue_mcu(dev, MT_TXQ_MCU, skb);
+	return mt76_tx_queue_skb_raw(dev, MT_TXQ_MCU, skb, 0);
 }
 
 static int
