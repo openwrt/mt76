@@ -397,7 +397,7 @@ void mt7603_mac_tx_ba_reset(struct mt7603_dev *dev, int wcid, int tid, int ssn,
 	mt7603_mac_start(dev);
 
 	for (i = 7; i > 0; i--) {
-		if (ba_size < MT_AGG_SIZE_LIMIT(i))
+		if (ba_size >= MT_AGG_SIZE_LIMIT(i))
 			break;
 	}
 
