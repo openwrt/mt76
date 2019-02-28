@@ -431,7 +431,7 @@ static void mt76x02_key_sync(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	wcid = (struct mt76_wcid *) sta->drv_priv;
 
-	if (wcid->hw_key_idx != key->keyidx)
+	if (wcid->hw_key_idx != key->keyidx || wcid->sw_iv)
 	    return;
 
 	mt76x02_mac_wcid_sync_pn(dev, wcid->idx, key);
