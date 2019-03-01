@@ -423,6 +423,8 @@ static void mt76x02_reset_state(struct mt76x02_dev *dev)
 {
 	int i;
 
+	clear_bit(MT76_STATE_RUNNING, &dev->mt76.state);
+
 	rcu_read_lock();
 
 	ieee80211_iter_keys_rcu(dev->mt76.hw, NULL, mt76x02_key_sync, NULL);
@@ -527,13 +529,12 @@ static void mt76x02_watchdog_reset(struct mt76x02_dev *dev)
 		napi_schedule(&dev->mt76.napi[i]);
 	}
 
-	ieee80211_wake_queues(dev->mt76.hw);
-
-	mt76_txq_schedule_all(&dev->mt76);
-
 	if (restart) {
 		mt76x02_mcu_function_select(dev, Q_SELECT, 1);
 		ieee80211_restart_hw(dev->mt76.hw);
+	} else {
+		ieee80211_wake_queues(dev->mt76.hw);
+		mt76_txq_schedule_all(&dev->mt76);
 	}
 }
 
