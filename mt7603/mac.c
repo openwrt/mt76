@@ -820,7 +820,7 @@ int mt7603_wtbl_set_key(struct mt7603_dev *dev, int wcid,
 
 static int
 mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
-		      struct sk_buff *skb, struct mt76_queue *q,
+		      struct sk_buff *skb, enum mt76_txq_id qid,
 		      struct mt76_wcid *wcid, struct ieee80211_sta *sta,
 		      int pid, struct ieee80211_key_conf *key)
 {
@@ -828,6 +828,7 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 	struct ieee80211_tx_rate *rate = &info->control.rates[0];
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
 	struct ieee80211_vif *vif = info->control.vif;
+	struct mt76_queue *q = &dev->mt76.q_tx[qid];
 	struct mt7603_vif *mvif;
 	int wlan_idx;
 	int hdr_len = ieee80211_get_hdrlen_from_skb(skb);
@@ -841,7 +842,7 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 	if (vif) {
 		mvif = (struct mt7603_vif *)vif->drv_priv;
 		vif_idx = mvif->idx;
-		if (vif_idx && q >= &dev->mt76.q_tx[MT_TXQ_BEACON])
+		if (vif_idx && qid >= MT_TXQ_BEACON)
 			vif_idx += 0x10;
 	}
 
@@ -915,7 +916,7 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 	}
 
 	/* use maximum tx count for beacons and buffered multicast */
-	if (q >= &dev->mt76.q_tx[MT_TXQ_BEACON])
+	if (qid >= MT_TXQ_BEACON)
 		tx_count = 0x1f;
 
 	val = FIELD_PREP(MT_TXD3_REM_TX_COUNT, tx_count) |
@@ -936,7 +937,7 @@ mt7603_mac_write_txwi(struct mt7603_dev *dev, __le32 *txwi,
 }
 
 int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
-			  struct sk_buff *skb, struct mt76_queue *q,
+			  struct sk_buff *skb, enum mt76_txq_id qid,
 			  struct mt76_wcid *wcid, struct ieee80211_sta *sta,
 			  u32 *tx_info)
 {
@@ -968,7 +969,7 @@ int mt7603_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 		spin_unlock_bh(&dev->mt76.lock);
 	}
 
-	mt7603_mac_write_txwi(dev, txwi_ptr, skb, q, wcid, sta, pid, key);
+	mt7603_mac_write_txwi(dev, txwi_ptr, skb, qid, wcid, sta, pid, key);
 
 	return 0;
 }
