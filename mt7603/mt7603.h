@@ -146,7 +146,6 @@ struct mt7603_dev {
 	unsigned int reset_cause[__RESET_CAUSE_MAX];
 
 	struct delayed_work mac_work;
-	struct tasklet_struct tx_tasklet;
 	struct tasklet_struct pre_tbtt_tasklet;
 };
 
