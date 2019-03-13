@@ -433,6 +433,7 @@ int mt76x02_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 		if (key->flags & IEEE80211_KEY_FLAG_RX_MGMT) {
 			key->flags |= IEEE80211_KEY_FLAG_SW_MGMT_TX;
 			wcid->sw_iv = true;
+			wcid->tx_pn = atomic64_read(&key->tx_pn);
 		}
 	} else {
 		if (idx == wcid->hw_key_idx) {

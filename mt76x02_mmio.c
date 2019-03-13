@@ -421,10 +421,13 @@ static void mt76x02_key_sync(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	wcid = (struct mt76_wcid *) sta->drv_priv;
 
-	if (wcid->hw_key_idx != key->keyidx || wcid->sw_iv)
+	if (wcid->hw_key_idx != key->keyidx)
 	    return;
 
-	mt76x02_mac_wcid_sync_pn(dev, wcid->idx, key);
+	if (wcid->sw_iv)
+		atomic64_set(&key->tx_pn, wcid->tx_pn);
+	else
+		mt76x02_mac_wcid_sync_pn(dev, wcid->idx, key);
 }
 
 static void mt76x02_reset_state(struct mt76x02_dev *dev)

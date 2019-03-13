@@ -220,6 +220,8 @@ struct mt76_wcid {
 	u8 rx_key_pn[IEEE80211_NUM_TIDS][6];
 
 	u32 tx_info;
+
+	u64 tx_pn;
 	bool sw_iv;
 
 	u8 packet_id;

@@ -352,7 +352,12 @@ void mt76x02_mac_write_txwi(struct mt76x02_dev *dev, struct mt76x02_txwi *txwi,
 		txwi->wcid = 0xff;
 
 	if (wcid && wcid->sw_iv && key) {
-		u64 pn = atomic64_inc_return(&key->tx_pn);
+		u64 pn;
+
+		spin_lock(&dev->mt76.lock);
+		pn = ++wcid->tx_pn;
+		spin_unlock(&dev->mt76.lock);
+
 		ccmp_pn[0] = pn;
 		ccmp_pn[1] = pn >> 8;
 		ccmp_pn[2] = 0;
