@@ -174,6 +174,7 @@ void mt76x02_init_device(struct mt76x02_dev *dev)
 	hw->sta_data_size = sizeof(struct mt76x02_sta);
 	hw->vif_data_size = sizeof(struct mt76x02_vif);
 
+	ieee80211_hw_set(hw, TX_NEEDS_ALIGNED4_SKBS);
 	ieee80211_hw_set(hw, SUPPORTS_HT_CCK_RATES);
 	ieee80211_hw_set(hw, SUPPORTS_REORDERING_BUFFER);
 
