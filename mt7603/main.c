@@ -472,6 +472,7 @@ mt7603_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	if (cmd == SET_KEY) {
 		key->hw_key_idx = wcid->idx;
 		wcid->hw_key_idx = idx;
+		wcid->tx_pn = atomic64_read(&key->tx_pn);
 	} else {
 		if (idx == wcid->hw_key_idx)
 			wcid->hw_key_idx = -1;
