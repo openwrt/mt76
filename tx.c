@@ -524,8 +524,9 @@ mt76_txq_schedule_list(struct mt76_dev *dev, enum mt76_txq_id qid)
 		}
 
 		ret += mt76_txq_send_burst(dev, sq, mtxq, &empty);
-		if (!empty)
-			ieee80211_return_txq(dev->hw, txq);
+		if (skb_queue_empty(&mtxq->retry_q))
+			empty = true;
+		ieee80211_return_txq(dev->hw, txq, !empty);
 	}
 	spin_unlock_bh(&hwq->lock);
 
