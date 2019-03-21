@@ -40,13 +40,8 @@ void mt7603_mac_set_timing(struct mt7603_dev *dev)
 	int offset = 3 * dev->coverage_class;
 	u32 reg_offset = FIELD_PREP(MT_TIMEOUT_VAL_PLCP, offset) |
 			 FIELD_PREP(MT_TIMEOUT_VAL_CCA, offset);
-	int sifs;
+	int sifs = 10;
 	u32 val;
-
-	if (dev->mt76.chandef.chan->band == NL80211_BAND_5GHZ)
-		sifs = 16;
-	else
-		sifs = 10;
 
 	mt76_set(dev, MT_ARB_SCR,
 		 MT_ARB_SCR_TX_DISABLE | MT_ARB_SCR_RX_DISABLE);
@@ -318,8 +313,6 @@ void mt7603_wtbl_update_cap(struct mt7603_dev *dev, struct ieee80211_sta *sta)
 
 	if (sta->ht_cap.cap)
 		val |= MT_WTBL1_W2_HT;
-	if (sta->vht_cap.cap)
-		val |= MT_WTBL1_W2_VHT;
 
 	mt76_wr(dev, addr + 2 * 4, val);
 
@@ -416,11 +409,8 @@ mt7603_get_rate(struct mt7603_dev *dev, struct ieee80211_supported_band *sband,
 	int i;
 
 	if (cck) {
-		if (sband == &dev->mt76.sband_5g.sband)
-			return 0;
-
 		idx &= ~BIT(2); /* short preamble */
-	} else if (sband == &dev->mt76.sband_2g.sband) {
+	} else {
 		offset = 4;
 	}
 
@@ -483,7 +473,7 @@ int
 mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 {
 	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
-	struct ieee80211_supported_band *sband;
+	struct ieee80211_supported_band *sband = &dev->mt76.sband_2g.sband;
 	struct ieee80211_hdr *hdr;
 	__le32 *rxd = (__le32 *)skb->data;
 	u32 rxd0 = le32_to_cpu(rxd[0]);
@@ -497,9 +487,7 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 
 	memset(status, 0, sizeof(*status));
 
-	i = FIELD_GET(MT_RXD1_NORMAL_CH_FREQ, rxd1);
-	sband = (i & 1) ? &dev->mt76.sband_5g.sband : &dev->mt76.sband_2g.sband;
-	i >>= 1;
+	i = FIELD_GET(MT_RXD1_NORMAL_CH_FREQ, rxd1) >> 1;
 
 	idx = FIELD_GET(MT_RXD2_NORMAL_WLAN_IDX, rxd2);
 	status->wcid = mt7603_rx_get_wcid(dev, idx, unicast);
@@ -1065,10 +1053,7 @@ out:
 		cck = true;
 		/* fall through */
 	case MT_PHY_TYPE_OFDM:
-		if (dev->mt76.chandef.chan->band == NL80211_BAND_5GHZ)
-			sband = &dev->mt76.sband_5g.sband;
-		else
-			sband = &dev->mt76.sband_2g.sband;
+		sband = &dev->mt76.sband_2g.sband;
 		final_rate &= GENMASK(5, 0);
 		final_rate = mt7603_get_rate(dev, sband, final_rate, cck);
 		final_rate_flags = 0;

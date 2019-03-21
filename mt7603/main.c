@@ -127,7 +127,7 @@ mt7603_init_edcca(struct mt7603_dev *dev)
 static int
 mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 {
-	u8 *rssi_data = (u8 *)dev->mt76.eeprom.data;
+	u8 *rssi_data = ((u8 *)dev->mt76.eeprom.data) + MT_EE_RSSI_OFFSET_2G;
 	int idx, ret;
 	u8 bw = MT_BW_20;
 	bool failed = false;
@@ -151,17 +151,9 @@ mt7603_set_channel(struct mt7603_dev *dev, struct cfg80211_chan_def *def)
 		goto out;
 	}
 
-	if (def->chan->band == NL80211_BAND_5GHZ) {
-		idx = 1;
-		rssi_data += MT_EE_RSSI_OFFSET_5G;
-	} else {
-		idx = 0;
-		rssi_data += MT_EE_RSSI_OFFSET_2G;
-	}
-
 	memcpy(dev->rssi_offset, rssi_data, sizeof(dev->rssi_offset));
 
-	idx |= (def->chan -
+	idx = (def->chan -
 		mt76_hw(dev)->wiphy->bands[def->chan->band]->channels) << 1;
 	mt76_wr(dev, MT_WF_RMAC_CH_FREQ, idx);
 	mt7603_mac_set_timing(dev);
