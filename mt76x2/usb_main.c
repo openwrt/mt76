@@ -52,7 +52,6 @@ mt76x2u_set_channel(struct mt76x02_dev *dev,
 {
 	int err;
 
-	cancel_delayed_work_sync(&dev->cal_work);
 	set_bit(MT76_RESET, &dev->mt76.state);
 
 	mt76_set_channel(&dev->mt76);
@@ -75,6 +74,9 @@ mt76x2u_config(struct ieee80211_hw *hw, u32 changed)
 {
 	struct mt76x02_dev *dev = hw->priv;
 	int err = 0;
+
+	if (changed & IEEE80211_CONF_CHANGE_CHANNEL)
+		cancel_delayed_work_sync(&dev->cal_work);
 
 	mutex_lock(&dev->mt76.mutex);
 

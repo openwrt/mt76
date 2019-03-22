@@ -21,7 +21,6 @@ mt76x0_set_channel(struct mt76x02_dev *dev, struct cfg80211_chan_def *chandef)
 {
 	int ret;
 
-	cancel_delayed_work_sync(&dev->cal_work);
 	if (mt76_is_mmio(dev)) {
 		tasklet_disable(&dev->pre_tbtt_tasklet);
 		tasklet_disable(&dev->dfs_pd.dfs_tasklet);
@@ -50,6 +49,9 @@ int mt76x0_config(struct ieee80211_hw *hw, u32 changed)
 {
 	struct mt76x02_dev *dev = hw->priv;
 	int ret = 0;
+
+	if (changed & IEEE80211_CONF_CHANGE_CHANNEL)
+		cancel_delayed_work_sync(&dev->cal_work);
 
 	mutex_lock(&dev->mt76.mutex);
 

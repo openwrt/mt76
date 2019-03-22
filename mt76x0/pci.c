@@ -45,6 +45,7 @@ static void mt76x0e_stop_hw(struct mt76x02_dev *dev)
 	cancel_delayed_work_sync(&dev->cal_work);
 	cancel_delayed_work_sync(&dev->mac_work);
 
+	mutex_lock(&dev->mt76.mutex);
 	if (!mt76_poll(dev, MT_WPDMA_GLO_CFG, MT_WPDMA_GLO_CFG_TX_DMA_BUSY,
 		       0, 1000))
 		dev_warn(dev->mt76.dev, "TX DMA did not stop\n");
@@ -56,16 +57,15 @@ static void mt76x0e_stop_hw(struct mt76x02_dev *dev)
 		       0, 1000))
 		dev_warn(dev->mt76.dev, "TX DMA did not stop\n");
 	mt76_clear(dev, MT_WPDMA_GLO_CFG, MT_WPDMA_GLO_CFG_RX_DMA_EN);
+	mutex_unlock(&dev->mt76.mutex);
 }
 
 static void mt76x0e_stop(struct ieee80211_hw *hw)
 {
 	struct mt76x02_dev *dev = hw->priv;
 
-	mutex_lock(&dev->mt76.mutex);
 	clear_bit(MT76_STATE_RUNNING, &dev->mt76.state);
 	mt76x0e_stop_hw(dev);
-	mutex_unlock(&dev->mt76.mutex);
 }
 
 static void
