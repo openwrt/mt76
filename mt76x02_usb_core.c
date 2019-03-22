@@ -77,11 +77,14 @@ int mt76x02u_tx_prepare_skb(struct mt76_dev *mdev, void *data,
 			    struct mt76_tx_info *tx_info)
 {
 	struct mt76x02_dev *dev = container_of(mdev, struct mt76x02_dev, mt76);
-	int pid, len = skb->len, ep = q2ep(mdev->q_tx[qid].q->hw_idx);
+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+	int pid, hdrlen, len = skb->len, ep = q2ep(mdev->q_tx[qid].q->hw_idx);
 	struct mt76x02_txwi *txwi;
 	enum mt76_qsel qsel;
 	u32 flags;
 
+	hdrlen = ieee80211_hdrlen(hdr->frame_control);
+	len -= skb->len > hdrlen ? (hdrlen & 2) : 0;
 	txwi = (struct mt76x02_txwi *)(skb->data - sizeof(struct mt76x02_txwi));
 	mt76x02_mac_write_txwi(dev, txwi, skb, wcid, sta, len);
 	skb_push(skb, sizeof(struct mt76x02_txwi));

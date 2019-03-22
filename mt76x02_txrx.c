@@ -154,13 +154,14 @@ int mt76x02_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	struct mt76x02_dev *dev = container_of(mdev, struct mt76x02_dev, mt76);
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
 	struct mt76x02_txwi *txwi = txwi_ptr;
-	int hdrlen, len, pid, qsel = MT_QSEL_EDCA;
+	int hdrlen, pad, len, pid, qsel = MT_QSEL_EDCA;
 
 	if (qid == MT_TXQ_PSD && wcid && wcid->idx < 128)
 		mt76x02_mac_wcid_set_drop(dev, wcid->idx, false);
 
 	hdrlen = ieee80211_hdrlen(hdr->frame_control);
-	len = skb->len - (hdrlen & 2);
+	pad = skb->len > hdrlen ? (hdrlen & 2) : 0;
+	len = skb->len - pad;
 	mt76x02_mac_write_txwi(dev, txwi, skb, wcid, sta, len);
 
 	pid = mt76_tx_status_skb_add(mdev, wcid, skb);
