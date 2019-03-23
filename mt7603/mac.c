@@ -401,9 +401,9 @@ void mt7603_mac_tx_ba_reset(struct mt7603_dev *dev, int wcid, int tid, int ssn,
 }
 
 static int
-mt7603_get_rate(struct mt7603_dev *dev, struct ieee80211_supported_band *sband,
-		int idx, bool cck)
+mt7603_get_rate(struct mt7603_dev *dev, int idx, bool cck)
 {
+	struct ieee80211_supported_band *sband = &dev->mt76.sband_2g.sband;
 	int offset = 0;
 	int len = sband->n_bitrates;
 	int i;
@@ -557,7 +557,7 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 			cck = true;
 			/* fall through */
 		case MT_PHY_TYPE_OFDM:
-			i = mt7603_get_rate(dev, sband, i, cck);
+			i = mt7603_get_rate(dev, i, cck);
 			break;
 		case MT_PHY_TYPE_HT_GF:
 		case MT_PHY_TYPE_HT:
@@ -970,7 +970,6 @@ static bool
 mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 		struct ieee80211_tx_info *info, __le32 *txs_data)
 {
-	struct ieee80211_supported_band *sband;
 	int final_idx = 0;
 	u32 final_rate;
 	u32 final_rate_flags;
@@ -1053,9 +1052,8 @@ out:
 		cck = true;
 		/* fall through */
 	case MT_PHY_TYPE_OFDM:
-		sband = &dev->mt76.sband_2g.sband;
 		final_rate &= GENMASK(5, 0);
-		final_rate = mt7603_get_rate(dev, sband, final_rate, cck);
+		final_rate = mt7603_get_rate(dev, final_rate, cck);
 		final_rate_flags = 0;
 		break;
 	case MT_PHY_TYPE_HT_GF:
