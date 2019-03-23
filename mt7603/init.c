@@ -459,7 +459,7 @@ static void
 mt7603_init_txpower(struct mt7603_dev *dev)
 {
 	struct ieee80211_channel *chan;
-	struct ieee80211_supported_band sband = &dev->mt76.sband_2g.sband;
+	struct ieee80211_supported_band *sband = &dev->mt76.sband_2g.sband;
 	u8 *eeprom = (u8 *)dev->mt76.eeprom.data;
 	int target_power = eeprom[MT_EE_TX_POWER_0_START_2G + 2] & ~BIT(7);
 	u8 *rate_power = &eeprom[MT_EE_TX_POWER_CCK];
