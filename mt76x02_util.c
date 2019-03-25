@@ -138,7 +138,6 @@ void mt76x02_init_device(struct mt76x02_dev *dev)
 	hw->max_rates = 1;
 	hw->max_report_rates = 7;
 	hw->max_rate_tries = 1;
-	hw->extra_tx_headroom = 2;
 
 	wiphy->interface_modes =
 		BIT(NL80211_IFTYPE_STATION) |
