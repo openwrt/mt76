@@ -233,6 +233,8 @@ struct mt76_txq {
 struct mt76_txwi_cache {
 	struct list_head list;
 	dma_addr_t dma_addr;
+
+	struct sk_buff *skb;
 };
 
 struct mt76_rx_tid {
@@ -286,7 +288,10 @@ struct mt76_hw_cap {
 	bool has_5ghz;
 };
 
+#define MT_TXWI_NO_FREE			BIT(0)
+
 struct mt76_driver_ops {
+	u32 txwi_flags;
 	u16 txwi_size;
 
 	void (*update_survey)(struct mt76_dev *dev);
