@@ -92,8 +92,6 @@ static void mt76x0u_mac_stop(struct mt76x02_dev *dev)
 	if (test_bit(MT76_REMOVED, &dev->mt76.state))
 		return;
 
-	mutex_lock(&dev->mt76.mutex);
-
 	if (!mt76_poll(dev, MT_USB_DMA_CFG, MT_USB_DMA_CFG_TX_BUSY, 0, 1000))
 		dev_warn(dev->mt76.dev, "TX DMA did not stop\n");
 
@@ -101,7 +99,6 @@ static void mt76x0u_mac_stop(struct mt76x02_dev *dev)
 
 	if (!mt76_poll(dev, MT_USB_DMA_CFG, MT_USB_DMA_CFG_RX_BUSY, 0, 1000))
 		dev_warn(dev->mt76.dev, "RX DMA did not stop\n");
-	mutex_unlock(&dev->mt76.mutex);
 }
 
 static int mt76x0u_start(struct ieee80211_hw *hw)
@@ -131,7 +128,9 @@ static void mt76x0u_stop(struct ieee80211_hw *hw)
 {
 	struct mt76x02_dev *dev = hw->priv;
 
+	mutex_lock(&dev->mt76.mutex);
 	mt76x0u_mac_stop(dev);
+	mutex_unlock(&dev->mt76.mutex);
 }
 
 static const struct ieee80211_ops mt76x0u_ops = {

@@ -49,14 +49,18 @@ mt76x2_stop(struct ieee80211_hw *hw)
 {
 	struct mt76x02_dev *dev = hw->priv;
 
+	mutex_lock(&dev->mt76.mutex);
 	clear_bit(MT76_STATE_RUNNING, &dev->mt76.state);
 	mt76x2_stop_hardware(dev);
+	mutex_unlock(&dev->mt76.mutex);
 }
 
 static int
 mt76x2_set_channel(struct mt76x02_dev *dev, struct cfg80211_chan_def *chandef)
 {
 	int ret;
+
+	cancel_delayed_work_sync(&dev->cal_work);
 
 	set_bit(MT76_RESET, &dev->mt76.state);
 
@@ -90,9 +94,6 @@ mt76x2_config(struct ieee80211_hw *hw, u32 changed)
 {
 	struct mt76x02_dev *dev = hw->priv;
 	int ret = 0;
-
-	if (changed & IEEE80211_CONF_CHANGE_CHANNEL)
-		cancel_delayed_work_sync(&dev->cal_work);
 
 	mutex_lock(&dev->mt76.mutex);
 
