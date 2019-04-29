@@ -469,7 +469,6 @@ void mt76x02_send_tx_status(struct mt76x02_dev *dev,
 	struct mt76x02_sta *msta = NULL;
 	struct mt76_dev *mdev = &dev->mt76;
 	struct sk_buff_head list;
-	bool status_noskb = false;
 
 	if (stat->pktid == MT_PACKET_ID_NO_ACK)
 		return;
@@ -524,14 +523,10 @@ void mt76x02_send_tx_status(struct mt76x02_dev *dev,
 	if (status.skb)
 		mt76_tx_status_skb_done(mdev, status.skb, &list);
 	else
-		status_noskb = true;
+		ieee80211_tx_status_ext(mt76_hw(dev), &status);
 
 out:
 	mt76_tx_status_unlock(mdev, &list);
-
-	if (status_noskb)
-		ieee80211_tx_status_ext(mt76_hw(dev), &status);
-
 	rcu_read_unlock();
 }
 
