@@ -86,7 +86,7 @@ mt76_eeprom_override(struct mt76_dev *dev)
 		return;
 
 	mac = of_get_mac_address(np);
-	if (mac)
+	if (!IS_ERR(mac))
 		memcpy(dev->macaddr, mac, ETH_ALEN);
 #endif
 
