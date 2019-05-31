@@ -32,6 +32,9 @@
 #define MT_RX_BUF_SIZE      2048
 #define MT_SKB_HEAD_LEN     128
 
+#define MT_BUF_WITH_OVERHEAD(x) \
+	((x) + SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
+
 struct mt76_dev;
 struct mt76_wcid;
 
