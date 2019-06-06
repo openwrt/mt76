@@ -156,6 +156,7 @@ int mt76x02_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	struct mt76x02_txwi *txwi = txwi_ptr;
 	struct sk_buff *skb = tx_info->skb;
 	int hdrlen, pad, len, pid, qsel = MT_QSEL_EDCA;
+	bool ampdu = IEEE80211_SKB_CB(skb)->flags & IEEE80211_TX_CTL_AMPDU;
 
 	if (qid == MT_TXQ_PSD && wcid && wcid->idx < 128)
 		mt76x02_mac_wcid_set_drop(dev, wcid->idx, false);
@@ -173,7 +174,7 @@ int mt76x02_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 
 	txwi->pktid = pid;
 
-	if (mt76_is_skb_pktid(pid))
+	if (mt76_is_skb_pktid(pid) && ampdu)
 		qsel = MT_QSEL_MGMT;
 
 	tx_info->info = FIELD_PREP(MT_TXD_INFO_QSEL, qsel) |

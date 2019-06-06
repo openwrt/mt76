@@ -80,6 +80,7 @@ int mt76x02u_tx_prepare_skb(struct mt76_dev *mdev, void *data,
 	struct sk_buff *skb = tx_info->skb;
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
 	int pid, hdrlen, len = skb->len, ep = q2ep(mdev->q_tx[qid].q->hw_idx);
+	bool ampdu = IEEE80211_SKB_CB(skb)->flags & IEEE80211_TX_CTL_AMPDU;
 	struct mt76x02_txwi *txwi;
 	enum mt76_qsel qsel;
 	u32 flags;
@@ -98,7 +99,7 @@ int mt76x02u_tx_prepare_skb(struct mt76_dev *mdev, void *data,
 
 	txwi->pktid = pid;
 
-	if (mt76_is_skb_pktid(pid) || ep == MT_EP_OUT_HCCA)
+	if ((mt76_is_skb_pktid(pid) && ampdu) || ep == MT_EP_OUT_HCCA)
 		qsel = MT_QSEL_MGMT;
 	else
 		qsel = MT_QSEL_EDCA;
