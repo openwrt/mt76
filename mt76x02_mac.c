@@ -456,7 +456,7 @@ mt76x02_tx_rate_fallback(struct ieee80211_tx_rate *rates, int idx, int phy)
 }
 
 static void
-mt76x02_mac_fill_tx_status(struct mt76x02_dev *dev,
+mt76x02_mac_fill_tx_status(struct mt76x02_dev *dev, struct mt76x02_sta *msta,
 			   struct ieee80211_tx_info *info,
 			   struct mt76x02_tx_status *st, int n_frames)
 {
@@ -477,6 +477,12 @@ mt76x02_mac_fill_tx_status(struct mt76x02_dev *dev,
 		first_rate |= st->pktid & MT_RXWI_RATE_INDEX;
 
 		mt76x02_mac_process_tx_rate(&rate[0], first_rate,
+					    dev->mt76.chandef.chan->band);
+	} else if (rate[0].idx < 0) {
+		if (!msta)
+			return;
+
+		mt76x02_mac_process_tx_rate(&rate[0], msta->wcid.tx_info,
 					    dev->mt76.chandef.chan->band);
 	}
 
@@ -574,14 +580,14 @@ void mt76x02_send_tx_status(struct mt76x02_dev *dev,
 			return;
 		}
 
-		mt76x02_mac_fill_tx_status(dev, status.info, &msta->status,
-					   msta->n_frames);
+		mt76x02_mac_fill_tx_status(dev, msta, status.info,
+					   &msta->status, msta->n_frames);
 
 		msta->status = *stat;
 		msta->n_frames = 1;
 		*update = 0;
 	} else {
-		mt76x02_mac_fill_tx_status(dev, status.info, stat, 1);
+		mt76x02_mac_fill_tx_status(dev, msta, status.info, stat, 1);
 		*update = 1;
 	}
 
