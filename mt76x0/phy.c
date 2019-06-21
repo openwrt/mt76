@@ -430,13 +430,21 @@ mt76x0_phy_set_chan_bbp_params(struct mt76x02_dev *dev, u16 rf_bw_band)
 static void mt76x0_phy_ant_select(struct mt76x02_dev *dev)
 {
 	u16 ee_ant = mt76x02_eeprom_get(dev, MT_EE_ANTENNA);
+	u16 ee_cmb = mt76x02_eeprom_get(dev, MT_EE_CMB_CONF);
 	u16 nic_conf2 = mt76x02_eeprom_get(dev, MT_EE_NIC_CONF_2);
-	u32 wlan, coex3, cmb;
+	u32 wlan, coex3, cmb, xo1;
 	bool ant_div;
 
 	wlan = mt76_rr(dev, MT_WLAN_FUN_CTRL);
 	cmb = mt76_rr(dev, MT_CMB_CTRL);
 	coex3 = mt76_rr(dev, MT_COEXCFG3);
+
+	xo1 = mt76_rr(dev, MT_XO_CTRL1);
+	xo1 &= 0xffff0000;
+	xo1 |= (u32)ee_cmb;
+
+	cmb &= 0xffff0000;
+	cmb |= (u32)ee_ant;
 
 	cmb   &= ~(BIT(14) | BIT(12));
 	wlan  &= ~(BIT(6) | BIT(5));
@@ -470,6 +478,8 @@ static void mt76x0_phy_ant_select(struct mt76x02_dev *dev)
 	mt76_wr(dev, MT_CMB_CTRL, cmb);
 	mt76_clear(dev, MT_COEXCFG0, BIT(2));
 	mt76_wr(dev, MT_COEXCFG3, coex3);
+
+	mt76_wr(dev, MT_XO_CTRL1, xo1);
 }
 
 static void
