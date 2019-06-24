@@ -138,6 +138,7 @@ void mt76x02_init_device(struct mt76x02_dev *dev)
 	hw->max_rates = 1;
 	hw->max_report_rates = 7;
 	hw->max_rate_tries = 1;
+	hw->extra_tx_headroom = 2;
 
 	wiphy->interface_modes =
 		BIT(NL80211_IFTYPE_STATION) |
@@ -173,7 +174,6 @@ void mt76x02_init_device(struct mt76x02_dev *dev)
 	hw->sta_data_size = sizeof(struct mt76x02_sta);
 	hw->vif_data_size = sizeof(struct mt76x02_vif);
 
-	ieee80211_hw_set(hw, TX_NEEDS_ALIGNED4_SKBS);
 	ieee80211_hw_set(hw, SUPPORTS_HT_CCK_RATES);
 	ieee80211_hw_set(hw, SUPPORTS_REORDERING_BUFFER);
 

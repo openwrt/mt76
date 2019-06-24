@@ -292,6 +292,7 @@ struct mt76_hw_cap {
 #define MT_TXWI_NO_FREE			BIT(0)
 
 struct mt76_driver_ops {
+	bool tx_aligned4_skbs;
 	u32 txwi_flags;
 	u16 txwi_size;
 
@@ -673,6 +674,20 @@ static inline struct mt76_tx_cb *mt76_tx_skb_cb(struct sk_buff *skb)
 	BUILD_BUG_ON(sizeof(struct mt76_tx_cb) >
 		     sizeof(IEEE80211_SKB_CB(skb)->status.status_driver_data));
 	return ((void *) IEEE80211_SKB_CB(skb)->status.status_driver_data);
+}
+
+static inline void mt76_insert_hdr_pad(struct sk_buff *skb)
+{
+	int len = ieee80211_get_hdrlen_from_skb(skb);
+
+	if (len % 4 == 0)
+		return;
+
+	skb_push(skb, 2);
+	memmove(skb->data, skb->data + 2, len);
+
+	skb->data[len] = 0;
+	skb->data[len + 1] = 0;
 }
 
 static inline bool mt76_is_skb_pktid(u8 pktid)
