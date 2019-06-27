@@ -998,7 +998,7 @@ mt7603_fill_txs(struct mt7603_dev *dev, struct mt7603_sta *sta,
 		goto out;
 	}
 
-	rate_set_tsf = ACCESS_ONCE(sta->rate_set_tsf);
+	rate_set_tsf = READ_ONCE(sta->rate_set_tsf);
 	rs_idx = !((u32)(FIELD_GET(MT_TXS1_F0_TIMESTAMP, le32_to_cpu(txs_data[1])) -
 			 rate_set_tsf) < 1000000);
 	rs_idx ^= rate_set_tsf & BIT(0);
