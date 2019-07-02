@@ -160,19 +160,24 @@ static void mt76u_copy(struct mt76_dev *dev, u32 offset,
 		       const void *data, int len)
 {
 	struct mt76_usb *usb = &dev->usb;
-	const u32 *val = data;
-	int i, ret;
+	int ret, req_len;
 
 	mutex_lock(&usb->usb_ctrl_mtx);
-	for (i = 0; i < DIV_ROUND_UP(len, 4); i++) {
-		put_unaligned(val[i], usb->data);
+	do {
+		req_len = min_t(int, len, sizeof(usb->data));
+
+		memcpy(usb->data, data, req_len);
+
 		ret = __mt76u_vendor_request(dev, MT_VEND_MULTI_WRITE,
 					     USB_DIR_OUT | USB_TYPE_VENDOR,
-					     0, offset + i * 4, usb->data,
-					     sizeof(u32));
+					     0, offset, usb->data, req_len);
 		if (ret < 0)
 			break;
-	}
+
+		data += req_len;
+		offset += req_len;
+		len -= req_len;
+	} while (len > 0);
 	mutex_unlock(&usb->usb_ctrl_mtx);
 }
 
