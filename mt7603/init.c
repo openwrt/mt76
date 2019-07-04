@@ -476,7 +476,7 @@ mt7603_init_txpower(struct mt7603_dev *dev,
 	int max_offset, cur_offset;
 	int i;
 
-	if (ext_pa)
+	if (ext_pa && is_mt7603(dev))
 		target_power = eeprom[MT_EE_TX_POWER_TSSI_OFF] & ~BIT(7);
 
 	if (target_power & BIT(6))
