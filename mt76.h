@@ -390,10 +390,7 @@ enum mt76u_out_ep {
 #define MCU_RESP_URB_SIZE	1024
 struct mt76_usb {
 	struct mutex usb_ctrl_mtx;
-	union {
-		u8 data[32];
-		__le32 reg_val;
-	};
+	u8 data[32];
 
 	struct tasklet_struct rx_tasklet;
 	struct delayed_work stat_work;
