@@ -1259,8 +1259,7 @@ int mt7615_mcu_set_tx_power(struct mt7615_dev *dev)
 			goto out;
 
 		index += ret;
-		printk("eep data[%d]: %d << %d\n", index, data[index], tx_power);
-//		data[index] = min_t(u8, data[index], tx_power);
+		data[index] = min_t(u8, data[index], tx_power);
 	}
 
 	ret = __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_SET_TX_POWER_CTRL,
