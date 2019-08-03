@@ -1,6 +1,7 @@
 EXTRA_CFLAGS += -Werror -DCONFIG_MT76_LEDS
 
 CHECK_CC_ENUM_FLAGS = $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(KBUILD_CPPFLAGS) $(KBUILD_CFLAGS)
+CHECK_CC_ENUM_FLAGS += -DKBUILD_MODNAME='"mt7603e"'
 check-cc-enum = $(call try-run, echo "int v = $(1);" | $(CC) -Werror $(CHECK_CC_ENUM_FLAGS) $(2) -c -x c - -o "$$TMP",y,n)
 
 # backwards compatibility hack
