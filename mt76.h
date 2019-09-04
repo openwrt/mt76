@@ -281,6 +281,7 @@ struct mt76_hw_cap {
 
 #define MT_DRV_TXWI_NO_FREE		BIT(0)
 #define MT_DRV_TX_ALIGNED4_SKBS		BIT(1)
+#define MT_DRV_SW_RX_AIRTIME		BIT(2)
 
 struct mt76_driver_ops {
 	u32 drv_flags;
@@ -319,6 +320,7 @@ struct mt76_driver_ops {
 struct mt76_channel_state {
 	u64 cc_active;
 	u64 cc_busy;
+	u64 cc_bss_rx;
 };
 
 struct mt76_sband {
@@ -418,6 +420,34 @@ struct mt76_mmio {
 	u32 irqmask;
 };
 
+struct mt76_rx_status {
+	union {
+		struct mt76_wcid *wcid;
+		u8 wcid_idx;
+	};
+
+	unsigned long reorder_time;
+
+	u32 ampdu_ref;
+
+	u8 iv[6];
+
+	u8 aggr:1;
+	u8 tid;
+	u16 seqno;
+
+	u16 freq;
+	u32 flag;
+	u8 enc_flags;
+	u8 encoding:2, bw:3;
+	u8 rate_idx;
+	u8 nss;
+	u8 band;
+	s8 signal;
+	u8 chains;
+	s8 chain_signal[IEEE80211_MAX_CHAINS];
+};
+
 struct mt76_dev {
 	struct ieee80211_hw *hw;
 	struct cfg80211_chan_def chandef;
@@ -426,6 +456,12 @@ struct mt76_dev {
 	struct mt76_channel_state *chan_state;
 	spinlock_t lock;
 	spinlock_t cc_lock;
+
+	u32 cur_cc_bss_rx;
+
+	struct mt76_rx_status rx_ampdu_status;
+	u32 rx_ampdu_len;
+	u32 rx_ampdu_ref;
 
 	struct mutex mutex;
 
@@ -508,31 +544,6 @@ enum mt76_phy_type {
 	MT_PHY_TYPE_HT,
 	MT_PHY_TYPE_HT_GF,
 	MT_PHY_TYPE_VHT,
-};
-
-struct mt76_rx_status {
-	struct mt76_wcid *wcid;
-
-	unsigned long reorder_time;
-
-	u32 ampdu_ref;
-
-	u8 iv[6];
-
-	u8 aggr:1;
-	u8 tid;
-	u16 seqno;
-
-	u16 freq;
-	u32 flag;
-	u8 enc_flags;
-	u8 encoding:2, bw:3;
-	u8 rate_idx;
-	u8 nss;
-	u8 band;
-	s8 signal;
-	u8 chains;
-	s8 chain_signal[IEEE80211_MAX_CHAINS];
 };
 
 #define __mt76_rr(dev, ...)	(dev)->bus->rr((dev), __VA_ARGS__)
@@ -706,6 +717,7 @@ void mt76_release_buffered_frames(struct ieee80211_hw *hw,
 				  bool more_data);
 bool mt76_has_tx_pending(struct mt76_dev *dev);
 void mt76_set_channel(struct mt76_dev *dev);
+void mt76_update_survey(struct mt76_dev *dev);
 int mt76_get_survey(struct ieee80211_hw *hw, int idx,
 		    struct survey_info *survey);
 void mt76_set_stream_caps(struct mt76_dev *dev, bool vht);
@@ -766,6 +778,8 @@ void mt76_rx_complete(struct mt76_dev *dev, struct sk_buff_head *frames,
 void mt76_rx_poll_complete(struct mt76_dev *dev, enum mt76_rxq_id q,
 			   struct napi_struct *napi);
 void mt76_rx_aggr_reorder(struct sk_buff *skb, struct sk_buff_head *frames);
+u32 mt76_calc_rx_airtime(struct mt76_dev *dev, struct mt76_rx_status *status,
+			 int len);
 
 /* usb */
 static inline bool mt76u_urb_error(struct urb *urb)
