@@ -612,8 +612,10 @@ void mt76x02_send_tx_status(struct mt76x02_dev *dev,
 		*update = 1;
 	}
 
-	if (status.skb)
+	if (status.skb) {
+		info = *status.info;
 		mt76_tx_status_skb_done(mdev, status.skb, &list);
+	}
 	mt76_tx_status_unlock(mdev, &list);
 
 	if (!status.skb)
@@ -632,7 +634,7 @@ void mt76x02_send_tx_status(struct mt76x02_dev *dev,
 	if (!len)
 		goto out;
 
-	duration = mt76_calc_tx_airtime(&dev->mt76, status.info, len);
+	duration = mt76_calc_tx_airtime(&dev->mt76, &info, len);
 
 	spin_lock_bh(&dev->mt76.cc_lock);
 	dev->tx_airtime += duration;
