@@ -550,7 +550,7 @@ void mt76x02_send_tx_status(struct mt76x02_dev *dev,
 	u32 duration = 0;
 	u8 cur_pktid;
 	u32 ac = 0;
-	int len;
+	int len = 0;
 
 	if (stat->pktid == MT_PACKET_ID_NO_ACK)
 		return;
@@ -614,22 +614,18 @@ void mt76x02_send_tx_status(struct mt76x02_dev *dev,
 
 	if (status.skb) {
 		info = *status.info;
+		len = status.skb->len;
+		ac = skb_get_queue_mapping(status.skb);
 		mt76_tx_status_skb_done(mdev, status.skb, &list);
+	} else if (msta) {
+		len = status.info->status.ampdu_len * ewma_pktlen_read(&msta->pktlen);
+		ac = FIELD_GET(MT_PKTID_AC, cur_pktid);
 	}
+
 	mt76_tx_status_unlock(mdev, &list);
 
 	if (!status.skb)
 		ieee80211_tx_status_ext(mt76_hw(dev), &status);
-
-	if (status.skb) {
-		len = status.skb->len;
-		ac = skb_get_queue_mapping(status.skb);
-	} else if (msta) {
-		len = status.info->status.ampdu_len * ewma_pktlen_read(&msta->pktlen);
-		ac = FIELD_GET(MT_PKTID_AC, cur_pktid);
-	} else {
-		goto out;
-	}
 
 	if (!len)
 		goto out;
