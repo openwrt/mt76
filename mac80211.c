@@ -675,7 +675,8 @@ mt76_airtime_check(struct mt76_dev *dev, struct sk_buff *skb)
 		mt76_airtime_flush_ampdu(dev);
 
 	if (status->flag & RX_FLAG_AMPDU_DETAILS) {
-		if (status->ampdu_ref != dev->rx_ampdu_ref) {
+		if (!dev->rx_ampdu_len ||
+		    status->ampdu_ref != dev->rx_ampdu_ref) {
 			dev->rx_ampdu_status = *status;
 			dev->rx_ampdu_status.wcid_idx = wcid ? wcid->idx : 0xff;
 			dev->rx_ampdu_ref = status->ampdu_ref;
