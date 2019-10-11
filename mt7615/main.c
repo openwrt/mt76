@@ -121,8 +121,9 @@ static void mt7615_remove_interface(struct ieee80211_hw *hw,
 				    struct ieee80211_vif *vif)
 {
 	struct mt7615_vif *mvif = (struct mt7615_vif *)vif->drv_priv;
+	struct mt7615_sta *msta = &mvif->sta;
 	struct mt7615_dev *dev = hw->priv;
-	int idx = mvif->sta.wcid.idx;
+	int idx = msta->wcid.idx;
 
 	/* TODO: disable beacon for the bss */
 
@@ -135,6 +136,11 @@ static void mt7615_remove_interface(struct ieee80211_hw *hw,
 	dev->vif_mask &= ~BIT(mvif->idx);
 	dev->omac_mask &= ~BIT(mvif->omac_idx);
 	mutex_unlock(&dev->mt76.mutex);
+
+	spin_lock_bh(&dev->sta_poll_lock);
+	if (!list_empty(&msta->poll_list))
+		list_del_init(&msta->poll_list);
+	spin_unlock_bh(&dev->sta_poll_lock);
 }
 
 static int mt7615_set_channel(struct mt7615_dev *dev)
