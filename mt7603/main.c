@@ -88,8 +88,9 @@ static void
 mt7603_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
 	struct mt7603_vif *mvif = (struct mt7603_vif *)vif->drv_priv;
+	struct mt7603_sta *msta = &mvif->sta;
 	struct mt7603_dev *dev = hw->priv;
-	int idx = mvif->sta.wcid.idx;
+	int idx = msta->wcid.idx;
 
 	mt76_wr(dev, MT_MAC_ADDR0(mvif->idx), 0);
 	mt76_wr(dev, MT_MAC_ADDR1(mvif->idx), 0);
@@ -99,6 +100,11 @@ mt7603_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
 	mt76_txq_remove(&dev->mt76, vif->txq);
+
+	spin_lock_bh(&dev->sta_poll_lock);
+	if (!list_empty(&msta->poll_list))
+		list_del_init(&msta->poll_list);
+	spin_unlock_bh(&dev->sta_poll_lock);
 
 	mutex_lock(&dev->mt76.mutex);
 	dev->vif_mask &= ~BIT(mvif->idx);
