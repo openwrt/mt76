@@ -150,7 +150,7 @@ static void mt76x02_tx_tasklet(unsigned long data)
 	mt76x02_mac_poll_tx_status(dev, false);
 	mt76x02_process_tx_status_fifo(dev);
 
-	mt76_txq_schedule_all(&dev->mt76);
+	mt76_txq_schedule_all(&dev->mphy);
 }
 
 static int mt76x02_poll_tx(struct napi_struct *napi, int budget)
@@ -513,7 +513,7 @@ static void mt76x02_watchdog_reset(struct mt76x02_dev *dev)
 		ieee80211_restart_hw(dev->mt76.hw);
 	} else {
 		ieee80211_wake_queues(dev->mt76.hw);
-		mt76_txq_schedule_all(&dev->mt76);
+		mt76_txq_schedule_all(&dev->mphy);
 	}
 }
 
