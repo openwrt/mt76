@@ -31,7 +31,7 @@ mt76x0_rf_csr_wr(struct mt76x02_dev *dev, u32 offset, u8 value)
 	int ret = 0;
 	u8 bank, reg;
 
-	if (test_bit(MT76_REMOVED, &dev->mt76.state))
+	if (test_bit(MT76_REMOVED, &dev->mphy.state))
 		return -ENODEV;
 
 	bank = MT_RF_BANK(offset);
@@ -70,7 +70,7 @@ static int mt76x0_rf_csr_rr(struct mt76x02_dev *dev, u32 offset)
 	u32 val;
 	u8 bank, reg;
 
-	if (test_bit(MT76_REMOVED, &dev->mt76.state))
+	if (test_bit(MT76_REMOVED, &dev->mphy.state))
 		return -ENODEV;
 
 	bank = MT_RF_BANK(offset);
@@ -117,7 +117,7 @@ mt76x0_rf_wr(struct mt76x02_dev *dev, u32 offset, u8 val)
 		};
 
 		WARN_ON_ONCE(!test_bit(MT76_STATE_MCU_RUNNING,
-				       &dev->mt76.state));
+				       &dev->mphy.state));
 		return mt76_wr_rp(dev, MT_MCU_MEMMAP_RF, &pair, 1);
 	} else {
 		return mt76x0_rf_csr_wr(dev, offset, val);
@@ -135,7 +135,7 @@ static int mt76x0_rf_rr(struct mt76x02_dev *dev, u32 offset)
 		};
 
 		WARN_ON_ONCE(!test_bit(MT76_STATE_MCU_RUNNING,
-				       &dev->mt76.state));
+				       &dev->mphy.state));
 		ret = mt76_rd_rp(dev, MT_MCU_MEMMAP_RF, &pair, 1);
 		val = pair.value;
 	} else {
@@ -941,7 +941,7 @@ void mt76x0_phy_set_channel(struct mt76x02_dev *dev,
 		      FIELD_PREP(MT_EXT_CCA_CFG_CCA3, 0) |
 		      FIELD_PREP(MT_EXT_CCA_CFG_CCA_MASK, BIT(3)),
 	};
-	bool scan = test_bit(MT76_SCANNING, &dev->mt76.state);
+	bool scan = test_bit(MT76_SCANNING, &dev->mphy.state);
 	int ch_group_index, freq, freq1;
 	u8 channel;
 	u32 val;
