@@ -13,6 +13,8 @@ mt76-y := \
 	mmio.o util.o trace.o dma.o mac80211.o debugfs.o eeprom.o \
 	tx.o agg-rx.o mcu.o airtime.o
 
+mt76-$(CONFIG_PCI) += pci.o
+
 mt76-usb-y := usb.o usb_trace.o
 
 mt76x02-lib-y := mt76x02_util.o mt76x02_mac.o mt76x02_mcu.o \
