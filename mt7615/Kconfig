@@ -5,3 +5,12 @@ config MT7615E
 	depends on PCI
 	help
 	  This adds support for MT7615-based wireless PCIe devices.
+
+config MT7622_WMAC
+	bool "MT7622 (SoC) WMAC support"
+	depends on MT7615E
+	depends on ARCH_MEDIATEK || COMPILE_TEST
+	select REGMAP
+	default y
+	help
+	  This adds support for the built-in WMAC on MT7622 SoC devices
