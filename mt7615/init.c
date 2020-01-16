@@ -405,7 +405,12 @@ int mt7615_register_ext_phy(struct mt7615_dev *dev)
 	mphy->antenna_mask = BIT(hweight8(phy->chainmask)) - 1;
 	mt7615_init_wiphy(mphy->hw);
 
-	mphy->hw->wiphy->perm_addr[5]++;
+	/*
+	 * Make the secondary PHY MAC address local without overlapping with
+	 * the usual MAC address allocation scheme on multiple virtual interfaces
+	 */
+	mphy->hw->wiphy->perm_addr[0] |= 2;
+	mphy->hw->wiphy->perm_addr[0] ^= BIT(7);
 
 	/* second phy can only handle 5 GHz */
 	mphy->sband_2g.sband.n_channels = 0;
