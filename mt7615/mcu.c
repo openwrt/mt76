@@ -1603,6 +1603,8 @@ static void mt7615_mcu_set_txpower_sku(struct mt7615_phy *phy, u8 *sku)
 	int i;
 
 	tx_power = hw->conf.power_level * 2 - nss_delta[n_chains - 1];
+	mphy->txpower_cur = tx_power;
+
 	for (i = 0; i < MT_SKU_1SS_DELTA; i++)
 		sku[i] = tx_power;
 
