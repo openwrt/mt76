@@ -179,7 +179,7 @@ enum mt76_wcid_flags {
 #define MT76_N_WCIDS 128
 
 /* stored in ieee80211_tx_info::hw_queue */
-#define MT_TX_HW_QUEUE_EXT_PHY		BIT(7)
+#define MT_TX_HW_QUEUE_EXT_PHY		BIT(3)
 
 DECLARE_EWMA(signal, 10, 8);
 
