@@ -144,6 +144,7 @@ struct mt7603_dev {
 
 	bool dynamic_sensitivity;
 	s8 sensitivity;
+	u8 sensitivity_limit;
 
 	u8 beacon_check;
 	u8 tx_hang_check;
