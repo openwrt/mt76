@@ -2938,7 +2938,7 @@ int mt7615_mcu_apply_rx_dcoc(struct mt7615_phy *phy)
 	} req = {
 		.direction = 1,
 
-		.center_freq = chandef->center_freq1,
+		.center_freq = cpu_to_le16(chandef->center_freq1),
 		.bw = mt7615_mcu_chan_bw(chandef),
 		.band = chandef->center_freq1 > 4000,
 		.dbdc_en = !!dev->mt76.phy2,
@@ -3058,7 +3058,7 @@ int mt7615_mcu_apply_tx_dpd(struct mt7615_phy *phy)
 	} req = {
 		.direction = 1,
 
-		.center_freq = chandef->center_freq1,
+		.center_freq = cpu_to_le16(chandef->center_freq1),
 		.bw = mt7615_mcu_chan_bw(chandef),
 		.band = chandef->center_freq1 > 4000,
 		.dbdc_en = !!dev->mt76.phy2,
