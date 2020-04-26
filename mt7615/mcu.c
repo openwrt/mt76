@@ -1734,7 +1734,7 @@ static int mt7615_load_patch(struct mt7615_dev *dev, u32 addr, const char *name)
 		return -EAGAIN;
 	}
 
-	ret = request_firmware(&fw, name, dev->mt76.dev);
+	ret = firmware_request_nowarn(&fw, name, dev->mt76.dev);
 	if (ret)
 		goto out;
 
@@ -2087,8 +2087,49 @@ out:
 	return ret;
 }
 
+static int
+mt7663_load_rom_patch(struct mt7615_dev *dev, const char **n9_firmware)
+{
+	const char *selected_rom, *secondary_rom = MT7663_ROM_PATCH;
+	const char *primary_rom = MT7663_OFFLOAD_ROM_PATCH;
+	int ret;
+
+	if (!IS_ENABLED(CONFIG_MT7615_OFFLOAD_FIRMWARE)) {
+		secondary_rom = MT7663_OFFLOAD_ROM_PATCH;
+		primary_rom = MT7663_ROM_PATCH;
+	}
+	selected_rom = primary_rom;
+
+	ret = mt7615_load_patch(dev, MT7663_PATCH_ADDRESS, primary_rom);
+	if (ret) {
+		dev_info(dev->mt76.dev, "%s not found, switching to %s",
+			 primary_rom, secondary_rom);
+		ret = mt7615_load_patch(dev, MT7663_PATCH_ADDRESS,
+					secondary_rom);
+		if (ret) {
+			dev_err(dev->mt76.dev, "failed to load %s",
+				secondary_rom);
+			return ret;
+		}
+		selected_rom = secondary_rom;
+	}
+
+	if (!strcmp(selected_rom, MT7663_OFFLOAD_ROM_PATCH)) {
+		*n9_firmware = MT7663_OFFLOAD_FIRMWARE_N9;
+		dev->fw_ver = MT7615_FIRMWARE_V3;
+		dev->mcu_ops = &uni_update_ops;
+	} else {
+		*n9_firmware = MT7663_FIRMWARE_N9;
+		dev->fw_ver = MT7615_FIRMWARE_V2;
+		dev->mcu_ops = &sta_update_ops;
+	}
+
+	return 0;
+}
+
 int __mt7663_load_firmware(struct mt7615_dev *dev)
 {
+	const char *n9_firmware;
 	int ret;
 
 	ret = mt76_get_field(dev, MT_CONN_ON_MISC, MT_TOP_MISC2_FW_N9_RDY);
@@ -2097,14 +2138,11 @@ int __mt7663_load_firmware(struct mt7615_dev *dev)
 		return -EIO;
 	}
 
-	ret = mt7615_load_patch(dev, MT7663_PATCH_ADDRESS, MT7663_ROM_PATCH);
+	ret = mt7663_load_rom_patch(dev, &n9_firmware);
 	if (ret)
 		return ret;
 
-	dev->fw_ver = MT7615_FIRMWARE_V3;
-	dev->mcu_ops = &uni_update_ops;
-
-	ret = mt7663_load_n9(dev, MT7663_FIRMWARE_N9);
+	ret = mt7663_load_n9(dev, n9_firmware);
 	if (ret)
 		return ret;
 

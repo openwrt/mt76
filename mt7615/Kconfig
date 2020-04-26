@@ -38,3 +38,16 @@ config MT7663U
 	  This adds support for MT7663U 802.11ax 2x2:2 wireless devices.
 
 	  To compile this driver as a module, choose M here.
+
+config MT7615_OFFLOAD_FIRMWARE
+	bool "Prefer client mode offload firmware (MT7663)"
+	depends on MT7615E || MT7663U
+	default y
+	help
+	  Load MT7663 client mode offload firmware (v3) as primary option
+	  and fallback to MT7663 firmware v2 in case of failure.
+	  If MT7615_OFFLOAD_FIRMWARE is not selected MT7663 firmware v2
+	  will be used as primary option.
+	  MT7663 client mode offload firmware supports low power features
+	  (hw frequency scanning, scheduled frequency scanning, WoW,
+	  802.11 power save) but is more limited in AP mode
