@@ -2996,11 +2996,11 @@ int mt7615_mcu_apply_rx_dcoc(struct mt7615_phy *phy)
 	} req = {
 		.direction = 1,
 
-		.center_freq = cpu_to_le16(chandef->center_freq1),
 		.bw = mt7615_mcu_chan_bw(chandef),
 		.band = chandef->center_freq1 > 4000,
 		.dbdc_en = !!dev->mt76.phy2,
 	};
+	u16 center_freq = chandef->center_freq1;
 	int freq_idx;
 	u8 *eep = dev->mt76.eeprom.data;
 
@@ -3008,13 +3008,13 @@ int mt7615_mcu_apply_rx_dcoc(struct mt7615_phy *phy)
 		return 0;
 
 	if (chandef->width == NL80211_CHAN_WIDTH_160) {
-		freq2 = req.center_freq + 40;
-		req.center_freq -= 40;
+		freq2 = center_freq + 40;
+		center_freq -= 40;
 	}
 
 again:
 	req.runtime_calibration = 1;
-	freq_idx = mt7615_dcoc_freq_idx(req.center_freq, chandef->width);
+	freq_idx = mt7615_dcoc_freq_idx(center_freq, chandef->width);
 	if (freq_idx < 0)
 		goto out;
 
@@ -3024,13 +3024,14 @@ again:
 	req.runtime_calibration = 0;
 
 out:
+	req.center_freq = cpu_to_le16(center_freq);
 	ret = __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_RXDCOC_CAL, &req,
 				  sizeof(req), true);
 
 	if ((chandef->width == NL80211_CHAN_WIDTH_80P80 ||
 	     chandef->width == NL80211_CHAN_WIDTH_160) && !req.is_freq2) {
 		req.is_freq2 = true;
-		req.center_freq = freq2;
+		center_freq = freq2;
 		goto again;
 	}
 
@@ -3116,11 +3117,11 @@ int mt7615_mcu_apply_tx_dpd(struct mt7615_phy *phy)
 	} req = {
 		.direction = 1,
 
-		.center_freq = cpu_to_le16(chandef->center_freq1),
 		.bw = mt7615_mcu_chan_bw(chandef),
 		.band = chandef->center_freq1 > 4000,
 		.dbdc_en = !!dev->mt76.phy2,
 	};
+	u16 center_freq = chandef->center_freq1;
 	int freq_idx;
 	u8 *eep = dev->mt76.eeprom.data;
 
@@ -3128,13 +3129,13 @@ int mt7615_mcu_apply_tx_dpd(struct mt7615_phy *phy)
 		return 0;
 
 	if (chandef->width == NL80211_CHAN_WIDTH_160) {
-		freq2 = req.center_freq + 40;
-		req.center_freq -= 40;
+		freq2 = center_freq + 40;
+		center_freq -= 40;
 	}
 
 again:
 	req.runtime_calibration = 1;
-	freq_idx = mt7615_dpd_freq_idx(req.center_freq, chandef->width);
+	freq_idx = mt7615_dpd_freq_idx(center_freq, chandef->width);
 	if (freq_idx < 0)
 		goto out;
 
@@ -3144,13 +3145,14 @@ again:
 	req.runtime_calibration = 0;
 
 out:
+	req.center_freq = cpu_to_le16(center_freq);
 	ret = __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_TXDPD_CAL, &req,
 				  sizeof(req), true);
 
 	if ((chandef->width == NL80211_CHAN_WIDTH_80P80 ||
 	     chandef->width == NL80211_CHAN_WIDTH_160) && !req.is_freq2) {
 		req.is_freq2 = true;
-		req.center_freq = freq2;
+		center_freq = freq2;
 		goto again;
 	}
 
