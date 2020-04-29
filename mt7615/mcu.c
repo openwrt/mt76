@@ -11,6 +11,11 @@
 #include "mac.h"
 #include "eeprom.h"
 
+static bool prefer_offload_fw = true;
+module_param(prefer_offload_fw, bool, 0644);
+MODULE_PARM_DESC(prefer_offload_fw,
+		 "Prefer client mode offload firmware (MT7663)");
+
 struct mt7615_patch_hdr {
 	char build_date[16];
 	char platform[4];
@@ -2091,7 +2096,7 @@ mt7663_load_rom_patch(struct mt7615_dev *dev, const char **n9_firmware)
 	const char *primary_rom = MT7663_OFFLOAD_ROM_PATCH;
 	int ret;
 
-	if (!IS_ENABLED(CONFIG_MT7615_OFFLOAD_FIRMWARE)) {
+	if (!prefer_offload_fw) {
 		secondary_rom = MT7663_OFFLOAD_ROM_PATCH;
 		primary_rom = MT7663_ROM_PATCH;
 	}
