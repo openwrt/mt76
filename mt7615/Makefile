@@ -1,5 +1,6 @@
 #SPDX-License-Identifier: ISC
 
+EXTRA_CFLAGS += -DCONFIG_MT76_LEDS
 obj-$(CONFIG_MT7615_COMMON) += mt7615-common.o
 obj-$(CONFIG_MT7615E) += mt7615e.o
 obj-$(CONFIG_MT7663U) += mt7663u.o
