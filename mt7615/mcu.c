@@ -2865,6 +2865,14 @@ int mt7615_mcu_set_chan_info(struct mt7615_phy *phy, int cmd)
 		.center_chan2 = ieee80211_frequency_to_channel(freq2),
 	};
 
+#ifdef CONFIG_NL80211_TESTMODE
+	if (dev->mt76.test.state == MT76_TM_STATE_TX_FRAMES &&
+	    dev->mt76.test.tx_antenna_mask) {
+		req.tx_streams = hweight8(dev->mt76.test.tx_antenna_mask);
+		req.rx_streams_mask = dev->mt76.test.tx_antenna_mask;
+	}
+#endif
+
 	if (dev->mt76.hw->conf.flags & IEEE80211_CONF_OFFCHANNEL)
 		req.switch_reason = CH_SWITCH_SCAN_BYPASS_DPD;
 	else if ((chandef->chan->flags & IEEE80211_CHAN_RADAR) &&
@@ -2876,7 +2884,10 @@ int mt7615_mcu_set_chan_info(struct mt7615_phy *phy, int cmd)
 	req.band_idx = phy != &dev->phy;
 	req.bw = mt7615_mcu_chan_bw(chandef);
 
-	mt7615_mcu_set_txpower_sku(phy, req.txpower_sku);
+	if (mt76_testmode_enabled(&dev->mt76))
+		memset(req.txpower_sku, 0x3f, 49);
+	else
+		mt7615_mcu_set_txpower_sku(phy, req.txpower_sku);
 
 	return __mt76_mcu_send_msg(&dev->mt76, cmd, &req, sizeof(req), true);
 }
@@ -2892,6 +2903,28 @@ int mt7615_mcu_get_temperature(struct mt7615_dev *dev, int index)
 
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_GET_TEMP, &req,
 				   sizeof(req), true);
+}
+
+int mt7615_mcu_set_test_param(struct mt7615_dev *dev, u8 param, bool test_mode,
+			      bool en)
+{
+	struct {
+		u8 test_mode_en;
+		u8 param_idx;
+		u8 _rsv[2];
+
+		u8 enable;
+		u8 _rsv2[3];
+
+		u8 pad[8];
+	} req = {
+		.test_mode_en = test_mode,
+		.param_idx = param,
+		.enable = en,
+	};
+
+	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_ATE_CTRL, &req,
+				   sizeof(req), false);
 }
 
 int mt7615_mcu_set_sku_en(struct mt7615_phy *phy, bool enable)
