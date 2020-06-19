@@ -77,10 +77,13 @@ static int mt7915_txbf_init(struct mt7915_dev *dev)
 }
 
 static void
-mt7915_init_txpower_band(struct mt7915_dev *dev,
-			 struct ieee80211_supported_band *sband)
+mt7915_init_txpower(struct mt7915_dev *dev,
+		    struct ieee80211_supported_band *sband)
 {
 	int i, n_chains = hweight8(dev->mphy.antenna_mask);
+	int nss_delta = mt76_tx_power_nss_delta(n_chains);
+	int pwr_delta = mt7915_eeprom_get_power_delta(dev, sband->band);
+	struct mt76_power_limits limits;
 
 	for (i = 0; i < sband->n_channels; i++) {
 		struct ieee80211_channel *chan = &sband->channels[i];
@@ -94,18 +97,16 @@ mt7915_init_txpower_band(struct mt7915_dev *dev,
 			target_power = max(target_power, val);
 		}
 
+		target_power += pwr_delta;
+		target_power = mt76_get_rate_power_limits(&dev->mphy, chan,
+							  &limits,
+							  target_power);
+		target_power += nss_delta;
+		target_power = DIV_ROUND_UP(target_power, 2);
 		chan->max_power = min_t(int, chan->max_reg_power,
-					target_power / 2);
-		chan->orig_mpwr = target_power / 2;
+					target_power);
+		chan->orig_mpwr = target_power;
 	}
-}
-
-static void mt7915_init_txpower(struct mt7915_dev *dev)
-{
-	mt7915_init_txpower_band(dev, &dev->mphy.sband_2g.sband);
-	mt7915_init_txpower_band(dev, &dev->mphy.sband_5g.sband);
-
-	mt7915_eeprom_init_sku(dev);
 }
 
 static void mt7915_init_work(struct work_struct *work)
@@ -115,7 +116,8 @@ static void mt7915_init_work(struct work_struct *work)
 
 	mt7915_mcu_set_eeprom(dev);
 	mt7915_mac_init(dev);
-	mt7915_init_txpower(dev);
+	mt7915_init_txpower(dev, &dev->mphy.sband_2g.sband);
+	mt7915_init_txpower(dev, &dev->mphy.sband_5g.sband);
 	mt7915_txbf_init(dev);
 }
 
@@ -224,7 +226,11 @@ mt7915_regd_notifier(struct wiphy *wiphy,
 	struct mt7915_phy *phy = mphy->priv;
 	struct cfg80211_chan_def *chandef = &mphy->chandef;
 
+	memcpy(dev->mt76.alpha2, request->alpha2, sizeof(dev->mt76.alpha2));
 	dev->mt76.region = request->dfs_region;
+
+	mt7915_init_txpower(dev, &mphy->sband_2g.sband);
+	mt7915_init_txpower(dev, &mphy->sband_5g.sband);
 
 	if (!(chandef->chan->flags & IEEE80211_CHAN_RADAR))
 		return;
