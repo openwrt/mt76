@@ -307,8 +307,7 @@ mt7915_queues_read(struct seq_file *s, void *data)
 }
 
 static void
-mt7915_puts_rate_txpower(struct seq_file *s, struct mt7915_dev *dev,
-			 int band, bool ext_phy)
+mt7915_puts_rate_txpower(struct seq_file *s, struct mt7915_phy *phy)
 {
 	static const char * const sku_group_name[] = {
 		"CCK", "OFDM", "HT20", "HT40",
@@ -316,8 +315,16 @@ mt7915_puts_rate_txpower(struct seq_file *s, struct mt7915_dev *dev,
 		"RU26", "RU52", "RU106", "RU242/SU20",
 		"RU484/SU40", "RU996/SU80", "RU2x996/SU160"
 	};
-	u32 reg_base = MT_TMAC_FP0R0(ext_phy);
+	struct mt7915_dev *dev = dev_get_drvdata(s->private);
+	bool ext_phy = phy != &dev->phy;
+	u32 reg_base;
 	int i, idx = 0;
+
+	if (!phy)
+		return;
+
+	reg_base = MT_TMAC_FP0R0(ext_phy);
+	seq_printf(s, "\nBand %d\n", ext_phy);
 
 	for (i = 0; i < ARRAY_SIZE(mt7915_sku_group_len); i++) {
 		u8 cnt, mcs_num = mt7915_sku_group_len[i];
@@ -363,19 +370,9 @@ static int
 mt7915_read_rate_txpower(struct seq_file *s, void *data)
 {
 	struct mt7915_dev *dev = dev_get_drvdata(s->private);
-	struct mt76_phy *mphy = &dev->mphy;
-	enum nl80211_band band = mphy->chandef.chan->band;
 
-	seq_puts(s, "Band 0: (unit: 0.5 dBm)\n");
-	mt7915_puts_rate_txpower(s, dev, band, false);
-
-	if (dev->mt76.phy2) {
-		mphy = dev->mt76.phy2;
-		band = mphy->chandef.chan->band;
-
-		seq_puts(s, "Band 1: (unit: 0.5 dBm)\n");
-		mt7915_puts_rate_txpower(s, dev, band, true);
-	}
+	mt7915_puts_rate_txpower(s, &dev->phy);
+	mt7915_puts_rate_txpower(s, mt7915_ext_phy(dev));
 
 	return 0;
 }
