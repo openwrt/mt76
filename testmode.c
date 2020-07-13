@@ -317,7 +317,7 @@ int mt76_testmode_cmd(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		td->tx_count = nla_get_u32(tb[MT76_TM_ATTR_TX_COUNT]);
 
 	if (tb[MT76_TM_ATTR_TX_LENGTH]) {
-		u32 val = nla_get_u32(tb[MT76_TM_ATTR_TX_COUNT]);
+		u32 val = nla_get_u32(tb[MT76_TM_ATTR_TX_LENGTH]);
 
 		if (val > IEEE80211_MAX_FRAME_LEN ||
 		    val < sizeof(struct ieee80211_hdr))
