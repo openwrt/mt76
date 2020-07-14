@@ -231,10 +231,10 @@ static void print_extra_stats(const struct tm_field *field, struct nlattr **tb)
 	      ##__VA_ARGS__				\
 	)
 
-#define FIELD_ARRAY(_field, _name, ...)			\
-	FIELD_ARRAY(_type, _field, _name,		\
-		    .parse2 = parse_##_type,		\
-		    ##__VA_ARGS__			\
+#define FIELD_ARRAY(_type, _field, _name, ...)		\
+	FIELD_ARRAY_RO(_type, _field, _name,		\
+		       .parse2 = parse_##_type,		\
+		       ##__VA_ARGS__			\
 	)
 
 #define FIELD_NESTED_RO(_field, _data, _prefix, ...)	\
@@ -293,7 +293,7 @@ static const struct tm_field testdata_fields[NUM_MT76_TM_ATTRS] = {
 	FIELD(u8, TX_RATE_SGI, "tx_rate_sgi"),
 	FIELD(u8, TX_RATE_LDPC, "tx_rate_ldpc"),
 	FIELD(u8, TX_POWER_CONTROL, "tx_power_control"),
-	FIELD(u8, TX_POWER, "tx_power"),
+	FIELD_ARRAY(u8, TX_POWER, "tx_power"),
 	FIELD(u8, TX_ANTENNA, "tx_antenna"),
 	FIELD(u32, FREQ_OFFSET, "freq_offset"),
 	FIELD_NESTED_RO(STATS, stats, "",
