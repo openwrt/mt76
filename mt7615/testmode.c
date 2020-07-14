@@ -272,7 +272,7 @@ mt7615_tm_set_state(struct mt76_dev *mdev, enum mt76_testmode_state state)
 	if (prev_state == MT76_TM_STATE_TX_FRAMES)
 		mt7615_tm_set_tx_frames(dev, false);
 	else if (state == MT76_TM_STATE_TX_FRAMES)
-		mt7615_tm_set_rx_enable(dev, true);
+		mt7615_tm_set_tx_frames(dev, true);
 
 	if (state <= MT76_TM_STATE_IDLE)
 		mt7615_tm_init(dev);
