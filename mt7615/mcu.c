@@ -2931,21 +2931,20 @@ int mt7615_mcu_get_temperature(struct mt7615_dev *dev, int index)
 }
 
 int mt7615_mcu_set_test_param(struct mt7615_dev *dev, u8 param, bool test_mode,
-			      bool en)
+			      u32 val)
 {
 	struct {
 		u8 test_mode_en;
 		u8 param_idx;
 		u8 _rsv[2];
 
-		u8 enable;
-		u8 _rsv2[3];
+		__le32 value;
 
 		u8 pad[8];
 	} req = {
 		.test_mode_en = test_mode,
 		.param_idx = param,
-		.enable = en,
+		.value = cpu_to_le32(val),
 	};
 
 	return __mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_ATE_CTRL, &req,
