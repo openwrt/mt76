@@ -191,7 +191,7 @@ mt7615_tm_set_tx_antenna(struct mt7615_dev *dev, bool en)
 	for (i = 0; i < 4; i++) {
 		mt76_rmw_field(dev, MT_WF_PHY_RFINTF3_0(i),
 			       MT_WF_PHY_RFINTF3_0_ANT,
-			       td->tx_antenna_mask & BIT(i) ? 0xa : 0);
+			       td->tx_antenna_mask & BIT(i) ? 0 : 0xa);
 
 	}
 
@@ -200,9 +200,9 @@ mt7615_tm_set_tx_antenna(struct mt7615_dev *dev, bool en)
 		       (td->tx_antenna_mask & BIT(0)) ? 0x8 : 0x1b);
 	mt76_rmw_field(dev, MT_ANT_SWITCH_CON(4), MT_ANT_SWITCH_CON_MODE(2),
 		       (td->tx_antenna_mask & BIT(1)) ? 0xe : 0x1b);
-	mt76_rmw_field(dev, MT_ANT_SWITCH_CON(6), MT_ANT_SWITCH_CON_MODE(0),
+	mt76_rmw_field(dev, MT_ANT_SWITCH_CON(6), MT_ANT_SWITCH_CON_MODE1(0),
 		       (td->tx_antenna_mask & BIT(2)) ? 0x0 : 0xf);
-	mt76_rmw_field(dev, MT_ANT_SWITCH_CON(7), MT_ANT_SWITCH_CON_MODE(2),
+	mt76_rmw_field(dev, MT_ANT_SWITCH_CON(7), MT_ANT_SWITCH_CON_MODE1(2),
 		       (td->tx_antenna_mask & BIT(3)) ? 0x6 : 0xf);
 
 	/* 5 GHz band */
@@ -210,9 +210,9 @@ mt7615_tm_set_tx_antenna(struct mt7615_dev *dev, bool en)
 		       (td->tx_antenna_mask & BIT(0)) ? 0xd : 0x1b);
 	mt76_rmw_field(dev, MT_ANT_SWITCH_CON(2), MT_ANT_SWITCH_CON_MODE(3),
 		       (td->tx_antenna_mask & BIT(1)) ? 0x13 : 0x1b);
-	mt76_rmw_field(dev, MT_ANT_SWITCH_CON(7), MT_ANT_SWITCH_CON_MODE(1),
+	mt76_rmw_field(dev, MT_ANT_SWITCH_CON(7), MT_ANT_SWITCH_CON_MODE1(1),
 		       (td->tx_antenna_mask & BIT(2)) ? 0x5 : 0xf);
-	mt76_rmw_field(dev, MT_ANT_SWITCH_CON(8), MT_ANT_SWITCH_CON_MODE(3),
+	mt76_rmw_field(dev, MT_ANT_SWITCH_CON(8), MT_ANT_SWITCH_CON_MODE1(3),
 		       (td->tx_antenna_mask & BIT(3)) ? 0xb : 0xf);
 
 	for (i = 0; i < 4; i++) {
