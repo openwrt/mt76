@@ -277,6 +277,9 @@ mt7603_init_hardware(struct mt7603_dev *dev)
 	if (ret < 0)
 		return ret;
 
+	if (((u8*)dev->mphy.eeprom.data)[MT_EE_NIC_CONF_0] == 0x11)
+		dev->mphy.antenna_mask = 1;
+
 	ret = mt7603_dma_init(dev);
 	if (ret)
 		return ret;
