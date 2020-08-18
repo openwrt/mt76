@@ -465,6 +465,7 @@ struct mt76_sdio {
 	struct work_struct stat_work;
 
 	struct sdio_func *func;
+	void *intr_data;
 
 	struct {
 		struct mutex lock;
