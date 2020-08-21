@@ -1586,6 +1586,18 @@ mt7915_mcu_sta_amsdu_tlv(struct sk_buff *skb, struct ieee80211_sta *sta)
 	msta->wcid.amsdu = true;
 }
 
+static bool
+mt7915_hw_amsdu_supported(struct ieee80211_vif *vif)
+{
+	switch (vif->type) {
+	case NL80211_IFTYPE_AP:
+	case NL80211_IFTYPE_STATION:
+		return true;
+	default:
+		return false;
+	}
+}
+
 static void
 mt7915_mcu_sta_tlv(struct mt7915_dev *dev, struct sk_buff *skb,
 		   struct ieee80211_sta *sta, struct ieee80211_vif *vif)
@@ -1600,7 +1612,8 @@ mt7915_mcu_sta_tlv(struct mt7915_dev *dev, struct sk_buff *skb,
 		ht = (struct sta_rec_ht *)tlv;
 		ht->ht_cap = cpu_to_le16(sta->ht_cap.cap);
 
-		mt7915_mcu_sta_amsdu_tlv(skb, sta);
+		if (mt7915_hw_amsdu_supported(vif))
+			mt7915_mcu_sta_amsdu_tlv(skb, sta);
 	}
 
 	/* starec vht */
