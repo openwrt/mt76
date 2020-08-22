@@ -138,9 +138,10 @@ static void mt7915_mac_sta_poll(struct mt7915_dev *dev)
 		list_del_init(&msta->poll_list);
 		spin_unlock_bh(&dev->sta_poll_lock);
 
+		idx = msta->wcid.idx;
 		addr = mt7915_mac_wtbl_lmac_addr(dev, idx) + 20 * 4;
 
-		for (i = 0, idx = msta->wcid.idx; i < IEEE80211_NUM_ACS; i++) {
+		for (i = 0; i < IEEE80211_NUM_ACS; i++) {
 			u32 tx_last = msta->airtime_ac[i];
 			u32 rx_last = msta->airtime_ac[i + 4];
 
