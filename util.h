@@ -68,7 +68,8 @@ mt76_worker_setup(struct ieee80211_hw *hw, struct mt76_worker *w,
 	const char *dev_name = wiphy_name(hw->wiphy);
 	int ret;
 
-	w->fn = fn;
+	if (fn)
+		w->fn = fn;
 	w->task = kthread_create(__mt76_worker_fn, w, "mt76-%s %s",
 				 name, dev_name);
 
