@@ -437,6 +437,7 @@ mt76_alloc_device(struct device *pdev, unsigned int size,
 	skb_queue_head_init(&dev->mcu.res_q);
 	init_waitqueue_head(&dev->mcu.wait);
 	mutex_init(&dev->mcu.mutex);
+	dev->tx_worker.fn = mt76_tx_worker;
 
 	INIT_LIST_HEAD(&dev->txwi_cache);
 
@@ -490,7 +491,7 @@ int mt76_register_device(struct mt76_dev *dev, bool vht,
 	if (ret)
 		return ret;
 
-	WARN_ON(mt76_worker_setup(hw, &dev->tx_worker, mt76_tx_worker, "tx"));
+	WARN_ON(mt76_worker_setup(hw, &dev->tx_worker, NULL, "tx"));
 	sched_setscheduler(dev->tx_worker.task, SCHED_FIFO, &sparam);
 
 	return 0;
