@@ -2896,7 +2896,7 @@ int mt7915_mcu_fw_dbg_ctrl(struct mt7915_dev *dev, u32 module, u8 level)
 				   &data, sizeof(data), false);
 }
 
-static int mt7615_mcu_set_mwds(struct mt7915_dev *dev, bool enabled)
+static int mt7915_mcu_set_mwds(struct mt7915_dev *dev, bool enabled)
 {
 	struct {
 		u8 enable;
@@ -2931,7 +2931,7 @@ int mt7915_mcu_init(struct mt7915_dev *dev)
 
 	set_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state);
 	mt7915_mcu_fw_log_2_host(dev, 0);
-	mt7615_mcu_set_mwds(dev, 1);
+	mt7915_mcu_set_mwds(dev, 1);
 
 	return 0;
 }
