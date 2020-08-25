@@ -510,17 +510,11 @@ mt7603_init_txpower(struct mt7603_dev *dev,
 	}
 }
 
-static inline bool is_mt7688(struct mt7603_dev *dev)
-{
-	return mt76_rr(dev, MT_EFUSE_BASE + 0x64) & BIT(4);
-}
-
 int mt7603_register_device(struct mt7603_dev *dev)
 {
 	struct mt76_bus_ops *bus_ops;
 	struct ieee80211_hw *hw = mt76_hw(dev);
 	struct wiphy *wiphy = hw->wiphy;
-	u8 *eeprom = (u8 *)dev->mt76.eeprom.data;
 	int ret;
 
 	dev->bus_ops = dev->mt76.bus;
@@ -541,13 +535,6 @@ int mt7603_register_device(struct mt7603_dev *dev)
 	INIT_DELAYED_WORK(&dev->mt76.mac_work, mt7603_mac_work);
 	tasklet_init(&dev->mt76.pre_tbtt_tasklet, mt7603_pre_tbtt_tasklet,
 		     (unsigned long)dev);
-
-	/* Check for 1SS devices */
-	dev->mphy.antenna_mask = 3;
-	if (FIELD_GET(MT_EE_NIC_CONF_0_RX_PATH, eeprom[MT_EE_NIC_CONF_0]) == 1 ||
-	    FIELD_GET(MT_EE_NIC_CONF_0_TX_PATH, eeprom[MT_EE_NIC_CONF_0]) == 1 ||
-	    is_mt7688(dev))
-		dev->mphy.antenna_mask = 1;
 
 	dev->slottime = 9;
 	dev->sensitivity_limit = 28;
