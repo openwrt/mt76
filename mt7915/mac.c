@@ -584,6 +584,9 @@ mt7915_mac_write_txwi_8023(struct mt7915_dev *dev, __le32 *txwi,
 
 		sta = container_of((void *)wcid, struct ieee80211_sta, drv_priv);
 		wmm = sta->wme;
+
+		if (test_bit(MT_WCID_FLAG_4ADDR, &wcid->flags))
+			multicast = false;
 	}
 
 	val = FIELD_PREP(MT_TXD1_HDR_FORMAT, MT_HDR_FORMAT_802_3) |
