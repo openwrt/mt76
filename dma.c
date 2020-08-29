@@ -599,7 +599,8 @@ static int
 mt76_dma_rx_poll(struct napi_struct *napi, int budget)
 {
 	struct mt76_dev *dev;
-	int qid, done = 0, cur;
+	int qid, done = 0, cur, cur_dma;
+	int rxq_budget;
 
 	dev = container_of(napi->dev, struct mt76_dev, napi_dev);
 	qid = napi - dev->napi;
@@ -607,17 +608,18 @@ mt76_dma_rx_poll(struct napi_struct *napi, int budget)
 	rcu_read_lock();
 
 	do {
-		cur = mt76_dma_rx_process(dev, &dev->q_rx[qid], budget - done);
-		mt76_rx_poll_complete(dev, qid, napi);
+		rxq_budget = MT_RX_QUEUE_LEN - skb_queue_len(&dev->rx_skb[qid]);
+		cur_dma = mt76_dma_rx_process(dev, &dev->q_rx[qid], rxq_budget);
+		cur = mt76_rx_poll_complete(dev, qid, napi, budget - done);
 		done += cur;
-	} while (cur && done < budget);
+	} while ((cur || cur_dma) && done < budget);
 
 	rcu_read_unlock();
 
 	if (done < budget && napi_complete(napi))
 		dev->drv->rx_poll_complete(dev, qid);
 
-	return done;
+	return min(done, budget);
 }
 
 static int
