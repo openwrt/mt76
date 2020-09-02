@@ -568,8 +568,6 @@ mt7915_mac_write_txwi_8023(struct mt7915_dev *dev, __le32 *txwi,
 {
 
 	u8 tid = skb->priority & IEEE80211_QOS_CTL_TID_MASK;
-	struct ethhdr *ehdr = (struct ethhdr *)skb->data;
-	bool multicast = is_multicast_ether_addr(ehdr->h_dest);
 	u8 fc_type, fc_stype;
 	bool wmm = false;
 	u32 val;
@@ -579,15 +577,12 @@ mt7915_mac_write_txwi_8023(struct mt7915_dev *dev, __le32 *txwi,
 
 		sta = container_of((void *)wcid, struct ieee80211_sta, drv_priv);
 		wmm = sta->wme;
-
-		if (test_bit(MT_WCID_FLAG_4ADDR, &wcid->flags))
-			multicast = false;
 	}
 
 	val = FIELD_PREP(MT_TXD1_HDR_FORMAT, MT_HDR_FORMAT_802_3) |
 	      FIELD_PREP(MT_TXD1_TID, tid);
 
-	if (be16_to_cpu(ehdr->h_proto) >= ETH_P_802_3_MIN)
+	if (be16_to_cpu(skb->protocol) >= ETH_P_802_3_MIN)
 		val |= MT_TXD1_ETH_802_3;
 
 	txwi[1] |= cpu_to_le32(val);
@@ -596,11 +591,7 @@ mt7915_mac_write_txwi_8023(struct mt7915_dev *dev, __le32 *txwi,
 	fc_stype = wmm ? IEEE80211_STYPE_QOS_DATA >> 4 : 0;
 
 	val = FIELD_PREP(MT_TXD2_FRAME_TYPE, fc_type) |
-	      FIELD_PREP(MT_TXD2_SUB_TYPE, fc_stype) |
-	      FIELD_PREP(MT_TXD2_MULTICAST, multicast);
-
-	if (multicast)
-		val |= MT_TXD2_FIX_RATE;
+	      FIELD_PREP(MT_TXD2_SUB_TYPE, fc_stype);
 
 	txwi[2] |= cpu_to_le32(val);
 
