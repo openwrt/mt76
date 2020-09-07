@@ -666,7 +666,7 @@ mt76u_process_rx_queue(struct mt76_dev *dev, struct mt76_queue *q)
 		mt76u_submit_rx_buf(dev, qid, urb);
 	}
 	if (qid == MT_RXQ_MAIN)
-		mt76_rx_poll_complete(dev, MT_RXQ_MAIN, NULL, MT_RX_QUEUE_LEN);
+		mt76_rx_poll_complete(dev, MT_RXQ_MAIN, NULL);
 }
 
 static void mt76u_rx_tasklet(unsigned long data)

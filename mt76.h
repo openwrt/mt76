@@ -24,8 +24,6 @@
 #define MT_MAX_NON_AQL_PKT  16
 #define MT_TXQ_FREE_THR     32
 
-#define MT_RX_QUEUE_LEN     256
-
 struct mt76_dev;
 struct mt76_phy;
 struct mt76_wcid;
@@ -1015,8 +1013,8 @@ mt76_tx_status_get_hw(struct mt76_dev *dev, struct sk_buff *skb)
 void mt76_put_txwi(struct mt76_dev *dev, struct mt76_txwi_cache *t);
 void mt76_rx_complete(struct mt76_dev *dev, struct sk_buff_head *frames,
 		      struct napi_struct *napi);
-int mt76_rx_poll_complete(struct mt76_dev *dev, enum mt76_rxq_id q,
-			  struct napi_struct *napi, int budget);
+void mt76_rx_poll_complete(struct mt76_dev *dev, enum mt76_rxq_id q,
+			   struct napi_struct *napi);
 void mt76_rx_aggr_reorder(struct sk_buff *skb, struct sk_buff_head *frames);
 void mt76_testmode_tx_pending(struct mt76_dev *dev);
 void mt76_queue_tx_complete(struct mt76_dev *dev, struct mt76_queue *q,

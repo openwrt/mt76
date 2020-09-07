@@ -962,25 +962,20 @@ void mt76_rx_complete(struct mt76_dev *dev, struct sk_buff_head *frames,
 	}
 }
 
-int mt76_rx_poll_complete(struct mt76_dev *dev, enum mt76_rxq_id q,
-			  struct napi_struct *napi, int budget)
+void mt76_rx_poll_complete(struct mt76_dev *dev, enum mt76_rxq_id q,
+			   struct napi_struct *napi)
 {
 	struct sk_buff_head frames;
 	struct sk_buff *skb;
-	int nframes;
 
 	__skb_queue_head_init(&frames);
 
-	while (budget > skb_queue_len(&frames) &&
-	       (skb = __skb_dequeue(&dev->rx_skb[q])) != NULL) {
+	while ((skb = __skb_dequeue(&dev->rx_skb[q])) != NULL) {
 		mt76_check_sta(dev, skb);
 		mt76_rx_aggr_reorder(skb, &frames);
 	}
 
-	nframes = skb_queue_len(&frames);
 	mt76_rx_complete(dev, &frames, napi);
-
-	return nframes;
 }
 EXPORT_SYMBOL_GPL(mt76_rx_poll_complete);
 
