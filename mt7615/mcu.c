@@ -3557,6 +3557,8 @@ int mt7615_mcu_set_hif_suspend(struct mt7615_dev *dev, bool suspend)
 		req.hdr.hif_type = 2;
 	else if (mt76_is_usb(&dev->mt76))
 		req.hdr.hif_type = 1;
+	else if (mt76_is_sdio(&dev->mt76))
+		req.hdr.hif_type = 0;
 
 	return mt76_mcu_send_msg(&dev->mt76, MCU_UNI_CMD_HIF_CTRL, &req,
 				 sizeof(req), true);
@@ -3575,6 +3577,7 @@ mt7615_mcu_set_wow_ctrl(struct mt7615_phy *phy, struct ieee80211_vif *vif,
 			u8 pad[3];
 		} __packed hdr;
 		struct mt7615_wow_ctrl_tlv wow_ctrl_tlv;
+		struct mt7615_wow_gpio_param_tlv gpio_tlv;
 	} req = {
 		.hdr = {
 			.bss_idx = mvif->idx,
@@ -3583,6 +3586,11 @@ mt7615_mcu_set_wow_ctrl(struct mt7615_phy *phy, struct ieee80211_vif *vif,
 			.tag = cpu_to_le16(UNI_SUSPEND_WOW_CTRL),
 			.len = cpu_to_le16(sizeof(struct mt7615_wow_ctrl_tlv)),
 			.cmd = suspend ? 1 : 2,
+		},
+		.gpio_tlv = {
+			.tag = cpu_to_le16(UNI_SUSPEND_WOW_GPIO_PARAM),
+			.len = cpu_to_le16(sizeof(struct mt7615_wow_gpio_param_tlv)),
+			.gpio_pin = 0xff, /* follow fw about GPIO pin */
 		},
 	};
 
@@ -3597,9 +3605,11 @@ mt7615_mcu_set_wow_ctrl(struct mt7615_phy *phy, struct ieee80211_vif *vif,
 	}
 
 	if (mt76_is_mmio(&dev->mt76))
-		req.wow_ctrl_tlv.wakeup_hif = 2;
+		req.wow_ctrl_tlv.wakeup_hif = WOW_PCIE;
 	else if (mt76_is_usb(&dev->mt76))
-		req.wow_ctrl_tlv.wakeup_hif = 1;
+		req.wow_ctrl_tlv.wakeup_hif = WOW_USB;
+	else if (mt76_is_sdio(&dev->mt76))
+		req.wow_ctrl_tlv.wakeup_hif = WOW_GPIO;
 
 	return mt76_mcu_send_msg(&dev->mt76, MCU_UNI_CMD_SUSPEND, &req,
 				 sizeof(req), true);
