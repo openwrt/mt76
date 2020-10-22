@@ -250,14 +250,14 @@ static void print_extra_stats(const struct tm_field *field, struct nlattr **tb)
 static const struct tm_field rx_fields[NUM_MT76_TM_RX_ATTRS] = {
 	FIELD_RO(s32, FREQ_OFFSET, "freq_offset"),
 	FIELD_ARRAY_RO(u8, RCPI, "rcpi"),
-	FIELD_RO(s8, IB_RSSI, "ib_rssi"),
-	FIELD_RO(s8, WB_RSSI, "wb_rssi"),
+	FIELD_ARRAY_RO(s8, IB_RSSI, "ib_rssi"),
+	FIELD_ARRAY_RO(s8, WB_RSSI, "wb_rssi"),
 };
 static struct nla_policy rx_policy[NUM_MT76_TM_RX_ATTRS] = {
 	[MT76_TM_RX_ATTR_FREQ_OFFSET] = { .type = NLA_U32 },
 	[MT76_TM_RX_ATTR_RCPI] = { .type = NLA_NESTED },
-	[MT76_TM_RX_ATTR_IB_RSSI] = { .type = NLA_U8 },
-	[MT76_TM_RX_ATTR_WB_RSSI] = { .type = NLA_U8 },
+	[MT76_TM_RX_ATTR_IB_RSSI] = { .type = NLA_NESTED },
+	[MT76_TM_RX_ATTR_WB_RSSI] = { .type = NLA_NESTED },
 };
 #undef FIELD_NAME
 
