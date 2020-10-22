@@ -17,6 +17,10 @@ static const char * const testmode_tx_mode[] = {
 	[MT76_TM_TX_MODE_OFDM] = "ofdm",
 	[MT76_TM_TX_MODE_HT] = "ht",
 	[MT76_TM_TX_MODE_VHT] = "vht",
+	[MT76_TM_TX_MODE_HE_SU] = "he_su",
+	[MT76_TM_TX_MODE_HE_EXT_SU] = "he_ext_su",
+	[MT76_TM_TX_MODE_HE_TB] = "he_tb",
+	[MT76_TM_TX_MODE_HE_MU] = "he_mu",
 };
 
 static void print_enum(const struct tm_field *field, struct nlattr *attr)
