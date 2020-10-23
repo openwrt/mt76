@@ -464,6 +464,7 @@ static const struct file_operations fops_ext_mac_addr = {
 	.llseek = generic_file_llseek,
 	.read = mt7615_ext_mac_addr_read,
 	.write = mt7615_ext_mac_addr_write,
+	.owner = THIS_MODULE,
 };
 
 static int

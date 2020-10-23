@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2016 Felix Fietkau <nbd@nbd.name>
  */
-#include <uapi/linux/sched/types.h>
+#include <linux/sched.h>
 #include <linux/of.h>
 #include "mt76.h"
 
@@ -454,7 +454,6 @@ EXPORT_SYMBOL_GPL(mt76_alloc_device);
 int mt76_register_device(struct mt76_dev *dev, bool vht,
 			 struct ieee80211_rate *rates, int n_rates)
 {
-	struct sched_param sparam = {.sched_priority = 1};
 	struct ieee80211_hw *hw = dev->hw;
 	struct mt76_phy *phy = &dev->phy;
 	int ret;
@@ -489,7 +488,7 @@ int mt76_register_device(struct mt76_dev *dev, bool vht,
 		return ret;
 
 	WARN_ON(mt76_worker_setup(hw, &dev->tx_worker, NULL, "tx"));
-	sched_setscheduler(dev->tx_worker.task, SCHED_FIFO, &sparam);
+	sched_set_fifo_low(dev->tx_worker.task);
 
 	return 0;
 }
