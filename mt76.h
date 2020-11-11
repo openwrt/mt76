@@ -562,6 +562,8 @@ struct mt76_phy {
 
 	unsigned long state;
 
+	struct mt76_queue *q_tx[__MT_TXQ_MAX];
+
 	struct cfg80211_chan_def chandef;
 	struct ieee80211_channel *main_chan;
 
@@ -608,7 +610,6 @@ struct mt76_dev {
 	struct sk_buff_head rx_skb[__MT_RXQ_MAX];
 
 	struct list_head txwi_cache;
-	struct mt76_queue *q_tx[2 * __MT_TXQ_MAX];
 	struct mt76_queue *q_mcu[__MT_MCUQ_MAX];
 	struct mt76_queue q_rx[__MT_RXQ_MAX];
 	const struct mt76_queue_ops *queue_ops;
@@ -806,7 +807,7 @@ static inline int mt76_init_tx_queue(struct mt76_phy *phy, int qid, int idx,
 		return PTR_ERR(q);
 
 	q->qid = qid;
-	phy->dev->q_tx[qid] = q;
+	phy->q_tx[qid] = q;
 
 	return 0;
 }
@@ -947,7 +948,7 @@ void mt76_rx(struct mt76_dev *dev, enum mt76_rxq_id q, struct sk_buff *skb);
 void mt76_tx(struct mt76_phy *dev, struct ieee80211_sta *sta,
 	     struct mt76_wcid *wcid, struct sk_buff *skb);
 void mt76_wake_tx_queue(struct ieee80211_hw *hw, struct ieee80211_txq *txq);
-void mt76_stop_tx_queues(struct mt76_dev *dev, struct ieee80211_sta *sta,
+void mt76_stop_tx_queues(struct mt76_phy *phy, struct ieee80211_sta *sta,
 			 bool send_bar);
 void mt76_tx_check_agg_ssn(struct ieee80211_sta *sta, struct sk_buff *skb);
 void mt76_txq_schedule(struct mt76_phy *phy, enum mt76_txq_id qid);
