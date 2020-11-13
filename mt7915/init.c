@@ -6,6 +6,150 @@
 #include "mac.h"
 #include "eeprom.h"
 
+#define CCK_RATE(_idx, _rate) {						\
+	.bitrate = _rate,						\
+	.flags = IEEE80211_RATE_SHORT_PREAMBLE,				\
+	.hw_value = (MT_PHY_TYPE_CCK << 8) | (_idx),			\
+	.hw_value_short = (MT_PHY_TYPE_CCK << 8) | (4 + (_idx)),	\
+}
+
+#define OFDM_RATE(_idx, _rate) {					\
+	.bitrate = _rate,						\
+	.hw_value = (MT_PHY_TYPE_OFDM << 8) | (_idx),			\
+	.hw_value_short = (MT_PHY_TYPE_OFDM << 8) | (_idx),		\
+}
+
+static struct ieee80211_rate mt7915_rates[] = {
+	CCK_RATE(0, 10),
+	CCK_RATE(1, 20),
+	CCK_RATE(2, 55),
+	CCK_RATE(3, 110),
+	OFDM_RATE(11, 60),
+	OFDM_RATE(15, 90),
+	OFDM_RATE(10, 120),
+	OFDM_RATE(14, 180),
+	OFDM_RATE(9,  240),
+	OFDM_RATE(13, 360),
+	OFDM_RATE(8,  480),
+	OFDM_RATE(12, 540),
+};
+
+static const struct ieee80211_iface_limit if_limits[] = {
+	{
+		.max = 1,
+		.types = BIT(NL80211_IFTYPE_ADHOC)
+	}, {
+		.max = 16,
+		.types = BIT(NL80211_IFTYPE_AP) |
+#ifdef CONFIG_MAC80211_MESH
+			 BIT(NL80211_IFTYPE_MESH_POINT)
+#endif
+	}, {
+		.max = MT7915_MAX_INTERFACES,
+		.types = BIT(NL80211_IFTYPE_STATION)
+	}
+};
+
+static const struct ieee80211_iface_combination if_comb[] = {
+	{
+		.limits = if_limits,
+		.n_limits = ARRAY_SIZE(if_limits),
+		.max_interfaces = MT7915_MAX_INTERFACES,
+		.num_different_channels = 1,
+		.beacon_int_infra_match = true,
+		.radar_detect_widths = BIT(NL80211_CHAN_WIDTH_20_NOHT) |
+				       BIT(NL80211_CHAN_WIDTH_20) |
+				       BIT(NL80211_CHAN_WIDTH_40) |
+				       BIT(NL80211_CHAN_WIDTH_80) |
+				       BIT(NL80211_CHAN_WIDTH_160) |
+				       BIT(NL80211_CHAN_WIDTH_80P80),
+	}
+};
+
+static void
+mt7915_init_txpower(struct mt7915_dev *dev,
+		    struct ieee80211_supported_band *sband)
+{
+	int i, n_chains = hweight8(dev->mphy.antenna_mask);
+	int nss_delta = mt76_tx_power_nss_delta(n_chains);
+	int pwr_delta = mt7915_eeprom_get_power_delta(dev, sband->band);
+	struct mt76_power_limits limits;
+
+	for (i = 0; i < sband->n_channels; i++) {
+		struct ieee80211_channel *chan = &sband->channels[i];
+		u32 target_power = 0;
+		int j;
+
+		for (j = 0; j < n_chains; j++) {
+			u32 val;
+
+			val = mt7915_eeprom_get_target_power(dev, chan, j);
+			target_power = max(target_power, val);
+		}
+
+		target_power += pwr_delta;
+		target_power = mt76_get_rate_power_limits(&dev->mphy, chan,
+							  &limits,
+							  target_power);
+		target_power += nss_delta;
+		target_power = DIV_ROUND_UP(target_power, 2);
+		chan->max_power = min_t(int, chan->max_reg_power,
+					target_power);
+		chan->orig_mpwr = target_power;
+	}
+}
+
+static void
+mt7915_regd_notifier(struct wiphy *wiphy,
+		     struct regulatory_request *request)
+{
+	struct ieee80211_hw *hw = wiphy_to_ieee80211_hw(wiphy);
+	struct mt7915_dev *dev = mt7915_hw_dev(hw);
+	struct mt76_phy *mphy = hw->priv;
+	struct mt7915_phy *phy = mphy->priv;
+	struct cfg80211_chan_def *chandef = &mphy->chandef;
+
+	memcpy(dev->mt76.alpha2, request->alpha2, sizeof(dev->mt76.alpha2));
+	dev->mt76.region = request->dfs_region;
+
+	mt7915_init_txpower(dev, &mphy->sband_2g.sband);
+	mt7915_init_txpower(dev, &mphy->sband_5g.sband);
+
+	if (!(chandef->chan->flags & IEEE80211_CHAN_RADAR))
+		return;
+
+	mt7915_dfs_init_radar_detector(phy);
+}
+
+static void
+mt7915_init_wiphy(struct ieee80211_hw *hw)
+{
+	struct mt7915_phy *phy = mt7915_hw_phy(hw);
+	struct wiphy *wiphy = hw->wiphy;
+
+	hw->queues = 4;
+	hw->max_rx_aggregation_subframes = IEEE80211_MAX_AMPDU_BUF;
+	hw->max_tx_aggregation_subframes = IEEE80211_MAX_AMPDU_BUF;
+
+	phy->slottime = 9;
+
+	hw->sta_data_size = sizeof(struct mt7915_sta);
+	hw->vif_data_size = sizeof(struct mt7915_vif);
+
+	wiphy->iface_combinations = if_comb;
+	wiphy->n_iface_combinations = ARRAY_SIZE(if_comb);
+	wiphy->reg_notifier = mt7915_regd_notifier;
+	wiphy->flags |= WIPHY_FLAG_HAS_CHANNEL_SWITCH;
+
+	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_VHT_IBSS);
+
+	ieee80211_hw_set(hw, HAS_RATE_CONTROL);
+	ieee80211_hw_set(hw, SUPPORTS_TX_ENCAP_OFFLOAD);
+	ieee80211_hw_set(hw, WANT_MONITOR_VIF);
+
+	hw->max_tx_fragments = 4;
+}
+
 static void
 mt7915_mac_init_band(struct mt7915_dev *dev, u8 band)
 {
@@ -77,37 +221,58 @@ static int mt7915_txbf_init(struct mt7915_dev *dev)
 	return mt7915_mcu_set_txbf_type(dev);
 }
 
-static void
-mt7915_init_txpower(struct mt7915_dev *dev,
-		    struct ieee80211_supported_band *sband)
+static int mt7915_register_ext_phy(struct mt7915_dev *dev)
 {
-	int i, n_chains = hweight8(dev->mphy.antenna_mask);
-	int nss_delta = mt76_tx_power_nss_delta(n_chains);
-	int pwr_delta = mt7915_eeprom_get_power_delta(dev, sband->band);
-	struct mt76_power_limits limits;
+	struct mt7915_phy *phy = mt7915_ext_phy(dev);
+	struct mt76_phy *mphy;
+	int ret;
 
-	for (i = 0; i < sband->n_channels; i++) {
-		struct ieee80211_channel *chan = &sband->channels[i];
-		u32 target_power = 0;
-		int j;
+	if (!dev->dbdc_support)
+		return 0;
 
-		for (j = 0; j < n_chains; j++) {
-			u32 val;
+	if (phy)
+		return 0;
 
-			val = mt7915_eeprom_get_target_power(dev, chan, j);
-			target_power = max(target_power, val);
-		}
+	mphy = mt76_alloc_phy(&dev->mt76, sizeof(*phy), &mt7915_ops);
+	if (!mphy)
+		return -ENOMEM;
 
-		target_power += pwr_delta;
-		target_power = mt76_get_rate_power_limits(&dev->mphy, chan,
-							  &limits,
-							  target_power);
-		target_power += nss_delta;
-		target_power = DIV_ROUND_UP(target_power, 2);
-		chan->max_power = min_t(int, chan->max_reg_power,
-					target_power);
-		chan->orig_mpwr = target_power;
-	}
+	phy = mphy->priv;
+	phy->dev = dev;
+	phy->mt76 = mphy;
+	phy->chainmask = dev->chainmask & ~dev->phy.chainmask;
+	mphy->antenna_mask = BIT(hweight8(phy->chainmask)) - 1;
+	mt7915_init_wiphy(mphy->hw);
+
+	INIT_LIST_HEAD(&phy->stats_list);
+	INIT_DELAYED_WORK(&phy->mac_work, mt7915_mac_work);
+
+	mt7915_eeprom_parse_band_config(phy);
+	mt7915_set_stream_vht_txbf_caps(phy);
+	mt7915_set_stream_he_caps(phy);
+
+	memcpy(mphy->macaddr, dev->mt76.eeprom.data + MT_EE_MAC_ADDR2,
+	       ETH_ALEN);
+	mt76_eeprom_override(mphy);
+
+	/* The second interface does not get any packets unless it has a vif */
+	ieee80211_hw_set(mphy->hw, WANT_MONITOR_VIF);
+
+	ret = mt7915_init_tx_queues(phy, MT7915_TXQ_BAND1,
+				    MT7915_TX_RING_SIZE);
+	if (ret)
+		goto error;
+
+	ret = mt76_register_phy(mphy, true, mt7915_rates,
+				ARRAY_SIZE(mt7915_rates));
+	if (ret)
+		goto error;
+
+	return 0;
+
+error:
+	ieee80211_free_hw(mphy->hw);
+	return ret;
 }
 
 static void mt7915_init_work(struct work_struct *work)
@@ -168,116 +333,6 @@ static int mt7915_init_hardware(struct mt7915_dev *dev)
 	return 0;
 }
 
-#define CCK_RATE(_idx, _rate) {						\
-	.bitrate = _rate,						\
-	.flags = IEEE80211_RATE_SHORT_PREAMBLE,				\
-	.hw_value = (MT_PHY_TYPE_CCK << 8) | (_idx),			\
-	.hw_value_short = (MT_PHY_TYPE_CCK << 8) | (4 + (_idx)),	\
-}
-
-#define OFDM_RATE(_idx, _rate) {					\
-	.bitrate = _rate,						\
-	.hw_value = (MT_PHY_TYPE_OFDM << 8) | (_idx),			\
-	.hw_value_short = (MT_PHY_TYPE_OFDM << 8) | (_idx),		\
-}
-
-static struct ieee80211_rate mt7915_rates[] = {
-	CCK_RATE(0, 10),
-	CCK_RATE(1, 20),
-	CCK_RATE(2, 55),
-	CCK_RATE(3, 110),
-	OFDM_RATE(11, 60),
-	OFDM_RATE(15, 90),
-	OFDM_RATE(10, 120),
-	OFDM_RATE(14, 180),
-	OFDM_RATE(9,  240),
-	OFDM_RATE(13, 360),
-	OFDM_RATE(8,  480),
-	OFDM_RATE(12, 540),
-};
-
-static const struct ieee80211_iface_limit if_limits[] = {
-	{
-		.max = 1,
-		.types = BIT(NL80211_IFTYPE_ADHOC)
-	}, {
-		.max = 16,
-		.types = BIT(NL80211_IFTYPE_AP) |
-#ifdef CONFIG_MAC80211_MESH
-			 BIT(NL80211_IFTYPE_MESH_POINT)
-#endif
-	}, {
-		.max = MT7915_MAX_INTERFACES,
-		.types = BIT(NL80211_IFTYPE_STATION)
-	}
-};
-
-static const struct ieee80211_iface_combination if_comb[] = {
-	{
-		.limits = if_limits,
-		.n_limits = ARRAY_SIZE(if_limits),
-		.max_interfaces = MT7915_MAX_INTERFACES,
-		.num_different_channels = 1,
-		.beacon_int_infra_match = true,
-		.radar_detect_widths = BIT(NL80211_CHAN_WIDTH_20_NOHT) |
-				       BIT(NL80211_CHAN_WIDTH_20) |
-				       BIT(NL80211_CHAN_WIDTH_40) |
-				       BIT(NL80211_CHAN_WIDTH_80) |
-				       BIT(NL80211_CHAN_WIDTH_160) |
-				       BIT(NL80211_CHAN_WIDTH_80P80),
-	}
-};
-
-static void
-mt7915_regd_notifier(struct wiphy *wiphy,
-		     struct regulatory_request *request)
-{
-	struct ieee80211_hw *hw = wiphy_to_ieee80211_hw(wiphy);
-	struct mt7915_dev *dev = mt7915_hw_dev(hw);
-	struct mt76_phy *mphy = hw->priv;
-	struct mt7915_phy *phy = mphy->priv;
-	struct cfg80211_chan_def *chandef = &mphy->chandef;
-
-	memcpy(dev->mt76.alpha2, request->alpha2, sizeof(dev->mt76.alpha2));
-	dev->mt76.region = request->dfs_region;
-
-	mt7915_init_txpower(dev, &mphy->sband_2g.sband);
-	mt7915_init_txpower(dev, &mphy->sband_5g.sband);
-
-	if (!(chandef->chan->flags & IEEE80211_CHAN_RADAR))
-		return;
-
-	mt7915_dfs_init_radar_detector(phy);
-}
-
-static void
-mt7915_init_wiphy(struct ieee80211_hw *hw)
-{
-	struct mt7915_phy *phy = mt7915_hw_phy(hw);
-	struct wiphy *wiphy = hw->wiphy;
-
-	hw->queues = 4;
-	hw->max_rx_aggregation_subframes = IEEE80211_MAX_AMPDU_BUF;
-	hw->max_tx_aggregation_subframes = IEEE80211_MAX_AMPDU_BUF;
-
-	phy->slottime = 9;
-
-	hw->sta_data_size = sizeof(struct mt7915_sta);
-	hw->vif_data_size = sizeof(struct mt7915_vif);
-
-	wiphy->iface_combinations = if_comb;
-	wiphy->n_iface_combinations = ARRAY_SIZE(if_comb);
-	wiphy->reg_notifier = mt7915_regd_notifier;
-	wiphy->flags |= WIPHY_FLAG_HAS_CHANNEL_SWITCH;
-
-	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_VHT_IBSS);
-
-	ieee80211_hw_set(hw, HAS_RATE_CONTROL);
-	ieee80211_hw_set(hw, SUPPORTS_TX_ENCAP_OFFLOAD);
-	ieee80211_hw_set(hw, WANT_MONITOR_VIF);
-
-	hw->max_tx_fragments = 4;
-}
 
 void mt7915_set_stream_vht_txbf_caps(struct mt7915_phy *phy)
 {
@@ -552,61 +607,7 @@ void mt7915_set_stream_he_caps(struct mt7915_phy *phy)
 	}
 }
 
-int mt7915_register_ext_phy(struct mt7915_dev *dev)
-{
-	struct mt7915_phy *phy = mt7915_ext_phy(dev);
-	struct mt76_phy *mphy;
-	int ret;
-
-	if (!dev->dbdc_support)
-		return 0;
-
-	if (phy)
-		return 0;
-
-	mphy = mt76_alloc_phy(&dev->mt76, sizeof(*phy), &mt7915_ops);
-	if (!mphy)
-		return -ENOMEM;
-
-	phy = mphy->priv;
-	phy->dev = dev;
-	phy->mt76 = mphy;
-	phy->chainmask = dev->chainmask & ~dev->phy.chainmask;
-	mphy->antenna_mask = BIT(hweight8(phy->chainmask)) - 1;
-	mt7915_init_wiphy(mphy->hw);
-
-	INIT_LIST_HEAD(&phy->stats_list);
-	INIT_DELAYED_WORK(&phy->mac_work, mt7915_mac_work);
-
-	mt7915_eeprom_parse_band_config(phy);
-	mt7915_set_stream_vht_txbf_caps(phy);
-	mt7915_set_stream_he_caps(phy);
-
-	memcpy(mphy->macaddr, dev->mt76.eeprom.data + MT_EE_MAC_ADDR2,
-	       ETH_ALEN);
-	mt76_eeprom_override(mphy);
-
-	/* The second interface does not get any packets unless it has a vif */
-	ieee80211_hw_set(mphy->hw, WANT_MONITOR_VIF);
-
-	ret = mt7915_init_tx_queues(phy, MT7915_TXQ_BAND1,
-				    MT7915_TX_RING_SIZE);
-	if (ret)
-		goto error;
-
-	ret = mt76_register_phy(mphy, true, mt7915_rates,
-				ARRAY_SIZE(mt7915_rates));
-	if (ret)
-		goto error;
-
-	return 0;
-
-error:
-	ieee80211_free_hw(mphy->hw);
-	return ret;
-}
-
-void mt7915_unregister_ext_phy(struct mt7915_dev *dev)
+static void mt7915_unregister_ext_phy(struct mt7915_dev *dev)
 {
 	struct mt7915_phy *phy = mt7915_ext_phy(dev);
 	struct mt76_phy *mphy = dev->mt76.phy2;
