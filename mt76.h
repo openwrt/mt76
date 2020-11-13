@@ -574,6 +574,8 @@ struct mt76_phy {
 	struct mt76_sband sband_2g;
 	struct mt76_sband sband_5g;
 
+	u8 macaddr[ETH_ALEN];
+
 	u32 vif_mask;
 
 	int txpower_cur;
@@ -629,7 +631,6 @@ struct mt76_dev {
 	struct mt76_wcid global_wcid;
 	struct mt76_wcid __rcu *wcid[MT76_N_WCIDS];
 
-	u8 macaddr[ETH_ALEN];
 	u32 rev;
 
 	u32 aggr_stats[32];
@@ -793,7 +794,7 @@ void mt76_seq_puts_array(struct seq_file *file, const char *str,
 			 s8 *val, int len);
 
 int mt76_eeprom_init(struct mt76_dev *dev, int len);
-void mt76_eeprom_override(struct mt76_dev *dev);
+void mt76_eeprom_override(struct mt76_phy *phy);
 
 struct mt76_queue *
 mt76_init_queue(struct mt76_dev *dev, int qid, int idx, int n_desc,
