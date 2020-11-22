@@ -930,7 +930,7 @@ mt7915_set_tx_blocked(struct mt7915_dev *dev, bool blocked)
 
 	q->blocked = blocked;
 	if (mphy2) {
-		q2 = mphy->q_tx[0];
+		q2 = mphy2->q_tx[0];
 		q2->blocked = blocked;
 	}
 
@@ -1109,7 +1109,7 @@ void mt7915_mac_tx_free(struct mt7915_dev *dev, struct sk_buff *skb)
 	LIST_HEAD(free_list);
 	struct sk_buff *tmp;
 	u8 i, count;
-	bool wake = true;
+	bool wake = false;
 
 	/* clean DMA queues and unmap buffers first */
 	mt76_queue_tx_cleanup(dev, dev->mphy.q_tx[MT_TXQ_PSD], false);
