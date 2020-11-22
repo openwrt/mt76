@@ -460,9 +460,11 @@ static int mt7915_register_ext_phy(struct mt7915_dev *dev)
 	mt7915_eeprom_parse_band_config(phy);
 	mt7915_init_wiphy(mphy->hw);
 
-	memcpy(mphy->macaddr, dev->mt76.eeprom.data + MT_EE_MAC_ADDR2,
+	memcpy(mphy->macaddr, dev->mt76.eeprom.data + MT_EE_MAC_ADDR,
 	       ETH_ALEN);
 	mt76_eeprom_override(mphy);
+	mphy->macaddr[3] |= 2;
+	mphy->macaddr[3] ^= BIT(7);
 
 	ret = mt7915_init_tx_queues(phy, MT7915_TXQ_BAND1,
 				    MT7915_TX_RING_SIZE);
