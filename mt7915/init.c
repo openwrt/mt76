@@ -148,6 +148,9 @@ mt7915_init_wiphy(struct ieee80211_hw *hw)
 	ieee80211_hw_set(hw, WANT_MONITOR_VIF);
 
 	hw->max_tx_fragments = 4;
+
+	if (!phy->dev->dbdc_support)
+		wiphy->txq_memory_limit = 32 << 20; /* 32 MiB */
 }
 
 static void
