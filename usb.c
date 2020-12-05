@@ -811,7 +811,6 @@ static void mt76u_status_worker(struct mt76_worker *w)
 	struct mt76_dev *dev = container_of(usb, struct mt76_dev, usb);
 	struct mt76_queue_entry entry;
 	struct mt76_queue *q;
-	bool wake;
 	int i;
 
 	for (i = 0; i < IEEE80211_NUM_ACS; i++) {
@@ -827,10 +826,6 @@ static void mt76u_status_worker(struct mt76_worker *w)
 			mt76_queue_tx_complete(dev, q, &entry);
 		}
 
-		wake = q->stopped && q->queued < q->ndesc - 8;
-		if (wake)
-			q->stopped = false;
-
 		if (!q->queued)
 			wake_up(&dev->tx_wait);
 
@@ -839,8 +834,6 @@ static void mt76u_status_worker(struct mt76_worker *w)
 		if (dev->drv->tx_status_data &&
 		    !test_and_set_bit(MT76_READING_STATS, &dev->phy.state))
 			queue_work(dev->wq, &dev->usb.stat_work);
-		if (wake)
-			ieee80211_wake_queue(dev->hw, i);
 	}
 }
 
