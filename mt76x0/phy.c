@@ -467,6 +467,11 @@ static void mt76x0_phy_ant_select(struct mt76x02_dev *dev)
 	mt76_rmw(dev, MT_CSR_EE_CFG1, GENMASK(15, 0), ee_cfg1);
 	mt76_clear(dev, MT_COEXCFG0, BIT(2));
 	mt76_wr(dev, MT_COEXCFG3, coex3);
+
+	u32 xo1 = mt76_rr(dev, MT_XO_CTRL1);
+	xo1 &= 0xffff0000;
+	xo1 |= (u32)ee_cfg1;
+	mt76_wr(dev, MT_XO_CTRL1, xo1);
 }
 
 static void
