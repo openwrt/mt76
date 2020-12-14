@@ -169,6 +169,7 @@ struct mt7915_dev {
 	struct idr token;
 
 	bool dbdc_support;
+	bool flash_mode;
 	bool fw_debug;
 
 #ifdef CONFIG_NL80211_TESTMODE
