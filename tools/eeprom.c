@@ -77,7 +77,7 @@ mt76_eeprom_create_file(void)
 		return -1;
 	}
 
-	fd = open(eeprom_file, O_RDWR | O_CREAT | O_EXCL);
+	fd = open(eeprom_file, O_RDWR | O_CREAT | O_EXCL, 00644);
 	if (fd < 0)
 		goto out;
 
