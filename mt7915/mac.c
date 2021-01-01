@@ -600,51 +600,16 @@ void mt7915_mac_fill_rx_vector(struct mt7915_dev *dev, struct sk_buff *skb)
 }
 #endif
 
-static u16
-mt7915_mac_tx_rate_val(struct mt76_phy *mphy, u8 mode, u8 rate_idx,
-		       u8 nss, u8 stbc, u8 *bw)
-{
-	u16 rateval = 0;
-
-	switch (mphy->chandef.width) {
-	case NL80211_CHAN_WIDTH_40:
-		*bw = 1;
-		break;
-	case NL80211_CHAN_WIDTH_80:
-		*bw = 2;
-		break;
-	case NL80211_CHAN_WIDTH_80P80:
-	case NL80211_CHAN_WIDTH_160:
-		*bw = 3;
-		break;
-	default:
-		*bw = 0;
-		break;
-	}
-
-	if (mode == MT_PHY_TYPE_HT || mode == MT_PHY_TYPE_HT_GF)
-		nss = 1 + (rate_idx >> 3);
-
-	if (stbc && nss == 1) {
-		nss++;
-		rateval |= MT_TX_RATE_STBC;
-	}
-
-	rateval |= FIELD_PREP(MT_TX_RATE_IDX, rate_idx) |
-		   FIELD_PREP(MT_TX_RATE_MODE, mode) |
-		   FIELD_PREP(MT_TX_RATE_NSS, nss - 1);
-
-	return rateval;
-}
-
 static void
 mt7915_mac_write_txwi_tm(struct mt7915_dev *dev, struct mt76_phy *mphy,
 			 __le32 *txwi, struct sk_buff *skb)
 {
 #ifdef CONFIG_NL80211_TESTMODE
 	struct mt76_testmode_data *td = &dev->mt76.test;
+	u8 rate_idx = td->tx_rate_idx;
+	u8 nss = td->tx_rate_nss;
 	u8 bw, mode;
-	u16 rateval;
+	u16 rateval = 0;
 	u32 val;
 
 	if (skb != dev->mt76.test.tx_skb)
@@ -655,6 +620,7 @@ mt7915_mac_write_txwi_tm(struct mt7915_dev *dev, struct mt76_phy *mphy,
 		mode = MT_PHY_TYPE_CCK;
 		break;
 	case MT76_TM_TX_MODE_HT:
+		nss = 1 + (rate_idx >> 3);
 		mode = MT_PHY_TYPE_HT;
 		break;
 	case MT76_TM_TX_MODE_VHT:
@@ -678,8 +644,30 @@ mt7915_mac_write_txwi_tm(struct mt7915_dev *dev, struct mt76_phy *mphy,
 		break;
 	}
 
-	rateval = mt7915_mac_tx_rate_val(mphy, mode, td->tx_rate_idx,
-					 td->tx_rate_nss, td->tx_rate_stbc, &bw);
+	switch (mphy->chandef.width) {
+	case NL80211_CHAN_WIDTH_40:
+		bw = 1;
+		break;
+	case NL80211_CHAN_WIDTH_80:
+		bw = 2;
+		break;
+	case NL80211_CHAN_WIDTH_80P80:
+	case NL80211_CHAN_WIDTH_160:
+		bw = 3;
+		break;
+	default:
+		bw = 0;
+		break;
+	}
+
+	if (td->tx_rate_stbc && nss == 1) {
+		nss++;
+		rateval |= MT_TX_RATE_STBC;
+	}
+
+	rateval |= FIELD_PREP(MT_TX_RATE_IDX, rate_idx) |
+		   FIELD_PREP(MT_TX_RATE_MODE, mode) |
+		   FIELD_PREP(MT_TX_RATE_NSS, nss - 1);
 
 	txwi[2] |= cpu_to_le32(MT_TXD2_FIX_RATE);
 
