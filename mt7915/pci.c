@@ -117,7 +117,7 @@ static int mt7915_pci_probe(struct pci_dev *pdev,
 
 	ret = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
 	if (ret)
-		goto error;
+		return ret;
 
 	mdev = mt76_alloc_device(&pdev->dev, sizeof(*dev), &mt7915_ops,
 				 &drv_ops);
