@@ -3439,7 +3439,7 @@ int mt7915_mcu_set_txbf_module(struct mt7915_dev *dev)
 		.bf_bitmap = GENMASK(1, 0),
 	};
 
-	return mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_TXBF_ACTION, &req,
+	return mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD(TXBF_ACTION), &req,
 				 sizeof(req), true);
 }
 
