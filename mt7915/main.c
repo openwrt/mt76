@@ -189,8 +189,7 @@ static int mt7915_add_interface(struct ieee80211_hw *hw,
 	dev->mt76.vif_mask |= BIT(mvif->idx);
 	phy->omac_mask |= BIT_ULL(mvif->omac_idx);
 
-	idx = MT7915_WTBL_RESERVED - mvif->idx -
-	      ext_phy * MT7915_MAX_INTERFACES / 2;
+	idx = MT7915_WTBL_RESERVED - mvif->idx;
 
 	INIT_LIST_HEAD(&mvif->sta.rc_list);
 	INIT_LIST_HEAD(&mvif->sta.stats_list);
