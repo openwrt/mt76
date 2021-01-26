@@ -158,6 +158,12 @@ static void mt7915_pci_init_hif2(struct mt7915_dev *dev)
 {
 	struct mt7915_hif *hif;
 
+	dev->hif_idx = ++hif_idx;
+	if (!pci_get_device(PCI_VENDOR_ID_MEDIATEK, 0x7916, NULL))
+		return;
+
+	mt76_wr(dev, MT_PCIE_RECOG_ID, dev->hif_idx | MT_PCIE_RECOG_ID_SEM);
+
 	hif = mt7915_pci_get_hif2(dev);
 	if (!hif)
 		return;
@@ -257,9 +263,6 @@ static int mt7915_pci_probe(struct pci_dev *pdev,
 			       IRQF_SHARED, KBUILD_MODNAME, dev);
 	if (ret)
 		goto error;
-
-	dev->hif_idx = ++hif_idx;
-	mt76_wr(dev, MT_PCIE_RECOG_ID, dev->hif_idx | MT_PCIE_RECOG_ID_SEM);
 
 	mt7915_pci_init_hif2(dev);
 
