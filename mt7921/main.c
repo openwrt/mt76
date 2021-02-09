@@ -296,7 +296,7 @@ static int mt7921_add_interface(struct ieee80211_hw *hw,
 		goto out;
 
 	if (dev->pm.enable) {
-		ret = mt7921_mcu_set_bss_pm(dev, vif, true);
+		ret = mt7921_mcu_uni_bss_bcnft(dev, vif, true);
 		if (ret)
 			goto out;
 
