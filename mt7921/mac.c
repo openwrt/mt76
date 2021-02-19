@@ -400,8 +400,8 @@ int mt7921_mac_fill_rx(struct mt7921_dev *dev, struct sk_buff *skb)
 
 	/* RXD Group 3 - P-RXV */
 	if (rxd1 & MT_RXD1_NORMAL_GROUP_3) {
-		u32 v0, v1;
 		u8 stbc, gi;
+		u32 v0, v1;
 		bool cck;
 
 		rxv = rxd;
