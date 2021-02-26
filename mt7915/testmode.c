@@ -543,7 +543,7 @@ mt7915_tm_set_tx_cont(struct mt7915_phy *phy, bool en)
 		tx_cont->bw = CMD_CBW_20MHZ;
 		break;
 	default:
-		break;
+		return -EINVAL;
 	}
 
 	if (!en) {
@@ -569,6 +569,9 @@ mt7915_tm_set_tx_cont(struct mt7915_phy *phy, bool en)
 	case MT76_TM_TX_MODE_CCK:
 		mode = MT_PHY_TYPE_CCK;
 		break;
+	case MT76_TM_TX_MODE_OFDM:
+		mode = MT_PHY_TYPE_OFDM;
+		break;
 	case MT76_TM_TX_MODE_HT:
 		mode = MT_PHY_TYPE_HT;
 		break;
@@ -587,10 +590,8 @@ mt7915_tm_set_tx_cont(struct mt7915_phy *phy, bool en)
 	case MT76_TM_TX_MODE_HE_MU:
 		mode = MT_PHY_TYPE_HE_MU;
 		break;
-	case MT76_TM_TX_MODE_OFDM:
 	default:
-		mode = MT_PHY_TYPE_OFDM;
-		break;
+		return -EINVAL;
 	}
 
 	rateval =  mode << 6 | rate_idx;
