@@ -221,8 +221,6 @@ static void mt7915_mac_init(struct mt7915_dev *dev)
 				       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
 	for (i = 0; i < 2; i++)
 		mt7915_mac_init_band(dev, i);
-
-	mt7915_mcu_set_rts_thresh(&dev->phy, 0x92b);
 }
 
 static int mt7915_txbf_init(struct mt7915_dev *dev)
@@ -304,7 +302,6 @@ static void mt7915_init_work(struct work_struct *work)
 	mt7915_init_txpower(dev, &dev->mphy.sband_2g.sband);
 	mt7915_init_txpower(dev, &dev->mphy.sband_5g.sband);
 	mt7915_txbf_init(dev);
-	mt7915_register_ext_phy(dev);
 }
 
 static int mt7915_init_hardware(struct mt7915_dev *dev)
@@ -686,6 +683,10 @@ int mt7915_register_device(struct mt7915_dev *dev)
 		return ret;
 
 	ieee80211_queue_work(mt76_hw(dev), &dev->init_work);
+
+	ret = mt7915_register_ext_phy(dev);
+	if (ret)
+		return ret;
 
 	return mt7915_init_debugfs(dev);
 }
