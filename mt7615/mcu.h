@@ -181,8 +181,7 @@ struct mt7615_mcu_csa_notify {
 
 	u8 omac_idx;
 	u8 csa_count;
-	u8 band_idx;
-	u8 rsv;
+	u8 rsv[2];
 } __packed;
 
 struct mt7615_mcu_rdd_report {

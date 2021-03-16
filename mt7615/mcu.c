@@ -375,12 +375,13 @@ mt7615_mcu_csa_finish(void *priv, u8 *mac, struct ieee80211_vif *vif)
 static void
 mt7615_mcu_rx_csa_notify(struct mt7615_dev *dev, struct sk_buff *skb)
 {
+	struct mt7615_phy *ext_phy = mt7615_ext_phy(dev);
 	struct mt76_phy *mphy = &dev->mt76.phy;
 	struct mt7615_mcu_csa_notify *c;
 
 	c = (struct mt7615_mcu_csa_notify *)skb->data;
 
-	if (c->band_idx && dev->mt76.phy2)
+	if (ext_phy && ext_phy->omac_mask & BIT_ULL(c->omac_idx))
 		mphy = dev->mt76.phy2;
 
 	ieee80211_iterate_active_interfaces_atomic(mphy->hw,
