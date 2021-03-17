@@ -609,6 +609,12 @@ struct mt76_phy {
 
 	struct delayed_work mac_work;
 	u8 mac_work_count;
+
+	struct {
+		struct sk_buff *head;
+		struct sk_buff **tail;
+		u16 seqno;
+	} rx_amsdu[__MT_RXQ_MAX];
 };
 
 struct mt76_dev {
@@ -641,11 +647,6 @@ struct mt76_dev {
 	spinlock_t rx_lock;
 	struct napi_struct napi[__MT_RXQ_MAX];
 	struct sk_buff_head rx_skb[__MT_RXQ_MAX];
-	struct {
-		struct sk_buff *head;
-		struct sk_buff **tail;
-		u16 seqno;
-	} rx_amsdu[__MT_RXQ_MAX];
 
 	struct list_head txwi_cache;
 	struct mt76_queue *q_mcu[__MT_MCUQ_MAX];

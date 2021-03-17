@@ -508,40 +508,41 @@ void mt76_free_device(struct mt76_dev *dev)
 }
 EXPORT_SYMBOL_GPL(mt76_free_device);
 
-static void mt76_rx_release_burst(struct mt76_dev *dev, enum mt76_rxq_id q,
+static void mt76_rx_release_burst(struct mt76_phy *phy, enum mt76_rxq_id q,
 				  struct sk_buff *skb)
 {
 	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
-	struct sk_buff *nskb = dev->rx_amsdu[q].head;
+	struct sk_buff *nskb = phy->rx_amsdu[q].head;
+	struct mt76_dev *dev = phy->dev;
 
 	/* first amsdu subframe */
-	if (status->first_amsdu) {
-		dev->rx_amsdu[q].tail = &skb_shinfo(skb)->frag_list;
-		dev->rx_amsdu[q].seqno = status->seqno;
-		dev->rx_amsdu[q].head = skb;
+	if (status->amsdu && !phy->rx_amsdu[q].head) {
+		phy->rx_amsdu[q].tail = &skb_shinfo(skb)->frag_list;
+		phy->rx_amsdu[q].seqno = status->seqno;
+		phy->rx_amsdu[q].head = skb;
 		goto enqueue;
 	}
 
 	/* ampdu or out-of-order amsdu subframes */
-	if (!status->amsdu || status->seqno != dev->rx_amsdu[q].seqno) {
+	if (!status->amsdu || status->seqno != phy->rx_amsdu[q].seqno) {
 		/* release pending frames */
-		if (dev->rx_amsdu[q].head)
+		if (phy->rx_amsdu[q].head)
 			__skb_queue_tail(&dev->rx_skb[q],
-					 dev->rx_amsdu[q].head);
+					 phy->rx_amsdu[q].head);
 		nskb = skb;
 		goto reset_burst;
 	}
 
 	/* trailing amsdu subframes */
-	*dev->rx_amsdu[q].tail = skb;
+	*phy->rx_amsdu[q].tail = skb;
 	if (!status->last_amsdu) {
-		dev->rx_amsdu[q].tail = &skb->next;
+		phy->rx_amsdu[q].tail = &skb->next;
 		return;
 	}
 
 reset_burst:
-	dev->rx_amsdu[q].head = NULL;
-	dev->rx_amsdu[q].tail = NULL;
+	phy->rx_amsdu[q].head = NULL;
+	phy->rx_amsdu[q].tail = NULL;
 enqueue:
 	if (nskb)
 		__skb_queue_tail(&dev->rx_skb[q], nskb);
@@ -565,7 +566,7 @@ void mt76_rx(struct mt76_dev *dev, enum mt76_rxq_id q, struct sk_buff *skb)
 	}
 #endif
 
-	mt76_rx_release_burst(dev, q, skb);
+	mt76_rx_release_burst(phy, q, skb);
 }
 EXPORT_SYMBOL_GPL(mt76_rx);
 
