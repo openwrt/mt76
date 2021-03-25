@@ -253,7 +253,8 @@ static void mt7615_remove_interface(struct ieee80211_hw *hw,
 	struct mt7615_phy *phy = mt7615_hw_phy(hw);
 	int idx = msta->wcid.idx;
 
-	/* TODO: disable beacon for the bss */
+	mt7615_mcu_add_bss_info(phy, vif, NULL, false);
+	mt7615_mcu_sta_add(phy, vif, NULL, false);
 
 	mt7615_mutex_acquire(dev);
 
@@ -558,11 +559,11 @@ static void mt7615_bss_info_changed(struct ieee80211_hw *hw,
 		}
 	}
 
-	if (changed & BSS_CHANGED_BEACON_ENABLED) {
-		mt7615_mcu_add_bss_info(phy, vif, NULL, info->enable_beacon);
-		mt7615_mcu_sta_add(phy, vif, NULL, info->enable_beacon);
+	if (changed & BSS_CHANGED_BEACON_ENABLED && info->enable_beacon) {
+		mt7615_mcu_add_bss_info(phy, vif, NULL, true);
+		mt7615_mcu_sta_add(phy, vif, NULL, true);
 
-		if (vif->p2p && info->enable_beacon)
+		if (vif->p2p)
 			mt7615_mcu_set_p2p_oppps(hw, vif);
 	}
 
