@@ -425,7 +425,7 @@ mt7615_mcu_rx_log_message(struct mt7615_dev *dev, struct sk_buff *skb)
 	}
 
 	wiphy_info(mt76_hw(dev)->wiphy, "%s: %*s", type,
-		   skb->len - sizeof(*rxd), data);
+		   (int)(skb->len - sizeof(*rxd)), data);
 }
 
 static void
