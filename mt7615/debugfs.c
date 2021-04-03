@@ -301,7 +301,10 @@ static int mt7615_read_temperature(struct seq_file *s, void *data)
 
 	/* cpu */
 	mt7615_mutex_acquire(dev);
-	temp = mt7615_mcu_get_temperature(dev, 0);
+	if (is_mt7663(&dev->mt76))
+		temp = mt7663_mcu_get_temperature(dev, 0);
+	else
+		temp = mt7615_mcu_get_temperature(dev, 0);
 	mt7615_mutex_release(dev);
 
 	seq_printf(s, "Temperature: %d\n", temp);
