@@ -253,10 +253,10 @@ static void mt7615_remove_interface(struct ieee80211_hw *hw,
 	struct mt7615_phy *phy = mt7615_hw_phy(hw);
 	int idx = msta->wcid.idx;
 
+	mt7615_mutex_acquire(dev);
+
 	mt7615_mcu_add_bss_info(phy, vif, NULL, false);
 	mt7615_mcu_sta_add(phy, vif, NULL, false);
-
-	mt7615_mutex_acquire(dev);
 
 	mt76_testmode_reset(phy->mt76, true);
 	if (vif == phy->monitor_vif)
