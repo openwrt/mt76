@@ -508,44 +508,37 @@ void mt76_free_device(struct mt76_dev *dev)
 }
 EXPORT_SYMBOL_GPL(mt76_free_device);
 
+static void mt76_rx_release_amsdu(struct mt76_phy *phy, enum mt76_rxq_id q)
+{
+	struct sk_buff *skb = phy->rx_amsdu[q].head;
+	struct mt76_dev *dev = phy->dev;
+
+	phy->rx_amsdu[q].head = NULL;
+	phy->rx_amsdu[q].tail = NULL;
+	__skb_queue_tail(&dev->rx_skb[q], skb);
+}
+
 static void mt76_rx_release_burst(struct mt76_phy *phy, enum mt76_rxq_id q,
 				  struct sk_buff *skb)
 {
 	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
-	struct sk_buff *nskb = phy->rx_amsdu[q].head;
-	struct mt76_dev *dev = phy->dev;
 
-	/* first amsdu subframe */
-	if (status->amsdu && !phy->rx_amsdu[q].head) {
+	if (phy->rx_amsdu[q].head &&
+	    (!status->amsdu || status->first_amsdu ||
+	     status->seqno != phy->rx_amsdu[q].seqno))
+		mt76_rx_release_amsdu(phy, q);
+
+	if (!phy->rx_amsdu[q].head) {
 		phy->rx_amsdu[q].tail = &skb_shinfo(skb)->frag_list;
 		phy->rx_amsdu[q].seqno = status->seqno;
 		phy->rx_amsdu[q].head = skb;
-		goto enqueue;
-	}
-
-	/* ampdu or out-of-order amsdu subframes */
-	if (!status->amsdu || status->seqno != phy->rx_amsdu[q].seqno) {
-		/* release pending frames */
-		if (phy->rx_amsdu[q].head)
-			__skb_queue_tail(&dev->rx_skb[q],
-					 phy->rx_amsdu[q].head);
-		nskb = skb;
-		goto reset_burst;
-	}
-
-	/* trailing amsdu subframes */
-	*phy->rx_amsdu[q].tail = skb;
-	if (!status->last_amsdu) {
+	} else {
+		*phy->rx_amsdu[q].tail = skb;
 		phy->rx_amsdu[q].tail = &skb->next;
-		return;
 	}
 
-reset_burst:
-	phy->rx_amsdu[q].head = NULL;
-	phy->rx_amsdu[q].tail = NULL;
-enqueue:
-	if (nskb)
-		__skb_queue_tail(&dev->rx_skb[q], nskb);
+	if (!status->amsdu || status->last_amsdu)
+		mt76_rx_release_amsdu(phy, q);
 }
 
 void mt76_rx(struct mt76_dev *dev, enum mt76_rxq_id q, struct sk_buff *skb)
