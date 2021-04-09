@@ -333,6 +333,11 @@ mt76_dma_tx_queue_skb_raw(struct mt76_dev *dev, struct mt76_queue *q,
 	buf.len = skb->len;
 
 	spin_lock_bh(&q->lock);
+	if (unlikely(q->queued + 1 >= q->ndesc - 1)) {
+		spin_unlock_bh(&q->lock);
+		dma_unmap_single(dev->dev, buf.addr, buf.len, DMA_TO_DEVICE);
+		return -ENOMEM;
+	}
 	mt76_dma_add_buf(dev, q, &buf, 1, tx_info, skb, NULL);
 	mt76_dma_kick_queue(dev, q);
 	spin_unlock_bh(&q->lock);
