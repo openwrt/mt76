@@ -269,8 +269,15 @@ int mt7615_dma_init(struct mt7615_dev *dev)
 		  MT_WPDMA_GLO_CFG_RX_DMA_BUSY, 0, 1000);
 
 	/* enable interrupts for TX/RX rings */
-	mt7615_irq_enable(dev, MT_INT_RX_DONE_ALL | mt7615_tx_mcu_int_mask(dev) |
-			       MT_INT_MCU_CMD);
+
+	if (is_mt7663(&dev->mt76)) {
+		mt76_wr(dev, MT7663_MCU_CMD_ENA, MT7663_MCU_CMD_ERROR_MASK);
+		mt7615_irq_enable(dev, MT_INT_RX_DONE_ALL | mt7615_tx_mcu_int_mask(dev) |
+				       MCU2HOST_SW_INT_ENA);
+	} else {
+		mt7615_irq_enable(dev, MT_INT_RX_DONE_ALL | mt7615_tx_mcu_int_mask(dev) |
+				       MT_INT_MCU_CMD);
+	}
 
 	mt7615_dma_start(dev);
 

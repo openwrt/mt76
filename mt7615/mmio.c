@@ -125,6 +125,20 @@ static void mt7615_irq_tasklet(struct tasklet_struct *t)
 	if (intr & MT_INT_RX_DONE(1))
 		napi_schedule(&dev->mt76.napi[1]);
 
+	if (is_mt7663(&dev->mt76)) {
+		if (intr & MCU2HOST_SW_INT_ENA) {
+			u32 val = mt76_rr(dev, MT7663_MCU_CMD_STA);
+
+			if (val & MT7663_MCU_CMD_ERROR_MASK) {
+				mt76_wr(dev, MT7663_MCU_CMD_STA, MT7663_MCU_CMD_ERROR_MASK);
+				dev->reset_state = val;
+				ieee80211_queue_work(mt76_hw(dev), &dev->reset_work);
+				wake_up(&dev->reset_wait);
+			}
+		}
+		return;
+	}
+
 	if (intr & MT_INT_MCU_CMD) {
 		u32 val = mt76_rr(dev, MT_MCU_CMD);
 

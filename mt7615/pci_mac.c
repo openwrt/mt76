@@ -208,7 +208,10 @@ EXPORT_SYMBOL_GPL(mt7615_dma_reset);
 static void
 mt7615_hif_int_event_trigger(struct mt7615_dev *dev, u8 event)
 {
-	mt76_wr(dev, MT_MCU_INT_EVENT, event);
+	if (is_mt7663(&dev->mt76))
+		mt76_wr(dev, MT7663_MCU_INT_EVENT, event);
+	else
+		mt76_wr(dev, MT_MCU_INT_EVENT, event);
 
 	mt7622_trigger_hif_int(dev, true);
 	mt7622_trigger_hif_int(dev, false);
