@@ -402,12 +402,19 @@ static void
 mt7615_mcu_rx_radar_detected(struct mt7615_dev *dev, struct sk_buff *skb)
 {
 	struct mt76_phy *mphy = &dev->mt76.phy;
-	struct mt7615_mcu_rdd_report *r;
+	if (is_mt7663(&dev->mt76)) {
+		struct mt7663_mcu_rdd_report *r;
+		r = (struct mt7663_mcu_rdd_report *)skb->data;
 
-	r = (struct mt7615_mcu_rdd_report *)skb->data;
+		if (r->band_idx && dev->mt76.phy2)
+			mphy = dev->mt76.phy2;
+	} else {
+		struct mt7615_mcu_rdd_report *r;
+		r = (struct mt7615_mcu_rdd_report *)skb->data;
 
-	if (r->band_idx && dev->mt76.phy2)
-		mphy = dev->mt76.phy2;
+		if (r->band_idx && dev->mt76.phy2)
+			mphy = dev->mt76.phy2;
+	}
 
 	ieee80211_radar_detected(mphy->hw);
 	dev->hw_pattern++;
