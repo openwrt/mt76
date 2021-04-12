@@ -295,6 +295,11 @@ mt76_tx(struct mt76_phy *phy, struct ieee80211_sta *sta,
 	q = phy->q_tx[qid];
 
 	spin_lock_bh(&q->lock);
+	if (unlikely(q->queued + 1 >= q->ndesc - 1)) {
+		spin_unlock_bh(&q->lock);
+		ieee80211_free_txskb(phy->hw, skb);
+		return;
+	}
 	__mt76_tx_queue_skb(phy, qid, skb, wcid, sta, NULL);
 	dev->queue_ops->kick(dev, q);
 	spin_unlock_bh(&q->lock);
