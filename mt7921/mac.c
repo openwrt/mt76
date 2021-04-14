@@ -297,9 +297,9 @@ mt7921_mac_assoc_rssi(struct mt7921_dev *dev, struct sk_buff *skb)
 {
 	struct ieee80211_hdr *hdr = mt76_skb_get_hdr(skb);
 
-	 if (!ieee80211_is_assoc_resp(hdr->frame_control) &&
-	     !ieee80211_is_auth(hdr->frame_control))
-		 return;
+	if (!ieee80211_is_assoc_resp(hdr->frame_control) &&
+	    !ieee80211_is_auth(hdr->frame_control))
+		return;
 
 	ieee80211_iterate_active_interfaces_atomic(mt76_hw(dev),
 		IEEE80211_IFACE_ITER_RESUME_ALL,

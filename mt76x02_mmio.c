@@ -89,6 +89,7 @@ void mt76x02e_init_beacon_config(struct mt76x02_dev *dev)
 		.pre_tbtt_enable = mt76x02e_pre_tbtt_enable,
 		.beacon_enable = mt76x02e_beacon_enable,
 	};
+
 	dev->beacon_ops = &beacon_ops;
 
 	/* Fire a pre-TBTT interrupt 8 ms before TBTT */

@@ -59,14 +59,14 @@ sub parse_channel($$$) {
 	$channels->{$ch} = $channel;
 
 	$band->{type} eq '2' and do {
-		$channel->{cck} = convert_array([
+		$channel->{"rates-cck"} = convert_array([
 			$data[0], $data[0],
 			$data[1], $data[1]
 		]);
 		splice @data, 0, 2;
 	};
 
-	$channel->{ofdm} = convert_array([
+	$channel->{"rates-ofdm"} = convert_array([
 		$data[0], $data[0],
 		$data[1], $data[1],
 		$data[2], $data[2],
@@ -78,7 +78,7 @@ sub parse_channel($$$) {
 	$band->{type} eq '2' and @bw = ( "bw20", "bw40" );
 
 	foreach my $bw (@bw) {
-		push @{$channel->{mcs}}, convert_array([
+		push @{$channel->{"rates-mcs"}}, convert_array([
 			$data[0],
 			$data[1], $data[1],
 			$data[2], $data[2],
@@ -225,11 +225,11 @@ sub print_txpower($) {
 	my @data;
 
 	add_named_array($ch, "txs-delta");
-	add_named_array($ch, "cck");
-	add_named_array($ch, "ofdm");
+	add_named_array($ch, "rates-cck");
+	add_named_array($ch, "rates-ofdm");
 
 	my $prev;
-	foreach my $v (@{$ch->{mcs}}) {
+	foreach my $v (@{$ch->{"rates-mcs"}}) {
 		my $val = [1, @{$v}];
 
 		if ($prev and (array_str($v) eq array_str($prev))) {
@@ -241,7 +241,7 @@ sub print_txpower($) {
 		$prev = $v;
 	}
 
-	add_multi_array("mcs", \@data);
+	add_multi_array("rates-mcs", \@data);
 };
 
 sub print_channels($) {

@@ -182,6 +182,10 @@ int __mt7921_start(struct mt7921_phy *phy)
 	if (err)
 		return err;
 
+	err = mt76_connac_mcu_set_rate_txpower(phy->mt76);
+	if (err)
+		return err;
+
 	mt7921_mac_reset_counters(phy);
 	set_bit(MT76_STATE_RUNNING, &mphy->state);
 
@@ -698,11 +702,13 @@ void mt7921_mac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	mt7921_mac_wtbl_update(dev, msta->wcid.idx,
 			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
 
-	if (vif->type == NL80211_IFTYPE_STATION && !sta->tdls) {
+	if (vif->type == NL80211_IFTYPE_STATION) {
 		struct mt7921_vif *mvif = (struct mt7921_vif *)vif->drv_priv;
 
-		mt76_connac_mcu_uni_add_bss(&dev->mphy, vif, &mvif->sta.wcid,
-					    false);
+		ewma_rssi_init(&mvif->rssi);
+		if (!sta->tdls)
+			mt76_connac_mcu_uni_add_bss(&dev->mphy, vif,
+						    &mvif->sta.wcid, false);
 	}
 
 	spin_lock_bh(&dev->sta_poll_lock);
