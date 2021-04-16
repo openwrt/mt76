@@ -87,9 +87,10 @@ out_put_node:
 #endif
 }
 
-void
+bool
 mt76_eeprom_override(struct mt76_phy *phy)
 {
+	bool ret = false;
 	struct mt76_dev *dev = phy->dev;
 
 #ifdef CONFIG_OF
@@ -98,8 +99,10 @@ mt76_eeprom_override(struct mt76_phy *phy)
 
 	if (np)
 		mac = of_get_mac_address(np);
-	if (!IS_ERR_OR_NULL(mac))
+	if (!IS_ERR_OR_NULL(mac)) {
 		ether_addr_copy(phy->macaddr, mac);
+		ret = true;
+	}
 #endif
 
 	if (!is_valid_ether_addr(phy->macaddr)) {
@@ -107,7 +110,10 @@ mt76_eeprom_override(struct mt76_phy *phy)
 		dev_info(dev->dev,
 			 "Invalid MAC address, using random address %pM\n",
 			 phy->macaddr);
+		ret = false;
 	}
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(mt76_eeprom_override);
 
