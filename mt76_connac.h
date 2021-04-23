@@ -103,6 +103,9 @@ mt76_connac_pm_ref(struct mt76_phy *phy, struct mt76_connac_pm *pm)
 {
 	bool ret = false;
 
+	if (!pm->enable)
+		return true;
+
 	spin_lock_bh(&pm->wake.lock);
 	if (test_bit(MT76_STATE_PM, &phy->state))
 		goto out;
@@ -118,6 +121,9 @@ out:
 static inline void
 mt76_connac_pm_unref(struct mt76_connac_pm *pm)
 {
+	if (!pm->enable)
+		return;
+
 	spin_lock_bh(&pm->wake.lock);
 	pm->wake.count--;
 	pm->last_activity = jiffies;
