@@ -265,11 +265,11 @@ static int mt7915_pci_probe(struct pci_dev *pdev,
 	if (!mdev)
 		return -ENOMEM;
 
+	dev = container_of(mdev, struct mt7915_dev, mt76);
+
 	ret = pci_alloc_irq_vectors(pdev, 1, 1, PCI_IRQ_ALL_TYPES);
 	if (ret < 0)
 		goto free;
-
-	dev = container_of(mdev, struct mt7915_dev, mt76);
 
 	ret = mt7915_mmio_init(mdev, pcim_iomap_table(pdev)[0], pdev->irq);
 	if (ret)
