@@ -261,11 +261,15 @@ __mt76_tx_queue_skb(struct mt76_phy *phy, int qid, struct sk_buff *skb,
 
 	non_aql = !info->tx_time_est;
 	idx = dev->queue_ops->tx_queue_skb(dev, q, skb, wcid, sta);
-	if (idx < 0 || !sta || !non_aql)
+	if (idx < 0 || !sta)
 		return idx;
 
 	wcid = (struct mt76_wcid *)sta->drv_priv;
 	q->entry[idx].wcid = wcid->idx;
+
+	if (!non_aql)
+		return idx;
+
 	pending = atomic_inc_return(&wcid->non_aql_packets);
 	if (stop && pending >= MT_MAX_NON_AQL_PKT)
 		*stop = true;
