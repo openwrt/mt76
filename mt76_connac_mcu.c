@@ -1598,6 +1598,26 @@ int mt76_connac_mcu_set_deep_sleep(struct mt76_dev *dev, bool enable)
 }
 EXPORT_SYMBOL_GPL(mt76_connac_mcu_set_deep_sleep);
 
+int mt76_connac_sta_state_dp(struct mt76_dev *dev,
+			     enum ieee80211_sta_state old_state,
+			     enum ieee80211_sta_state new_state)
+{
+	if ((old_state == IEEE80211_STA_ASSOC &&
+	     new_state == IEEE80211_STA_AUTHORIZED) ||
+	    (old_state == IEEE80211_STA_NONE &&
+	     new_state == IEEE80211_STA_NOTEXIST))
+		mt76_connac_mcu_set_deep_sleep(dev, true);
+
+	if ((old_state == IEEE80211_STA_NOTEXIST &&
+	     new_state == IEEE80211_STA_NONE) ||
+	    (old_state == IEEE80211_STA_AUTHORIZED &&
+	     new_state == IEEE80211_STA_ASSOC))
+		mt76_connac_mcu_set_deep_sleep(dev, false);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt76_connac_sta_state_dp);
+
 void mt76_connac_mcu_coredump_event(struct mt76_dev *dev, struct sk_buff *skb,
 				    struct mt76_connac_coredump *coredump)
 {

@@ -848,6 +848,31 @@ mt7921_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			      IEEE80211_STA_NOTEXIST);
 }
 
+static int mt7921_sta_state(struct ieee80211_hw *hw,
+			    struct ieee80211_vif *vif,
+			    struct ieee80211_sta *sta,
+			    enum ieee80211_sta_state old_state,
+			    enum ieee80211_sta_state new_state)
+{
+	struct mt7921_dev *dev = mt7921_hw_dev(hw);
+
+	if (dev->pm.enable) {
+		mt7921_mutex_acquire(dev);
+		mt76_connac_sta_state_dp(&dev->mt76, old_state, new_state);
+		mt7921_mutex_release(dev);
+	}
+
+	if (old_state == IEEE80211_STA_AUTH &&
+	    new_state == IEEE80211_STA_ASSOC) {
+		return mt7921_sta_add(hw, vif, sta);
+	} else if (old_state == IEEE80211_STA_ASSOC &&
+		   new_state == IEEE80211_STA_AUTH) {
+		return mt7921_sta_remove(hw, vif, sta);
+	}
+
+	return 0;
+}
+
 static int
 mt7921_get_stats(struct ieee80211_hw *hw,
 		 struct ieee80211_low_level_stats *stats)
@@ -1191,8 +1216,7 @@ const struct ieee80211_ops mt7921_ops = {
 	.conf_tx = mt7921_conf_tx,
 	.configure_filter = mt7921_configure_filter,
 	.bss_info_changed = mt7921_bss_info_changed,
-	.sta_add = mt7921_sta_add,
-	.sta_remove = mt7921_sta_remove,
+	.sta_state = mt7921_sta_state,
 	.sta_pre_rcu_remove = mt76_sta_pre_rcu_remove,
 	.set_key = mt7921_set_key,
 	.sta_set_decap_offload = mt7921_sta_set_decap_offload,
