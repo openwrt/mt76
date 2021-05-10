@@ -880,7 +880,11 @@ int mt76_connac_mcu_add_sta_cmd(struct mt76_phy *phy,
 		return PTR_ERR(skb);
 
 	mt76_connac_mcu_sta_basic_tlv(skb, info->vif, info->sta, info->enable);
-	if (info->enable && info->sta)
+
+	if (!info->enable)
+		goto out;
+
+	if (info->sta)
 		mt76_connac_mcu_sta_tlv(phy, skb, info->sta, info->vif,
 					info->rcpi);
 
@@ -893,17 +897,15 @@ int mt76_connac_mcu_add_sta_cmd(struct mt76_phy *phy,
 	if (IS_ERR(wtbl_hdr))
 		return PTR_ERR(wtbl_hdr);
 
-	if (info->enable) {
-		mt76_connac_mcu_wtbl_generic_tlv(dev, skb, info->vif,
-						 info->sta, sta_wtbl,
-						 wtbl_hdr);
-		mt76_connac_mcu_wtbl_hdr_trans_tlv(skb, info->vif, info->wcid,
-						   sta_wtbl, wtbl_hdr);
-		if (info->sta)
-			mt76_connac_mcu_wtbl_ht_tlv(dev, skb, info->sta,
-						    sta_wtbl, wtbl_hdr);
-	}
+	mt76_connac_mcu_wtbl_generic_tlv(dev, skb, info->vif, info->sta,
+					 sta_wtbl, wtbl_hdr);
+	mt76_connac_mcu_wtbl_hdr_trans_tlv(skb, info->vif, info->wcid,
+					   sta_wtbl, wtbl_hdr);
+	if (info->sta)
+		mt76_connac_mcu_wtbl_ht_tlv(dev, skb, info->sta, sta_wtbl,
+					    wtbl_hdr);
 
+out:
 	return mt76_mcu_skb_send_msg(dev, skb, info->cmd, true);
 }
 EXPORT_SYMBOL_GPL(mt76_connac_mcu_add_sta_cmd);
