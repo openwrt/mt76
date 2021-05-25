@@ -190,7 +190,7 @@ int mt7615_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 		ret = *skb->data;
 		break;
 	case MCU_EXT_CMD_GET_TEMP:
-		skb_pull(skb, sizeof(*rxd));
+		skb_pull(skb, sizeof(*rxd) + 4 * is_mt7663(mdev));
 		ret = le32_to_cpu(*(__le32 *)skb->data);
 		break;
 	case MCU_EXT_CMD_RF_REG_ACCESS | MCU_QUERY_PREFIX:
@@ -2355,6 +2355,22 @@ int mt7615_mcu_get_temperature(struct mt7615_dev *dev, int index)
 	struct {
 		u8 action;
 		u8 rsv[3];
+	} req = {
+		.action = index,
+	};
+
+	return mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_GET_TEMP, &req,
+				 sizeof(req), true);
+}
+
+int mt7663_mcu_get_temperature(struct mt7615_dev *dev, int index)
+{
+	struct {
+		u8 ctrl_id;
+		u8 action;
+		u8 band;
+		u8 rsv[1];
+		u32 res;
 	} req = {
 		.action = index,
 	};
