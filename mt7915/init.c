@@ -118,6 +118,9 @@ static void mt7915_unregister_thermal(struct mt7915_phy *phy)
 {
 	struct wiphy *wiphy = phy->mt76->hw->wiphy;
 
+	if (!phy->cdev)
+	    return;
+
 	sysfs_remove_link(&wiphy->dev.kobj, "cooling_device");
 	thermal_cooling_device_unregister(phy->cdev);
 }
@@ -127,19 +130,14 @@ static int mt7915_thermal_init(struct mt7915_phy *phy)
 	struct wiphy *wiphy = phy->mt76->hw->wiphy;
 	struct thermal_cooling_device *cdev;
 	struct device *hwmon;
-	int ret = 0;
 
 	cdev = thermal_cooling_device_register(wiphy_name(wiphy), phy,
 					       &mt7915_thermal_ops);
-	if (IS_ERR(cdev))
-		return PTR_ERR(cdev);
-
-	ret = sysfs_create_link(&wiphy->dev.kobj, &cdev->device.kobj,
-				"cooling_device");
-	if (ret)
-		goto err;
-
-	phy->cdev = cdev;
+	if (!IS_ERR(cdev)) {
+		phy->cdev = cdev;
+		sysfs_create_link(&wiphy->dev.kobj, &cdev->device.kobj,
+				  "cooling_device");
+	}
 
 	if (!IS_REACHABLE(CONFIG_HWMON))
 		return 0;
@@ -147,16 +145,10 @@ static int mt7915_thermal_init(struct mt7915_phy *phy)
 	hwmon = devm_hwmon_device_register_with_groups(&wiphy->dev,
 						       wiphy_name(wiphy), phy,
 						       mt7915_hwmon_groups);
-	if (IS_ERR(hwmon)) {
-		ret = PTR_ERR(hwmon);
-		goto err;
-	}
+	if (IS_ERR(hwmon))
+		return PTR_ERR(hwmon);
 
 	return 0;
-
-err:
-	mt7915_unregister_thermal(phy);
-	return ret;
 }
 
 static void
