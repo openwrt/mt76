@@ -134,9 +134,11 @@ static int mt7915_thermal_init(struct mt7915_phy *phy)
 	cdev = thermal_cooling_device_register(wiphy_name(wiphy), phy,
 					       &mt7915_thermal_ops);
 	if (!IS_ERR(cdev)) {
-		phy->cdev = cdev;
-		sysfs_create_link(&wiphy->dev.kobj, &cdev->device.kobj,
-				  "cooling_device");
+		if (sysfs_create_link(&wiphy->dev.kobj, &cdev->device.kobj,
+				      "cooling_device") < 0)
+			thermal_cooling_device_unregister(cdev);
+		else
+			phy->cdev = cdev;
 	}
 
 	if (!IS_REACHABLE(CONFIG_HWMON))
