@@ -57,6 +57,7 @@
 #define MT_WF_TMAC(_band, ofs)		(MT_WF_TMAC_BASE(_band) + (ofs))
 
 #define MT_TMAC_TCR0(_band)		MT_WF_TMAC(_band, 0)
+#define MT_TMAC_TCR0_TX_BLINK		GENMASK(7, 6)
 #define MT_TMAC_TCR0_TBTT_STOP_CTRL	BIT(25)
 
 #define MT_TMAC_CDTR(_band)		MT_WF_TMAC(_band, 0x090)
@@ -434,6 +435,10 @@
 #define MT_TOP_MISC			MT_TOP(0xf0)
 #define MT_TOP_MISC_FW_STATE		GENMASK(2, 0)
 
+#define MT_LED_GPIO_MUX2                0x70005058 /* GPIO 18 */
+#define MT_LED_GPIO_MUX3                0x7000505C /* GPIO 26 */
+#define MT_LED_GPIO_SEL_MASK            GENMASK(11, 8)
+
 #define MT_HW_BOUND			0x70010020
 #define MT_HW_CHIPID			0x70010200
 #define MT_HW_REV			0x70010204
@@ -445,6 +450,20 @@
 #define MT_PCIE_MAC_BASE		0x74030000
 #define MT_PCIE_MAC(ofs)		(MT_PCIE_MAC_BASE + (ofs))
 #define MT_PCIE_MAC_INT_ENABLE		MT_PCIE_MAC(0x188)
+
+#define MT_LED_TOP_BASE			0x7c013000
+#define MT_LED_PHYS(_n)			(MT_LED_TOP_BASE + (_n))
+
+#define MT_LED_CTRL(_n)			MT_LED_PHYS(0x00 + ((_n) * 4))
+#define MT_LED_CTRL_KICK		BIT(7)
+#define MT_LED_CTRL_BLINK_MODE		BIT(2)
+#define MT_LED_CTRL_POLARITY		BIT(1)
+
+#define MT_LED_TX_BLINK(_n)		MT_LED_PHYS(0x10 + ((_n) * 4))
+#define MT_LED_TX_BLINK_ON_MASK		GENMASK(7, 0)
+#define MT_LED_TX_BLINK_OFF_MASK        GENMASK(15, 8)
+
+#define MT_LED_EN(_n)			MT_LED_PHYS(0x40 + ((_n) * 4))
 
 #define MT_WF_IRPI_BASE			0x83006000
 #define MT_WF_IRPI(ofs)			(MT_WF_IRPI_BASE + ((ofs) << 16))
