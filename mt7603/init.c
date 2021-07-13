@@ -304,6 +304,21 @@ mt7603_init_hardware(struct mt7603_dev *dev)
 	return 0;
 }
 
+static struct ieee80211_rate mt7603_rates[] = {
+	CCK_RATE(0, 10, 8),
+	CCK_RATE(1, 20, 8),
+	CCK_RATE(2, 55, 8),
+	CCK_RATE(3, 110, 8),
+	OFDM_RATE(11, 60, 8),
+	OFDM_RATE(15, 90, 8),
+	OFDM_RATE(10, 120, 8),
+	OFDM_RATE(14, 180, 8),
+	OFDM_RATE(9,  240, 8),
+	OFDM_RATE(13, 360, 8),
+	OFDM_RATE(8,  480, 8),
+	OFDM_RATE(12, 540, 8),
+};
+
 static const struct ieee80211_iface_limit if_limits[] = {
 	{
 		.max = 1,
@@ -541,8 +556,8 @@ int mt7603_register_device(struct mt7603_dev *dev)
 
 	wiphy->reg_notifier = mt7603_regd_notifier;
 
-	ret = mt76_register_device(&dev->mt76, true, mt76_rates,
-				   ARRAY_SIZE(mt76_rates));
+	ret = mt76_register_device(&dev->mt76, true, mt7603_rates,
+				   ARRAY_SIZE(mt7603_rates));
 	if (ret)
 		return ret;
 

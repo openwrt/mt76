@@ -84,18 +84,18 @@ static const struct ieee80211_tpt_blink mt76_tpt_blink[] = {
 };
 
 struct ieee80211_rate mt76_rates[] = {
-	CCK_RATE(0, 10),
-	CCK_RATE(1, 20),
-	CCK_RATE(2, 55),
-	CCK_RATE(3, 110),
-	OFDM_RATE(11, 60),
-	OFDM_RATE(15, 90),
-	OFDM_RATE(10, 120),
-	OFDM_RATE(14, 180),
-	OFDM_RATE(9,  240),
-	OFDM_RATE(13, 360),
-	OFDM_RATE(8,  480),
-	OFDM_RATE(12, 540),
+	CCK_RATE(0, 10, 6),
+	CCK_RATE(1, 20, 6),
+	CCK_RATE(2, 55, 6),
+	CCK_RATE(3, 110, 6),
+	OFDM_RATE(11, 60, 6),
+	OFDM_RATE(15, 90, 6),
+	OFDM_RATE(10, 120, 6),
+	OFDM_RATE(14, 180, 6),
+	OFDM_RATE(9,  240, 6),
+	OFDM_RATE(13, 360, 6),
+	OFDM_RATE(8,  480, 6),
+	OFDM_RATE(12, 540, 6),
 };
 EXPORT_SYMBOL_GPL(mt76_rates);
 

@@ -755,17 +755,17 @@ enum mt76_phy_type {
 	MT_PHY_TYPE_HE_MU,
 };
 
-#define CCK_RATE(_idx, _rate) {					\
+#define CCK_RATE(_idx, _rate, _offset) {			\
 	.bitrate = _rate,					\
 	.flags = IEEE80211_RATE_SHORT_PREAMBLE,			\
-	.hw_value = (MT_PHY_TYPE_CCK << 8) | (_idx),		\
-	.hw_value_short = (MT_PHY_TYPE_CCK << 8) | (4 + _idx),	\
+	.hw_value = (MT_PHY_TYPE_CCK << (_offset)) | (_idx),		\
+	.hw_value_short = (MT_PHY_TYPE_CCK << (_offset)) | (4 + _idx),	\
 }
 
-#define OFDM_RATE(_idx, _rate) {				\
+#define OFDM_RATE(_idx, _rate, _offset) {			\
 	.bitrate = _rate,					\
-	.hw_value = (MT_PHY_TYPE_OFDM << 8) | (_idx),		\
-	.hw_value_short = (MT_PHY_TYPE_OFDM << 8) | (_idx),	\
+	.hw_value = (MT_PHY_TYPE_OFDM << (_offset)) | (_idx),	\
+	.hw_value_short = (MT_PHY_TYPE_OFDM << (_offset)) | (_idx), \
 }
 
 extern struct ieee80211_rate mt76_rates[12];
