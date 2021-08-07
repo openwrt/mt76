@@ -353,8 +353,8 @@ static int __init mt7915_init(void)
 
 static void __exit mt7915_exit(void)
 {
-    pci_unregister_driver(&mt7915_pci_driver);
-    pci_unregister_driver(&mt7915_hif_driver);
+	pci_unregister_driver(&mt7915_pci_driver);
+	pci_unregister_driver(&mt7915_hif_driver);
 }
 
 module_init(mt7915_init);

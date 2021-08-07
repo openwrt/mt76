@@ -153,10 +153,10 @@ enum rx_pkt_type {
 #define MT_CRXV_HE_BEAM_CHNG		BIT(13)
 #define MT_CRXV_HE_DOPPLER		BIT(16)
 
-#define MT_CRXV_SNR		GENMASK(18, 13)
-#define MT_CRXV_FOE_LO		GENMASK(31, 19)
-#define MT_CRXV_FOE_HI		GENMASK(6, 0)
-#define MT_CRXV_FOE_SHIFT	13
+#define MT_CRXV_SNR			GENMASK(18, 13)
+#define MT_CRXV_FOE_LO			GENMASK(31, 19)
+#define MT_CRXV_FOE_HI			GENMASK(6, 0)
+#define MT_CRXV_FOE_SHIFT		13
 
 enum tx_header_format {
 	MT_HDR_FORMAT_802_3,
@@ -402,18 +402,5 @@ struct mt7915_dfs_radar_spec {
 	struct mt7915_dfs_pulse pulse_th;
 	struct mt7915_dfs_pattern radar_pattern[16];
 };
-
-static inline struct mt7915_txp *
-mt7915_txwi_to_txp(struct mt76_dev *dev, struct mt76_txwi_cache *t)
-{
-	u8 *txwi;
-
-	if (!t)
-		return NULL;
-
-	txwi = mt76_get_txwi_ptr(dev, t);
-
-	return (struct mt7915_txp *)(txwi + MT_TXD_SIZE);
-}
 
 #endif

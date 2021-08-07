@@ -1013,9 +1013,9 @@ static void mt7915_sta_set_4addr(struct ieee80211_hw *hw,
 }
 
 static void mt7915_sta_set_decap_offload(struct ieee80211_hw *hw,
-				 struct ieee80211_vif *vif,
-				 struct ieee80211_sta *sta,
-				 bool enabled)
+					 struct ieee80211_vif *vif,
+					 struct ieee80211_sta *sta,
+					 bool enabled)
 {
 	struct mt7915_dev *dev = mt7915_hw_dev(hw);
 	struct mt7915_sta *msta = (struct mt7915_sta *)sta->drv_priv;

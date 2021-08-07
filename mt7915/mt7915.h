@@ -55,7 +55,7 @@ enum mt7915_txq_id {
 };
 
 enum mt7915_rxq_id {
-	MT7915_RXQ_BAND0 = 0,
+	MT7915_RXQ_BAND0,
 	MT7915_RXQ_BAND1,
 	MT7915_RXQ_MCU_WM = 0,
 	MT7915_RXQ_MCU_WA,
@@ -82,6 +82,7 @@ struct mt7915_sta {
 
 	struct mt7915_sta_key_conf bip;
 };
+
 struct mt7915_vif {
 	u16 idx;
 	u8 omac_idx;
@@ -191,7 +192,7 @@ struct mt7915_dev {
 };
 
 enum {
-	HW_BSSID_0 = 0x0,
+	HW_BSSID_0,
 	HW_BSSID_1,
 	HW_BSSID_2,
 	HW_BSSID_3,
@@ -306,9 +307,9 @@ int mt7915_mcu_add_key(struct mt7915_dev *dev, struct ieee80211_vif *vif,
 		       struct mt7915_sta *msta, struct ieee80211_key_conf *key,
 		       enum set_key_cmd cmd);
 int mt7915_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-			  int enable);
+			  bool enable);
 int mt7915_mcu_add_obss_spr(struct mt7915_dev *dev, struct ieee80211_vif *vif,
-                            bool enable);
+			    bool enable);
 int mt7915_mcu_add_rate_ctrl(struct mt7915_dev *dev, struct ieee80211_vif *vif,
 			     struct ieee80211_sta *sta);
 int mt7915_mcu_add_he(struct mt7915_dev *dev, struct ieee80211_vif *vif,
