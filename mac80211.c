@@ -1356,6 +1356,10 @@ u16 mt76_calculate_default_rate(struct mt76_phy *phy, int rateidx)
 	if (phy->chandef.chan->band == NL80211_BAND_5GHZ)
 		offset = 4;
 
+	/* pick the lowest rate for hidden nodes */
+	if (rateidx < 0)
+		rateidx = 0;
+
 	rate = &mt76_rates[offset + rateidx];
 
 	return rate->hw_value;
