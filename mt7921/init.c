@@ -279,7 +279,6 @@ void mt7921_unregister_device(struct mt7921_dev *dev)
 	mt7921_mcu_drv_pmctrl(dev);
 	mt7921_dma_cleanup(dev);
 	mt7921_mcu_exit(dev);
-	mt7921_mcu_fw_pmctrl(dev);
 
 	tasklet_disable(&dev->irq_tasklet);
 	mt76_free_device(&dev->mt76);
