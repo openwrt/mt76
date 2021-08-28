@@ -221,7 +221,7 @@ static int mt7915_led_set_blink(struct led_classdev *led_cdev,
 				unsigned long *delay_on,
 				unsigned long *delay_off)
 {
-	u16 delta_on, delta_off;
+	u16 delta_on = 0, delta_off = 0;
 
 #define HW_TICK		10
 #define TO_HW_TICK(_t)	(((_t) > HW_TICK) ? ((_t) / HW_TICK) : HW_TICK)

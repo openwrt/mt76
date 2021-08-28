@@ -95,9 +95,6 @@ static u32 __mt7915_reg_addr(struct mt7915_dev *dev, u32 addr)
 	    (addr >= 0x70000000 && addr < 0x78000000))
 		return mt7915_reg_map_l1(dev, addr);
 
-	if (addr >= 0x7c000000 && addr < 0x7c400000)
-		return mt7915_reg_map_l1(dev, addr - 0x64000000);
-
 	return mt7915_reg_map_l2(dev, addr);
 }
 
