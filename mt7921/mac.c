@@ -1119,8 +1119,6 @@ mt7921_mac_tx_free(struct mt7921_dev *dev, struct sk_buff *skb)
 			msta = container_of(wcid, struct mt7921_sta, wcid);
 			phy = msta->vif->phy;
 			spin_lock_bh(&dev->sta_poll_lock);
-			if (list_empty(&msta->stats_list))
-				list_add_tail(&msta->stats_list, &phy->stats_list);
 			if (list_empty(&msta->poll_list))
 				list_add_tail(&msta->poll_list, &dev->sta_poll_list);
 			spin_unlock_bh(&dev->sta_poll_lock);
