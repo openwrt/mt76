@@ -149,7 +149,7 @@ static void mt7915_unregister_thermal(struct mt7915_phy *phy)
 	struct wiphy *wiphy = phy->mt76->hw->wiphy;
 
 	if (!phy->cdev)
-		return;
+	    return;
 
 	sysfs_remove_link(&wiphy->dev.kobj, "cooling_device");
 	thermal_cooling_device_unregister(phy->cdev);
@@ -507,6 +507,7 @@ static int mt7915_init_hardware(struct mt7915_dev *dev)
 	ret = mt7915_eeprom_init(dev);
 	if (ret < 0)
 		return ret;
+
 
 	if (dev->flash_mode) {
 		ret = mt7915_mcu_apply_group_cal(dev);

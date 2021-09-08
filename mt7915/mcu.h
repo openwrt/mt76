@@ -211,8 +211,8 @@ struct mt7915_mcu_tx {
 #define WMM_TXOP_SET		BIT(3)
 #define WMM_PARAM_SET		GENMASK(3, 0)
 
-#define MCU_PQ_ID(p, q)		(((p) << 15) | ((q) << 10))
-#define MCU_PKT_ID		0xa0
+#define MCU_PQ_ID(p, q)			(((p) << 15) | ((q) << 10))
+#define MCU_PKT_ID			0xa0
 
 enum {
 	MCU_Q_QUERY,
@@ -227,6 +227,7 @@ enum {
 	MCU_S2D_H2C,
 	MCU_S2D_H2CN
 };
+
 
 #define __MCU_CMD_FIELD_ID	GENMASK(7, 0)
 #define __MCU_CMD_FIELD_EXT_ID	GENMASK(15, 8)
