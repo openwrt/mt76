@@ -188,9 +188,10 @@ out:
 EXPORT_SYMBOL_GPL(mt76_tx_status_skb_get);
 
 void
-mt76_tx_status_check(struct mt76_dev *dev, struct mt76_wcid *wcid, bool flush)
+mt76_tx_status_check(struct mt76_dev *dev, bool flush)
 {
 	struct sk_buff_head list;
+	struct mt76_wcid *wcid;
 
 	mt76_tx_status_lock(dev, &list);
 	while (!list_empty(&dev->wcid_list)) {
