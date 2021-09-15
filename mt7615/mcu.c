@@ -707,6 +707,10 @@ mt7615_mcu_add_dev(struct mt7615_phy *phy, struct ieee80211_vif *vif,
 }
 
 static int
+__mt7615_mcu_add_sta(struct mt76_phy *phy, struct ieee80211_vif *vif,
+			     struct ieee80211_sta *sta, bool enable, int cmd);
+
+static int
 mt7615_mcu_add_beacon_offload(struct mt7615_dev *dev,
 			      struct ieee80211_hw *hw,
 			      struct ieee80211_vif *vif, bool enable)
@@ -769,6 +773,12 @@ mt7615_mcu_add_beacon_offload(struct mt7615_dev *dev,
 		req.csa_cnt = skb->data[offs.cntdwn_counter_offs[0]];
 	}
 	dev_kfree_skb(skb);
+
+	if (is_mt7663(&dev->mt76)) {
+		//hack to clear all pending packets
+		__mt7615_mcu_add_sta(dev->phy.mt76, vif, NULL, false, MCU_EXT_CMD_STA_REC_UPDATE);
+		__mt7615_mcu_add_sta(dev->phy.mt76, vif, NULL, true, MCU_EXT_CMD_STA_REC_UPDATE);
+	}
 
 out:
 	return mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_BCN_OFFLOAD, &req,
@@ -1170,6 +1180,12 @@ static int
 mt7615_mcu_add_sta(struct mt7615_phy *phy, struct ieee80211_vif *vif,
 		   struct ieee80211_sta *sta, bool enable)
 {
+	if (is_mt7663(&phy->dev->mt76) && !enable) {
+		//hack to clear all pending packets
+		__mt7615_mcu_add_sta(phy->mt76, vif, sta, enable, MCU_EXT_CMD_STA_REC_UPDATE);
+		__mt7615_mcu_add_sta(phy->mt76, vif, NULL, false, MCU_EXT_CMD_STA_REC_UPDATE);
+		__mt7615_mcu_add_sta(phy->mt76, vif, NULL, true, MCU_EXT_CMD_STA_REC_UPDATE);
+	}
 	return __mt7615_mcu_add_sta(phy->mt76, vif, sta, enable,
 				    MCU_EXT_CMD_STA_REC_UPDATE, false);
 }
