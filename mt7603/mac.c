@@ -214,10 +214,11 @@ void mt7603_filter_tx(struct mt7603_dev *dev, int idx, bool abort)
 void mt7603_wtbl_set_smps(struct mt7603_dev *dev, struct mt7603_sta *sta,
 			  bool enabled)
 {
-	u32 addr = mt7603_wtbl1_addr(sta->wcid.idx);
-
 	if (sta->smps == enabled)
 		return;
+
+	int idx = sta->wcid.idx;
+	u32 addr = mt7603_wtbl1_addr(idx);
 
 	mt76_rmw_field(dev, addr + 2 * 4, MT_WTBL1_W2_SMPS, enabled);
 	sta->smps = enabled;
