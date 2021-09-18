@@ -220,7 +220,10 @@ void mt7603_wtbl_set_smps(struct mt7603_dev *dev, struct mt7603_sta *sta,
 		return;
 
 	mt76_rmw_field(dev, addr + 2 * 4, MT_WTBL1_W2_SMPS, enabled);
-	sta->smps = enabled;
+	if (mt76_poll(dev, addr + 2 * 4, MT_WTBL1_W2_SMPS, enabled, 5000))
+		sta->smps = enabled;
+	else
+		WARN_ON_ONCE(1);
 }
 
 void mt7603_wtbl_set_ps(struct mt7603_dev *dev, struct mt7603_sta *sta,
