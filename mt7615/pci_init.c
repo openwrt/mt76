@@ -18,6 +18,9 @@ static void mt7615_pci_init_work(struct work_struct *work)
 					      mcu_work);
 	int i, ret;
 
+	if (dev->dbdc_support)
+		mt7615_register_ext_phy(dev);
+
 	ret = mt7615_mcu_init(dev);
 	for (i = 0; (ret == -EAGAIN) && (i < 10); i++) {
 		msleep(200);
@@ -28,8 +31,6 @@ static void mt7615_pci_init_work(struct work_struct *work)
 		return;
 
 	mt7615_init_work(dev);
-	if (dev->dbdc_support)
-		mt7615_register_ext_phy(dev);
 }
 
 static int mt7615_init_hardware(struct mt7615_dev *dev)
