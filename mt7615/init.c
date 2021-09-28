@@ -486,7 +486,6 @@ int mt7615_register_ext_phy(struct mt7615_dev *dev)
 	       ETH_ALEN);
 	mphy->macaddr[0] |= 2;
 	mphy->macaddr[0] ^= BIT(7);
-	mt76_eeprom_override(mphy);
 
 	/* second phy can only handle 5 GHz */
 	mphy->cap.has_5ghz = true;
