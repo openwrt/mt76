@@ -169,9 +169,14 @@ mt76_tx_status_skb_get(struct mt76_dev *dev, struct mt76_wcid *wcid, int pktid,
 	idr_for_each_entry(&wcid->pktid, skb, id) {
 		struct mt76_tx_cb *cb = mt76_tx_skb_cb(skb);
 
-		if (pktid >= 0 && !time_after(jiffies, cb->jiffies +
-					      MT_TX_STATUS_SKB_TIMEOUT))
-			continue;
+		if (pktid >= 0) {
+			if (!(cb->flags & MT_TX_CB_DMA_DONE))
+				continue;
+
+			if (!time_is_after_jiffies(cb->jiffies +
+						   MT_TX_STATUS_SKB_TIMEOUT))
+				continue;
+		}
 
 		/* It has been too long since DMA_DONE, time out this packet
 		 * and stop waiting for TXS callback.
@@ -192,15 +197,12 @@ EXPORT_SYMBOL_GPL(mt76_tx_status_skb_get);
 void
 mt76_tx_status_check(struct mt76_dev *dev, bool flush)
 {
+	struct mt76_wcid *wcid, *tmp;
 	struct sk_buff_head list;
-	struct mt76_wcid *wcid;
 
 	mt76_tx_status_lock(dev, &list);
-	while (!list_empty(&dev->wcid_list)) {
-		wcid = list_first_entry(&dev->wcid_list, struct mt76_wcid,
-					list);
+	list_for_each_entry_safe(wcid, tmp, &dev->wcid_list, list)
 		mt76_tx_status_skb_get(dev, wcid, flush ? -1 : 0, &list);
-	}
 	mt76_tx_status_unlock(dev, &list);
 }
 EXPORT_SYMBOL_GPL(mt76_tx_status_check);
