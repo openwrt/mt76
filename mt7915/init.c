@@ -162,7 +162,7 @@ static int mt7915_thermal_init(struct mt7915_phy *phy)
 	struct device *hwmon;
 	const char *name;
 
-	name = devm_kasprintf(&wiphy->dev, GFP_KERNEL, "mt7915-%s",
+	name = devm_kasprintf(&wiphy->dev, GFP_KERNEL, "mt7915_%s",
 			      wiphy_name(wiphy));
 
 	cdev = thermal_cooling_device_register(name, phy, &mt7915_thermal_ops);

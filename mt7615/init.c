@@ -54,7 +54,7 @@ int mt7615_thermal_init(struct mt7615_dev *dev)
 	if (!IS_REACHABLE(CONFIG_HWMON))
 		return 0;
 
-	name = devm_kasprintf(&wiphy->dev, GFP_KERNEL, "mt7615-%s",
+	name = devm_kasprintf(&wiphy->dev, GFP_KERNEL, "mt7615_%s",
 			      wiphy_name(wiphy));
 	hwmon = devm_hwmon_device_register_with_groups(&wiphy->dev, name, dev,
 						       mt7615_hwmon_groups);
