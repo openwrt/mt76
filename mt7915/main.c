@@ -1241,11 +1241,7 @@ void mt7915_get_et_stats(struct ieee80211_hw *hw,
 
 	/* See mt7915_ampdu_stat_read_phy, etc */
 	bool ext_phy = phy != &dev->phy;
-	int i, n;
-	int ei = 0;
-
-	if (!phy)
-		return;
+	int i, n, ei = 0;
 
 	data[ei++] = mib->tx_ampdu_cnt;
 	data[ei++] = mib->tx_stop_q_empty_cnt;
