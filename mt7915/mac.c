@@ -1255,8 +1255,14 @@ int mt7915_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 		}
 	}
 
-	pid = mt76_tx_status_skb_add(mdev, wcid, tx_info->skb);
+	t = (struct mt76_txwi_cache *)(txwi + mdev->drv->txwi_size);
+	t->skb = tx_info->skb;
 
+	id = mt76_token_consume(mdev, &t);
+	if (id < 0)
+		return id;
+
+	pid = mt76_tx_status_skb_add(mdev, wcid, tx_info->skb);
 	mt7915_mac_write_txwi(dev, txwi_ptr, tx_info->skb, wcid, pid, key,
 			      false);
 
@@ -1281,13 +1287,6 @@ int mt7915_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 
 		txp->bss_idx = mvif->idx;
 	}
-
-	t = (struct mt76_txwi_cache *)(txwi + mdev->drv->txwi_size);
-	t->skb = tx_info->skb;
-
-	id = mt76_token_consume(mdev, &t);
-	if (id < 0)
-		return id;
 
 	txp->token = cpu_to_le16(id);
 	if (test_bit(MT_WCID_FLAG_4ADDR, &wcid->flags))
