@@ -25,9 +25,9 @@ void mt76x0_get_power_info(struct mt76x02_dev *dev,
 
 static inline s8 s6_to_s8(u32 val)
 {
-	s8 ret = val & GENMASK(5, 0);
+	s8 ret = val & GENMASK(6, 0);
 
-	if (ret & BIT(5))
+	if (ret & BIT(6))
 		ret -= BIT(6);
 	return ret;
 }
