@@ -27,7 +27,7 @@ static inline s8 s6_to_s8(u32 val)
 {
 	s8 ret = val & GENMASK(6, 0);
 
-	if (ret & BIT(6))
+	if (ret & BIT(5))
 		ret -= BIT(6);
 	return ret;
 }
