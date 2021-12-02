@@ -142,7 +142,7 @@ mt76x02_sign_extend(u32 val, unsigned int size)
 
 	val &= BIT(size - 1) - 1;
 
-	return sign ? val : -val;
+	return sign ? -val : val;
 }
 
 static inline int
