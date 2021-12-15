@@ -1067,7 +1067,7 @@ enum {
 };
 
 enum mcu_cipher_type {
-	MCU_CIPHER_NONE,
+	MCU_CIPHER_NONE = 0,
 	MCU_CIPHER_WEP40,
 	MCU_CIPHER_WEP104,
 	MCU_CIPHER_WEP128,
