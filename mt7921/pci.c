@@ -353,6 +353,8 @@ static int mt7921_pci_resume(struct pci_dev *pdev)
 		mt76_connac_mcu_set_deep_sleep(&dev->mt76, false);
 
 	err = mt76_connac_mcu_set_hif_suspend(mdev, false);
+	if (err)
+		return err;
 
 	pm->suspended = false;
 
