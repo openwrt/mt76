@@ -294,6 +294,8 @@ static int mt7921s_resume(struct device *__dev)
 		mt76_connac_mcu_set_deep_sleep(mdev, false);
 
 	err = mt76_connac_mcu_set_hif_suspend(mdev, false);
+	if (err)
+		return err;
 
 	pm->suspended = false;
 
