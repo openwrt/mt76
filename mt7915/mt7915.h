@@ -479,11 +479,6 @@ int mt7915_mcu_fw_dbg_ctrl(struct mt7915_dev *dev, u32 module, u8 level);
 void mt7915_mcu_rx_event(struct mt7915_dev *dev, struct sk_buff *skb);
 void mt7915_mcu_exit(struct mt7915_dev *dev);
 
-static inline bool is_mt7915(struct mt76_dev *dev)
-{
-	return mt76_chip(dev) == 0x7915;
-}
-
 static inline u16 mt7915_wtbl_size(struct mt7915_dev *dev)
 {
 	return is_mt7915(&dev->mt76) ? MT7915_WTBL_SIZE : MT7916_WTBL_SIZE;
