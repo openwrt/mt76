@@ -468,14 +468,12 @@ mt7915_mac_fill_rx_rate(struct mt7915_dev *dev,
 			struct ieee80211_supported_band *sband,
 			__le32 *rxv)
 {
-	u32 v0, v1, v2;
-	u16 legacy;
+	u32 v0, v2;
 	u8 flags, stbc, gi, bw, dcm, mode, nss;
 	int i, idx;
 	bool cck = false;
 
 	v0 = le32_to_cpu(rxv[0]);
-	v1 = le32_to_cpu(rxv[1]);
 	v2 = le32_to_cpu(rxv[2]);
 
 	idx = i = FIELD_GET(MT_PRXV_TX_RATE, v0);
@@ -501,7 +499,6 @@ mt7915_mac_fill_rx_rate(struct mt7915_dev *dev,
 		fallthrough;
 	case MT_PHY_TYPE_OFDM:
 		i = mt76_get_rate(&dev->mt76, sband, i, cck);
-		legacy = sband->bitrates[i].bitrate;
 		break;
 	case MT_PHY_TYPE_HT_GF:
 	case MT_PHY_TYPE_HT:
