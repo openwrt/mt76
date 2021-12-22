@@ -271,7 +271,7 @@ static u32 mt7915_reg_map_l1(struct mt7915_dev *dev, u32 addr)
 
 	dev->bus_ops->rmw(&dev->mt76, l1_remap,
 			  MT_HIF_REMAP_L1_MASK,
-		FIELD_PREP(MT_HIF_REMAP_L1_MASK, base));
+			  FIELD_PREP(MT_HIF_REMAP_L1_MASK, base));
 	/* use read to push write */
 	dev->bus_ops->rr(&dev->mt76, l1_remap);
 
@@ -575,17 +575,15 @@ int mt7915_mmio_probe(struct device *pdev,
 	if (ret)
 		goto error;
 
-	if (hif2) {
+	if (hif2 && dev_is_pci(pdev)) {
 		dev->hif2 = hif2;
 
 		mt76_wr(dev, MT_INT1_MASK_CSR, 0);
 		/* master switch of PCIe tnterrupt enable */
-		if (dev_is_pci(pdev)) {
-			if (is_mt7915(mdev))
-				mt76_wr(dev, MT_PCIE1_MAC_INT_ENABLE, 0xff);
-			else
-				mt76_wr(dev, MT_PCIE1_MAC_INT_ENABLE_MT7916, 0xff);
-		}
+		if (is_mt7915(mdev))
+			mt76_wr(dev, MT_PCIE1_MAC_INT_ENABLE, 0xff);
+		else
+			mt76_wr(dev, MT_PCIE1_MAC_INT_ENABLE_MT7916, 0xff);
 
 		ret = devm_request_irq(mdev->dev, dev->hif2->irq,
 				       mt7915_irq_handler, IRQF_SHARED,

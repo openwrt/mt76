@@ -541,11 +541,12 @@ static void mt7915_init_work(struct work_struct *work)
 
 static void mt7915_wfsys_reset(struct mt7915_dev *dev)
 {
-	u32 val;
-
 #define MT_MCU_DUMMY_RANDOM	GENMASK(15, 0)
 #define MT_MCU_DUMMY_DEFAULT	GENMASK(31, 16)
+
 	if (is_mt7915(&dev->mt76)) {
+		u32 val = MT_TOP_PWR_KEY | MT_TOP_PWR_SW_PWR_ON | MT_TOP_PWR_PWR_ON;
+
 		mt76_wr(dev, MT_MCU_WFDMA0_DUMMY_CR, MT_MCU_DUMMY_RANDOM);
 
 		/* change to software control */
@@ -578,14 +579,10 @@ static void mt7915_wfsys_reset(struct mt7915_dev *dev)
 
 		msleep(100);
 	} else {
-		val = mt76_rr(dev, MT_WF_SUBSYS_RST);
-
-		val |= 0x1;
-		mt76_wr(dev, MT_WF_SUBSYS_RST, val);
+		mt76_set(dev, MT_WF_SUBSYS_RST, 0x1);
 		msleep(20);
 
-		val &= ~0x1;
-		mt76_wr(dev, MT_WF_SUBSYS_RST, val);
+		mt76_clear(dev, MT_WF_SUBSYS_RST, 0x1);
 		msleep(20);
 	}
 }
