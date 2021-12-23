@@ -83,7 +83,7 @@ static void mt7915_dma_config(struct mt7915_dev *dev)
 static void __mt7915_dma_prefetch(struct mt7915_dev *dev, u32 ofs)
 {
 #define PREFETCH(_base, _depth)	((_base) << 16 | (_depth))
-	u32 base;
+	u32 base = 0;
 
 	/* prefetch SRAM wrapping boundary for tx/rx ring. */
 	mt76_wr(dev, MT_MCUQ_EXT_CTRL(MT_MCUQ_FWDL) + ofs, PREFETCH(0x0, 0x4));
