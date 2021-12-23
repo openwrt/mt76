@@ -469,7 +469,7 @@ mt7915_mac_fill_rx_rate(struct mt7915_dev *dev,
 			__le32 *rxv)
 {
 	u32 v0, v2;
-	u8 flags, stbc, gi, bw, dcm, mode, nss;
+	u8 stbc, gi, bw, dcm, mode, nss;
 	int i, idx;
 	bool cck = false;
 
@@ -503,22 +503,18 @@ mt7915_mac_fill_rx_rate(struct mt7915_dev *dev,
 	case MT_PHY_TYPE_HT_GF:
 	case MT_PHY_TYPE_HT:
 		status->encoding = RX_ENC_HT;
+		if (gi)
+			status->enc_flags |= RX_ENC_FLAG_SHORT_GI;
 		if (i > 31)
 			return -EINVAL;
-
-		flags = RATE_INFO_FLAGS_MCS;
-		if (gi)
-			flags |= RATE_INFO_FLAGS_SHORT_GI;
 		break;
 	case MT_PHY_TYPE_VHT:
 		status->nss = nss;
 		status->encoding = RX_ENC_VHT;
+		if (gi)
+			status->enc_flags |= RX_ENC_FLAG_SHORT_GI;
 		if (i > 9)
 			return -EINVAL;
-
-		flags = RATE_INFO_FLAGS_VHT_MCS;
-		if (gi)
-			flags |= RATE_INFO_FLAGS_SHORT_GI;
 		break;
 	case MT_PHY_TYPE_HE_MU:
 	case MT_PHY_TYPE_HE_SU:
@@ -532,7 +528,6 @@ mt7915_mac_fill_rx_rate(struct mt7915_dev *dev,
 			status->he_gi = gi;
 
 		status->he_dcm = dcm;
-		flags |= RATE_INFO_FLAGS_HE_MCS;
 		break;
 	default:
 		return -EINVAL;
