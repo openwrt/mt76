@@ -60,5 +60,6 @@ extern unsigned char *eeprom_data;
 
 void usage(void);
 int mt76_eeprom(int phy, int argc, char **argv);
+int mt76_fwlog(const char *phyname, int argc, char **argv);
 
 #endif
