@@ -125,7 +125,7 @@ mt7986_wmac_adie_efuse_read(struct mt7915_dev *dev, u8 adie,
 		return ret;
 
 	ret = read_poll_timeout(mt76_wmac_spi_read, temp,
-				!FIELD_GET(MT_ADIE_EFUSE_KICK_MASK, val),
+				!temp && !FIELD_GET(MT_ADIE_EFUSE_KICK_MASK, val),
 				USEC_PER_MSEC, 50 * USEC_PER_MSEC, false,
 				dev, adie, MT_ADIE_EFUSE2_CTRL, &val);
 	if (ret)
@@ -1126,9 +1126,9 @@ static int mt7986_wmac_probe(struct platform_device *pdev)
 	struct mt7915_dev *dev;
 	struct mt76_dev *mdev;
 	int irq, ret;
-	u64 chip_id;
+	u32 chip_id;
 
-	chip_id = (u64)of_device_get_match_data(&pdev->dev);
+	chip_id = (uintptr_t)of_device_get_match_data(&pdev->dev);
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
