@@ -589,10 +589,10 @@ static void mt7915_wfsys_reset(struct mt7915_dev *dev)
 
 		msleep(100);
 	} else if (is_mt7986(&dev->mt76)) {
-		mt7986_wmac_enable(dev);
+		mt7986_wmac_disable(dev);
 		msleep(20);
 
-		mt7986_wmac_disable(dev);
+		mt7986_wmac_enable(dev);
 		msleep(20);
 	} else {
 		mt76_set(dev, MT_WF_SUBSYS_RST, 0x1);

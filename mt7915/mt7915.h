@@ -322,9 +322,6 @@ struct mt7915_dev {
 	struct reset_control *rstc;
 	void __iomem *dcm;
 	void __iomem *sku;
-
-	/* adie is inaccessible after wfsys poweron */
-	u32 adie;
 };
 
 enum {
