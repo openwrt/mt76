@@ -233,7 +233,9 @@ static void
 mt76_dma_tx_cleanup(struct mt76_dev *dev, struct mt76_queue *q, bool flush)
 {
 	struct mt76_queue_entry entry;
+	int done = 0;
 	int last;
+	int tail;
 
 	if (!q || !q->ndesc)
 		return;
@@ -244,20 +246,38 @@ mt76_dma_tx_cleanup(struct mt76_dev *dev, struct mt76_queue *q, bool flush)
 	else
 		last = readl(&q->regs->dma_idx);
 
-	while (q->queued > 0 && q->tail != last) {
+	tail = q->tail;
+	while (q->queued - done > 0 && tail != last) {
 		mt76_dma_tx_cleanup_idx(dev, q, q->tail, &entry);
-		mt76_queue_tx_complete(dev, q, &entry);
+		if (entry.skb)
+			dev->drv->tx_complete_skb(dev, &entry);
+		tail = (tail + 1) % q->ndesc;
+		done++;
 
 		if (entry.txwi) {
 			if (!(dev->drv->drv_flags & MT_DRV_TXWI_NO_FREE))
 				mt76_put_txwi(dev, entry.txwi);
 		}
 
-		if (!flush && q->tail == last)
+		if (!flush && tail == last)
 			last = readl(&q->regs->dma_idx);
 
+		if (done > 16) {
+			spin_lock_bh(&q->lock);
+			q->queued -= done;
+			q->tail = tail;
+			spin_unlock_bh(&q->lock);
+			done = 0;
+		}
 	}
 	spin_unlock_bh(&q->cleanup_lock);
+
+	if (done) {
+		spin_lock_bh(&q->lock);
+		q->queued -= done;
+		q->tail = tail;
+		spin_unlock_bh(&q->lock);
+	}
 
 	if (flush) {
 		spin_lock_bh(&q->lock);
