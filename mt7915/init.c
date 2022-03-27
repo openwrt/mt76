@@ -567,7 +567,7 @@ static void mt7915_init_work(struct work_struct *work)
 	mt7915_txbf_init(dev);
 }
 
-static void mt7915_wfsys_reset(struct mt7915_dev *dev)
+void mt7915_wfsys_reset(struct mt7915_dev *dev)
 {
 #define MT_MCU_DUMMY_RANDOM	GENMASK(15, 0)
 #define MT_MCU_DUMMY_DEFAULT	GENMASK(31, 16)
@@ -655,8 +655,6 @@ mt7915_init_hardware(struct mt7915_dev *dev, struct mt7915_phy *phy2)
 	mt76_wr(dev, MT_INT_SOURCE_CSR, ~0);
 
 	INIT_WORK(&dev->init_work, mt7915_init_work);
-
-	mt7915_wfsys_reset(dev);
 
 	ret = mt7915_dma_init(dev, phy2);
 	if (ret)

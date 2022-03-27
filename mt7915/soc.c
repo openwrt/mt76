@@ -1160,6 +1160,7 @@ static int mt7986_wmac_probe(struct platform_device *pdev)
 	if (ret)
 		goto free_device;
 
+	mt7915_wfsys_reset(dev);
 	mt76_wr(dev, MT_INT_MASK_CSR, 0);
 
 	ret = mt7986_wmac_init(dev);
