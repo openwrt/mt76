@@ -174,14 +174,14 @@ static void mt7915_init_bitrate_mask(struct ieee80211_vif *vif)
 
 	for (i = 0; i < ARRAY_SIZE(mvif->bitrate_mask.control); i++) {
 		mvif->bitrate_mask.control[i].gi = NL80211_TXRATE_DEFAULT_GI;
-		mvif->bitrate_mask.control[i].he_gi = GENMASK(7, 0);
-		mvif->bitrate_mask.control[i].he_ltf = GENMASK(7, 0);
+		mvif->bitrate_mask.control[i].he_gi = 0xff;
+		mvif->bitrate_mask.control[i].he_ltf = 0xff;
 		mvif->bitrate_mask.control[i].legacy = GENMASK(31, 0);
-		memset(mvif->bitrate_mask.control[i].ht_mcs, GENMASK(7, 0),
+		memset(mvif->bitrate_mask.control[i].ht_mcs, 0xff,
 		       sizeof(mvif->bitrate_mask.control[i].ht_mcs));
-		memset(mvif->bitrate_mask.control[i].vht_mcs, GENMASK(15, 0),
+		memset(mvif->bitrate_mask.control[i].vht_mcs, 0xff,
 		       sizeof(mvif->bitrate_mask.control[i].vht_mcs));
-		memset(mvif->bitrate_mask.control[i].he_mcs, GENMASK(15, 0),
+		memset(mvif->bitrate_mask.control[i].he_mcs, 0xff,
 		       sizeof(mvif->bitrate_mask.control[i].he_mcs));
 	}
 }
@@ -1381,6 +1381,39 @@ out:
 	return ret;
 }
 
+#ifdef CONFIG_NET_MEDIATEK_SOC_WED
+static int
+mt7915_net_fill_forward_path(struct ieee80211_hw *hw,
+			     struct ieee80211_vif *vif,
+			     struct ieee80211_sta *sta,
+			     struct net_device_path_ctx *ctx,
+			     struct net_device_path *path)
+{
+	struct mt7915_vif *mvif = (struct mt7915_vif *)vif->drv_priv;
+	struct mt7915_sta *msta = (struct mt7915_sta *)sta->drv_priv;
+	struct mt7915_dev *dev = mt7915_hw_dev(hw);
+	struct mt7915_phy *phy = mt7915_hw_phy(hw);
+	struct mtk_wed_device *wed = &dev->mt76.mmio.wed;
+
+	if (!mtk_wed_device_active(wed))
+		return -ENODEV;
+
+	if (msta->wcid.idx > 0xff)
+		return -EIO;
+
+	path->type = DEV_PATH_MTK_WDMA;
+	path->dev = ctx->dev;
+	path->mtk_wdma.wdma_idx = wed->wdma_idx;
+	path->mtk_wdma.bss = mvif->mt76.idx;
+	path->mtk_wdma.wcid = msta->wcid.idx;
+	path->mtk_wdma.queue = phy != &dev->phy;
+
+	ctx->dev = NULL;
+
+	return 0;
+}
+#endif
+
 const struct ieee80211_ops mt7915_ops = {
 	.tx = mt7915_tx,
 	.start = mt7915_start,
@@ -1428,4 +1461,7 @@ const struct ieee80211_ops mt7915_ops = {
 	.sta_add_debugfs = mt7915_sta_add_debugfs,
 #endif
 	.set_radar_background = mt7915_set_radar_background,
+#ifdef CONFIG_NET_MEDIATEK_SOC_WED
+	.net_fill_forward_path = mt7915_net_fill_forward_path,
+#endif
 };
