@@ -278,8 +278,9 @@ void mt76x0_get_power_info(struct mt76x02_dev *dev,
 
 	data = mt76x02_eeprom_get(dev, addr);
 	*tp = data >> (8 * idx);
-	if (*tp < 0 || *tp > 0x3f)
+	if (*tp < 0 || *tp >= 0x2c)
 		*tp = 5;
+	*tp <<= 1;
 }
 
 static int mt76x0_check_eeprom(struct mt76x02_dev *dev)
