@@ -218,8 +218,6 @@ static int mt7915_pci_probe(struct pci_dev *pdev,
 	if (ret)
 		goto free_wed_or_irq_vector;
 
-	mt76_wr(dev, MT_INT_MASK_CSR, 0);
-
 	/* master switch of PCIe tnterrupt enable */
 	mt76_wr(dev, MT_PCIE_MAC_INT_ENABLE, 0xff);
 
