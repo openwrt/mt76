@@ -61,7 +61,7 @@ free:
 static int
 mt7921_asar_acpi_read_mtcl(struct mt7921_dev *dev, u8 **table, u8 *version)
 {
-	*version = (mt7921_acpi_read(dev, MT7921_ACPI_MTCL, table, 0) < 0)
+	*version = (mt7921_acpi_read(dev, MT7921_ACPI_MTCL, table, NULL) < 0)
 		   ? 1 : 2;
 	return 0;
 }
