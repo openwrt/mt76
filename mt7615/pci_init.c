@@ -8,6 +8,7 @@
  */
 
 #include <linux/etherdevice.h>
+#include <linux/of.h>
 #include "mt7615.h"
 #include "mac.h"
 #include "eeprom.h"
@@ -95,6 +96,19 @@ mt7615_led_set_config(struct led_classdev *led_cdev,
 		val |= MT_LED_CTRL_POLARITY(mt76->led_pin);
 	addr = mt7615_reg_map(dev, MT_LED_CTRL);
 	mt76_wr(dev, addr, val);
+
+	/* enable LED for Asus RT-AC1200-V2 */
+	if (of_machine_is_compatible("asus,rt-ac1200-v2")) {
+		/* address of mapped register @0x20000000 */
+		addr = 0x00000000;
+		val = mt76_rr(dev, addr);
+		if ((val & 0xc400) != 0xc400) {
+			/* set Byte#1 of register to 0xc4 */
+			val &= 0xffffc4ff;
+			val |= 0xc400;
+			mt76_wr(dev, addr, val);
+		}
+	}
 
 	mt76_connac_pm_unref(&dev->mphy, &dev->pm);
 }
