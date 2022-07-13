@@ -92,6 +92,70 @@ mt7603_mcu_init_download(struct mt7603_dev *dev, u32 addr, u32 len)
 				 &req, sizeof(req), true);
 }
 
+static void
+mt7603_mcu_rx_log_message(struct mt7603_dev *dev, struct sk_buff *skb)
+{
+	struct mt7603_mcu_rxd *rxd = (struct mt7603_mcu_rxd *)skb->data;
+	const char *data = (char *)&rxd[1];
+
+	wiphy_info(mt76_hw(dev)->wiphy, "FW: %.*s",
+		   (int)(skb->len - sizeof(*rxd)), data);
+}
+
+static void
+mt7603_mcu_rx_ext_event(struct mt7603_dev *dev, struct sk_buff *skb)
+{
+	struct mt7603_mcu_rxd *rxd = (struct mt7603_mcu_rxd *)skb->data;
+
+	switch (rxd->ext_eid) {
+	case MCU_EXT_EVENT_FW_LOG_2_HOST:
+		mt7603_mcu_rx_log_message(dev, skb);
+		break;
+	default:
+		break;
+	}
+}
+
+static void
+mt7603_mcu_rx_unsolicited_event(struct mt7603_dev *dev, struct sk_buff *skb)
+{
+	struct mt7603_mcu_rxd *rxd = (struct mt7603_mcu_rxd *)skb->data;
+
+	switch (rxd->eid) {
+	case MCU_CMD_EXT_CID:
+		mt7603_mcu_rx_ext_event(dev, skb);
+		break;
+	default:
+		break;
+	}
+	dev_kfree_skb(skb);
+}
+
+void mt7603_mcu_rx_event(struct mt7603_dev *dev, struct sk_buff *skb)
+{
+	struct mt7603_mcu_rxd *rxd = (struct mt7603_mcu_rxd *)skb->data;
+
+	if (rxd->ext_eid == MCU_EXT_EVENT_FW_LOG_2_HOST ||
+	    rxd->ext_eid == MCU_EXT_EVENT_THERMAL_PROTECT ||
+	    !rxd->seq)
+		mt7603_mcu_rx_unsolicited_event(dev, skb);
+	else
+		mt76_mcu_rx_event(&dev->mt76, skb);
+}
+
+int mt7603_mcu_fw_log_2_host(struct mt7603_dev *dev, u8 ctrl)
+{
+	struct {
+		u8 ctrl_val;
+		u8 pad[3];
+	} data = {
+		.ctrl_val = ctrl
+	};
+
+	return mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_FW_LOG_2_HOST,
+				 &data, sizeof(data), true);
+}
+
 static int
 mt7603_mcu_start_firmware(struct mt7603_dev *dev, u32 addr)
 {

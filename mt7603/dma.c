@@ -2,6 +2,7 @@
 
 #include "mt7603.h"
 #include "mac.h"
+#include "mcu.h"
 #include "../dma.h"
 
 static void
@@ -93,7 +94,7 @@ void mt7603_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 		dev_kfree_skb(skb);
 		break;
 	case PKT_TYPE_RX_EVENT:
-		mt76_mcu_rx_event(&dev->mt76, skb);
+		mt7603_mcu_rx_event(dev, skb);
 		return;
 	case PKT_TYPE_NORMAL:
 		if (mt7603_mac_fill_rx(dev, skb) == 0) {

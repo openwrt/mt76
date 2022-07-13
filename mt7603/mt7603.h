@@ -159,6 +159,8 @@ struct mt7603_dev {
 	u32 reset_test;
 
 	unsigned int reset_cause[__RESET_CAUSE_MAX];
+
+	bool fw_debug;
 };
 
 extern const struct mt76_driver_ops mt7603_drv_ops;
@@ -188,6 +190,8 @@ void mt7603_unregister_device(struct mt7603_dev *dev);
 int mt7603_eeprom_init(struct mt7603_dev *dev);
 int mt7603_dma_init(struct mt7603_dev *dev);
 void mt7603_dma_cleanup(struct mt7603_dev *dev);
+void mt7603_mcu_rx_event(struct mt7603_dev *dev, struct sk_buff *skb);
+int mt7603_mcu_fw_log_2_host(struct mt7603_dev *dev, u8 ctrl);
 int mt7603_mcu_init(struct mt7603_dev *dev);
 void mt7603_init_debugfs(struct mt7603_dev *dev);
 

@@ -93,6 +93,33 @@ mt7603_ampdu_stat_show(struct seq_file *file, void *data)
 
 DEFINE_SHOW_ATTRIBUTE(mt7603_ampdu_stat);
 
+static int
+mt7603_fw_debug_set(void *data, u64 val)
+{
+	struct mt7603_dev *dev = data;
+
+	dev->fw_debug = val;
+
+	mutex_lock(&dev->mt76.mutex);
+	mt7603_mcu_fw_log_2_host(dev, dev->fw_debug ? 2 : 0);
+	mutex_unlock(&dev->mt76.mutex);
+
+	return 0;
+}
+
+static int
+mt7603_fw_debug_get(void *data, u64 *val)
+{
+	struct mt7603_dev *dev = data;
+
+	*val = dev->fw_debug;
+
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(fops_fw_debug, mt7603_fw_debug_get,
+			 mt7603_fw_debug_set, "%lld\n");
+
 void mt7603_init_debugfs(struct mt7603_dev *dev)
 {
 	struct dentry *dir;
@@ -115,4 +142,5 @@ void mt7603_init_debugfs(struct mt7603_dev *dev)
 			    &dev->sensitivity_limit);
 	debugfs_create_bool("dynamic_sensitivity", 0600, dir,
 			    &dev->dynamic_sensitivity);
+	debugfs_create_file("fw_debug", 0600, dir, dev, &fops_fw_debug);
 }
