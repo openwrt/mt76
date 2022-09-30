@@ -964,10 +964,11 @@ mt7915_set_antenna(struct ieee80211_hw *hw, u32 tx_ant, u32 rx_ant)
 
 	phy->mt76->antenna_mask = tx_ant;
 
-	if (ext_phy)
-		tx_ant <<= dev->chainshift;
-
-	phy->mt76->chainmask = tx_ant;
+	/* handle a variant of mt7916 which has 3T3R but nss2 on 5 GHz band */
+	if (is_mt7916(&dev->mt76) && ext_phy && hweight8(tx_ant) == max_nss)
+		phy->mt76->chainmask = dev->chainmask >> dev->chainshift;
+	else
+		phy->mt76->chainmask = tx_ant << (dev->chainshift * ext_phy);
 
 	mt76_set_stream_caps(phy->mt76, true);
 	mt7915_set_stream_vht_txbf_caps(phy);
