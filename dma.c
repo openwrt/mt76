@@ -359,11 +359,34 @@ mt76_dma_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 		.skb = skb,
 	};
 	struct ieee80211_hw *hw;
-	int len, n = 0, ret = -ENOMEM;
+	int len, i, n = 0, ret = -ENOMEM;
 	struct mt76_txwi_cache *t;
 	struct sk_buff *iter;
 	dma_addr_t addr;
 	u8 *txwi;
+
+	if (skb_shinfo(skb)->nr_frags && skb_shinfo(skb)->frag_list &&
+	    skb_linearize(skb))
+		goto free_skb;
+
+	len = 0;
+	n = skb_shinfo(skb)->nr_frags + 1 - dev->hw->max_tx_fragments;
+	for (i = 0, len = 0; i < n; i++) {
+		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+		len += skb_frag_size(frag);
+	}
+	n = 0;
+
+	if (len > 0 && !__pskb_pull_tail(skb, len))
+	    goto free_skb;
+
+	skb_walk_frags(skb, iter) {
+		if (!skb_shinfo(iter)->nr_frags)
+			continue;
+		if (skb_linearize(skb))
+			goto free_skb;
+		break;
+	}
 
 	t = mt76_get_txwi(dev);
 	if (!t)
@@ -384,6 +407,22 @@ mt76_dma_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
 	tx_info.buf[n++].len = dev->drv->txwi_size;
 	tx_info.buf[n].addr = addr;
 	tx_info.buf[n++].len = len;
+
+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+
+		if (n == ARRAY_SIZE(tx_info.buf))
+			goto unmap;
+
+		len = skb_frag_size(frag);
+		addr = skb_frag_dma_map(dev->dma_dev, frag, 0, len,
+					DMA_TO_DEVICE);
+		if (unlikely(dma_mapping_error(dev->dma_dev, addr)))
+			goto unmap;
+
+		tx_info.buf[n].addr = addr;
+		tx_info.buf[n++].len = len;
+	}
 
 	skb_walk_frags(skb, iter) {
 		if (n == ARRAY_SIZE(tx_info.buf))
