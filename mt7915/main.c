@@ -248,9 +248,13 @@ static int mt7915_add_interface(struct ieee80211_hw *hw,
 		mtxq->wcid = idx;
 	}
 
+	vif->netdev_features &= ~NETIF_F_GSO_SOFTWARE;
 	if (vif->type != NL80211_IFTYPE_AP &&
-	    (!mvif->mt76.omac_idx || mvif->mt76.omac_idx > 3))
+	    (!mvif->mt76.omac_idx || mvif->mt76.omac_idx > 3)) {
 		vif->offload_flags = 0;
+		vif->netdev_features &= ~(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
+	}
+
 	vif->offload_flags |= IEEE80211_OFFLOAD_ENCAP_4ADDR;
 
 	mt7915_init_bitrate_mask(vif);

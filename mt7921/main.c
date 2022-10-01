@@ -352,6 +352,7 @@ static int mt7921_add_interface(struct ieee80211_hw *hw,
 	}
 
 	vif->driver_flags |= IEEE80211_VIF_BEACON_FILTER;
+	vif->netdev_features &= ~NETIF_F_GSO_SOFTWARE;
 out:
 	mt7921_mutex_release(dev);
 

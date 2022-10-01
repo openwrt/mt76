@@ -55,7 +55,9 @@ mt7921_init_wiphy(struct ieee80211_hw *hw)
 	hw->queues = 4;
 	hw->max_rx_aggregation_subframes = 256;
 	hw->max_tx_aggregation_subframes = 256;
-	hw->netdev_features = NETIF_F_RXCSUM;
+	hw->netdev_features = NETIF_F_RXCSUM |
+			      NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+			      NETIF_F_GSO_SOFTWARE;
 	if (mt76_is_mmio(&dev->mt76))
 		hw->netdev_features |= NETIF_F_SG;
 

@@ -312,15 +312,17 @@ mt76_tx(struct mt76_phy *phy, struct ieee80211_sta *sta,
 	struct mt76_queue *q;
 	int qid = skb_get_queue_mapping(skb);
 
-	if (mt76_testmode_enabled(phy)) {
-		ieee80211_free_txskb(phy->hw, skb);
-		return;
-	}
+	if (mt76_testmode_enabled(phy))
+		goto free;
 
 	if (WARN_ON(qid >= MT_TXQ_PSD)) {
 		qid = MT_TXQ_BE;
 		skb_set_queue_mapping(skb, qid);
 	}
+
+	if (!(info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP) &&
+	    skb->ip_summed == CHECKSUM_PARTIAL && skb_checksum_help(skb))
+		goto free;
 
 	if ((dev->drv->drv_flags & MT_DRV_HW_MGMT_TXQ) &&
 	    !(info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP) &&
@@ -340,6 +342,10 @@ mt76_tx(struct mt76_phy *phy, struct ieee80211_sta *sta,
 	__mt76_tx_queue_skb(phy, qid, skb, wcid, sta, NULL);
 	dev->queue_ops->kick(dev, q);
 	spin_unlock_bh(&q->lock);
+	return;
+
+free:
+	ieee80211_free_txskb(phy->hw, skb);
 }
 EXPORT_SYMBOL_GPL(mt76_tx);
 
