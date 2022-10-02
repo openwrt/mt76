@@ -56,6 +56,8 @@ mt7921_init_wiphy(struct ieee80211_hw *hw)
 	hw->max_rx_aggregation_subframes = 256;
 	hw->max_tx_aggregation_subframes = 256;
 	hw->netdev_features = NETIF_F_RXCSUM;
+	if (mt76_is_mmio(&dev->mt76))
+		hw->netdev_features |= NETIF_F_SG;
 
 	hw->radiotap_timestamp.units_pos =
 		IEEE80211_RADIOTAP_TIMESTAMP_UNIT_US;
