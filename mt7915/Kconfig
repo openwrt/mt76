@@ -5,6 +5,7 @@ config MT7915E
 	select WANT_DEV_COREDUMP
 	depends on MAC80211
 	depends on PCI
+	select RELAY
 	help
 	  This adds support for MT7915-based wireless PCIe devices,
 	  which support concurrent dual-band operation at both 5GHz
