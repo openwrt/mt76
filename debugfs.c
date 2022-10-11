@@ -25,6 +25,32 @@ mt76_reg_get(void *data, u64 *val)
 DEFINE_DEBUGFS_ATTRIBUTE(fops_regval, mt76_reg_get, mt76_reg_set,
 			 "0x%08llx\n");
 
+static int
+mt76_napi_threaded_set(void *data, u64 val)
+{
+	struct mt76_dev *dev = data;
+
+	if (!mt76_is_mmio(dev))
+		return -EOPNOTSUPP;
+
+	if (dev->napi_dev.threaded != val)
+		return dev_set_threaded(&dev->napi_dev, val);
+
+	return 0;
+}
+
+static int
+mt76_napi_threaded_get(void *data, u64 *val)
+{
+	struct mt76_dev *dev = data;
+
+	*val = dev->napi_dev.threaded;
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(fops_napi_threaded, mt76_napi_threaded_get,
+			 mt76_napi_threaded_set, "%llu\n");
+
 int mt76_queues_read(struct seq_file *s, void *data)
 {
 	struct mt76_dev *dev = dev_get_drvdata(s->private);
@@ -90,6 +116,8 @@ mt76_register_debugfs_fops(struct mt76_phy *phy,
 	debugfs_create_bool("led_active_low", 0600, dir, &dev->led_al);
 	debugfs_create_u32("regidx", 0600, dir, &dev->debugfs_reg);
 	debugfs_create_file_unsafe("regval", 0600, dir, dev, fops);
+	debugfs_create_file_unsafe("napi_threaded", 0600, dir, dev,
+				   &fops_napi_threaded);
 	debugfs_create_blob("eeprom", 0400, dir, &dev->eeprom);
 	if (dev->otp.data)
 		debugfs_create_blob("otp", 0400, dir, &dev->otp);

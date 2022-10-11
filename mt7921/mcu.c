@@ -838,7 +838,7 @@ int mt7921_mcu_uni_bss_ps(struct mt7921_dev *dev, struct ieee80211_vif *vif)
 		.ps = {
 			.tag = cpu_to_le16(UNI_BSS_INFO_PS),
 			.len = cpu_to_le16(sizeof(struct ps_tlv)),
-			.ps_state = vif->bss_conf.ps ? 2 : 0,
+			.ps_state = vif->cfg.ps ? 2 : 0,
 		},
 	};
 
@@ -902,7 +902,7 @@ mt7921_mcu_set_bss_pm(struct mt7921_dev *dev, struct ieee80211_vif *vif,
 		u8 pad;
 	} req = {
 		.bss_idx = mvif->mt76.idx,
-		.aid = cpu_to_le16(vif->bss_conf.aid),
+		.aid = cpu_to_le16(vif->cfg.aid),
 		.dtim_period = vif->bss_conf.dtim_period,
 		.bcn_interval = cpu_to_le16(vif->bss_conf.beacon_int),
 	};
@@ -1119,7 +1119,7 @@ mt7921_mcu_uni_add_beacon_offload(struct mt7921_dev *dev,
 	if (!enable)
 		return -EOPNOTSUPP;
 
-	skb = ieee80211_beacon_get_template(mt76_hw(dev), vif, &offs);
+	skb = ieee80211_beacon_get_template(mt76_hw(dev), vif, &offs, 0);
 	if (!skb)
 		return -EINVAL;
 
