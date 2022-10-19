@@ -531,6 +531,9 @@ static void mt7615_configure_filter(struct ieee80211_hw *hw,
 	if (phy->n_beacon_vif || !mt7615_firmware_offload(dev))
 		phy->rxfilter &= ~MT_WF_RFCR_DROP_OTHER_BEACON;
 
+	if (*total_flags & FIF_MCAST_ACTION)
+	    flags |= FIF_MCAST_ACTION | FIF_OTHER_BSS;
+
 	MT76_FILTER(OTHER_BSS, MT_WF_RFCR_DROP_OTHER_TIM |
 			       MT_WF_RFCR_DROP_A3_MAC |
 			       MT_WF_RFCR_DROP_A3_BSSID);
