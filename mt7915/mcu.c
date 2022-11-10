@@ -2638,8 +2638,8 @@ int mt7915_mcu_set_chan_info(struct mt7915_phy *phy, int cmd)
 		u8 control_ch;
 		u8 center_ch;
 		u8 bw;
-		u8 tx_streams_num;
-		u8 rx_streams;	/* mask or num */
+		u8 tx_path_num;
+		u8 rx_path;	/* mask or num */
 		u8 switch_reason;
 		u8 band_idx;
 		u8 center_ch2;	/* for 80+80 only */
@@ -2655,8 +2655,8 @@ int mt7915_mcu_set_chan_info(struct mt7915_phy *phy, int cmd)
 		.control_ch = chandef->chan->hw_value,
 		.center_ch = ieee80211_frequency_to_channel(freq1),
 		.bw = mt76_connac_chan_bw(chandef),
-		.tx_streams_num = hweight8(phy->mt76->antenna_mask),
-		.rx_streams = phy->mt76->antenna_mask,
+		.tx_path_num = hweight16(phy->mt76->chainmask),
+		.rx_path = phy->mt76->chainmask >> (dev->chainshift * phy->band_idx),
 		.band_idx = phy->band_idx,
 		.channel_band = ch_band[chandef->chan->band],
 	};
@@ -2664,13 +2664,13 @@ int mt7915_mcu_set_chan_info(struct mt7915_phy *phy, int cmd)
 #ifdef CONFIG_NL80211_TESTMODE
 	if (phy->mt76->test.tx_antenna_mask &&
 	    mt76_testmode_enabled(phy->mt76)) {
-		req.tx_streams_num = fls(phy->mt76->test.tx_antenna_mask);
-		req.rx_streams = phy->mt76->test.tx_antenna_mask;
+		req.tx_path_num = fls(phy->mt76->test.tx_antenna_mask);
+		req.rx_path = phy->mt76->test.tx_antenna_mask;
 	}
 #endif
 
 	if (mt76_connac_spe_idx(phy->mt76->antenna_mask))
-		req.tx_streams_num = fls(phy->mt76->antenna_mask);
+		req.tx_path_num = fls(phy->mt76->antenna_mask);
 
 	if (cmd == MCU_EXT_CMD(SET_RX_PATH) ||
 	    dev->mt76.hw->conf.flags & IEEE80211_CONF_MONITOR)
@@ -2684,7 +2684,7 @@ int mt7915_mcu_set_chan_info(struct mt7915_phy *phy, int cmd)
 		req.switch_reason = CH_SWITCH_NORMAL;
 
 	if (cmd == MCU_EXT_CMD(CHANNEL_SWITCH))
-		req.rx_streams = hweight8(req.rx_streams);
+		req.rx_path = hweight8(req.rx_path);
 
 	if (chandef->width == NL80211_CHAN_WIDTH_80P80) {
 		int freq2 = chandef->center_freq2;
