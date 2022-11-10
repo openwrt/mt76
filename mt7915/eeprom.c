@@ -208,6 +208,8 @@ void mt7915_eeprom_parse_hw_cap(struct mt7915_dev *dev,
 			nss_max = 2;
 	}
 
+	if (!nss)
+		nss = nss_max;
 	nss = min_t(u8, min_t(u8, nss_max, nss), path);
 
 	mphy->chainmask = BIT(path) - 1;
