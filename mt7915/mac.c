@@ -1658,7 +1658,8 @@ void mt7915_mac_dump_work(struct work_struct *work)
 	for (i = 0; i < num; i++) {
 		if (mem_region->len > buf_len) {
 			dev_warn(dev->mt76.dev, "%s len %lu is too large\n",
-				 mem_region->name, mem_region->len);
+				 mem_region->name,
+				 (unsigned long)mem_region->len);
 			break;
 		}
 
