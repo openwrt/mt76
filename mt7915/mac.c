@@ -1467,12 +1467,10 @@ out:
 static void
 mt7915_mac_full_reset(struct mt7915_dev *dev)
 {
-	struct mt7915_phy *phy2;
 	struct mt76_phy *ext_phy;
 	int i;
 
 	ext_phy = dev->mt76.phys[MT_BAND1];
-	phy2 = ext_phy ? ext_phy->priv : NULL;
 
 	dev->recovery.hw_full_reset = true;
 
