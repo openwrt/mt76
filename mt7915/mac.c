@@ -1354,7 +1354,6 @@ mt7915_mac_restart(struct mt7915_dev *dev)
 	struct mt76_phy *ext_phy;
 	struct mt76_dev *mdev = &dev->mt76;
 	int i, ret;
-	u32 irq_mask;
 
 	ext_phy = dev->mt76.phys[MT_BAND1];
 	phy2 = ext_phy ? ext_phy->priv : NULL;
@@ -1412,7 +1411,7 @@ mt7915_mac_restart(struct mt7915_dev *dev)
 	mt76_wr(dev, MT_INT_SOURCE_CSR, ~0);
 
 	if (dev->hif2) {
-		mt76_wr(dev, MT_INT1_MASK_CSR, irq_mask);
+		mt76_wr(dev, MT_INT1_MASK_CSR, dev->mt76.mmio.irqmask);
 		mt76_wr(dev, MT_INT1_SOURCE_CSR, ~0);
 	}
 	if (dev_is_pci(mdev->dev)) {
