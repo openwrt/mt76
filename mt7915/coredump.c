@@ -9,6 +9,7 @@
 
 static bool coredump_memdump;
 module_param(coredump_memdump, bool, 0644);
+MODULE_PARM_DESC(coredump_memdump, "Optional ability to dump firmware memory");
 
 static const struct mt7915_mem_region mt7915_mem_regions[] = {
 	{
