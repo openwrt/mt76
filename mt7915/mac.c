@@ -252,7 +252,6 @@ mt7915_wed_check_ppe(struct mt7915_dev *dev, struct mt76_queue *q,
 {
 	struct ieee80211_vif *vif;
 	struct wireless_dev *wdev;
-	u32 hash, reason;
 
 	if (!msta || !msta->vif)
 		return;
@@ -269,9 +268,9 @@ mt7915_wed_check_ppe(struct mt7915_dev *dev, struct mt76_queue *q,
 	wdev = ieee80211_vif_to_wdev(vif);
 	skb->dev = wdev->netdev;
 
-	reason = FIELD_GET(MT_DMA_PPE_CPU_REASON, info);
-	hash = FIELD_GET(MT_DMA_PPE_ENTRY, info);
-	mtk_wed_device_ppe_check(&dev->mt76.mmio.wed, skb, reason, hash);
+	mtk_wed_device_ppe_check(&dev->mt76.mmio.wed, skb,
+				 FIELD_GET(MT_DMA_PPE_CPU_REASON, info),
+				 FIELD_GET(MT_DMA_PPE_ENTRY, info));
 }
 
 static int
