@@ -3438,8 +3438,8 @@ mt7915_mcu_set_obss_spr_pd(struct mt7915_phy *phy,
 	if (he_obss_pd->sr_ctrl & IEEE80211_HE_SPR_SRG_INFORMATION_PRESENT)
 		req.param.pd_th_srg = max_th - he_obss_pd->max_offset;
 
-	req.param.obss_pd_min = 82;
-	req.param.obss_pd_min_srg = 82;
+	req.param.obss_pd_min = cpu_to_le16(82);
+	req.param.obss_pd_min_srg = cpu_to_le16(82);
 	req.param.txpwr_restrict_mode = 2;
 	req.param.txpwr_ref = 21;
 
