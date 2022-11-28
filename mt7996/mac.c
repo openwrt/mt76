@@ -1514,7 +1514,7 @@ bool mt7996_rx_check(struct mt76_dev *mdev, void *data, int len)
 }
 
 void mt7996_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
-			 struct sk_buff *skb)
+			 struct sk_buff *skb, u32 *info)
 {
 	struct mt7996_dev *dev = container_of(mdev, struct mt7996_dev, mt76);
 	__le32 *rxd = (__le32 *)skb->data;
