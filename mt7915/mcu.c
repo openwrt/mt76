@@ -3528,21 +3528,21 @@ int mt7915_mcu_add_obss_spr(struct mt7915_phy *phy, struct ieee80211_vif *vif,
 	if (ret)
 		return ret;
 
+	/* firmware dynamically adjusts PD threshold so skip manual control */
+	if (sr_scene_detect && !he_obss_pd->enable)
+		return 0;
+
 	/* enable spatial reuse */
 	ret = mt7915_mcu_enable_obss_spr(phy, SPR_ENABLE, he_obss_pd->enable);
 	if (ret)
 		return ret;
 
-	if (!he_obss_pd->enable)
+	if (sr_scene_detect || !he_obss_pd->enable)
 		return 0;
 
 	ret = mt7915_mcu_enable_obss_spr(phy, SPR_ENABLE_TX, true);
 	if (ret)
 		return ret;
-
-	/* firmware dynamically adjusts PD threshold so skip manual control */
-	if (sr_scene_detect)
-		return 0;
 
 	/* set SRG/non-SRG OBSS PD threshold */
 	ret = mt7915_mcu_set_obss_spr_pd(phy, he_obss_pd);
