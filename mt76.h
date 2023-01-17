@@ -413,6 +413,7 @@ enum {
 	MT76_STATE_SUSPEND,
 	MT76_STATE_ROC,
 	MT76_STATE_PM,
+	MT76_STATE_WED_RESET,
 };
 
 struct mt76_hw_cap {
@@ -591,6 +592,8 @@ struct mt76_mmio {
 	u32 irqmask;
 
 	struct mtk_wed_device wed;
+	struct completion wed_reset;
+	struct completion wed_reset_complete;
 };
 
 struct mt76_rx_status {
