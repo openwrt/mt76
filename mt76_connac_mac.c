@@ -823,6 +823,7 @@ void mt76_connac2_mac_decode_he_radiotap(struct mt76_dev *dev,
 			 HE_BITS(DATA2_TXOP_KNOWN),
 	};
 	u32 ltf_size = le32_get_bits(rxv[2], MT_CRXV_HE_LTF_SIZE) + 1;
+	u32 txbf_mask = is_mt7996(dev) ? BIT(11) : BIT(10);
 	struct ieee80211_radiotap_he *he;
 
 	status->flag |= RX_FLAG_RADIOTAP_HE;
@@ -836,7 +837,7 @@ void mt76_connac2_mac_decode_he_radiotap(struct mt76_dev *dev,
 	he->data5 = HE_PREP(DATA5_PE_DISAMBIG, PE_DISAMBIG, rxv[2]) |
 		    le16_encode_bits(ltf_size,
 				     IEEE80211_RADIOTAP_HE_DATA5_LTF_SIZE);
-	if (le32_to_cpu(rxv[0]) & MT_PRXV_TXBF)
+	if (le32_to_cpu(rxv[0]) & txbf_mask)
 		he->data5 |= HE_BITS(DATA5_TXBF);
 	he->data6 = HE_PREP(DATA6_TXOP, TXOP_DUR, rxv[14]) |
 		    HE_PREP(DATA6_DOPPLER, DOPPLER, rxv[14]);
