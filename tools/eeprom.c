@@ -220,7 +220,11 @@ mt76_eeprom_changes(void)
 
 	buf = malloc(EEPROM_PART_SIZE);
 	fseek(f, mtd_offset, SEEK_SET);
-	fread(buf, 1, EEPROM_PART_SIZE, f);
+	int result = fread(buf, 1, EEPROM_PART_SIZE, f);
+	if (!result) {
+		fprintf(stderr, "Cannot read from MTD device\n");
+		return 1;
+	}
 	for (i = 0; i < EEPROM_PART_SIZE; i++) {
 		if (buf[i] == eeprom_data[i])
 			continue;
