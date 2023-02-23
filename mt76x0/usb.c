@@ -13,6 +13,7 @@
 
 static struct usb_device_id mt76x0_device_table[] = {
 	{ USB_DEVICE(0x148F, 0x7610) },	/* MT7610U */
+	{ USB_DEVICE(0x0E8D, 0x7610) },	/* Alfa Networks TUBE-UAC2 */	
 	{ USB_DEVICE(0x13B1, 0x003E) },	/* Linksys AE6000 */
 	{ USB_DEVICE(0x0E8D, 0x7610) },	/* Sabrent NTWLAC */
 	{ USB_DEVICE(0x7392, 0xa711) },	/* Edimax 7711mac */
