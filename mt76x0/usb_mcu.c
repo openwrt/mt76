@@ -13,6 +13,15 @@
 #define MCU_FW_URB_MAX_PAYLOAD		0x38f8
 #define MCU_FW_URB_SIZE			(MCU_FW_URB_MAX_PAYLOAD + 12)
 
+/*
+ * patch - module prm - vnd_reset
+ * Some mt76x0 devices are unable to respond after vendor_reset is called,
+ * therefore adding this option to turn off reset. Usually the dongle loads OK if
+ * reset is bypassed.
+ */
+static int vnd_reset = 1;
+module_param(vnd_reset,int,0660);
+
 static int
 mt76x0u_upload_firmware(struct mt76x02_dev *dev,
 			const struct mt76x02_fw_header *hdr)
@@ -127,7 +136,11 @@ static int mt76x0u_load_firmware(struct mt76x02_dev *dev)
 	mt76_set(dev, MT_USB_DMA_CFG,
 		 (MT_USB_DMA_CFG_RX_BULK_EN | MT_USB_DMA_CFG_TX_BULK_EN) |
 		 FIELD_PREP(MT_USB_DMA_CFG_RX_BULK_AGG_TOUT, 0x20));
-	mt76x02u_mcu_fw_reset(dev);
+	
+	//	patch
+	if ( vnd_reset == 1 ){
+		mt76x02u_mcu_fw_reset(dev);
+	}
 	usleep_range(5000, 6000);
 
 	mt76_wr(dev, MT_FCE_PSE_CTRL, 1);
