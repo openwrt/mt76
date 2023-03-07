@@ -77,7 +77,9 @@ mt76_tx_status_unlock(struct mt76_dev *dev, struct sk_buff_head *list)
 		}
 
 		hw = mt76_tx_status_get_hw(dev, skb);
+		spin_lock(&dev->ieee80211_txrx_lock);
 		ieee80211_tx_status_ext(hw, &status);
+		spin_unlock(&dev->ieee80211_txrx_lock);
 	}
 	rcu_read_unlock();
 }
@@ -263,7 +265,9 @@ void __mt76_tx_complete_skb(struct mt76_dev *dev, u16 wcid_idx, struct sk_buff *
 	if (cb->pktid < MT_PACKET_ID_FIRST) {
 		hw = mt76_tx_status_get_hw(dev, skb);
 		status.sta = wcid_to_sta(wcid);
+		spin_lock(&dev->ieee80211_txrx_lock);
 		ieee80211_tx_status_ext(hw, &status);
+		spin_unlock(&dev->ieee80211_txrx_lock);
 		goto out;
 	}
 
@@ -348,6 +352,7 @@ mt76_tx(struct mt76_phy *phy, struct ieee80211_sta *sta,
 }
 EXPORT_SYMBOL_GPL(mt76_tx);
 
+/* Requires rcu_read_lock to protect return pointer */
 static struct sk_buff *
 mt76_txq_dequeue(struct mt76_phy *phy, struct mt76_txq *mtxq)
 {
@@ -394,6 +399,8 @@ mt76_release_buffered_frames(struct ieee80211_hw *hw, struct ieee80211_sta *sta,
 	int i;
 
 	spin_lock_bh(&hwq->lock);
+	/* begin protect: skb from mt76_txq_dequeue() */
+	rcu_read_lock();
 	for (i = 0; tids && nframes; i++, tids >>= 1) {
 		struct ieee80211_txq *txq = sta->txq[i];
 		struct mt76_txq *mtxq = (struct mt76_txq *)txq->drv_priv;
@@ -422,6 +429,8 @@ mt76_release_buffered_frames(struct ieee80211_hw *hw, struct ieee80211_sta *sta,
 		ieee80211_sta_eosp(sta);
 	}
 
+	/* end protect: skb from mt76_txq_dequeue() */
+	rcu_read_unlock();
 	spin_unlock_bh(&hwq->lock);
 }
 EXPORT_SYMBOL_GPL(mt76_release_buffered_frames);

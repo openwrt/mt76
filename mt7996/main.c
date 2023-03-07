@@ -225,6 +225,7 @@ static int mt7996_add_interface(struct ieee80211_hw *hw,
 	mt7996_mcu_add_bss_info(phy, vif, true);
 	mt7996_mcu_add_sta(dev, vif, NULL, true);
 	rcu_assign_pointer(dev->mt76.wcid[idx], &mvif->sta.wcid);
+	synchronize_rcu();
 
 out:
 	mutex_unlock(&dev->mt76.mutex);
@@ -251,6 +252,7 @@ static void mt7996_remove_interface(struct ieee80211_hw *hw,
 	mt7996_mcu_set_radio_en(phy, false);
 
 	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
+	synchronize_rcu();
 
 	mutex_lock(&dev->mt76.mutex);
 	dev->mt76.vif_mask &= ~BIT_ULL(mvif->mt76.idx);

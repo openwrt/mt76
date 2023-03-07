@@ -578,7 +578,9 @@ free:
 free_skb:
 	status.skb = tx_info.skb;
 	hw = mt76_tx_status_get_hw(dev, tx_info.skb);
+	spin_lock(&dev->ieee80211_txrx_lock);
 	ieee80211_tx_status_ext(hw, &status);
+	spin_unlock(&dev->ieee80211_txrx_lock);
 
 	return ret;
 }

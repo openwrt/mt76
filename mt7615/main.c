@@ -232,6 +232,7 @@ static int mt7615_add_interface(struct ieee80211_hw *hw,
 			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
 
 	rcu_assign_pointer(dev->mt76.wcid[idx], &mvif->sta.wcid);
+	synchronize_rcu();
 	if (vif->txq) {
 		mtxq = (struct mt76_txq *)vif->txq->drv_priv;
 		mtxq->wcid = idx;
@@ -267,6 +268,7 @@ static void mt7615_remove_interface(struct ieee80211_hw *hw,
 	mt7615_mcu_add_dev_info(phy, vif, false);
 
 	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
+	synchronize_rcu();
 
 	dev->mt76.vif_mask &= ~BIT_ULL(mvif->mt76.idx);
 	dev->omac_mask &= ~BIT_ULL(mvif->mt76.omac_idx);
@@ -693,11 +695,15 @@ static void mt7615_sta_rate_tbl_update(struct ieee80211_hw *hw,
 	struct mt7615_dev *dev = mt7615_hw_dev(hw);
 	struct mt7615_phy *phy = mt7615_hw_phy(hw);
 	struct mt7615_sta *msta = (struct mt7615_sta *)sta->drv_priv;
+	/* begin protect: sta_rates */
+	rcu_read_lock();
 	struct ieee80211_sta_rates *sta_rates = rcu_dereference(sta->rates);
 	int i;
 
-	if (!sta_rates)
+	if (!sta_rates) {
+		rcu_read_unlock();
 		return;
+	}
 
 	spin_lock_bh(&dev->mt76.lock);
 	for (i = 0; i < ARRAY_SIZE(msta->rates); i++) {
@@ -714,6 +720,8 @@ static void mt7615_sta_rate_tbl_update(struct ieee80211_hw *hw,
 		mt76_connac_pm_unref(phy->mt76, &dev->pm);
 	}
 	spin_unlock_bh(&dev->mt76.lock);
+	/* end protect: sta_rates */
+	rcu_read_unlock();
 }
 
 void mt7615_tx_worker(struct mt76_worker *w)

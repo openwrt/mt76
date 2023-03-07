@@ -634,6 +634,7 @@ mt76_alloc_device(struct device *pdev, unsigned int size,
 	spin_lock_init(&dev->cc_lock);
 	spin_lock_init(&dev->status_lock);
 	spin_lock_init(&dev->wed_lock);
+	spin_lock_init(&dev->ieee80211_txrx_lock);
 	mutex_init(&dev->mutex);
 	init_waitqueue_head(&dev->tx_wait);
 
@@ -1320,14 +1321,19 @@ void mt76_rx_complete(struct mt76_dev *dev, struct sk_buff_head *frames,
 	struct sk_buff *skb, *tmp;
 	LIST_HEAD(list);
 
-	spin_lock(&dev->rx_lock);
+	/* ieee80211_rx_list( ) requires bh to be disabled */
+	spin_lock_bh(&dev->rx_lock);
+	spin_lock_bh(&dev->ieee80211_txrx_lock);
 	while ((skb = __skb_dequeue(frames)) != NULL) {
 		struct sk_buff *nskb = skb_shinfo(skb)->frag_list;
 
 		mt76_check_ccmp_pn(skb);
 		skb_shinfo(skb)->frag_list = NULL;
 		mt76_rx_convert(dev, skb, &hw, &sta);
+		/* ieee80211_rx_list( ) requires rcu_read_lock, error on the side of caution even if caller already has a lock */
+		rcu_read_lock();
 		ieee80211_rx_list(hw, sta, skb, &list);
+		rcu_read_unlock();
 
 		/* subsequent amsdu frames */
 		while (nskb) {
@@ -1336,10 +1342,13 @@ void mt76_rx_complete(struct mt76_dev *dev, struct sk_buff_head *frames,
 			skb->next = NULL;
 
 			mt76_rx_convert(dev, skb, &hw, &sta);
+			rcu_read_lock();
 			ieee80211_rx_list(hw, sta, skb, &list);
+			rcu_read_unlock();
 		}
 	}
-	spin_unlock(&dev->rx_lock);
+	spin_unlock_bh(&dev->ieee80211_txrx_lock);
+	spin_unlock_bh(&dev->rx_lock);
 
 	if (!napi) {
 		netif_receive_skb_list(&list);
@@ -1402,6 +1411,7 @@ mt76_sta_add(struct mt76_phy *phy, struct ieee80211_vif *vif,
 		mt76_wcid_mask_set(dev->wcid_phy_mask, wcid->idx);
 	wcid->phy_idx = phy->band_idx;
 	rcu_assign_pointer(dev->wcid[wcid->idx], wcid);
+	synchronize_rcu();
 
 	mt76_packet_id_init(wcid);
 out:
@@ -1474,6 +1484,7 @@ void mt76_sta_pre_rcu_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	spin_lock_bh(&dev->status_lock);
 	rcu_assign_pointer(dev->wcid[wcid->idx], NULL);
 	spin_unlock_bh(&dev->status_lock);
+	synchronize_rcu();
 	mutex_unlock(&dev->mutex);
 }
 EXPORT_SYMBOL_GPL(mt76_sta_pre_rcu_remove);

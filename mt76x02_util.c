@@ -292,6 +292,7 @@ mt76x02_vif_init(struct mt76x02_dev *dev, struct ieee80211_vif *vif,
 
 	mtxq = (struct mt76_txq *)vif->txq->drv_priv;
 	rcu_assign_pointer(dev->mt76.wcid[MT_VIF_WCID(idx)], &mvif->group_wcid);
+	synchronize_rcu();
 	mtxq->wcid = MT_VIF_WCID(idx);
 }
 
@@ -346,6 +347,7 @@ void mt76x02_remove_interface(struct ieee80211_hw *hw,
 
 	dev->mt76.vif_mask &= ~BIT_ULL(mvif->idx);
 	rcu_assign_pointer(dev->mt76.wcid[mvif->group_wcid.idx], NULL);
+	synchronize_rcu();
 	mt76_packet_id_flush(&dev->mt76, &mvif->group_wcid);
 }
 EXPORT_SYMBOL_GPL(mt76x02_remove_interface);
@@ -581,15 +583,21 @@ void mt76x02_sta_rate_tbl_update(struct ieee80211_hw *hw,
 {
 	struct mt76x02_dev *dev = hw->priv;
 	struct mt76x02_sta *msta = (struct mt76x02_sta *)sta->drv_priv;
+	/* begin protect: rates */
+	rcu_read_lock();
 	struct ieee80211_sta_rates *rates = rcu_dereference(sta->rates);
 	struct ieee80211_tx_rate rate = {};
 
-	if (!rates)
+	if (!rates) {
+		rcu_read_unlock();
 		return;
+	}
 
 	rate.idx = rates->rate[0].idx;
 	rate.flags = rates->rate[0].flags;
 	mt76x02_mac_wcid_set_rate(dev, &msta->wcid, &rate);
+	/* end protect: rates */
+	rcu_read_unlock();
 }
 EXPORT_SYMBOL_GPL(mt76x02_sta_rate_tbl_update);
 

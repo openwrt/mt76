@@ -84,6 +84,7 @@ mt7615_mac_get_cipher(int cipher)
 	}
 }
 
+/* Requires rcu_read_lock to protect return pointer */
 static struct mt76_wcid *mt7615_rx_get_wcid(struct mt7615_dev *dev,
 					    u8 idx, bool unicast)
 {
@@ -381,6 +382,9 @@ static int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
 
 	unicast = (rxd1 & MT_RXD1_NORMAL_ADDR_TYPE) == MT_RXD1_NORMAL_U2M;
 	idx = FIELD_GET(MT_RXD2_NORMAL_WLAN_IDX, rxd2);
+
+	/* begin protect: status->wcid */
+	rcu_read_lock();
 	status->wcid = mt7615_rx_get_wcid(dev, idx, unicast);
 
 	if (status->wcid) {
@@ -412,8 +416,10 @@ static int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
 
 	remove_pad = rxd1 & MT_RXD1_NORMAL_HDR_OFFSET;
 
-	if (rxd2 & MT_RXD2_NORMAL_MAX_LEN_ERROR)
+	if (rxd2 & MT_RXD2_NORMAL_MAX_LEN_ERROR) {
+		rcu_read_unlock();
 		return -EINVAL;
+	}
 
 	rxd += 4;
 	if (rxd0 & MT_RXD0_NORMAL_GROUP_4) {
@@ -425,8 +431,10 @@ static int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
 		seq_ctrl = FIELD_GET(MT_RXD6_SEQ_CTRL, v2);
 
 		rxd += 4;
-		if ((u8 *)rxd - skb->data >= skb->len)
+		if ((u8 *)rxd - skb->data >= skb->len) {
+			rcu_read_unlock();
 			return -EINVAL;
+		}
 	}
 
 	if (rxd0 & MT_RXD0_NORMAL_GROUP_1) {
@@ -456,8 +464,10 @@ static int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
 			}
 		}
 		rxd += 4;
-		if ((u8 *)rxd - skb->data >= skb->len)
+		if ((u8 *)rxd - skb->data >= skb->len) {
+			rcu_read_unlock();
 			return -EINVAL;
+		}
 	}
 
 	if (rxd0 & MT_RXD0_NORMAL_GROUP_2) {
@@ -479,8 +489,10 @@ static int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
 		}
 
 		rxd += 2;
-		if ((u8 *)rxd - skb->data >= skb->len)
+		if ((u8 *)rxd - skb->data >= skb->len) {
+			rcu_read_unlock();
 			return -EINVAL;
+		}
 	}
 
 	if (rxd0 & MT_RXD0_NORMAL_GROUP_3) {
@@ -506,8 +518,10 @@ static int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
 		status->phy_idx = phy_idx;
 	}
 
-	if (!mt7615_firmware_offload(dev) && chfreq != phy->chfreq)
+	if (!mt7615_firmware_offload(dev) && chfreq != phy->chfreq) {
+		rcu_read_unlock();
 		return -EINVAL;
+	}
 
 	mt7615_get_status_freq_info(dev, mphy, status, chfreq);
 	if (status->band == NL80211_BAND_5GHZ)
@@ -515,11 +529,15 @@ static int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
 	else
 		sband = &mphy->sband_2g.sband;
 
-	if (!test_bit(MT76_STATE_RUNNING, &mphy->state))
+	if (!test_bit(MT76_STATE_RUNNING, &mphy->state)) {
+		rcu_read_unlock();
 		return -EINVAL;
+	}
 
-	if (!sband->channels)
+	if (!sband->channels) {
+		rcu_read_unlock();
 		return -EINVAL;
+	}
 
 	if (rxd0 & MT_RXD0_NORMAL_GROUP_3) {
 		u32 rxdg0 = le32_to_cpu(rxd[0]);
@@ -539,14 +557,17 @@ static int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
 		case MT_PHY_TYPE_HT_GF:
 		case MT_PHY_TYPE_HT:
 			status->encoding = RX_ENC_HT;
-			if (i > 31)
+			if (i > 31) {
+				rcu_read_unlock();
 				return -EINVAL;
+			}
 			break;
 		case MT_PHY_TYPE_VHT:
 			status->nss = FIELD_GET(MT_RXV2_NSTS, rxdg1) + 1;
 			status->encoding = RX_ENC_VHT;
 			break;
 		default:
+			rcu_read_unlock();
 			return -EINVAL;
 		}
 		status->rate_idx = i;
@@ -564,6 +585,7 @@ static int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
 			status->bw = RATE_INFO_BW_160;
 			break;
 		default:
+			rcu_read_unlock();
 			return -EINVAL;
 		}
 
@@ -583,8 +605,10 @@ static int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
 		mt7615_mac_fill_tm_rx(mphy->priv, rxd);
 
 		rxd += 6;
-		if ((u8 *)rxd - skb->data >= skb->len)
+		if ((u8 *)rxd - skb->data >= skb->len) {
+			rcu_read_unlock();
 			return -EINVAL;
+		}
 	}
 
 	amsdu_info = FIELD_GET(MT_RXD1_NORMAL_PAYLOAD_FORMAT, rxd1);
@@ -596,8 +620,10 @@ static int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
 
 	hdr_gap = (u8 *)rxd - skb->data + 2 * remove_pad;
 	if (hdr_trans && ieee80211_has_morefrags(fc)) {
-		if (mt7615_reverse_frag0_hdr_trans(skb, hdr_gap))
+		if (mt7615_reverse_frag0_hdr_trans(skb, hdr_gap)) {
+			rcu_read_unlock();
 			return -EINVAL;
+		}
 		hdr_trans = false;
 	} else {
 		int pad_start = 0;
@@ -644,8 +670,12 @@ static int mt7615_mac_fill_rx(struct mt7615_dev *dev, struct sk_buff *skb)
 		status->flag |= RX_FLAG_8023;
 	}
 
-	if (!status->wcid || !ieee80211_is_data_qos(fc))
+	if (!status->wcid || !ieee80211_is_data_qos(fc)) {
+		rcu_read_unlock();
 		return 0;
+	}
+	/* end protect: status->wcid */
+	rcu_read_unlock();
 
 	status->aggr = unicast &&
 		       !ieee80211_is_qos_nullfunc(fc);
@@ -1558,8 +1588,11 @@ static void mt7615_mac_add_txs(struct mt7615_dev *dev, void *data)
 	if (wcid->phy_idx && dev->mt76.phys[MT_BAND1])
 		mphy = dev->mt76.phys[MT_BAND1];
 
-	if (mt7615_fill_txs(dev, msta, &info, txs_data))
+	if (mt7615_fill_txs(dev, msta, &info, txs_data)) {
+		spin_lock(&dev->mt76.ieee80211_txrx_lock);
 		ieee80211_tx_status_noskb(mphy->hw, sta, &info);
+		spin_unlock(&dev->mt76.ieee80211_txrx_lock);
+	}
 
 out:
 	rcu_read_unlock();

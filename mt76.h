@@ -803,6 +803,9 @@ struct mt76_dev {
 	/* spinclock used to protect wcid pktid linked list */
 	spinlock_t status_lock;
 
+	/* spinlock to synchronize ieee80211_tx/rx mutually exclusive calls, such as ieee80211_rx( ) and ieee80211_tx_status( ) */
+	spinlock_t ieee80211_txrx_lock;
+
 	u32 wcid_mask[DIV_ROUND_UP(MT76_N_WCIDS, 32)];
 	u32 wcid_phy_mask[DIV_ROUND_UP(MT76_N_WCIDS, 32)];
 

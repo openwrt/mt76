@@ -470,6 +470,7 @@ void mt7603_mac_sta_poll(struct mt7603_dev *dev)
 	spin_unlock_bh(&dev->mt76.cc_lock);
 }
 
+/* Requires rcu_read_lock to protect return pointer */
 static struct mt76_wcid *
 mt7603_rx_get_wcid(struct mt7603_dev *dev, u8 idx, bool unicast)
 {
@@ -516,6 +517,8 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 	i >>= 1;
 
 	idx = FIELD_GET(MT_RXD2_NORMAL_WLAN_IDX, rxd2);
+	/* begin protect: status->wcid */
+	rcu_read_lock();
 	status->wcid = mt7603_rx_get_wcid(dev, idx, unicast);
 
 	status->band = sband->band;
@@ -541,17 +544,23 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 
 	remove_pad = rxd1 & MT_RXD1_NORMAL_HDR_OFFSET;
 
-	if (rxd2 & MT_RXD2_NORMAL_MAX_LEN_ERROR)
+	if (rxd2 & MT_RXD2_NORMAL_MAX_LEN_ERROR) {
+		rcu_read_unlock();
 		return -EINVAL;
+	}
 
-	if (!sband->channels)
+	if (!sband->channels) {
+		rcu_read_unlock();
 		return -EINVAL;
+	}
 
 	rxd += 4;
 	if (rxd0 & MT_RXD0_NORMAL_GROUP_4) {
 		rxd += 4;
-		if ((u8 *)rxd - skb->data >= skb->len)
+		if ((u8 *)rxd - skb->data >= skb->len) {
+			rcu_read_unlock();
 			return -EINVAL;
+		}
 	}
 	if (rxd0 & MT_RXD0_NORMAL_GROUP_1) {
 		u8 *data = (u8 *)rxd;
@@ -581,8 +590,10 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 		}
 
 		rxd += 4;
-		if ((u8 *)rxd - skb->data >= skb->len)
+		if ((u8 *)rxd - skb->data >= skb->len) {
+			rcu_read_unlock();
 			return -EINVAL;
+		}
 	}
 	if (rxd0 & MT_RXD0_NORMAL_GROUP_2) {
 		status->timestamp = le32_to_cpu(rxd[0]);
@@ -603,8 +614,10 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 		}
 
 		rxd += 2;
-		if ((u8 *)rxd - skb->data >= skb->len)
+		if ((u8 *)rxd - skb->data >= skb->len) {
+			rcu_read_unlock();
 			return -EINVAL;
+		}
 	}
 	if (rxd0 & MT_RXD0_NORMAL_GROUP_3) {
 		u32 rxdg0 = le32_to_cpu(rxd[0]);
@@ -622,10 +635,13 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 		case MT_PHY_TYPE_HT_GF:
 		case MT_PHY_TYPE_HT:
 			status->encoding = RX_ENC_HT;
-			if (i > 15)
+			if (i > 15) {
+				rcu_read_unlock();
 				return -EINVAL;
+			}
 			break;
 		default:
+			rcu_read_unlock();
 			return -EINVAL;
 		}
 
@@ -649,9 +665,12 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 			status->bw = RATE_INFO_BW_40;
 
 		rxd += 6;
-		if ((u8 *)rxd - skb->data >= skb->len)
+		if ((u8 *)rxd - skb->data >= skb->len) {
+			rcu_read_unlock();
 			return -EINVAL;
+		}
 	} else {
+		rcu_read_unlock();
 		return -EINVAL;
 	}
 
@@ -664,8 +683,12 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 	}
 
 	hdr = (struct ieee80211_hdr *)skb->data;
-	if (!status->wcid || !ieee80211_is_data_qos(hdr->frame_control))
+	if (!status->wcid || !ieee80211_is_data_qos(hdr->frame_control)) {
+		rcu_read_unlock();
 		return 0;
+	}
+	/* end protect: status->wcid */
+	rcu_read_unlock();
 
 	status->aggr = unicast &&
 		       !ieee80211_is_qos_nullfunc(hdr->frame_control);
@@ -1279,8 +1302,11 @@ void mt7603_mac_add_txs(struct mt7603_dev *dev, void *data)
 	if (wcidx >= MT7603_WTBL_STA || !sta)
 		goto out;
 
-	if (mt7603_fill_txs(dev, msta, &info, txs_data))
+	if (mt7603_fill_txs(dev, msta, &info, txs_data)) {
+		spin_lock(&dev->ieee80211_txrx_lock);
 		ieee80211_tx_status_noskb(mt76_hw(dev), sta, &info);
+		spin_unlock(&dev->ieee80211_txrx_lock);
+	}
 
 out:
 	rcu_read_unlock();

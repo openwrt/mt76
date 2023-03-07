@@ -77,6 +77,7 @@ mt7603_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	mtxq = (struct mt76_txq *)vif->txq->drv_priv;
 	mtxq->wcid = idx;
 	rcu_assign_pointer(dev->mt76.wcid[idx], &mvif->sta.wcid);
+	synchronize_rcu();
 
 out:
 	mutex_unlock(&dev->mt76.mutex);
@@ -99,6 +100,7 @@ mt7603_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	mt7603_beacon_set_timer(dev, mvif->idx, 0);
 
 	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
+	synchronize_rcu();
 
 	spin_lock_bh(&dev->sta_poll_lock);
 	if (!list_empty(&msta->poll_list))
@@ -639,11 +641,15 @@ mt7603_sta_rate_tbl_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 {
 	struct mt7603_dev *dev = hw->priv;
 	struct mt7603_sta *msta = (struct mt7603_sta *)sta->drv_priv;
+	/* begin protect: sta_rates */
+	rcu_read_lock();
 	struct ieee80211_sta_rates *sta_rates = rcu_dereference(sta->rates);
 	int i;
 
-	if (!sta_rates)
+	if (!sta_rates) {
+		rcu_read_unlock();
 		return;
+	}
 
 	spin_lock_bh(&dev->mt76.lock);
 	for (i = 0; i < ARRAY_SIZE(msta->rates); i++) {
@@ -660,6 +666,8 @@ mt7603_sta_rate_tbl_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	mt7603_wtbl_set_smps(dev, msta,
 			     sta->deflink.smps_mode == IEEE80211_SMPS_DYNAMIC);
 	spin_unlock_bh(&dev->mt76.lock);
+	/* end protect: sta_rates */
+	rcu_read_unlock();
 }
 
 static void

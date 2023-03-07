@@ -37,9 +37,13 @@ mt7603_rx_loopback_skb(struct mt7603_dev *dev, struct sk_buff *skb)
 	if (idx >= MT7603_WTBL_STA - 1)
 		goto free;
 
+	/* begin protect: wcid */
+	rcu_read_lock();
 	wcid = rcu_dereference(dev->mt76.wcid[idx]);
-	if (!wcid)
+	if (!wcid) {
+		rcu_read_unlock();
 		goto free;
+	}
 
 	priv = msta = container_of(wcid, struct mt7603_sta, wcid);
 	val = le32_to_cpu(txd[0]);
@@ -62,6 +66,8 @@ mt7603_rx_loopback_skb(struct mt7603_dev *dev, struct sk_buff *skb)
 		dev_kfree_skb(skb);
 	}
 	spin_unlock_bh(&dev->ps_lock);
+	/* end protect: wcid */
+	rcu_read_unlock();
 	return;
 
 free:

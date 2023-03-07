@@ -449,6 +449,7 @@ static int mt7996_init_hardware(struct mt7996_dev *dev)
 	dev->mt76.global_wcid.hw_key_idx = -1;
 	dev->mt76.global_wcid.tx_info |= MT_WCID_TX_INFO_SET;
 	rcu_assign_pointer(dev->mt76.wcid[idx], &dev->mt76.global_wcid);
+	synchronize_rcu();
 
 	return 0;
 }

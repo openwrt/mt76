@@ -50,6 +50,7 @@ static const struct mt7915_dfs_radar_spec jp_radar_specs = {
 	},
 };
 
+/* Requires rcu_read_lock to protect return pointer */
 static struct mt76_wcid *mt7915_rx_get_wcid(struct mt7915_dev *dev,
 					    u16 idx, bool unicast)
 {
@@ -326,6 +327,8 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 
 	unicast = FIELD_GET(MT_RXD3_NORMAL_ADDR_TYPE, rxd3) == MT_RXD3_NORMAL_U2M;
 	idx = FIELD_GET(MT_RXD1_NORMAL_WLAN_IDX, rxd1);
+	/* begin protect: status->wcid */
+	rcu_read_lock();
 	status->wcid = mt7915_rx_get_wcid(dev, idx, unicast);
 
 	if (status->wcid) {
@@ -345,8 +348,10 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 	else
 		sband = &mphy->sband_2g.sband;
 
-	if (!sband->channels)
+	if (!sband->channels) {
+		rcu_read_unlock();
 		return -EINVAL;
+	}
 
 	if ((rxd0 & csum_mask) == csum_mask &&
 	    !(csum_status & (BIT(0) | BIT(2) | BIT(3))))
@@ -367,8 +372,10 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 
 	remove_pad = FIELD_GET(MT_RXD2_NORMAL_HDR_OFFSET, rxd2);
 
-	if (rxd2 & MT_RXD2_NORMAL_MAX_LEN_ERROR)
+	if (rxd2 & MT_RXD2_NORMAL_MAX_LEN_ERROR) {
+		rcu_read_unlock();
 		return -EINVAL;
+	}
 
 	rxd += 6;
 	if (rxd1 & MT_RXD1_NORMAL_GROUP_4) {
@@ -380,8 +387,10 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 		seq_ctrl = FIELD_GET(MT_RXD8_SEQ_CTRL, v2);
 
 		rxd += 4;
-		if ((u8 *)rxd - skb->data >= skb->len)
+		if ((u8 *)rxd - skb->data >= skb->len) {
+			rcu_read_unlock();
 			return -EINVAL;
+		}
 	}
 
 	if (rxd1 & MT_RXD1_NORMAL_GROUP_1) {
@@ -411,8 +420,10 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 			}
 		}
 		rxd += 4;
-		if ((u8 *)rxd - skb->data >= skb->len)
+		if ((u8 *)rxd - skb->data >= skb->len) {
+			rcu_read_unlock();
 			return -EINVAL;
+		}
 	}
 
 	if (rxd1 & MT_RXD1_NORMAL_GROUP_2) {
@@ -433,8 +444,10 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 		}
 
 		rxd += 2;
-		if ((u8 *)rxd - skb->data >= skb->len)
+		if ((u8 *)rxd - skb->data >= skb->len) {
+			rcu_read_unlock();
 			return -EINVAL;
+		}
 	}
 
 	/* RXD Group 3 - P-RXV */
@@ -444,8 +457,10 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 
 		rxv = rxd;
 		rxd += 2;
-		if ((u8 *)rxd - skb->data >= skb->len)
+		if ((u8 *)rxd - skb->data >= skb->len) {
+			rcu_read_unlock();
 			return -EINVAL;
+		}
 
 		v0 = le32_to_cpu(rxv[0]);
 		v1 = le32_to_cpu(rxv[1]);
@@ -462,15 +477,19 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 		/* RXD Group 5 - C-RXV */
 		if (rxd1 & MT_RXD1_NORMAL_GROUP_5) {
 			rxd += 18;
-			if ((u8 *)rxd - skb->data >= skb->len)
+			if ((u8 *)rxd - skb->data >= skb->len) {
+				rcu_read_unlock();
 				return -EINVAL;
+			}
 		}
 
 		if (!is_mt7915(&dev->mt76) || (rxd1 & MT_RXD1_NORMAL_GROUP_5)) {
 			ret = mt76_connac2_mac_fill_rx_rate(&dev->mt76, status,
 							    sband, rxv, &mode);
-			if (ret < 0)
+			if (ret < 0) {
+				rcu_read_unlock();
 				return ret;
+			}
 		}
 	}
 
@@ -486,14 +505,18 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 		struct ieee80211_vif *vif;
 		int err;
 
-		if (!msta || !msta->vif)
+		if (!msta || !msta->vif) {
+			rcu_read_unlock();
 			return -EINVAL;
+		}
 
 		vif = container_of((void *)msta->vif, struct ieee80211_vif,
 				   drv_priv);
 		err = mt76_connac2_reverse_frag0_hdr_trans(vif, skb, hdr_gap);
-		if (err)
+		if (err) {
+			rcu_read_unlock();
 			return err;
+		}
 
 		hdr_trans = false;
 	} else {
@@ -548,8 +571,13 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 	if (rxv && mode >= MT_PHY_TYPE_HE_SU && !(status->flag & RX_FLAG_8023))
 		mt76_connac2_mac_decode_he_radiotap(&dev->mt76, skb, rxv, mode);
 
-	if (!status->wcid || !ieee80211_is_data_qos(fc))
+	if (!status->wcid || !ieee80211_is_data_qos(fc)) {
+		rcu_read_unlock();
 		return 0;
+	}
+
+	/* end protect: status->wcid */
+	rcu_read_unlock();
 
 	status->aggr = unicast &&
 		       !ieee80211_is_qos_nullfunc(fc);
@@ -890,6 +918,8 @@ mt7915_txwi_free(struct mt7915_dev *dev, struct mt76_txwi_cache *t,
 		wcid_idx = wcid->idx;
 	} else {
 		wcid_idx = le32_get_bits(txwi[1], MT_TXD1_WLAN_IDX);
+		/* begin protect: wcid */
+		rcu_read_lock();
 		wcid = rcu_dereference(dev->mt76.wcid[wcid_idx]);
 
 		if (wcid && wcid->sta) {
@@ -901,6 +931,8 @@ mt7915_txwi_free(struct mt7915_dev *dev, struct mt76_txwi_cache *t,
 				list_add_tail(&msta->poll_list, &dev->sta_poll_list);
 			spin_unlock_bh(&dev->sta_poll_lock);
 		}
+		/* end protect: wcid */
+		rcu_read_unlock();
 	}
 
 	if (sta && likely(t->skb->protocol != cpu_to_be16(ETH_P_PAE)))
@@ -985,16 +1017,22 @@ mt7915_mac_tx_free(struct mt7915_dev *dev, void *data, int len)
 			u16 idx;
 
 			idx = FIELD_GET(MT_TX_FREE_WLAN_ID, info);
+			/* begin protect: wcid */
+			rcu_read_lock();
 			wcid = rcu_dereference(dev->mt76.wcid[idx]);
 			sta = wcid_to_sta(wcid);
-			if (!sta)
+			if (!sta) {
+				rcu_read_unlock();
 				continue;
+			}
 
 			msta = container_of(wcid, struct mt7915_sta, wcid);
 			spin_lock_bh(&dev->sta_poll_lock);
 			if (list_empty(&msta->poll_list))
 				list_add_tail(&msta->poll_list, &dev->sta_poll_list);
 			spin_unlock_bh(&dev->sta_poll_lock);
+			/* end protect: wcid */
+			rcu_read_unlock();
 			continue;
 		}
 
