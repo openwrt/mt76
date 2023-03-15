@@ -947,9 +947,11 @@ void mt7615_mac_sta_poll(struct mt7615_dev *dev)
 	while (!list_empty(&sta_poll_list)) {
 		bool clear = false;
 
+		spin_lock_bh(&dev->sta_poll_lock);
 		msta = list_first_entry(&sta_poll_list, struct mt7615_sta,
 					poll_list);
 		list_del_init(&msta->poll_list);
+		spin_unlock_bh(&dev->sta_poll_lock);
 
 		addr = mt7615_mac_wtbl_addr(dev, msta->wcid.idx) + 19 * 4;
 

@@ -123,12 +123,15 @@ static void mt7915_mac_sta_poll(struct mt7915_dev *dev)
 		s8 rssi[4];
 		u8 bw;
 
-		msta = list_first_entry_or_null(&sta_poll_list,
-					struct mt7915_sta, poll_list);
-		if (!msta)
+		spin_lock_bh(&dev->sta_poll_lock);
+		if (list_empty(&sta_poll_list)) {
+			spin_unlock_bh(&dev->sta_poll_lock);
 			break;
-
+		}
+		msta = list_first_entry(&sta_poll_list,
+					struct mt7915_sta, poll_list);
 		list_del_init(&msta->poll_list);
+		spin_unlock_bh(&dev->sta_poll_lock);
 
 		idx = msta->wcid.idx;
 
@@ -2032,13 +2035,13 @@ void mt7915_mac_sta_rc_work(struct work_struct *work)
 
 	spin_lock_bh(&dev->sta_poll_lock);
 	list_splice_init(&dev->sta_rc_list, &list);
-	spin_unlock_bh(&dev->sta_poll_lock);
 
 	while (!list_empty(&list)) {
 		msta = list_first_entry(&list, struct mt7915_sta, rc_list);
 		list_del_init(&msta->rc_list);
 		changed = msta->changed;
 		msta->changed = 0;
+		spin_unlock_bh(&dev->sta_poll_lock);
 
 		sta = container_of((void *)msta, struct ieee80211_sta, drv_priv);
 		vif = container_of((void *)msta->vif, struct ieee80211_vif, drv_priv);
@@ -2050,7 +2053,9 @@ void mt7915_mac_sta_rc_work(struct work_struct *work)
 
 		if (changed & IEEE80211_RC_SMPS_CHANGED)
 			mt7915_mcu_add_smps(dev, vif, sta);
+		spin_lock_bh(&dev->sta_poll_lock);
 	}
+	spin_unlock_bh(&dev->sta_poll_lock);
 }
 
 void mt7915_mac_work(struct work_struct *work)
