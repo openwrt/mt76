@@ -50,7 +50,7 @@ static const struct mt7915_dfs_radar_spec jp_radar_specs = {
 	},
 };
 
-/* Requires rcu_read_lock to protect return pointer */
+/* Requirement: must be called under RCU read lock */
 static struct mt76_wcid *mt7915_rx_get_wcid(struct mt7915_dev *dev,
 					    u16 idx, bool unicast)
 {
@@ -123,15 +123,12 @@ static void mt7915_mac_sta_poll(struct mt7915_dev *dev)
 		s8 rssi[4];
 		u8 bw;
 
-		spin_lock_bh(&dev->sta_poll_lock);
-		if (list_empty(&sta_poll_list)) {
-			spin_unlock_bh(&dev->sta_poll_lock);
-			break;
-		}
-		msta = list_first_entry(&sta_poll_list,
+		msta = list_first_entry_or_null(&sta_poll_list,
 					struct mt7915_sta, poll_list);
+		if (!msta)
+			break;
+
 		list_del_init(&msta->poll_list);
-		spin_unlock_bh(&dev->sta_poll_lock);
 
 		idx = msta->wcid.idx;
 
@@ -273,6 +270,7 @@ mt7915_wed_check_ppe(struct mt7915_dev *dev, struct mt76_queue *q,
 				 FIELD_GET(MT_DMA_PPE_ENTRY, info));
 }
 
+/* Requirement: must be called under RCU read lock */
 static int
 mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 		   enum mt76_rxq_id q, u32 *info)
@@ -327,12 +325,12 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 
 	unicast = FIELD_GET(MT_RXD3_NORMAL_ADDR_TYPE, rxd3) == MT_RXD3_NORMAL_U2M;
 	idx = FIELD_GET(MT_RXD1_NORMAL_WLAN_IDX, rxd1);
-	/* begin protect: status->wcid */
-	rcu_read_lock();
+
 	status->wcid = mt7915_rx_get_wcid(dev, idx, unicast);
 
 	if (status->wcid) {
 		msta = container_of(status->wcid, struct mt7915_sta, wcid);
+
 		spin_lock_bh(&dev->sta_poll_lock);
 		if (list_empty(&msta->poll_list))
 			list_add_tail(&msta->poll_list, &dev->sta_poll_list);
@@ -348,10 +346,8 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 	else
 		sband = &mphy->sband_2g.sband;
 
-	if (!sband->channels) {
-		rcu_read_unlock();
+	if (!sband->channels)
 		return -EINVAL;
-	}
 
 	if ((rxd0 & csum_mask) == csum_mask &&
 	    !(csum_status & (BIT(0) | BIT(2) | BIT(3))))
@@ -372,10 +368,8 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 
 	remove_pad = FIELD_GET(MT_RXD2_NORMAL_HDR_OFFSET, rxd2);
 
-	if (rxd2 & MT_RXD2_NORMAL_MAX_LEN_ERROR) {
-		rcu_read_unlock();
+	if (rxd2 & MT_RXD2_NORMAL_MAX_LEN_ERROR)
 		return -EINVAL;
-	}
 
 	rxd += 6;
 	if (rxd1 & MT_RXD1_NORMAL_GROUP_4) {
@@ -387,10 +381,8 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 		seq_ctrl = FIELD_GET(MT_RXD8_SEQ_CTRL, v2);
 
 		rxd += 4;
-		if ((u8 *)rxd - skb->data >= skb->len) {
-			rcu_read_unlock();
+		if ((u8 *)rxd - skb->data >= skb->len)
 			return -EINVAL;
-		}
 	}
 
 	if (rxd1 & MT_RXD1_NORMAL_GROUP_1) {
@@ -420,10 +412,8 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 			}
 		}
 		rxd += 4;
-		if ((u8 *)rxd - skb->data >= skb->len) {
-			rcu_read_unlock();
+		if ((u8 *)rxd - skb->data >= skb->len)
 			return -EINVAL;
-		}
 	}
 
 	if (rxd1 & MT_RXD1_NORMAL_GROUP_2) {
@@ -444,10 +434,8 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 		}
 
 		rxd += 2;
-		if ((u8 *)rxd - skb->data >= skb->len) {
-			rcu_read_unlock();
+		if ((u8 *)rxd - skb->data >= skb->len)
 			return -EINVAL;
-		}
 	}
 
 	/* RXD Group 3 - P-RXV */
@@ -457,10 +445,8 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 
 		rxv = rxd;
 		rxd += 2;
-		if ((u8 *)rxd - skb->data >= skb->len) {
-			rcu_read_unlock();
+		if ((u8 *)rxd - skb->data >= skb->len)
 			return -EINVAL;
-		}
 
 		v0 = le32_to_cpu(rxv[0]);
 		v1 = le32_to_cpu(rxv[1]);
@@ -477,19 +463,15 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 		/* RXD Group 5 - C-RXV */
 		if (rxd1 & MT_RXD1_NORMAL_GROUP_5) {
 			rxd += 18;
-			if ((u8 *)rxd - skb->data >= skb->len) {
-				rcu_read_unlock();
+			if ((u8 *)rxd - skb->data >= skb->len)
 				return -EINVAL;
-			}
 		}
 
 		if (!is_mt7915(&dev->mt76) || (rxd1 & MT_RXD1_NORMAL_GROUP_5)) {
 			ret = mt76_connac2_mac_fill_rx_rate(&dev->mt76, status,
 							    sband, rxv, &mode);
-			if (ret < 0) {
-				rcu_read_unlock();
+			if (ret < 0)
 				return ret;
-			}
 		}
 	}
 
@@ -505,18 +487,14 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 		struct ieee80211_vif *vif;
 		int err;
 
-		if (!msta || !msta->vif) {
-			rcu_read_unlock();
+		if (!msta || !msta->vif)
 			return -EINVAL;
-		}
 
 		vif = container_of((void *)msta->vif, struct ieee80211_vif,
 				   drv_priv);
 		err = mt76_connac2_reverse_frag0_hdr_trans(vif, skb, hdr_gap);
-		if (err) {
-			rcu_read_unlock();
+		if (err)
 			return err;
-		}
 
 		hdr_trans = false;
 	} else {
@@ -571,13 +549,8 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 	if (rxv && mode >= MT_PHY_TYPE_HE_SU && !(status->flag & RX_FLAG_8023))
 		mt76_connac2_mac_decode_he_radiotap(&dev->mt76, skb, rxv, mode);
 
-	if (!status->wcid || !ieee80211_is_data_qos(fc)) {
-		rcu_read_unlock();
+	if (!status->wcid || !ieee80211_is_data_qos(fc))
 		return 0;
-	}
-
-	/* end protect: status->wcid */
-	rcu_read_unlock();
 
 	status->aggr = unicast &&
 		       !ieee80211_is_qos_nullfunc(fc);
@@ -926,6 +899,7 @@ mt7915_txwi_free(struct mt7915_dev *dev, struct mt76_txwi_cache *t,
 			msta = container_of(wcid, struct mt7915_sta, wcid);
 			sta = container_of((void *)msta, struct ieee80211_sta,
 					  drv_priv);
+
 			spin_lock_bh(&dev->sta_poll_lock);
 			if (list_empty(&msta->poll_list))
 				list_add_tail(&msta->poll_list, &dev->sta_poll_list);
@@ -1027,12 +1001,15 @@ mt7915_mac_tx_free(struct mt7915_dev *dev, void *data, int len)
 			}
 
 			msta = container_of(wcid, struct mt7915_sta, wcid);
+
 			spin_lock_bh(&dev->sta_poll_lock);
 			if (list_empty(&msta->poll_list))
 				list_add_tail(&msta->poll_list, &dev->sta_poll_list);
 			spin_unlock_bh(&dev->sta_poll_lock);
+
 			/* end protect: wcid */
 			rcu_read_unlock();
+
 			continue;
 		}
 
@@ -1107,8 +1084,8 @@ static void mt7915_mac_add_txs(struct mt7915_dev *dev, void *data)
 	if (wcidx >= mt7915_wtbl_size(dev))
 		return;
 
+	/* begin protect: wcid */
 	rcu_read_lock();
-
 	wcid = rcu_dereference(dev->mt76.wcid[wcidx]);
 	if (!wcid)
 		goto out;
@@ -1129,6 +1106,7 @@ static void mt7915_mac_add_txs(struct mt7915_dev *dev, void *data)
 	spin_unlock_bh(&dev->sta_poll_lock);
 
 out:
+	/* end protect: wcid */
 	rcu_read_unlock();
 }
 
@@ -2054,13 +2032,13 @@ void mt7915_mac_sta_rc_work(struct work_struct *work)
 
 	spin_lock_bh(&dev->sta_poll_lock);
 	list_splice_init(&dev->sta_rc_list, &list);
+	spin_unlock_bh(&dev->sta_poll_lock);
 
 	while (!list_empty(&list)) {
 		msta = list_first_entry(&list, struct mt7915_sta, rc_list);
 		list_del_init(&msta->rc_list);
 		changed = msta->changed;
 		msta->changed = 0;
-		spin_unlock_bh(&dev->sta_poll_lock);
 
 		sta = container_of((void *)msta, struct ieee80211_sta, drv_priv);
 		vif = container_of((void *)msta->vif, struct ieee80211_vif, drv_priv);
@@ -2072,11 +2050,7 @@ void mt7915_mac_sta_rc_work(struct work_struct *work)
 
 		if (changed & IEEE80211_RC_SMPS_CHANGED)
 			mt7915_mcu_add_smps(dev, vif, sta);
-
-		spin_lock_bh(&dev->sta_poll_lock);
 	}
-
-	spin_unlock_bh(&dev->sta_poll_lock);
 }
 
 void mt7915_mac_work(struct work_struct *work)
@@ -2291,6 +2265,8 @@ static u64
 mt7915_mac_twt_sched_list_add(struct mt7915_dev *dev,
 			      struct mt7915_twt_flow *flow)
 {
+	lockdep_assert_held(&dev->mt76.mutex);
+
 	struct mt7915_twt_flow *iter, *iter_next;
 	u32 duration = flow->duration << 8;
 	u64 start_tsf;

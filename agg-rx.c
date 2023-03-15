@@ -305,9 +305,8 @@ void mt76_rx_aggr_stop(struct mt76_dev *dev, struct mt76_wcid *wcid, u8 tidno)
 
 	tid = rcu_replace_pointer(wcid->aggr[tidno], tid,
 				  lockdep_is_held(&dev->mutex));
-	synchronize_rcu();
-
 	if (tid) {
+		synchronize_rcu();
 		mt76_rx_aggr_shutdown(dev, tid);
 		kfree_rcu(tid, rcu_head);
 	}

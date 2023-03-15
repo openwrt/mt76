@@ -262,7 +262,7 @@ void __mt76_tx_complete_skb(struct mt76_dev *dev, u16 wcid_idx, struct sk_buff *
 	}
 #endif
 
-	if (cb->pktid < MT_PACKET_ID_FIRST) {
+	if (wcid && cb->pktid < MT_PACKET_ID_FIRST) {
 		hw = mt76_tx_status_get_hw(dev, skb);
 		status.sta = wcid_to_sta(wcid);
 		spin_lock(&dev->ieee80211_txrx_lock);
@@ -508,6 +508,7 @@ mt76_txq_send_burst(struct mt76_phy *phy, struct mt76_queue *q,
 	return n_frames;
 }
 
+/* Requirement: must be called under RCU read lock */
 static int
 mt76_txq_schedule_list(struct mt76_phy *phy, enum mt76_txq_id qid)
 {

@@ -1155,6 +1155,7 @@ skip_hdr_check:
 		status->flag |= RX_FLAG_PN_VALIDATED;
 }
 
+/* Requirements: must be called under RCU read lock */
 static void
 mt76_airtime_report(struct mt76_dev *dev, struct mt76_rx_status *status,
 		    int len)
@@ -1184,6 +1185,7 @@ mt76_airtime_report(struct mt76_dev *dev, struct mt76_rx_status *status,
 	ieee80211_sta_register_airtime(sta, tidno, 0, airtime);
 }
 
+/* Requirements: must be called under RCU read lock */
 static void
 mt76_airtime_flush_ampdu(struct mt76_dev *dev)
 {
@@ -1206,6 +1208,7 @@ mt76_airtime_flush_ampdu(struct mt76_dev *dev)
 	dev->rx_ampdu_ref = 0;
 }
 
+/* Requirements: must be called under RCU read lock */
 static void
 mt76_airtime_check(struct mt76_dev *dev, struct sk_buff *skb)
 {
@@ -1246,6 +1249,7 @@ mt76_airtime_check(struct mt76_dev *dev, struct sk_buff *skb)
 	mt76_airtime_report(dev, status, skb->len);
 }
 
+/* Requirements: must be called under RCU read lock */
 static void
 mt76_check_sta(struct mt76_dev *dev, struct sk_buff *skb)
 {
@@ -1330,6 +1334,7 @@ void mt76_rx_complete(struct mt76_dev *dev, struct sk_buff_head *frames,
 		mt76_check_ccmp_pn(skb);
 		skb_shinfo(skb)->frag_list = NULL;
 		mt76_rx_convert(dev, skb, &hw, &sta);
+
 		/* ieee80211_rx_list( ) requires rcu_read_lock, error on the side of caution even if caller already has a lock */
 		rcu_read_lock();
 		ieee80211_rx_list(hw, sta, skb, &list);
@@ -1361,6 +1366,7 @@ void mt76_rx_complete(struct mt76_dev *dev, struct sk_buff_head *frames,
 	}
 }
 
+/* Requirements: must be called under RCU read lock */
 void mt76_rx_poll_complete(struct mt76_dev *dev, enum mt76_rxq_id q,
 			   struct napi_struct *napi)
 {
@@ -1411,7 +1417,6 @@ mt76_sta_add(struct mt76_phy *phy, struct ieee80211_vif *vif,
 		mt76_wcid_mask_set(dev->wcid_phy_mask, wcid->idx);
 	wcid->phy_idx = phy->band_idx;
 	rcu_assign_pointer(dev->wcid[wcid->idx], wcid);
-	synchronize_rcu();
 
 	mt76_packet_id_init(wcid);
 out:
@@ -1443,9 +1448,6 @@ static void
 mt76_sta_remove(struct mt76_dev *dev, struct ieee80211_vif *vif,
 		struct ieee80211_sta *sta)
 {
-	mutex_lock(&dev->mutex);
-	__mt76_sta_remove(dev, vif, sta);
-	mutex_unlock(&dev->mutex);
 }
 
 int mt76_sta_state(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
@@ -1481,11 +1483,19 @@ void mt76_sta_pre_rcu_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct mt76_wcid *wcid = (struct mt76_wcid *)sta->drv_priv;
 
 	mutex_lock(&dev->mutex);
+	__mt76_sta_remove(dev, vif, sta);
+	//mutex_unlock(&dev->mutex);
+
+	//mutex_lock(&dev->mutex);
 	spin_lock_bh(&dev->status_lock);
 	rcu_assign_pointer(dev->wcid[wcid->idx], NULL);
 	spin_unlock_bh(&dev->status_lock);
-	synchronize_rcu();
 	mutex_unlock(&dev->mutex);
+
+	/* wait for any RCU read locks possibly accessing the sta pointer */
+	synchronize_rcu();
+
+	dev_info(dev->dev, "done sta_remove=0x%p\n", sta);
 }
 EXPORT_SYMBOL_GPL(mt76_sta_pre_rcu_remove);
 

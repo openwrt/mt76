@@ -798,6 +798,7 @@ mt76_add_fragment(struct mt76_dev *dev, struct mt76_queue *q, void *data,
 		dev_kfree_skb(skb);
 }
 
+/* Requirement: must be called under RCU read lock */
 static int
 mt76_dma_rx_process(struct mt76_dev *dev, struct mt76_queue *q, int budget)
 {
