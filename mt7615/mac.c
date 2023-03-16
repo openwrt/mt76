@@ -942,12 +942,10 @@ void mt7615_mac_sta_poll(struct mt7615_dev *dev)
 	INIT_LIST_HEAD(&sta_poll_list);
 	spin_lock_bh(&dev->sta_poll_lock);
 	list_splice_init(&dev->sta_poll_list, &sta_poll_list);
-	spin_unlock_bh(&dev->sta_poll_lock);
 
 	while (!list_empty(&sta_poll_list)) {
 		bool clear = false;
 
-		spin_lock_bh(&dev->sta_poll_lock);
 		msta = list_first_entry(&sta_poll_list, struct mt7615_sta,
 					poll_list);
 		list_del_init(&msta->poll_list);
@@ -974,8 +972,10 @@ void mt7615_mac_sta_poll(struct mt7615_dev *dev)
 			memset(msta->airtime_ac, 0, sizeof(msta->airtime_ac));
 		}
 
-		if (!msta->wcid.sta)
+		if (!msta->wcid.sta) {
+			spin_lock_bh(&dev->sta_poll_lock);
 			continue;
+		}
 
 		sta = container_of((void *)msta, struct ieee80211_sta,
 				   drv_priv);
@@ -990,7 +990,11 @@ void mt7615_mac_sta_poll(struct mt7615_dev *dev)
 			ieee80211_sta_register_airtime(sta, tid, tx_cur,
 						       rx_cur);
 		}
+
+		spin_lock_bh(&dev->sta_poll_lock);
 	}
+
+	spin_unlock_bh(&dev->sta_poll_lock);
 }
 EXPORT_SYMBOL_GPL(mt7615_mac_sta_poll);
 
