@@ -719,10 +719,12 @@ void mt7915_mac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		mt7915_mac_twt_teardown_flow(dev, msta, i);
 
 	spin_lock_bh(&dev->sta_poll_lock);
-	if (!list_empty(&msta->poll_list))
-		list_del_init(&msta->poll_list);
-	if (!list_empty(&msta->rc_list))
-		list_del_init(&msta->rc_list);
+	if (msta->poll_list.next && msta->poll_list.prev)
+		if (!list_empty(&msta->poll_list))
+			list_del_init(&msta->poll_list);
+	if (msta->rc_list.next && msta->rc_list.prev)
+		if (!list_empty(&msta->rc_list))
+			list_del_init(&msta->rc_list);
 	spin_unlock_bh(&dev->sta_poll_lock);
 }
 

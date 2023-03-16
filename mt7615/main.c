@@ -680,8 +680,9 @@ void mt7615_mac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		mt7615_mcu_add_bss_info(phy, vif, sta, false);
 
 	spin_lock_bh(&dev->sta_poll_lock);
-	if (!list_empty(&msta->poll_list))
-		list_del_init(&msta->poll_list);
+	if (msta->poll_list.next && msta->poll_list.prev)
+		if (!list_empty(&msta->poll_list))
+			list_del_init(&msta->poll_list);
 	spin_unlock_bh(&dev->sta_poll_lock);
 
 	mt76_connac_power_save_sched(phy->mt76, &dev->pm);
