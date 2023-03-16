@@ -1482,11 +1482,14 @@ void mt76_sta_pre_rcu_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct mt76_dev *dev = phy->dev;
 	struct mt76_wcid *wcid = (struct mt76_wcid *)sta->drv_priv;
 
+	if (!wcid->idx) {
+		/* do NOT remove idx 0, somehow the wcid structure was not initialized */
+		dev_info(dev->dev, "idx==0, skipping standard sta_remove procedure\n");
+		return;
+	}
+
 	mutex_lock(&dev->mutex);
 	__mt76_sta_remove(dev, vif, sta);
-	//mutex_unlock(&dev->mutex);
-
-	//mutex_lock(&dev->mutex);
 	spin_lock_bh(&dev->status_lock);
 	rcu_assign_pointer(dev->wcid[wcid->idx], NULL);
 	spin_unlock_bh(&dev->status_lock);
