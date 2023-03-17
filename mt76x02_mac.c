@@ -802,12 +802,8 @@ int mt76x02_mac_process_rx(struct mt76x02_dev *dev, struct sk_buff *skb,
 	}
 
 	wcid = FIELD_GET(MT_RXWI_CTL_WCID, ctl);
-	/* begin protect: sta */
-	rcu_read_lock();
 	sta = mt76x02_rx_get_sta(&dev->mt76, wcid);
 	status->wcid = mt76x02_rx_get_sta_wcid(sta, unicast);
-	/* end protect: sta */
-	rcu_read_unlock();
 
 	len = FIELD_GET(MT_RXWI_CTL_MPDU_LEN, ctl);
 	pn_len = FIELD_GET(MT_RXINFO_PN_LEN, rxinfo);

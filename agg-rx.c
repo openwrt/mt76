@@ -115,6 +115,7 @@ mt76_rx_aggr_reorder_work(struct work_struct *work)
 	local_bh_enable();
 }
 
+/* Requirements: must be called under RCU read lock */
 static void
 mt76_rx_aggr_check_ctl(struct sk_buff *skb, struct sk_buff_head *frames)
 {
@@ -133,23 +134,18 @@ mt76_rx_aggr_check_ctl(struct sk_buff *skb, struct sk_buff_head *frames)
 
 	status->qos_ctl = tidno = le16_to_cpu(bar->control) >> 12;
 	seqno = IEEE80211_SEQ_TO_SN(le16_to_cpu(bar->start_seq_num));
-	/* begin protect: tid */
-	rcu_read_lock();
 	tid = rcu_dereference(wcid->aggr[tidno]);
-	if (!tid) {
-		rcu_read_unlock();
+	if (!tid)
 		return;
-	}
 	spin_lock_bh(&tid->lock);
 	if (!tid->stopped) {
 		mt76_rx_aggr_release_frames(tid, frames, seqno);
 		mt76_rx_aggr_release_head(tid, frames);
 	}
 	spin_unlock_bh(&tid->lock);
-	/* end protect: tid */
-	rcu_read_unlock();
 }
 
+/* Requirements: must be called under RCU read lock */
 void mt76_rx_aggr_reorder(struct sk_buff *skb, struct sk_buff_head *frames)
 {
 	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
@@ -178,13 +174,9 @@ void mt76_rx_aggr_reorder(struct sk_buff *skb, struct sk_buff_head *frames)
 	if (ackp == IEEE80211_QOS_CTL_ACK_POLICY_NOACK)
 		return;
 
-	/* begin protect: tid */
-	rcu_read_lock();
 	tid = rcu_dereference(wcid->aggr[tidno]);
-	if (!tid) {
-		rcu_read_unlock();
+	if (!tid)
 		return;
-	}
 
 	status->flag |= RX_FLAG_DUP_VALIDATED;
 	spin_lock_bh(&tid->lock);
@@ -246,8 +238,6 @@ void mt76_rx_aggr_reorder(struct sk_buff *skb, struct sk_buff_head *frames)
 
 out:
 	spin_unlock_bh(&tid->lock);
-	/* end protect: tid */
-	rcu_read_unlock();
 }
 
 int mt76_rx_aggr_start(struct mt76_dev *dev, struct mt76_wcid *wcid, u8 tidno,
@@ -269,7 +259,6 @@ int mt76_rx_aggr_start(struct mt76_dev *dev, struct mt76_wcid *wcid, u8 tidno,
 	spin_lock_init(&tid->lock);
 
 	rcu_assign_pointer(wcid->aggr[tidno], tid);
-	synchronize_rcu();
 
 	return 0;
 }
@@ -306,7 +295,6 @@ void mt76_rx_aggr_stop(struct mt76_dev *dev, struct mt76_wcid *wcid, u8 tidno)
 	tid = rcu_replace_pointer(wcid->aggr[tidno], tid,
 				  lockdep_is_held(&dev->mutex));
 	if (tid) {
-		synchronize_rcu();
 		mt76_rx_aggr_shutdown(dev, tid);
 		kfree_rcu(tid, rcu_head);
 	}

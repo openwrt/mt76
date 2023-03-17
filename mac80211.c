@@ -1317,6 +1317,7 @@ mt76_check_sta(struct mt76_dev *dev, struct sk_buff *skb)
 	ieee80211_sta_ps_transition(sta, ps);
 }
 
+/* Requirements: must be called under RCU read lock */
 void mt76_rx_complete(struct mt76_dev *dev, struct sk_buff_head *frames,
 		      struct napi_struct *napi)
 {
@@ -1327,7 +1328,6 @@ void mt76_rx_complete(struct mt76_dev *dev, struct sk_buff_head *frames,
 
 	/* ieee80211_rx_list( ) requires bh to be disabled */
 	spin_lock_bh(&dev->rx_lock);
-	spin_lock_bh(&dev->ieee80211_txrx_lock);
 	while ((skb = __skb_dequeue(frames)) != NULL) {
 		struct sk_buff *nskb = skb_shinfo(skb)->frag_list;
 
@@ -1335,10 +1335,9 @@ void mt76_rx_complete(struct mt76_dev *dev, struct sk_buff_head *frames,
 		skb_shinfo(skb)->frag_list = NULL;
 		mt76_rx_convert(dev, skb, &hw, &sta);
 
-		/* ieee80211_rx_list( ) requires rcu_read_lock, error on the side of caution even if caller already has a lock */
-		rcu_read_lock();
+		spin_lock_bh(&dev->ieee80211_txrx_lock);
 		ieee80211_rx_list(hw, sta, skb, &list);
-		rcu_read_unlock();
+		spin_unlock_bh(&dev->ieee80211_txrx_lock);
 
 		/* subsequent amsdu frames */
 		while (nskb) {
@@ -1347,12 +1346,11 @@ void mt76_rx_complete(struct mt76_dev *dev, struct sk_buff_head *frames,
 			skb->next = NULL;
 
 			mt76_rx_convert(dev, skb, &hw, &sta);
-			rcu_read_lock();
+			spin_lock_bh(&dev->ieee80211_txrx_lock);
 			ieee80211_rx_list(hw, sta, skb, &list);
-			rcu_read_unlock();
+			spin_unlock_bh(&dev->ieee80211_txrx_lock);
 		}
 	}
-	spin_unlock_bh(&dev->ieee80211_txrx_lock);
 	spin_unlock_bh(&dev->rx_lock);
 
 	if (!napi) {
@@ -1448,6 +1446,7 @@ static void
 mt76_sta_remove(struct mt76_dev *dev, struct ieee80211_vif *vif,
 		struct ieee80211_sta *sta)
 {
+	/* cleanup moved to mt76_sta_pre_rcu_remove */
 }
 
 int mt76_sta_state(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
@@ -1483,8 +1482,10 @@ void mt76_sta_pre_rcu_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct mt76_wcid *wcid = (struct mt76_wcid *)sta->drv_priv;
 
 	if (!wcid->idx) {
-		/* do NOT remove idx 0, somehow the wcid structure was not initialized */
-		dev_info(dev->dev, "idx==0, skipping standard sta_remove procedure\n");
+		/*
+		   sanity check: if a device connects/disconnects rapidly, mac80211 can call rcu_remove twice on the same sta pointer
+		   the second time the sta->drv_priv structure is zeroed out
+		*/
 		return;
 	}
 
@@ -1497,8 +1498,6 @@ void mt76_sta_pre_rcu_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	/* wait for any RCU read locks possibly accessing the sta pointer */
 	synchronize_rcu();
-
-	dev_info(dev->dev, "done sta_remove=0x%p\n", sta);
 }
 EXPORT_SYMBOL_GPL(mt76_sta_pre_rcu_remove);
 

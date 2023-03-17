@@ -956,6 +956,8 @@ mt7915_mac_tx_free_done(struct mt7915_dev *dev,
 	}
 }
 
+
+/* Requirement: must be called under RCU read lock */
 static void
 mt7915_mac_tx_free(struct mt7915_dev *dev, void *data, int len)
 {
@@ -994,14 +996,10 @@ mt7915_mac_tx_free(struct mt7915_dev *dev, void *data, int len)
 			u16 idx;
 
 			idx = FIELD_GET(MT_TX_FREE_WLAN_ID, info);
-			/* begin protect: wcid */
-			rcu_read_lock();
 			wcid = rcu_dereference(dev->mt76.wcid[idx]);
 			sta = wcid_to_sta(wcid);
-			if (!sta) {
-				rcu_read_unlock();
+			if (!sta)
 				continue;
-			}
 
 			msta = container_of(wcid, struct mt7915_sta, wcid);
 
@@ -1009,9 +1007,6 @@ mt7915_mac_tx_free(struct mt7915_dev *dev, void *data, int len)
 			if (list_empty(&msta->poll_list))
 				list_add_tail(&msta->poll_list, &dev->sta_poll_list);
 			spin_unlock_bh(&dev->sta_poll_lock);
-
-			/* end protect: wcid */
-			rcu_read_unlock();
 
 			continue;
 		}
@@ -1070,6 +1065,7 @@ mt7915_mac_tx_free_v0(struct mt7915_dev *dev, void *data, int len)
 	mt7915_mac_tx_free_done(dev, &free_list, wake);
 }
 
+/* Requirement: must be called under RCU read lock */
 static void mt7915_mac_add_txs(struct mt7915_dev *dev, void *data)
 {
 	struct mt7915_sta *msta = NULL;
@@ -1087,7 +1083,6 @@ static void mt7915_mac_add_txs(struct mt7915_dev *dev, void *data)
 	if (wcidx >= mt7915_wtbl_size(dev))
 		return;
 
-	/* begin protect: wcid */
 	rcu_read_lock();
 	wcid = rcu_dereference(dev->mt76.wcid[wcidx]);
 	if (!wcid)
@@ -1109,10 +1104,10 @@ static void mt7915_mac_add_txs(struct mt7915_dev *dev, void *data)
 	spin_unlock_bh(&dev->sta_poll_lock);
 
 out:
-	/* end protect: wcid */
 	rcu_read_unlock();
 }
 
+/* Requirement: must be called under RCU read lock */
 bool mt7915_rx_check(struct mt76_dev *mdev, void *data, int len)
 {
 	struct mt7915_dev *dev = container_of(mdev, struct mt7915_dev, mt76);
@@ -1141,6 +1136,7 @@ bool mt7915_rx_check(struct mt76_dev *mdev, void *data, int len)
 	}
 }
 
+/* Requirement: must be called under RCU read lock */
 void mt7915_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 			 struct sk_buff *skb, u32 *info)
 {
@@ -2053,8 +2049,10 @@ void mt7915_mac_sta_rc_work(struct work_struct *work)
 
 		if (changed & IEEE80211_RC_SMPS_CHANGED)
 			mt7915_mcu_add_smps(dev, vif, sta);
+
 		spin_lock_bh(&dev->sta_poll_lock);
 	}
+
 	spin_unlock_bh(&dev->sta_poll_lock);
 }
 

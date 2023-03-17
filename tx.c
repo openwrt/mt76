@@ -352,7 +352,7 @@ mt76_tx(struct mt76_phy *phy, struct ieee80211_sta *sta,
 }
 EXPORT_SYMBOL_GPL(mt76_tx);
 
-/* Requires rcu_read_lock to protect return pointer */
+/* Requirements: must be called under RCU read lock */
 static struct sk_buff *
 mt76_txq_dequeue(struct mt76_phy *phy, struct mt76_txq *mtxq)
 {
@@ -399,7 +399,7 @@ mt76_release_buffered_frames(struct ieee80211_hw *hw, struct ieee80211_sta *sta,
 	int i;
 
 	spin_lock_bh(&hwq->lock);
-	/* begin protect: skb from mt76_txq_dequeue() */
+	/* begin protect: skb pointer returned from mt76_txq_dequeue()/ieee80211_tx_dequeue() requires RCU read lock */
 	rcu_read_lock();
 	for (i = 0; tids && nframes; i++, tids >>= 1) {
 		struct ieee80211_txq *txq = sta->txq[i];
@@ -429,7 +429,7 @@ mt76_release_buffered_frames(struct ieee80211_hw *hw, struct ieee80211_sta *sta,
 		ieee80211_sta_eosp(sta);
 	}
 
-	/* end protect: skb from mt76_txq_dequeue() */
+	/* end protect: skb returned from mt76_txq_dequeue()/ieee80211_tx_dequeue() */
 	rcu_read_unlock();
 	spin_unlock_bh(&hwq->lock);
 }

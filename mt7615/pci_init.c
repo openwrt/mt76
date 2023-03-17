@@ -62,7 +62,6 @@ static int mt7615_init_hardware(struct mt7615_dev *dev)
 	dev->mt76.global_wcid.idx = idx;
 	dev->mt76.global_wcid.hw_key_idx = -1;
 	rcu_assign_pointer(dev->mt76.wcid[idx], &dev->mt76.global_wcid);
-	synchronize_rcu();
 
 	return 0;
 }

@@ -257,7 +257,6 @@ mt76x02_wait_for_txrx_idle(struct mt76_dev *dev)
 				0, 100);
 }
 
-/* Requires rcu_read_lock to protect return pointer */
 static inline struct mt76x02_sta *
 mt76x02_rx_get_sta(struct mt76_dev *dev, u8 idx)
 {

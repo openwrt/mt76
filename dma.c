@@ -771,6 +771,7 @@ mt76_dma_rx_reset(struct mt76_dev *dev, enum mt76_rxq_id qid)
 	}
 }
 
+/* Requirement: must be called under RCU read lock */
 static void
 mt76_add_fragment(struct mt76_dev *dev, struct mt76_queue *q, void *data,
 		  int len, bool more, u32 info)

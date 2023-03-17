@@ -274,7 +274,6 @@ static int mt7915_add_interface(struct ieee80211_hw *hw,
 	mt7915_mcu_add_bss_info(phy, vif, true);
 	mt7915_mcu_add_sta(dev, vif, NULL, true);
 	rcu_assign_pointer(dev->mt76.wcid[idx], &mvif->sta.wcid);
-	synchronize_rcu();
 
 out:
 	mutex_unlock(&dev->mt76.mutex);
@@ -304,7 +303,6 @@ static void mt7915_remove_interface(struct ieee80211_hw *hw,
 	mt7915_mcu_add_dev_info(phy, vif, false);
 
 	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
-	synchronize_rcu();
 
 	mutex_lock(&dev->mt76.mutex);
 	dev->mt76.vif_mask &= ~BIT_ULL(mvif->mt76.idx);
@@ -719,12 +717,10 @@ void mt7915_mac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		mt7915_mac_twt_teardown_flow(dev, msta, i);
 
 	spin_lock_bh(&dev->sta_poll_lock);
-	if (msta->poll_list.next && msta->poll_list.prev)
-		if (!list_empty(&msta->poll_list))
-			list_del_init(&msta->poll_list);
-	if (msta->rc_list.next && msta->rc_list.prev)
-		if (!list_empty(&msta->rc_list))
-			list_del_init(&msta->rc_list);
+	if (!list_empty(&msta->poll_list))
+		list_del_init(&msta->poll_list);
+	if (!list_empty(&msta->rc_list))
+		list_del_init(&msta->rc_list);
 	spin_unlock_bh(&dev->sta_poll_lock);
 }
 

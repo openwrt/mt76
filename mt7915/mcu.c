@@ -1656,11 +1656,9 @@ int mt7915_mcu_add_sta(struct mt7915_dev *dev, struct ieee80211_vif *vif,
 	if (IS_ERR(skb))
 		return PTR_ERR(skb);
 
-	rcu_read_lock();
 	/* starec basic */
 	mt76_connac_mcu_sta_basic_tlv(skb, vif, sta, enable,
 			!rcu_access_pointer(dev->mt76.wcid[msta->wcid.idx]));
-	rcu_read_unlock();
 	if (!enable)
 		goto out;
 
