@@ -328,12 +328,10 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 
 	unicast = FIELD_GET(MT_RXD3_NORMAL_ADDR_TYPE, rxd3) == MT_RXD3_NORMAL_U2M;
 	idx = FIELD_GET(MT_RXD1_NORMAL_WLAN_IDX, rxd1);
-
 	status->wcid = mt7915_rx_get_wcid(dev, idx, unicast);
 
 	if (status->wcid) {
 		msta = container_of(status->wcid, struct mt7915_sta, wcid);
-
 		spin_lock_bh(&dev->sta_poll_lock);
 		if (list_empty(&msta->poll_list))
 			list_add_tail(&msta->poll_list, &dev->sta_poll_list);
@@ -902,7 +900,6 @@ mt7915_txwi_free(struct mt7915_dev *dev, struct mt76_txwi_cache *t,
 			msta = container_of(wcid, struct mt7915_sta, wcid);
 			sta = container_of((void *)msta, struct ieee80211_sta,
 					  drv_priv);
-
 			spin_lock_bh(&dev->sta_poll_lock);
 			if (list_empty(&msta->poll_list))
 				list_add_tail(&msta->poll_list, &dev->sta_poll_list);
@@ -1084,6 +1081,7 @@ static void mt7915_mac_add_txs(struct mt7915_dev *dev, void *data)
 		return;
 
 	rcu_read_lock();
+
 	wcid = rcu_dereference(dev->mt76.wcid[wcidx]);
 	if (!wcid)
 		goto out;

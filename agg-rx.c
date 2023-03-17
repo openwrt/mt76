@@ -137,6 +137,7 @@ mt76_rx_aggr_check_ctl(struct sk_buff *skb, struct sk_buff_head *frames)
 	tid = rcu_dereference(wcid->aggr[tidno]);
 	if (!tid)
 		return;
+
 	spin_lock_bh(&tid->lock);
 	if (!tid->stopped) {
 		mt76_rx_aggr_release_frames(tid, frames, seqno);
