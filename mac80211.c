@@ -1481,7 +1481,7 @@ void mt76_sta_pre_rcu_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct mt76_dev *dev = phy->dev;
 	struct mt76_wcid *wcid = (struct mt76_wcid *)sta->drv_priv;
 
-	if (!wcid->idx) {
+	if (!wcid->idx && !wcid->sta) {
 		/*
 		   sanity check: if a device connects/disconnects rapidly, mac80211 can call rcu_remove twice on the same sta pointer
 		   the second time the sta->drv_priv structure is zeroed out
