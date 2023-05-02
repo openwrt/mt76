@@ -413,12 +413,9 @@ int mt76x02_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	struct mt76x02_sta *msta;
 	struct mt76_wcid *wcid;
 	int idx = key->keyidx;
-	int ret;
 
 	/* fall back to sw encryption for unsupported ciphers */
 	switch (key->cipher) {
-	case WLAN_CIPHER_SUITE_WEP40:
-	case WLAN_CIPHER_SUITE_WEP104:
 	case WLAN_CIPHER_SUITE_TKIP:
 	case WLAN_CIPHER_SUITE_CCMP:
 		break;
@@ -470,16 +467,6 @@ int mt76x02_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 		wcid->sw_iv = true;
 	}
 	mt76_wcid_key_setup(&dev->mt76, wcid, key);
-
-	if (!msta) {
-		if (key || wcid->hw_key_idx == idx) {
-			ret = mt76x02_mac_wcid_set_key(dev, wcid->idx, key);
-			if (ret)
-				return ret;
-		}
-
-		return mt76x02_mac_shared_key_setup(dev, mvif->idx, idx, key);
-	}
 
 	return mt76x02_mac_wcid_set_key(dev, msta->wcid.idx, key);
 }
