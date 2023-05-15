@@ -376,7 +376,7 @@ extern const struct ieee80211_ops mt7915_ops;
 extern const struct mt76_testmode_ops mt7915_testmode_ops;
 extern struct pci_driver mt7915_pci_driver;
 extern struct pci_driver mt7915_hif_driver;
-extern struct platform_driver mt7986_wmac_driver;
+extern struct platform_driver mt798x_wmac_driver;
 
 #ifdef CONFIG_MT798X_WMAC
 int mt7986_wmac_enable(struct mt7915_dev *dev);

@@ -174,10 +174,11 @@ static u8 mt798x_wmac_check_adie_type(struct mt7915_dev *dev)
 {
 	u32 val;
 
+	/* Only DBDC A-die is used with MT7981 */
 	if (is_mt7981(&dev->mt76))
 		return ADIE_DBDC;
-	else
-		val = readl(dev->sku + MT_TOP_POS_SKU);
+
+	val = readl(dev->sku + MT_TOP_POS_SKU);
 
 	return FIELD_GET(MT_TOP_POS_SKU_ADIE_DBDC_MASK, val);
 }
@@ -268,10 +269,14 @@ static int mt798x_wmac_coninfra_check(struct mt7915_dev *dev)
 	u32 cur;
 	u32 con_infra_version;
 
-	if (is_mt7981(&dev->mt76))
+	if (is_mt7981(&dev->mt76)) {
 		con_infra_version = MT7981_CON_INFRA_VERSION;
-	if (is_mt7986(&dev->mt76))
+	} else if (is_mt7986(&dev->mt76)) {
 		con_infra_version = MT7986_CON_INFRA_VERSION;
+	} else {
+		WARN_ON(1);
+		return -EINVAL;
+	}
 
 	return read_poll_timeout(mt76_rr, cur, (cur == con_infra_version),
 				 USEC_PER_MSEC, 50 * USEC_PER_MSEC,
@@ -308,12 +313,9 @@ static int mt798x_wmac_coninfra_setup(struct mt7915_dev *dev)
 		       MT_TOP_MCU_EMI_BASE_MASK, val);
 
 	if (is_mt7981(&dev->mt76)) {
-		/* TODO: mt7981: unsure if we need this at all
-		 * This base could be also valid for the mt7986 */
 		mt76_rmw_field(dev, MT_TOP_WF_AP_PERI_BASE,
 			       MT_TOP_WF_AP_PERI_BASE_MASK, 0x300d0000 >> 16);
 
-		/* TODO: mt7986: replace by efuse reserved region? */
 		mt76_rmw_field(dev, MT_TOP_EFUSE_BASE,
 			       MT_TOP_EFUSE_BASE_MASK, 0x11f20000 >> 16);
 	}
@@ -519,10 +521,14 @@ static int mt798x_wmac_adie_patch_7976(struct mt7915_dev *dev, u8 adie)
 		rg_xo_01 = 0x1d59080f;
 		rg_xo_03 = 0x34c00fe0;
 	} else {
-		if (is_mt7981(&dev->mt76))
+		if (is_mt7981(&dev->mt76)) {
 			rg_xo_01 = 0x1959c80f;
-		else if (is_mt7986(&dev->mt76))
+		} else if (is_mt7986(&dev->mt76)) {
 			rg_xo_01 = 0x1959f80f;
+		} else {
+			WARN_ON(1);
+			return -EINVAL;
+		}
 		rg_xo_03 = 0x34d00fe0;
 	}
 
@@ -644,10 +650,15 @@ static int mt7986_wmac_adie_patch_7975(struct mt7915_dev *dev, u8 adie)
 		return ret;
 
 	/* turn on SX0 LTBUF */
-	if (is_mt7981(&dev->mt76))
+	if (is_mt7981(&dev->mt76)) {
 		ret = mt76_wmac_spi_write(dev, adie, 0x074, 0x00000007);
-	else if (is_mt7986(&dev->mt76))
+	} else if (is_mt7986(&dev->mt76)) {
 		ret = mt76_wmac_spi_write(dev, adie, 0x074, 0x00000002);
+	} else {
+		WARN_ON(1);
+		return -EINVAL;
+	}
+
 	if (ret)
 		return ret;
 
@@ -784,7 +795,6 @@ mt7986_wmac_afe_cal(struct mt7915_dev *dev, u8 adie, bool dbdc, u32 adie_type)
 		       MT_AFE_RG_WBG_EN_WPLL_UP_MASK, 0x1);
 	usleep_range(60, 100);
 
-	/* TODO: mt7981: sets also bit WF4, but mt7986 doesn't need/allow this? */
 	txcal = (MT_AFE_RG_WBG_EN_TXCAL_BT |
 		      MT_AFE_RG_WBG_EN_TXCAL_WF0 |
 		      MT_AFE_RG_WBG_EN_TXCAL_WF1 |
@@ -930,7 +940,6 @@ static int mt7986_wmac_wm_enable(struct mt7915_dev *dev, bool enable)
 {
 	u32 cur;
 
-	/* TODO: check if this is really needed or should be also used for mt7981 */
 	if (is_mt7986(&dev->mt76))
 		mt76_wr(dev, MT_CONNINFRA_SKU_DEC_ADDR, 0);
 
@@ -1217,7 +1226,7 @@ static int mt798x_wmac_init(struct mt7915_dev *dev)
 	return 0;
 }
 
-static int mt7986_wmac_probe(struct platform_device *pdev)
+static int mt798x_wmac_probe(struct platform_device *pdev)
 {
 	void __iomem *mem_base;
 	struct mt7915_dev *dev;
@@ -1277,7 +1286,7 @@ free_device:
 	return ret;
 }
 
-static int mt7986_wmac_remove(struct platform_device *pdev)
+static int mt798x_wmac_remove(struct platform_device *pdev)
 {
 	struct mt7915_dev *dev = platform_get_drvdata(pdev);
 
@@ -1286,21 +1295,21 @@ static int mt7986_wmac_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id mt7986_wmac_of_match[] = {
+static const struct of_device_id mt798x_wmac_of_match[] = {
 	{ .compatible = "mediatek,mt7981-wmac", .data = (u32 *)0x7981 },
 	{ .compatible = "mediatek,mt7986-wmac", .data = (u32 *)0x7986 },
 	{},
 };
 
-MODULE_DEVICE_TABLE(of, mt7986_wmac_of_match);
+MODULE_DEVICE_TABLE(of, mt798x_wmac_of_match);
 
-struct platform_driver mt7986_wmac_driver = {
+struct platform_driver mt798x_wmac_driver = {
 	.driver = {
-		.name = "mt7986-wmac",
-		.of_match_table = mt7986_wmac_of_match,
+		.name = "mt798x-wmac",
+		.of_match_table = mt798x_wmac_of_match,
 	},
-	.probe = mt7986_wmac_probe,
-	.remove = mt7986_wmac_remove,
+	.probe = mt798x_wmac_probe,
+	.remove = mt798x_wmac_remove,
 };
 
 MODULE_FIRMWARE(MT7986_FIRMWARE_WA);
