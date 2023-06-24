@@ -19,7 +19,6 @@
 #define MT7921_PM_TIMEOUT		(HZ / 12)
 #define MT7921_HW_SCAN_TIMEOUT		(HZ / 10)
 #define MT7921_WATCHDOG_TIME		(HZ / 4)
-#define MT7921_RESET_TIMEOUT		(30 * HZ)
 
 #define MT7921_TX_RING_SIZE		2048
 #define MT7921_TX_MCU_RING_SIZE		256
@@ -151,14 +150,12 @@ struct mt7921_sta {
 
 	struct mt7921_vif *vif;
 
-	struct list_head poll_list;
 	u32 airtime_ac[8];
 
 	int ack_signal;
 	struct ewma_avg_signal avg_ack_signal;
 
 	unsigned long last_txs;
-	unsigned long ampdu_state;
 
 	struct mt76_connac_sta_key_conf bip;
 };
@@ -177,35 +174,6 @@ struct mt7921_vif {
 
 	struct ieee80211_tx_queue_params queue_params[IEEE80211_NUM_ACS];
 	struct ieee80211_chanctx_conf *ctx;
-};
-
-struct mib_stats {
-	u32 ack_fail_cnt;
-	u32 fcs_err_cnt;
-	u32 rts_cnt;
-	u32 rts_retries_cnt;
-	u32 ba_miss_cnt;
-
-	u32 tx_bf_ibf_ppdu_cnt;
-	u32 tx_bf_ebf_ppdu_cnt;
-	u32 tx_bf_rx_fb_all_cnt;
-	u32 tx_bf_rx_fb_he_cnt;
-	u32 tx_bf_rx_fb_vht_cnt;
-	u32 tx_bf_rx_fb_ht_cnt;
-
-	u32 tx_ampdu_cnt;
-	u32 tx_mpdu_attempts_cnt;
-	u32 tx_mpdu_success_cnt;
-	u32 tx_pkt_ebf_cnt;
-	u32 tx_pkt_ibf_cnt;
-
-	u32 rx_mpdu_cnt;
-	u32 rx_ampdu_cnt;
-	u32 rx_ampdu_bytes_cnt;
-	u32 rx_ba_cnt;
-
-	u32 tx_amsdu[8];
-	u32 tx_amsdu_cnt;
 };
 
 enum {
@@ -247,7 +215,7 @@ struct mt7921_phy {
 	u32 rx_ampdu_ts;
 	u32 ampdu_ref;
 
-	struct mib_stats mib;
+	struct mt76_mib_stats mib;
 
 	u8 sta_work_count;
 
@@ -265,6 +233,17 @@ struct mt7921_phy {
 	u8 roc_token_id;
 	bool roc_grant;
 };
+
+enum mt7921_eeprom_field {
+	MT_EE_CHIP_ID =		0x000,
+	MT_EE_VERSION =		0x002,
+	MT_EE_MAC_ADDR =	0x004,
+	MT_EE_WIFI_CONF =	0x07c,
+	MT_EE_HW_TYPE =		0x55b,
+	__MT_EE_MAX =		0x9ff
+};
+
+#define MT_EE_HW_TYPE_ENCAP			BIT(0)
 
 #define mt7921_init_reset(dev)		((dev)->hif_ops->init_reset(dev))
 #define mt7921_dev_reset(dev)		((dev)->hif_ops->reset(dev))
@@ -287,15 +266,11 @@ struct mt7921_dev {
 
 	const struct mt76_bus_ops *bus_ops;
 	struct mt7921_phy phy;
-	struct tasklet_struct irq_tasklet;
 
 	struct work_struct reset_work;
 	bool hw_full_reset:1;
 	bool hw_init_done:1;
 	bool fw_assert:1;
-
-	struct list_head sta_poll_list;
-	spinlock_t sta_poll_lock;
 
 	struct work_struct init_work;
 
@@ -391,13 +366,6 @@ void mt7921_mcu_rx_event(struct mt7921_dev *dev, struct sk_buff *skb);
 int mt7921_mcu_set_rxfilter(struct mt7921_dev *dev, u32 fif,
 			    u8 bit_op, u32 bit_map);
 
-static inline void mt7921_irq_enable(struct mt7921_dev *dev, u32 mask)
-{
-	mt76_set_irq_mask(&dev->mt76, 0, 0, mask);
-
-	tasklet_schedule(&dev->irq_tasklet);
-}
-
 static inline u32
 mt7921_reg_map_l1(struct mt7921_dev *dev, u32 addr)
 {
@@ -474,11 +442,9 @@ int mt7921e_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			   struct mt76_tx_info *tx_info);
 
 void mt7921_tx_worker(struct mt76_worker *w);
-void mt7921_tx_token_put(struct mt7921_dev *dev);
 bool mt7921_rx_check(struct mt76_dev *mdev, void *data, int len);
 void mt7921_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 			 struct sk_buff *skb, u32 *info);
-void mt7921_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps);
 void mt7921_stats_work(struct work_struct *work);
 void mt7921_set_stream_he_caps(struct mt7921_phy *phy);
 void mt7921_update_channel(struct mt76_phy *mphy);
@@ -508,10 +474,6 @@ int mt7921_testmode_cmd(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			void *data, int len);
 int mt7921_testmode_dump(struct ieee80211_hw *hw, struct sk_buff *msg,
 			 struct netlink_callback *cb, void *data, int len);
-void mt7921_txwi_free(struct mt7921_dev *dev, struct mt76_txwi_cache *t,
-		      struct ieee80211_sta *sta, bool clear_status,
-		      struct list_head *free_list);
-void mt7921_mac_sta_poll(struct mt7921_dev *dev);
 int mt7921_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 			      struct sk_buff *skb, int seq);
 
@@ -538,6 +500,7 @@ int mt7921_mcu_set_sniffer(struct mt7921_dev *dev, struct ieee80211_vif *vif,
 			   bool enable);
 int mt7921_mcu_config_sniffer(struct mt7921_vif *vif,
 			      struct ieee80211_chanctx_conf *ctx);
+int mt7921_mcu_get_temperature(struct mt7921_phy *phy);
 
 int mt7921_usb_sdio_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 				   enum mt76_txq_id qid, struct mt76_wcid *wcid,
@@ -593,5 +556,6 @@ int mt7921_mcu_set_roc(struct mt7921_phy *phy, struct mt7921_vif *vif,
 		       enum mt7921_roc_req type, u8 token_id);
 int mt7921_mcu_abort_roc(struct mt7921_phy *phy, struct mt7921_vif *vif,
 			 u8 token_id);
-u8 mt7921_check_offload_capability(struct device *dev, const char *fw_wm);
+struct ieee80211_ops *mt7921_get_mac80211_ops(struct device *dev,
+					      void *drv_data, u8 *fw_features);
 #endif

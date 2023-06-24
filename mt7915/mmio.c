@@ -417,7 +417,7 @@ static u32 mt7915_reg_map_l1(struct mt7915_dev *dev, u32 addr)
 	u32 base = FIELD_GET(MT_HIF_REMAP_L1_BASE, addr);
 	u32 l1_remap;
 
-	if (is_mt7986(&dev->mt76))
+	if (is_mt798x(&dev->mt76))
 		return MT_CONN_INFRA_OFFSET(addr);
 
 	l1_remap = is_mt7915(&dev->mt76) ?
@@ -447,7 +447,7 @@ static u32 mt7915_reg_map_l2(struct mt7915_dev *dev, u32 addr)
 		/* use read to push write */
 		dev->bus_ops->rr(&dev->mt76, MT_HIF_REMAP_L2);
 	} else {
-		u32 ofs = is_mt7986(&dev->mt76) ? 0x400000 : 0;
+		u32 ofs = is_mt798x(&dev->mt76) ? 0x400000 : 0;
 
 		offset = FIELD_GET(MT_HIF_REMAP_L2_OFFSET_MT7916, addr);
 		base = FIELD_GET(MT_HIF_REMAP_L2_BASE_MT7916, addr);
@@ -545,8 +545,6 @@ static u32 mt7915_rmw(struct mt76_dev *mdev, u32 offset, u32 mask, u32 val)
 static int mt7915_mmio_wed_offload_enable(struct mtk_wed_device *wed)
 {
 	struct mt7915_dev *dev;
-	struct mt7915_phy *phy;
-	int ret;
 
 	dev = container_of(wed, struct mt7915_dev, mt76.mmio.wed);
 
@@ -554,43 +552,19 @@ static int mt7915_mmio_wed_offload_enable(struct mtk_wed_device *wed)
 	dev->mt76.token_size = wed->wlan.token_start;
 	spin_unlock_bh(&dev->mt76.token_lock);
 
-	ret = wait_event_timeout(dev->mt76.tx_wait,
-				 !dev->mt76.wed_token_count, HZ);
-	if (!ret)
-		return -EAGAIN;
-
-	phy = &dev->phy;
-	mt76_set(dev, MT_AGG_ACR4(phy->mt76->band_idx), MT_AGG_ACR_PPDU_TXS2H);
-
-	phy = dev->mt76.phys[MT_BAND1] ? dev->mt76.phys[MT_BAND1]->priv : NULL;
-	if (phy)
-		mt76_set(dev, MT_AGG_ACR4(phy->mt76->band_idx),
-			 MT_AGG_ACR_PPDU_TXS2H);
-
-	return 0;
+	return !wait_event_timeout(dev->mt76.tx_wait,
+				   !dev->mt76.wed_token_count, HZ);
 }
 
 static void mt7915_mmio_wed_offload_disable(struct mtk_wed_device *wed)
 {
 	struct mt7915_dev *dev;
-	struct mt7915_phy *phy;
 
 	dev = container_of(wed, struct mt7915_dev, mt76.mmio.wed);
 
 	spin_lock_bh(&dev->mt76.token_lock);
 	dev->mt76.token_size = MT7915_TOKEN_SIZE;
 	spin_unlock_bh(&dev->mt76.token_lock);
-
-	/* MT_TXD5_TX_STATUS_HOST (MPDU format) has higher priority than
-	 * MT_AGG_ACR_PPDU_TXS2H (PPDU format) even though ACR bit is set.
-	 */
-	phy = &dev->phy;
-	mt76_clear(dev, MT_AGG_ACR4(phy->mt76->band_idx), MT_AGG_ACR_PPDU_TXS2H);
-
-	phy = dev->mt76.phys[MT_BAND1] ? dev->mt76.phys[MT_BAND1]->priv : NULL;
-	if (phy)
-		mt76_clear(dev, MT_AGG_ACR4(phy->mt76->band_idx),
-			   MT_AGG_ACR_PPDU_TXS2H);
 }
 
 static void mt7915_mmio_wed_release_rx_buf(struct mtk_wed_device *wed)
@@ -785,7 +759,7 @@ int mt7915_mmio_wed_init(struct mt7915_dev *dev, void *pdev_ptr,
 	wed->wlan.nbuf = MT7915_HW_TOKEN_SIZE;
 	wed->wlan.tx_tbit[0] = is_mt7915(&dev->mt76) ? 4 : 30;
 	wed->wlan.tx_tbit[1] = is_mt7915(&dev->mt76) ? 5 : 31;
-	wed->wlan.txfree_tbit = is_mt7986(&dev->mt76) ? 2 : 1;
+	wed->wlan.txfree_tbit = is_mt798x(&dev->mt76) ? 2 : 1;
 	wed->wlan.token_start = MT7915_TOKEN_SIZE - wed->wlan.nbuf;
 	wed->wlan.wcid_512 = !is_mt7915(&dev->mt76);
 
@@ -795,7 +769,7 @@ int mt7915_mmio_wed_init(struct mt7915_dev *dev, void *pdev_ptr,
 	if (is_mt7915(&dev->mt76)) {
 		wed->wlan.rx_tbit[0] = 16;
 		wed->wlan.rx_tbit[1] = 17;
-	} else if (is_mt7986(&dev->mt76)) {
+	} else if (is_mt798x(&dev->mt76)) {
 		wed->wlan.rx_tbit[0] = 22;
 		wed->wlan.rx_tbit[1] = 23;
 	} else {
@@ -853,6 +827,7 @@ static int mt7915_mmio_init(struct mt76_dev *mdev,
 		dev->reg.map = mt7916_reg_map;
 		dev->reg.map_size = ARRAY_SIZE(mt7916_reg_map);
 		break;
+	case 0x7981:
 	case 0x7986:
 		dev->reg.reg_rev = mt7986_reg;
 		dev->reg.offs_rev = mt7916_offs;
@@ -916,7 +891,7 @@ static void mt7915_rx_poll_complete(struct mt76_dev *mdev,
 /* TODO: support 2/4/6/8 MSI-X vectors */
 static void mt7915_irq_tasklet(struct tasklet_struct *t)
 {
-	struct mt7915_dev *dev = from_tasklet(dev, t, irq_tasklet);
+	struct mt7915_dev *dev = from_tasklet(dev, t, mt76.irq_tasklet);
 	struct mtk_wed_device *wed = &dev->mt76.mmio.wed;
 	u32 intr, intr1, mask;
 
@@ -1000,7 +975,7 @@ irqreturn_t mt7915_irq_handler(int irq, void *dev_instance)
 	if (!test_bit(MT76_STATE_INITIALIZED, &dev->mphy.state))
 		return IRQ_NONE;
 
-	tasklet_schedule(&dev->irq_tasklet);
+	tasklet_schedule(&dev->mt76.irq_tasklet);
 
 	return IRQ_HANDLED;
 }
@@ -1022,7 +997,6 @@ struct mt7915_dev *mt7915_mmio_probe(struct device *pdev,
 		.rx_skb = mt7915_queue_rx_skb,
 		.rx_check = mt7915_rx_check,
 		.rx_poll_complete = mt7915_rx_poll_complete,
-		.sta_ps = mt7915_sta_ps,
 		.sta_add = mt7915_mac_sta_add,
 		.sta_remove = mt7915_mac_sta_remove,
 		.update_survey = mt7915_update_channel,
@@ -1041,7 +1015,7 @@ struct mt7915_dev *mt7915_mmio_probe(struct device *pdev,
 	if (ret)
 		goto error;
 
-	tasklet_setup(&dev->irq_tasklet, mt7915_irq_tasklet);
+	tasklet_setup(&mdev->irq_tasklet, mt7915_irq_tasklet);
 
 	return dev;
 
@@ -1063,8 +1037,8 @@ static int __init mt7915_init(void)
 	if (ret)
 		goto error_pci;
 
-	if (IS_ENABLED(CONFIG_MT7986_WMAC)) {
-		ret = platform_driver_register(&mt7986_wmac_driver);
+	if (IS_ENABLED(CONFIG_MT798X_WMAC)) {
+		ret = platform_driver_register(&mt798x_wmac_driver);
 		if (ret)
 			goto error_wmac;
 	}
@@ -1081,8 +1055,8 @@ error_pci:
 
 static void __exit mt7915_exit(void)
 {
-	if (IS_ENABLED(CONFIG_MT7986_WMAC))
-		platform_driver_unregister(&mt7986_wmac_driver);
+	if (IS_ENABLED(CONFIG_MT798X_WMAC))
+		platform_driver_unregister(&mt798x_wmac_driver);
 
 	pci_unregister_driver(&mt7915_pci_driver);
 	pci_unregister_driver(&mt7915_hif_driver);

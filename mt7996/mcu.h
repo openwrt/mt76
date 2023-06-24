@@ -317,6 +317,22 @@ struct bss_sec_tlv {
 	u8 __rsv2[1];
 } __packed;
 
+struct bss_ifs_time_tlv {
+	__le16 tag;
+	__le16 len;
+	u8 slot_valid;
+	u8 sifs_valid;
+	u8 rifs_valid;
+	u8 eifs_valid;
+	__le16 slot_time;
+	__le16 sifs_time;
+	__le16 rifs_time;
+	__le16 eifs_time;
+	u8 eifs_cck_valid;
+	u8 rsv;
+	__le16 eifs_cck_time;
+} __packed;
+
 struct bss_power_save {
 	__le16 tag;
 	__le16 len;
@@ -396,7 +412,7 @@ struct sta_rec_hdr_trans {
 	u8 from_ds;
 	u8 to_ds;
 	u8 dis_rx_hdr_tran;
-	u8 rsv;
+	u8 mesh;
 } __packed;
 
 struct hdr_trans_en {
@@ -552,6 +568,7 @@ enum {
 					 sizeof(struct bss_txcmd_tlv) +		\
 					 sizeof(struct bss_power_save) +	\
 					 sizeof(struct bss_sec_tlv) +		\
+					 sizeof(struct bss_ifs_time_tlv) +	\
 					 sizeof(struct bss_mld_tlv))
 
 #define MT7996_STA_UPDATE_MAX_SIZE	(sizeof(struct sta_req_hdr) +		\
@@ -648,23 +665,21 @@ enum {
 };
 
 enum {
-	UNI_CMD_SER_QUERY = 0x0,
-	UNI_CMD_SER_SET = 0x2,
-	UNI_CMD_SER_TRIGGER = 0x3,
-};
-
-enum {
-	SER_QUERY,
+	UNI_CMD_SER_QUERY,
 	/* recovery */
-	SER_SET_RECOVER_L1,
-	SER_SET_RECOVER_L2,
-	SER_SET_RECOVER_L3_RX_ABORT,
-	SER_SET_RECOVER_L3_TX_ABORT,
-	SER_SET_RECOVER_L3_TX_DISABLE,
-	SER_SET_RECOVER_L3_BF,
+	UNI_CMD_SER_SET_RECOVER_L1,
+	UNI_CMD_SER_SET_RECOVER_L2,
+	UNI_CMD_SER_SET_RECOVER_L3_RX_ABORT,
+	UNI_CMD_SER_SET_RECOVER_L3_TX_ABORT,
+	UNI_CMD_SER_SET_RECOVER_L3_TX_DISABLE,
+	UNI_CMD_SER_SET_RECOVER_L3_BF,
+	UNI_CMD_SER_SET_RECOVER_L4_MDP,
+	UNI_CMD_SER_SET_RECOVER_FULL,
+	UNI_CMD_SER_SET_SYSTEM_ASSERT,
 	/* action */
-	SER_ENABLE = 2,
-	SER_RECOVER
+	UNI_CMD_SER_ENABLE = 1,
+	UNI_CMD_SER_SET,
+	UNI_CMD_SER_TRIGGER
 };
 
 enum {

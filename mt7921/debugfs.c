@@ -2,7 +2,6 @@
 /* Copyright (C) 2020 MediaTek Inc. */
 
 #include "mt7921.h"
-#include "eeprom.h"
 
 static int
 mt7921_reg_set(void *data, u64 val)
@@ -96,7 +95,7 @@ mt7921_tx_stats_show(struct seq_file *file, void *data)
 {
 	struct mt7921_dev *dev = file->private;
 	struct mt7921_phy *phy = &dev->phy;
-	struct mib_stats *mib = &phy->mib;
+	struct mt76_mib_stats *mib = &phy->mib;
 	int i;
 
 	mt7921_mutex_acquire(dev);

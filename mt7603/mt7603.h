@@ -64,7 +64,6 @@ struct mt7603_sta {
 
 	struct mt7603_vif *vif;
 
-	struct list_head poll_list;
 	u32 tx_airtime_ac[4];
 
 	struct sk_buff_head psq;
@@ -109,9 +108,6 @@ struct mt7603_dev {
 	const struct mt76_bus_ops *bus_ops;
 
 	u32 rxfilter;
-
-	struct list_head sta_poll_list;
-	spinlock_t sta_poll_lock;
 
 	struct mt7603_sta global_sta;
 
