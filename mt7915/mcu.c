@@ -1883,23 +1883,6 @@ mt7915_mcu_beacon_cont(struct mt7915_dev *dev, struct ieee80211_vif *vif,
 }
 
 static void
-mt7915_mcu_vif_check_caps(struct mt7915_phy *phy, struct ieee80211_vif *vif)
-{
-	struct mt7915_vif *mvif = (struct mt7915_vif *)vif->drv_priv;
-	struct mt7915_vif_cap *vc = &mvif->cap;
-
-	vc->vht_ldpc = mvif->cap.vht_ldpc;
-	vc->vht_su_ebfer = mvif->cap.vht_su_ebfer;
-	vc->vht_su_ebfee = mvif->cap.vht_su_ebfee;
-	vc->vht_mu_ebfer = mvif->cap.vht_mu_ebfer;
-	vc->vht_mu_ebfee = mvif->cap.vht_mu_ebfee;
-	vc->he_ldpc = mvif->cap.he_ldpc;
-	vc->he_su_ebfer = mvif->cap.he_su_ebfer;
-	vc->he_su_ebfee = mvif->cap.he_su_ebfee;
-	vc->he_mu_ebfer = vif->bss_conf.he_mu_beamformer;
-}
-
-static void
 mt7915_mcu_beacon_inband_discov(struct mt7915_dev *dev, struct ieee80211_vif *vif,
 				struct sk_buff *rskb, struct bss_info_bcn *bcn,
 				u32 changed)
@@ -2008,8 +1991,6 @@ int mt7915_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	info = IEEE80211_SKB_CB(skb);
 	info->hw_queue = FIELD_PREP(MT_TX_HW_QUEUE_PHY, ext_phy);
-
-	mt7915_mcu_vif_check_caps(phy, vif);
 
 	mt7915_mcu_beacon_cntdwn(vif, rskb, skb, bcn, &offs);
 	mt7915_mcu_beacon_mbss(rskb, skb, vif, bcn, &offs);
