@@ -600,6 +600,7 @@ static void mt7915_bss_info_changed(struct ieee80211_hw *hw,
 {
 	struct mt7915_phy *phy = mt7915_hw_phy(hw);
 	struct mt7915_dev *dev = mt7915_hw_dev(hw);
+	int set_bss_info = -1, set_sta = -1;
 
 	mutex_lock(&dev->mt76.mutex);
 
@@ -608,15 +609,18 @@ static void mt7915_bss_info_changed(struct ieee80211_hw *hw,
 	 * and then peer references bss_info_rfch to set bandwidth cap.
 	 */
 	if (changed & BSS_CHANGED_BSSID &&
-	    vif->type == NL80211_IFTYPE_STATION) {
-		bool join = !is_zero_ether_addr(info->bssid);
-
-		mt7915_mcu_add_bss_info(phy, vif, join);
-		mt7915_mcu_add_sta(dev, vif, NULL, join);
-	}
-
+	    vif->type == NL80211_IFTYPE_STATION)
+		set_bss_info = set_sta = !is_zero_ether_addr(info->bssid);
 	if (changed & BSS_CHANGED_ASSOC)
-		mt7915_mcu_add_bss_info(phy, vif, vif->cfg.assoc);
+		set_bss_info = vif->cfg.assoc;
+	if (changed & BSS_CHANGED_BEACON_ENABLED &&
+	    vif->type != NL80211_IFTYPE_AP)
+		set_bss_info = set_sta = info->enable_beacon;
+
+	if (set_bss_info == 1)
+		mt7915_mcu_add_bss_info(phy, vif, true);
+	if (set_sta == 1)
+		mt7915_mcu_add_sta(dev, vif, NULL, true);
 
 	if (changed & BSS_CHANGED_ERP_CTS_PROT)
 		mt7915_mac_enable_rtscts(dev, vif, info->use_cts_prot);
@@ -645,6 +649,11 @@ static void mt7915_bss_info_changed(struct ieee80211_hw *hw,
 		       BSS_CHANGED_UNSOL_BCAST_PROBE_RESP |
 		       BSS_CHANGED_FILS_DISCOVERY))
 		mt7915_mcu_add_beacon(hw, vif, info->enable_beacon, changed);
+
+	if (set_bss_info == 0)
+		mt7915_mcu_add_bss_info(phy, vif, false);
+	if (set_sta == 0)
+		mt7915_mcu_add_sta(dev, vif, NULL, false);
 
 	mutex_unlock(&dev->mt76.mutex);
 }
