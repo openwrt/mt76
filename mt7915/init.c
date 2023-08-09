@@ -346,7 +346,8 @@ mt7915_init_wiphy(struct mt7915_phy *phy)
 	hw->max_tx_aggregation_subframes = IEEE80211_MAX_AMPDU_BUF_HE;
 	hw->netdev_features = NETIF_F_RXCSUM;
 
-	if (mtk_wed_device_active(&mdev->mmio.wed))
+	if (mtk_wed_device_active(&mdev->mmio.wed) &&
+	    mtk_wed_get_rx_capa(&mdev->mmio.wed))
 		hw->netdev_features |= NETIF_F_HW_TC;
 
 	hw->radiotap_timestamp.units_pos =
