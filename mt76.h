@@ -333,6 +333,9 @@ struct mt76_wcid {
 	u32 tx_info;
 	bool sw_iv;
 
+	struct list_head tx_list;
+	struct sk_buff_head tx_pending;
+
 	struct list_head list;
 	struct idr pktid;
 
@@ -708,6 +711,8 @@ struct mt76_phy {
 	unsigned long state;
 	u8 band_idx;
 
+	spinlock_t tx_lock;
+	struct list_head tx_list;
 	struct mt76_queue *q_tx[__MT_TXQ_MAX];
 
 	struct cfg80211_chan_def chandef;
