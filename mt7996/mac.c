@@ -832,11 +832,10 @@ void mt7996_mac_write_txwi(struct mt7996_dev *dev, __le32 *txwi,
 {
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_vif *vif = info->control.vif;
-	struct mt76_vif *mvif;
-	struct mt76_phy *mphy = &dev->mphy;
 	u8 band_idx = (info->hw_queue & MT_TX_HW_QUEUE_PHY) >> 2;
 	u8 p_fmt, q_idx, omac_idx = 0, wmm_idx = 0;
 	bool is_8023 = info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP;
+	struct mt76_vif *mvif;
 	u16 tx_count = 15;
 	u32 val;
 	bool beacon = !!(changed & (BSS_CHANGED_BEACON |
@@ -850,8 +849,6 @@ void mt7996_mac_write_txwi(struct mt7996_dev *dev, __le32 *txwi,
 		wmm_idx = mvif->wmm_idx;
 		band_idx = mvif->band_idx;
 	}
-
-	mphy = mt76_dev_phy(&dev->mt76, band_idx);
 
 	if (inband_disc) {
 		p_fmt = MT_TX_TYPE_FW;
