@@ -22,7 +22,7 @@
 #define MT_MAC_WORK_INTERVAL	(HZ / 10)
 
 #define MT_WATCHDOG_TIME	(HZ / 10)
-#define MT_TX_HANG_TH		10
+#define MT_TX_HANG_TH		30
 
 #define MT_MAX_CHAINS		2
 struct mt76x02_rx_freq_cal {

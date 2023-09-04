@@ -344,7 +344,7 @@ static bool mt76x02_tx_hang(struct mt76x02_dev *dev)
 {
 	u32 dma_idx, prev_dma_idx;
 	struct mt76_queue *q;
-	int i;
+	int i, min_tx_hang_check, max_tx_hang_check;
 
 	for (i = 0; i < 4; i++) {
 		q = dev->mphy.q_tx[i];
@@ -358,11 +358,21 @@ static bool mt76x02_tx_hang(struct mt76x02_dev *dev)
 			continue;
 		}
 
-		if (++dev->tx_hang_check[i] >= MT_TX_HANG_TH)
-			return true;
+		dev->tx_hang_check[i]++;
 	}
 
-	return false;
+	min_tx_hang_check = max_tx_hang_check = dev->tx_hang_check[0];
+	for (i = 1; i < 4; i++) {
+		if (dev->tx_hang_check[i] < min_tx_hang_check) {
+			min_tx_hang_check = dev->tx_hang_check[i];
+		}
+		if (dev->tx_hang_check[i] > max_tx_hang_check) {
+			max_tx_hang_check = dev->tx_hang_check[i];
+		}
+	}
+
+	return min_tx_hang_check >= MT_TX_HANG_TH ||
+		   max_tx_hang_check >= MT_TX_HANG_TH * 8;
 }
 
 static void mt76x02_key_sync(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
