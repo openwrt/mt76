@@ -111,7 +111,7 @@ EXPORT_SYMBOL_GPL(mt76_mmio_wed_release_rx_buf);
 u32 mt76_mmio_wed_init_rx_buf(struct mtk_wed_device *wed, int size)
 {
 	struct mt76_dev *dev = container_of(wed, struct mt76_dev, mmio.wed);
-	struct mtk_rxbm_desc *desc = wed->rx_buf_ring.desc;
+	struct mtk_wed_bm_desc *desc = wed->rx_buf_ring.desc;
 	struct mt76_queue *q = &dev->q_rx[MT_RXQ_MAIN];
 	int i, len = SKB_WITH_OVERHEAD(q->buf_size);
 	struct mt76_txwi_cache *t = NULL;
