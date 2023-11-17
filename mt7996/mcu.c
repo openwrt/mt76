@@ -628,7 +628,7 @@ mt7996_mcu_wed_rro_event(struct mt7996_dev *dev, struct sk_buff *skb)
 
 	skb_pull(skb, sizeof(struct mt7996_mcu_rxd) + 4);
 
-	switch (event->tag) {
+	switch (le16_to_cpu(event->tag)) {
 	case UNI_WED_RRO_BA_SESSION_STATUS: {
 		struct mt7996_mcu_wed_rro_ba_event *e;
 
