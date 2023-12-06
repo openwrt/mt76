@@ -987,7 +987,15 @@ int mt76_dma_rx_poll(struct napi_struct *napi, int budget)
 	rcu_read_lock();
 
 	do {
-		cur = mt76_dma_rx_process(dev, &dev->q_rx[qid], budget - done);
+		if (mtk_wed_device_active(&dev->mmio.wed)) {
+			static spinlock_t wed_lock = __SPIN_LOCK_UNLOCKED(wed_lock);
+
+			spin_lock_bh(&wed_lock);
+			cur = mt76_dma_rx_process(dev, &dev->q_rx[qid], budget - done);
+			spin_unlock_bh(&wed_lock);
+		} else {
+			cur = mt76_dma_rx_process(dev, &dev->q_rx[qid], budget - done);
+		}
 		mt76_rx_poll_complete(dev, qid, napi);
 		done += cur;
 	} while (cur && done < budget);
