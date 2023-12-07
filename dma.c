@@ -233,7 +233,7 @@ mt76_dma_add_rx_buf(struct mt76_dev *dev, struct mt76_queue *q,
 	struct mt76_txwi_cache *txwi = NULL;
 	struct mt76_desc *desc;
 	int idx = q->head;
-	u32 buf1, ctrl;
+	u32 buf1 = 0, ctrl;
 	int rx_token;
 
 	if (mt76_queue_is_wed_rro_ind(q)) {
@@ -246,7 +246,9 @@ mt76_dma_add_rx_buf(struct mt76_dev *dev, struct mt76_queue *q,
 
 	desc = &q->desc[q->head];
 	ctrl = FIELD_PREP(MT_DMA_CTL_SD_LEN0, buf[0].len);
+#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
 	buf1 = FIELD_PREP(MT_DMA_CTL_SDP0_H, buf->addr >> 32);
+#endif
 
 	if (mt76_queue_is_wed_rx(q)) {
 		txwi = mt76_get_rxwi(dev);
@@ -313,14 +315,18 @@ mt76_dma_add_buf(struct mt76_dev *dev, struct mt76_queue *q,
 		entry->dma_len[0] = buf[0].len;
 
 		ctrl = FIELD_PREP(MT_DMA_CTL_SD_LEN0, buf[0].len);
+#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
 		info |= FIELD_PREP(MT_DMA_CTL_SDP0_H, buf[0].addr >> 32);
+#endif
 		if (i < nbufs - 1) {
 			entry->dma_addr[1] = buf[1].addr;
 			entry->dma_len[1] = buf[1].len;
 			buf1 = buf[1].addr;
 			ctrl |= FIELD_PREP(MT_DMA_CTL_SD_LEN1, buf[1].len);
+#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
 			info |= FIELD_PREP(MT_DMA_CTL_SDP1_H,
 					   buf[1].addr >> 32);
+#endif
 			if (buf[1].skip_unmap)
 				entry->skip_buf1 = true;
 		}
