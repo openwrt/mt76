@@ -768,7 +768,7 @@ static void mt76u_status_worker(struct mt76_worker *w)
 	if (!test_bit(MT76_STATE_RUNNING, &dev->phy.state))
 		return;
 
-	for (i = 0; i < IEEE80211_NUM_ACS; i++) {
+	for (i = 0; i <= MT_TXQ_PSD; i++) {
 		q = dev->phy.q_tx[i];
 		if (!q)
 			continue;
@@ -929,14 +929,11 @@ static u8 mt76u_ac_to_hwq(struct mt76_dev *dev, u8 ac)
 
 static int mt76u_alloc_tx(struct mt76_dev *dev)
 {
-	struct mt76_queue *q;
-	int i, j, err;
+	int i;
 
 	for (i = 0; i <= MT_TXQ_PSD; i++) {
-		if (i >= IEEE80211_NUM_ACS) {
-			dev->phy.q_tx[i] = dev->phy.q_tx[0];
-			continue;
-		}
+		struct mt76_queue *q;
+		int j, err;
 
 		q = devm_kzalloc(dev->dev, sizeof(*q), GFP_KERNEL);
 		if (!q)
@@ -970,7 +967,7 @@ static void mt76u_free_tx(struct mt76_dev *dev)
 
 	mt76_worker_teardown(&dev->usb.status_worker);
 
-	for (i = 0; i < IEEE80211_NUM_ACS; i++) {
+	for (i = 0; i <= MT_TXQ_PSD; i++) {
 		struct mt76_queue *q;
 		int j;
 
@@ -1000,7 +997,7 @@ void mt76u_stop_tx(struct mt76_dev *dev)
 
 		dev_err(dev->dev, "timed out waiting for pending tx\n");
 
-		for (i = 0; i < IEEE80211_NUM_ACS; i++) {
+		for (i = 0; i <= MT_TXQ_PSD; i++) {
 			q = dev->phy.q_tx[i];
 			if (!q)
 				continue;
@@ -1014,7 +1011,7 @@ void mt76u_stop_tx(struct mt76_dev *dev)
 		/* On device removal we maight queue skb's, but mt76u_tx_kick()
 		 * will fail to submit urb, cleanup those skb's manually.
 		 */
-		for (i = 0; i < IEEE80211_NUM_ACS; i++) {
+		for (i = 0; i <= MT_TXQ_PSD; i++) {
 			q = dev->phy.q_tx[i];
 			if (!q)
 				continue;
