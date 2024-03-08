@@ -1619,15 +1619,18 @@ mt7925_mcu_sta_cmd(struct mt76_phy *phy,
 	struct mt76_vif *mvif = (struct mt76_vif *)info->vif->drv_priv;
 	struct mt76_dev *dev = phy->dev;
 	struct sk_buff *skb;
+	int conn_state;
 
 	skb = __mt76_connac_mcu_alloc_sta_req(dev, mvif, info->wcid,
 					      MT7925_STA_UPDATE_MAX_SIZE);
 	if (IS_ERR(skb))
 		return PTR_ERR(skb);
 
+	conn_state = info->enable ? CONN_STATE_PORT_SECURE :
+				    CONN_STATE_DISCONNECT;
 	if (info->sta || !info->offload_fw)
 		mt76_connac_mcu_sta_basic_tlv(dev, skb, info->vif, info->sta,
-					      info->enable, info->newly);
+					      conn_state, info->newly);
 	if (info->sta && info->enable) {
 		mt7925_mcu_sta_phy_tlv(skb, info->vif, info->sta);
 		mt7925_mcu_sta_ht_tlv(skb, info->sta);
