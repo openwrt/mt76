@@ -817,12 +817,17 @@ static void mt7925_mac_link_sta_assoc(struct mt76_dev *mdev,
 	mt792x_mutex_release(dev);
 }
 
-void mt7925_mac_sta_assoc(struct mt76_dev *mdev, struct ieee80211_vif *vif,
-			  struct ieee80211_sta *sta)
+int mt7925_mac_sta_event(struct mt76_dev *mdev, struct ieee80211_vif *vif,
+			 struct ieee80211_sta *sta, enum mt76_sta_event ev)
 {
+	if (ev != MT76_STA_EVENT_ASSOC)
+		return 0;
+
 	mt7925_mac_link_sta_assoc(mdev, vif, &sta->deflink);
+
+	return 0;
 }
-EXPORT_SYMBOL_GPL(mt7925_mac_sta_assoc);
+EXPORT_SYMBOL_GPL(mt7925_mac_sta_event);
 
 static void mt7925_mac_link_sta_remove(struct mt76_dev *mdev,
 				       struct ieee80211_vif *vif,
