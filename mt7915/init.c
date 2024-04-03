@@ -936,7 +936,7 @@ mt7915_set_stream_he_txbf_caps(struct mt7915_phy *phy,
 	/* the maximum cap is 4 x 3, (Nr, Nc) = (3, 2) */
 	elem->phy_cap_info[7] |= min_t(int, sts - 1, 2) << 3;
 
-	if (vif != NL80211_IFTYPE_AP || vif != NL80211_IFTYPE_STATION)
+	if (vif != NL80211_IFTYPE_AP && vif != NL80211_IFTYPE_STATION)
 		return;
 
 	elem->phy_cap_info[3] |= IEEE80211_HE_PHY_CAP3_SU_BEAMFORMER;
