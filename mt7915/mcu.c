@@ -2944,7 +2944,7 @@ static int mt7915_find_freq_idx(const u16 *freqs, int n_freqs, u16 cur)
 
 static int mt7915_dpd_freq_idx(struct mt7915_dev *dev, u16 freq, u8 bw)
 {
-	const u16 freq_list_v1[] = {
+	static const u16 freq_list_v1[] = {
 		5180, 5200, 5220, 5240,
 		5260, 5280, 5300, 5320,
 		5500, 5520, 5540, 5560,
@@ -2952,7 +2952,7 @@ static int mt7915_dpd_freq_idx(struct mt7915_dev *dev, u16 freq, u8 bw)
 		5660, 5680, 5700, 5745,
 		5765, 5785, 5805, 5825
 	};
-	const u16 freq_list_v2[] = {
+	static const u16 freq_list_v2[] = {
 		/* 6G BW20*/
 		5955, 5975, 5995, 6015,
 		6035, 6055, 6075, 6095,
@@ -2983,7 +2983,7 @@ static int mt7915_dpd_freq_idx(struct mt7915_dev *dev, u16 freq, u8 bw)
 		/* 5G BW160 */
 		5250, 5570, 5815
 	};
-	const u16 freq_list_v2_7981[] = {
+	static const u16 freq_list_v2_7981[] = {
 		/* 5G BW20 */
 		5180, 5200, 5220, 5240,
 		5260, 5280, 5300, 5320,
