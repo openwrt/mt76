@@ -128,7 +128,7 @@ struct mt76_connac2_mcu_rxd {
 	u8 rsv1[2];
 	u8 s2d_index;
 
-	u8 tlv[0];
+	u8 tlv[];
 };
 
 struct mt76_connac2_patch_hdr {
@@ -1460,7 +1460,7 @@ struct mt76_connac_beacon_loss_event {
 } __packed;
 
 struct mt76_connac_rssi_notify_event {
-	s32 rssi[4];
+	__le32 rssi[4];
 } __packed;
 
 struct mt76_connac_mcu_bss_event {

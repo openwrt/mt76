@@ -4,9 +4,10 @@
  */
 
 #include <linux/etherdevice.h>
-#include <linux/thermal.h>
+#include <linux/of.h>
 #include <linux/hwmon.h>
 #include <linux/hwmon-sysfs.h>
+#include <linux/thermal.h>
 #include "mt7996.h"
 #include "mac.h"
 #include "mcu.h"
@@ -1278,8 +1279,7 @@ __mt7996_set_stream_he_eht_caps(struct mt7996_phy *phy,
 		n++;
 	}
 
-	sband->iftype_data = data;
-	sband->n_iftype_data = n;
+	_ieee80211_set_sband_iftype_data(sband, data, n);
 }
 
 void mt7996_set_stream_he_eht_caps(struct mt7996_phy *phy)
