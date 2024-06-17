@@ -884,6 +884,27 @@ out:
 #endif
 }
 
+static int mt7996_chip_variant_init(struct mt7996_dev *dev)
+{
+	u32 val = mt76_rr(dev, MT_PAD_GPIO);
+
+	switch (mt76_chip(&dev->mt76)) {
+	case 0x7990:
+		if (u32_get_bits(val, MT_PAD_GPIO_2ADIE_TBTC))
+			dev->var_type = MT7996_VAR_TYPE_233;
+		else
+			dev->var_type = MT7996_VAR_TYPE_444;
+		break;
+	case 0x7992:
+		dev->var_type = MT7992_VAR_TYPE_44;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int mt7996_init_hardware(struct mt7996_dev *dev)
 {
 	int ret, idx;
@@ -898,6 +919,10 @@ static int mt7996_init_hardware(struct mt7996_dev *dev)
 	INIT_WORK(&dev->wed_rro.work, mt7996_wed_rro_work);
 	INIT_LIST_HEAD(&dev->wed_rro.poll_list);
 	spin_lock_init(&dev->wed_rro.lock);
+
+	ret = mt7996_chip_variant_init(dev);
+	if (ret)
+		return ret;
 
 	ret = mt7996_dma_init(dev);
 	if (ret)

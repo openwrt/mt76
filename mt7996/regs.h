@@ -662,6 +662,7 @@ enum offs_rev {
 
 #define MT_PAD_GPIO				0x700056f0
 #define MT_PAD_GPIO_ADIE_COMB			GENMASK(16, 15)
+#define MT_PAD_GPIO_2ADIE_TBTC			BIT(19)
 
 #define MT_HW_REV				0x70010204
 #define MT_HW_REV1				0x8a00

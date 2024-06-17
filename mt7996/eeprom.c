@@ -26,6 +26,8 @@ static char *mt7996_eeprom_name(struct mt7996_dev *dev)
 {
 	switch (mt76_chip(&dev->mt76)) {
 	case 0x7990:
+		if (dev->var_type == MT7996_VAR_TYPE_233)
+			return MT7996_EEPROM_DEFAULT_233;
 		return MT7996_EEPROM_DEFAULT;
 	case 0x7992:
 		return MT7992_EEPROM_DEFAULT;

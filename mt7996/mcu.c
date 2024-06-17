@@ -17,6 +17,11 @@
 		_fw = MT7992_##name;				\
 		break;						\
 	case 0x7990:						\
+		if ((_dev)->var_type == MT7996_VAR_TYPE_233)	\
+			_fw = MT7996_##name##_233;		\
+		else						\
+			_fw = MT7996_##name;			\
+		break;						\
 	default:						\
 		_fw = MT7996_##name;				\
 		break;						\
@@ -2851,6 +2856,7 @@ out:
 
 static int mt7996_load_ram(struct mt7996_dev *dev)
 {
+	const char *dsp_name;
 	int ret;
 
 	ret = __mt7996_load_ram(dev, "WM", fw_name(dev, FIRMWARE_WM),
@@ -2858,7 +2864,8 @@ static int mt7996_load_ram(struct mt7996_dev *dev)
 	if (ret)
 		return ret;
 
-	ret = __mt7996_load_ram(dev, "DSP", fw_name(dev, FIRMWARE_DSP),
+	dsp_name = is_mt7996(&dev->mt76) ? MT7996_FIRMWARE_DSP : MT7992_FIRMWARE_DSP;
+	ret = __mt7996_load_ram(dev, "DSP", dsp_name,
 				MT7996_RAM_TYPE_DSP);
 	if (ret)
 		return ret;
