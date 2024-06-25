@@ -621,6 +621,7 @@ struct mt7996_dev *mt7996_mmio_probe(struct device *pdev,
 		.sta_event = mt7996_mac_sta_event,
 		.sta_remove = mt7996_mac_sta_remove,
 		.update_survey = mt7996_update_channel,
+		.set_channel = mt7996_set_channel,
 	};
 	struct mt7996_dev *dev;
 	struct mt76_dev *mdev;
