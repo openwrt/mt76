@@ -430,6 +430,9 @@ mt76_phy_init(struct mt76_phy *phy, struct ieee80211_hw *hw)
 	INIT_LIST_HEAD(&phy->tx_list);
 	spin_lock_init(&phy->tx_lock);
 
+	if ((void *)phy != hw->priv)
+		return 0;
+
 	SET_IEEE80211_DEV(hw, dev->dev);
 	SET_IEEE80211_PERM_ADDR(hw, phy->macaddr);
 
@@ -553,9 +556,11 @@ int mt76_register_phy(struct mt76_phy *phy, bool vht,
 	mt76_check_sband(phy, &phy->sband_5g, NL80211_BAND_5GHZ);
 	mt76_check_sband(phy, &phy->sband_6g, NL80211_BAND_6GHZ);
 
-	ret = ieee80211_register_hw(phy->hw);
-	if (ret)
-		return ret;
+	if ((void *)phy == phy->hw->priv) {
+		ret = ieee80211_register_hw(phy->hw);
+		if (ret)
+			return ret;
+	}
 
 	set_bit(MT76_STATE_REGISTERED, &phy->state);
 	phy->dev->phys[phy->band_idx] = phy;
