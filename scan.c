@@ -4,7 +4,7 @@
  */
 #include "mt76.h"
 
-static void mt76_scan_complete(struct mt76_dev *dev, bool abort)
+void mt76_scan_complete(struct mt76_dev *dev, bool abort)
 {
 	struct mt76_phy *phy = dev->scan.phy;
 	struct cfg80211_scan_info info = {
@@ -116,6 +116,12 @@ int mt76_hw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct mt76_phy *phy = hw->priv;
 	struct mt76_dev *dev = phy->dev;
 	int ret = 0;
+
+	if (hw->wiphy->n_radio > 1) {
+		phy = dev->band_phys[req->req.channels[0]->band];
+		if (!phy)
+			return -EINVAL;
+	}
 
 	mutex_lock(&dev->mutex);
 
