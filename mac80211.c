@@ -1837,7 +1837,7 @@ EXPORT_SYMBOL_GPL(mt76_init_queue);
 u16 mt76_calculate_default_rate(struct mt76_phy *phy,
 				struct ieee80211_vif *vif, int rateidx)
 {
-	struct mt76_vif *mvif = (struct mt76_vif *)vif->drv_priv;
+	struct mt76_vif_link *mvif = (struct mt76_vif_link *)vif->drv_priv;
 	struct cfg80211_chan_def *chandef = mvif->ctx ?
 					    &mvif->ctx->def :
 					    &phy->chandef;
