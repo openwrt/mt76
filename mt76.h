@@ -1770,7 +1770,7 @@ mt76_token_put(struct mt76_dev *dev, int token)
 	return txwi;
 }
 
-void mt76_wcid_init(struct mt76_wcid *wcid);
+void mt76_wcid_init(struct mt76_wcid *wcid, u8 band_idx);
 void mt76_wcid_cleanup(struct mt76_dev *dev, struct mt76_wcid *wcid);
 
 static inline void
