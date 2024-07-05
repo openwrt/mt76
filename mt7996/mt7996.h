@@ -164,7 +164,7 @@ struct mt7996_sta {
 	} twt;
 };
 
-struct mt7996_vif {
+struct mt7996_vif_link {
 	struct mt76_vif_link mt76; /* must be first */
 
 	struct mt7996_sta sta;
@@ -172,6 +172,11 @@ struct mt7996_vif {
 
 	struct ieee80211_tx_queue_params queue_params[IEEE80211_NUM_ACS];
 	struct cfg80211_bitrate_mask bitrate_mask;
+};
+
+struct mt7996_vif {
+	struct mt7996_vif_link deflink; /* must be first */
+	struct mt76_vif_data mt76;
 };
 
 /* crash-dump */
@@ -411,6 +416,20 @@ mt7996_band_valid(struct mt7996_dev *dev, u8 band)
 		return true;
 
 	return band == MT_BAND0 || band == MT_BAND2;
+}
+
+static inline struct mt7996_vif_link *
+mt7996_vif_link(struct mt7996_dev *dev, struct ieee80211_vif *vif, int link_id)
+{
+	return (struct mt7996_vif_link *)mt76_vif_link(&dev->mt76, vif, link_id);
+}
+
+static inline struct mt7996_vif_link *
+mt7996_vif_conf_link(struct mt7996_dev *dev, struct ieee80211_vif *vif,
+		     struct ieee80211_bss_conf *link_conf)
+{
+	return (struct mt7996_vif_link *)mt76_vif_conf_link(&dev->mt76, vif,
+							    link_conf);
 }
 
 extern const struct ieee80211_ops mt7996_ops;
