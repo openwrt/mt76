@@ -744,8 +744,7 @@ mt7996_mcu_add_uni_tlv(struct sk_buff *skb, u16 tag, u16 len)
 }
 
 static void
-mt7996_mcu_bss_rfch_tlv(struct sk_buff *skb, struct ieee80211_vif *vif,
-			struct mt7996_phy *phy)
+mt7996_mcu_bss_rfch_tlv(struct sk_buff *skb, struct mt7996_phy *phy)
 {
 	static const u8 rlm_ch_band[] = {
 		[NL80211_BAND_2GHZ] = 1,
@@ -775,8 +774,7 @@ mt7996_mcu_bss_rfch_tlv(struct sk_buff *skb, struct ieee80211_vif *vif,
 }
 
 static void
-mt7996_mcu_bss_ra_tlv(struct sk_buff *skb, struct ieee80211_vif *vif,
-		      struct mt7996_phy *phy)
+mt7996_mcu_bss_ra_tlv(struct sk_buff *skb, struct mt7996_phy *phy)
 {
 	struct bss_ra_tlv *ra;
 	struct tlv *tlv;
@@ -789,6 +787,7 @@ mt7996_mcu_bss_ra_tlv(struct sk_buff *skb, struct ieee80211_vif *vif,
 
 static void
 mt7996_mcu_bss_he_tlv(struct sk_buff *skb, struct ieee80211_vif *vif,
+		      struct ieee80211_bss_conf *link_conf,
 		      struct mt7996_phy *phy)
 {
 #define DEFAULT_HE_PE_DURATION		4
@@ -802,11 +801,11 @@ mt7996_mcu_bss_he_tlv(struct sk_buff *skb, struct ieee80211_vif *vif,
 	tlv = mt7996_mcu_add_uni_tlv(skb, UNI_BSS_INFO_HE_BASIC, sizeof(*he));
 
 	he = (struct bss_info_uni_he *)tlv;
-	he->he_pe_duration = vif->bss_conf.htc_trig_based_pkt_ext;
+	he->he_pe_duration = link_conf->htc_trig_based_pkt_ext;
 	if (!he->he_pe_duration)
 		he->he_pe_duration = DEFAULT_HE_PE_DURATION;
 
-	he->he_rts_thres = cpu_to_le16(vif->bss_conf.frame_time_rts_th);
+	he->he_rts_thres = cpu_to_le16(link_conf->frame_time_rts_th);
 	if (!he->he_rts_thres)
 		he->he_rts_thres = cpu_to_le16(DEFAULT_HE_DURATION_RTS_THRES);
 
@@ -816,13 +815,13 @@ mt7996_mcu_bss_he_tlv(struct sk_buff *skb, struct ieee80211_vif *vif,
 }
 
 static void
-mt7996_mcu_bss_mbssid_tlv(struct sk_buff *skb, struct ieee80211_vif *vif,
-			  struct mt7996_phy *phy, int enable)
+mt7996_mcu_bss_mbssid_tlv(struct sk_buff *skb, struct ieee80211_bss_conf *link_conf,
+			  bool enable)
 {
 	struct bss_info_uni_mbssid *mbssid;
 	struct tlv *tlv;
 
-	if (!vif->bss_conf.bssid_indicator && enable)
+	if (!link_conf->bssid_indicator && enable)
 		return;
 
 	tlv = mt7996_mcu_add_uni_tlv(skb, UNI_BSS_INFO_11V_MBSSID, sizeof(*mbssid));
@@ -830,23 +829,22 @@ mt7996_mcu_bss_mbssid_tlv(struct sk_buff *skb, struct ieee80211_vif *vif,
 	mbssid = (struct bss_info_uni_mbssid *)tlv;
 
 	if (enable) {
-		mbssid->max_indicator = vif->bss_conf.bssid_indicator;
-		mbssid->mbss_idx = vif->bss_conf.bssid_index;
+		mbssid->max_indicator = link_conf->bssid_indicator;
+		mbssid->mbss_idx = link_conf->bssid_index;
 		mbssid->tx_bss_omac_idx = 0;
 	}
 }
 
 static void
-mt7996_mcu_bss_bmc_tlv(struct sk_buff *skb, struct ieee80211_vif *vif,
+mt7996_mcu_bss_bmc_tlv(struct sk_buff *skb, struct mt76_vif_link *mlink,
 		       struct mt7996_phy *phy)
 {
-	struct mt76_vif_link *mvif = (struct mt76_vif_link *)vif->drv_priv;
 	struct bss_rate_tlv *bmc;
 	struct cfg80211_chan_def *chandef = &phy->mt76->chandef;
 	enum nl80211_band band = chandef->chan->band;
 	struct tlv *tlv;
-	u8 idx = mvif->mcast_rates_idx ?
-		 mvif->mcast_rates_idx : mvif->basic_rates_idx;
+	u8 idx = mlink->mcast_rates_idx ?
+		 mlink->mcast_rates_idx : mlink->basic_rates_idx;
 
 	tlv = mt7996_mcu_add_uni_tlv(skb, UNI_BSS_INFO_RATE, sizeof(*bmc));
 
@@ -870,9 +868,8 @@ mt7996_mcu_bss_txcmd_tlv(struct sk_buff *skb, bool en)
 }
 
 static void
-mt7996_mcu_bss_mld_tlv(struct sk_buff *skb, struct ieee80211_vif *vif)
+mt7996_mcu_bss_mld_tlv(struct sk_buff *skb, struct mt76_vif_link *mlink)
 {
-	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
 	struct bss_mld_tlv *mld;
 	struct tlv *tlv;
 
@@ -880,33 +877,28 @@ mt7996_mcu_bss_mld_tlv(struct sk_buff *skb, struct ieee80211_vif *vif)
 
 	mld = (struct bss_mld_tlv *)tlv;
 	mld->group_mld_id = 0xff;
-	mld->own_mld_id = mvif->deflink.mt76.idx;
+	mld->own_mld_id = mlink->idx;
 	mld->remap_idx = 0xff;
 }
 
 static void
-mt7996_mcu_bss_sec_tlv(struct sk_buff *skb, struct ieee80211_vif *vif)
+mt7996_mcu_bss_sec_tlv(struct sk_buff *skb, struct mt76_vif_link *mlink)
 {
-	struct mt76_vif_link *mvif = (struct mt76_vif_link *)vif->drv_priv;
 	struct bss_sec_tlv *sec;
 	struct tlv *tlv;
 
 	tlv = mt7996_mcu_add_uni_tlv(skb, UNI_BSS_INFO_SEC, sizeof(*sec));
 
 	sec = (struct bss_sec_tlv *)tlv;
-	sec->cipher = mvif->cipher;
+	sec->cipher = mlink->cipher;
 }
 
 static int
-mt7996_mcu_muar_config(struct mt7996_phy *phy, struct ieee80211_vif *vif,
-		       bool bssid, bool enable)
+mt7996_mcu_muar_config(struct mt7996_dev *dev, struct mt76_vif_link *mlink,
+		       const u8 *addr, bool bssid, bool enable)
 {
 #define UNI_MUAR_ENTRY 2
-	struct mt7996_dev *dev = phy->dev;
-	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
-	u32 idx = mvif->deflink.mt76.omac_idx - REPEATER_BSSID_START;
-	const u8 *addr = vif->addr;
-
+	u32 idx = mlink->omac_idx - REPEATER_BSSID_START;
 	struct {
 		struct {
 			u8 band;
@@ -923,16 +915,13 @@ mt7996_mcu_muar_config(struct mt7996_phy *phy, struct ieee80211_vif *vif,
 		u8 addr[ETH_ALEN];
 		u8 __rsv[2];
 	} __packed req = {
-		.hdr.band = phy->mt76->band_idx,
+		.hdr.band = mlink->band_idx,
 		.tag = cpu_to_le16(UNI_MUAR_ENTRY),
 		.len = cpu_to_le16(sizeof(req) - sizeof(req.hdr)),
 		.smesh = false,
 		.index = idx * 2 + bssid,
 		.entry_add = true,
 	};
-
-	if (bssid)
-		addr = vif->bss_conf.bssid;
 
 	if (enable)
 		memcpy(req.addr, addr, ETH_ALEN);
@@ -942,10 +931,8 @@ mt7996_mcu_muar_config(struct mt7996_phy *phy, struct ieee80211_vif *vif,
 }
 
 static void
-mt7996_mcu_bss_ifs_timing_tlv(struct sk_buff *skb, struct ieee80211_vif *vif)
+mt7996_mcu_bss_ifs_timing_tlv(struct sk_buff *skb, struct mt7996_phy *phy)
 {
-	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
-	struct mt7996_phy *phy = mvif->deflink.phy;
 	struct bss_ifs_time_tlv *ifs_time;
 	struct tlv *tlv;
 	bool is_2ghz = phy->mt76->chandef.chan->band == NL80211_BAND_2GHZ;
@@ -1064,46 +1051,46 @@ __mt7996_mcu_alloc_bss_req(struct mt76_dev *dev, struct mt76_vif_link *mvif, int
 	return skb;
 }
 
-int mt7996_mcu_add_bss_info(struct mt7996_phy *phy,
-			    struct ieee80211_vif *vif, int enable)
+int mt7996_mcu_add_bss_info(struct mt7996_phy *phy, struct ieee80211_vif *vif,
+			    struct ieee80211_bss_conf *link_conf, int enable)
 {
-	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
 	struct mt7996_dev *dev = phy->dev;
+	struct mt76_vif_link *mlink = mt76_vif_conf_link(&dev->mt76, vif, link_conf);
 	struct sk_buff *skb;
 
-	if (mvif->deflink.mt76.omac_idx >= REPEATER_BSSID_START) {
-		mt7996_mcu_muar_config(phy, vif, false, enable);
-		mt7996_mcu_muar_config(phy, vif, true, enable);
+	if (mlink->omac_idx >= REPEATER_BSSID_START) {
+		mt7996_mcu_muar_config(dev, mlink, link_conf->addr, false, enable);
+		mt7996_mcu_muar_config(dev, mlink, link_conf->bssid, true, enable);
 	}
 
-	skb = __mt7996_mcu_alloc_bss_req(&dev->mt76, &mvif->deflink.mt76,
+	skb = __mt7996_mcu_alloc_bss_req(&dev->mt76, mlink,
 					 MT7996_BSS_UPDATE_MAX_SIZE);
 	if (IS_ERR(skb))
 		return PTR_ERR(skb);
 
 	/* bss_basic must be first */
 	mt7996_mcu_bss_basic_tlv(skb, vif, NULL, phy->mt76,
-				 mvif->deflink.sta.wcid.idx, enable);
-	mt7996_mcu_bss_sec_tlv(skb, vif);
+				 mlink->wcid->idx, enable);
+	mt7996_mcu_bss_sec_tlv(skb, mlink);
 
 	if (vif->type == NL80211_IFTYPE_MONITOR)
 		goto out;
 
 	if (enable) {
-		mt7996_mcu_bss_rfch_tlv(skb, vif, phy);
-		mt7996_mcu_bss_bmc_tlv(skb, vif, phy);
-		mt7996_mcu_bss_ra_tlv(skb, vif, phy);
+		mt7996_mcu_bss_rfch_tlv(skb, phy);
+		mt7996_mcu_bss_bmc_tlv(skb, mlink, phy);
+		mt7996_mcu_bss_ra_tlv(skb, phy);
 		mt7996_mcu_bss_txcmd_tlv(skb, true);
-		mt7996_mcu_bss_ifs_timing_tlv(skb, vif);
+		mt7996_mcu_bss_ifs_timing_tlv(skb, phy);
 
 		if (vif->bss_conf.he_support)
-			mt7996_mcu_bss_he_tlv(skb, vif, phy);
+			mt7996_mcu_bss_he_tlv(skb, vif, link_conf, phy);
 
 		/* this tag is necessary no matter if the vif is MLD */
-		mt7996_mcu_bss_mld_tlv(skb, vif);
+		mt7996_mcu_bss_mld_tlv(skb, mlink);
 	}
 
-	mt7996_mcu_bss_mbssid_tlv(skb, vif, phy, enable);
+	mt7996_mcu_bss_mbssid_tlv(skb, link_conf, enable);
 
 out:
 	return mt76_mcu_skb_send_msg(&dev->mt76, skb,
@@ -1121,7 +1108,7 @@ int mt7996_mcu_set_timing(struct mt7996_phy *phy, struct ieee80211_vif *vif)
 	if (IS_ERR(skb))
 		return PTR_ERR(skb);
 
-	mt7996_mcu_bss_ifs_timing_tlv(skb, vif);
+	mt7996_mcu_bss_ifs_timing_tlv(skb, phy);
 
 	return mt76_mcu_skb_send_msg(&dev->mt76, skb,
 				     MCU_WMWA_UNI_CMD(BSS_INFO_UPDATE), true);
@@ -2367,11 +2354,12 @@ int mt7996_mcu_bcn_prot_enable(struct mt7996_dev *dev, struct ieee80211_vif *vif
 	return mt76_mcu_skb_send_msg(&dev->mt76, skb,
 				     MCU_WMWA_UNI_CMD(BSS_INFO_UPDATE), true);
 }
-int mt7996_mcu_add_dev_info(struct mt7996_phy *phy,
-			    struct ieee80211_vif *vif, bool enable)
+
+int mt7996_mcu_add_dev_info(struct mt7996_phy *phy, struct ieee80211_vif *vif,
+			    struct ieee80211_bss_conf *link_conf, bool enable)
 {
 	struct mt7996_dev *dev = phy->dev;
-	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+	struct mt76_vif_link *mlink = mt76_vif_conf_link(&dev->mt76, vif, link_conf);
 	struct {
 		struct req_hdr {
 			u8 omac_idx;
@@ -2387,8 +2375,8 @@ int mt7996_mcu_add_dev_info(struct mt7996_phy *phy,
 		} __packed tlv;
 	} data = {
 		.hdr = {
-			.omac_idx = mvif->deflink.mt76.omac_idx,
-			.band_idx = mvif->deflink.mt76.band_idx,
+			.omac_idx = mlink->omac_idx,
+			.band_idx = mlink->band_idx,
 		},
 		.tlv = {
 			.tag = cpu_to_le16(DEV_INFO_ACTIVE),
@@ -2397,8 +2385,8 @@ int mt7996_mcu_add_dev_info(struct mt7996_phy *phy,
 		},
 	};
 
-	if (mvif->deflink.mt76.omac_idx >= REPEATER_BSSID_START)
-		return mt7996_mcu_muar_config(phy, vif, false, enable);
+	if (mlink->omac_idx >= REPEATER_BSSID_START)
+		return mt7996_mcu_muar_config(dev, mlink, link_conf->addr, false, enable);
 
 	memcpy(data.tlv.omac_addr, vif->addr, ETH_ALEN);
 	return mt76_mcu_send_msg(&dev->mt76, MCU_WMWA_UNI_CMD(DEV_INFO_UPDATE),

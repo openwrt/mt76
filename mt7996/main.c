@@ -204,7 +204,7 @@ mt7996_vif_link_add(struct mt7996_phy *phy, struct ieee80211_vif *vif,
 	mlink->mt76.wmm_idx = vif->type != NL80211_IFTYPE_AP;
 	mlink->mt76.wcid = &mlink->sta.wcid;
 
-	ret = mt7996_mcu_add_dev_info(phy, vif, true);
+	ret = mt7996_mcu_add_dev_info(phy, vif, link_conf, true);
 	if (ret)
 		return ret;
 
@@ -237,7 +237,7 @@ mt7996_vif_link_add(struct mt7996_phy *phy, struct ieee80211_vif *vif,
 
 	mt7996_init_bitrate_mask(vif, mlink);
 
-	mt7996_mcu_add_bss_info(phy, vif, true);
+	mt7996_mcu_add_bss_info(phy, vif, link_conf, true);
 	/* defer the first STA_REC of BMC entry to BSS_CHANGED_BSSID for STA
 	 * interface, since firmware only records BSSID when the entry is new
 	 */
@@ -265,9 +265,9 @@ mt7996_vif_link_remove(struct mt7996_phy *phy, struct ieee80211_vif *vif,
 	msta = &mlink->sta;
 	idx = msta->wcid.idx;
 	mt7996_mcu_add_sta(dev, vif, NULL, CONN_STATE_DISCONNECT, false);
-	mt7996_mcu_add_bss_info(phy, vif, false);
+	mt7996_mcu_add_bss_info(phy, vif, link_conf, false);
 
-	mt7996_mcu_add_dev_info(phy, vif, false);
+	mt7996_mcu_add_dev_info(phy, vif, link_conf, false);
 
 	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
 
@@ -403,7 +403,7 @@ static int mt7996_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 
 	if (cmd == SET_KEY && !sta && !mlink->mt76.cipher) {
 		mlink->mt76.cipher = mt76_connac_mcu_get_cipher(key->cipher);
-		mt7996_mcu_add_bss_info(phy, vif, true);
+		mt7996_mcu_add_bss_info(phy, vif, &vif->bss_conf, true);
 	}
 
 	if (cmd == SET_KEY) {
@@ -633,7 +633,7 @@ static void mt7996_bss_info_changed(struct ieee80211_hw *hw,
 	if ((changed & BSS_CHANGED_BSSID && !is_zero_ether_addr(info->bssid)) ||
 	    (changed & BSS_CHANGED_ASSOC && vif->cfg.assoc) ||
 	    (changed & BSS_CHANGED_BEACON_ENABLED && info->enable_beacon)) {
-		mt7996_mcu_add_bss_info(phy, vif, true);
+		mt7996_mcu_add_bss_info(phy, vif, info, true);
 		mt7996_mcu_add_sta(dev, vif, NULL, CONN_STATE_PORT_SECURE,
 				   !!(changed & BSS_CHANGED_BSSID));
 	}
