@@ -176,47 +176,44 @@ mt7996_init_bitrate_mask(struct ieee80211_vif *vif, struct mt7996_vif_link *mlin
 	}
 }
 
-static int
-mt7996_vif_link_add(struct mt7996_phy *phy, struct ieee80211_vif *vif,
-		    struct ieee80211_bss_conf *link_conf)
+int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
+			struct ieee80211_bss_conf *link_conf,
+			struct mt76_vif_link *mlink)
 {
+	struct mt7996_vif_link *link = container_of(mlink, struct mt7996_vif_link, mt76);
+	struct mt7996_phy *phy = mphy->priv;
 	struct mt7996_dev *dev = phy->dev;
 	u8 band_idx = phy->mt76->band_idx;
-	struct mt7996_vif_link *mlink;
 	struct mt76_txq *mtxq;
 	int idx, ret;
 
-	mlink = mt7996_vif_conf_link(dev, vif, link_conf);
-	if (!mlink)
-		return -EINVAL;
-
-	mlink->mt76.idx = __ffs64(~dev->mt76.vif_mask);
-	if (mlink->mt76.idx >= mt7996_max_interface_num(dev))
+	mlink->idx = __ffs64(~dev->mt76.vif_mask);
+	if (mlink->idx >= mt7996_max_interface_num(dev))
 		return -ENOSPC;
 
 	idx = get_omac_idx(vif->type, phy->omac_mask);
 	if (idx < 0)
 		return -ENOSPC;
 
-	mlink->mt76.omac_idx = idx;
-	mlink->phy = phy;
-	mlink->mt76.band_idx = band_idx;
-	mlink->mt76.wmm_idx = vif->type != NL80211_IFTYPE_AP;
-	mlink->mt76.wcid = &mlink->sta.wcid;
+	link->phy = phy;
+	mlink->omac_idx = idx;
+	mlink->band_idx = band_idx;
+	mlink->wmm_idx = vif->type != NL80211_IFTYPE_AP;
+	mlink->wcid = &link->sta.wcid;
 
 	ret = mt7996_mcu_add_dev_info(phy, vif, link_conf, true);
 	if (ret)
 		return ret;
 
-	dev->mt76.vif_mask |= BIT_ULL(mlink->mt76.idx);
-	phy->omac_mask |= BIT_ULL(mlink->mt76.omac_idx);
+	dev->mt76.vif_mask |= BIT_ULL(mlink->idx);
+	phy->omac_mask |= BIT_ULL(mlink->omac_idx);
 
-	idx = MT7996_WTBL_RESERVED - mlink->mt76.idx;
+	idx = MT7996_WTBL_RESERVED - mlink->idx;
 
-	INIT_LIST_HEAD(&mlink->sta.rc_list);
-	mlink->sta.wcid.idx = idx;
-	mlink->sta.wcid.tx_info |= MT_WCID_TX_INFO_SET;
-	mt76_wcid_init(&mlink->sta.wcid, band_idx);
+	INIT_LIST_HEAD(&link->sta.rc_list);
+	link->sta.wcid.idx = idx;
+	link->sta.wcid.tx_info |= MT_WCID_TX_INFO_SET;
+	mt76_wcid_init(&link->sta.wcid, band_idx);
 
 	mt7996_mac_wtbl_update(dev, idx,
 			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
@@ -227,15 +224,15 @@ mt7996_vif_link_add(struct mt7996_phy *phy, struct ieee80211_vif *vif,
 	}
 
 	if (vif->type != NL80211_IFTYPE_AP &&
-	    (!mlink->mt76.omac_idx || mlink->mt76.omac_idx > 3))
+	    (!mlink->omac_idx || mlink->omac_idx > 3))
 		vif->offload_flags = 0;
 
 	if (phy->mt76->chandef.chan->band != NL80211_BAND_2GHZ)
-		mlink->mt76.basic_rates_idx = MT7996_BASIC_RATES_TBL + 4;
+		mlink->basic_rates_idx = MT7996_BASIC_RATES_TBL + 4;
 	else
-		mlink->mt76.basic_rates_idx = MT7996_BASIC_RATES_TBL;
+		mlink->basic_rates_idx = MT7996_BASIC_RATES_TBL;
 
-	mt7996_init_bitrate_mask(vif, mlink);
+	mt7996_init_bitrate_mask(vif, link);
 
 	mt7996_mcu_add_bss_info(phy, vif, link_conf, true);
 	/* defer the first STA_REC of BMC entry to BSS_CHANGED_BSSID for STA
@@ -243,26 +240,22 @@ mt7996_vif_link_add(struct mt7996_phy *phy, struct ieee80211_vif *vif,
 	 */
 	if (vif->type != NL80211_IFTYPE_STATION)
 		mt7996_mcu_add_sta(dev, vif, NULL, CONN_STATE_PORT_SECURE, true);
-	rcu_assign_pointer(dev->mt76.wcid[idx], &mlink->sta.wcid);
+	rcu_assign_pointer(dev->mt76.wcid[idx], &link->sta.wcid);
 
 	return 0;
 }
 
-static void
-mt7996_vif_link_remove(struct mt7996_phy *phy, struct ieee80211_vif *vif,
-		       struct ieee80211_bss_conf *link_conf)
+void mt7996_vif_link_remove(struct mt76_phy *mphy, struct ieee80211_vif *vif,
+			    struct ieee80211_bss_conf *link_conf,
+			    struct mt76_vif_link *mlink)
 {
+	struct mt7996_vif_link *link = container_of(mlink, struct mt7996_vif_link, mt76);
+	struct mt7996_phy *phy = mphy->priv;
 	struct mt7996_dev *dev = phy->dev;
-	struct mt7996_vif_link *mlink;
 	struct mt7996_sta *msta;
 	int idx;
 
-	mlink = mt7996_vif_conf_link(dev, vif, link_conf);
-	if (!mlink)
-		return;
-
-	mlink->phy = NULL;
-	msta = &mlink->sta;
+	msta = &link->sta;
 	idx = msta->wcid.idx;
 	mt7996_mcu_add_sta(dev, vif, NULL, CONN_STATE_DISCONNECT, false);
 	mt7996_mcu_add_bss_info(phy, vif, link_conf, false);
@@ -271,10 +264,8 @@ mt7996_vif_link_remove(struct mt7996_phy *phy, struct ieee80211_vif *vif,
 
 	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
 
-	mutex_lock(&dev->mt76.mutex);
-	dev->mt76.vif_mask &= ~BIT_ULL(mlink->mt76.idx);
-	phy->omac_mask &= ~BIT_ULL(mlink->mt76.omac_idx);
-	mutex_unlock(&dev->mt76.mutex);
+	dev->mt76.vif_mask &= ~BIT_ULL(mlink->idx);
+	phy->omac_mask &= ~BIT_ULL(mlink->omac_idx);
 
 	spin_lock_bh(&dev->mt76.sta_poll_lock);
 	if (!list_empty(&msta->wcid.poll_list))
@@ -291,7 +282,6 @@ static int mt7996_add_interface(struct ieee80211_hw *hw,
 	struct mt76_vif_link *mlink = &mvif->deflink.mt76;
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
 	struct mt7996_phy *phy = mt7996_hw_phy(hw);
-	int ret = 0;
 
 	mutex_lock(&dev->mt76.mutex);
 
@@ -304,11 +294,10 @@ static int mt7996_add_interface(struct ieee80211_hw *hw,
 		phy->monitor_vif = vif;
 
 	vif->offload_flags |= IEEE80211_OFFLOAD_ENCAP_4ADDR;
-	ret = mt7996_vif_link_add(phy, vif, &vif->bss_conf);
 
 	mutex_unlock(&dev->mt76.mutex);
 
-	return ret;
+	return 0;
 }
 
 static void mt7996_remove_interface(struct ieee80211_hw *hw,
@@ -319,8 +308,6 @@ static void mt7996_remove_interface(struct ieee80211_hw *hw,
 
 	if (vif == phy->monitor_vif)
 		phy->monitor_vif = NULL;
-
-	mt7996_vif_link_remove(phy, vif, &vif->bss_conf);
 	rcu_assign_pointer(mvif->mt76.link[0], NULL);
 }
 
@@ -330,6 +317,10 @@ int mt7996_set_channel(struct mt76_phy *mphy)
 	int ret;
 
 	ret = mt7996_mcu_set_chan_info(phy, UNI_CHANNEL_SWITCH);
+	if (ret)
+		goto out;
+
+	ret = mt7996_mcu_set_txpower_sku(phy);
 	if (ret)
 		goto out;
 
@@ -434,20 +425,13 @@ static int mt7996_config(struct ieee80211_hw *hw, u32 changed)
 	struct mt7996_phy *phy = mt7996_hw_phy(hw);
 	int ret;
 
-	if (changed & IEEE80211_CONF_CHANGE_CHANNEL) {
-		ret = mt76_update_channel(phy->mt76);
-		if (ret)
-			return ret;
-	}
+	mutex_lock(&dev->mt76.mutex);
 
-	if (changed & (IEEE80211_CONF_CHANGE_POWER |
-		       IEEE80211_CONF_CHANGE_CHANNEL)) {
+	if (changed & IEEE80211_CONF_CHANGE_POWER) {
 		ret = mt7996_mcu_set_txpower_sku(phy);
 		if (ret)
 			return ret;
 	}
-
-	mutex_lock(&dev->mt76.mutex);
 
 	if (changed & IEEE80211_CONF_CHANGE_MONITOR) {
 		bool enabled = !!(hw->conf.flags & IEEE80211_CONF_MONITOR);
@@ -597,11 +581,22 @@ static void mt7996_bss_info_changed(struct ieee80211_hw *hw,
 				    struct ieee80211_bss_conf *info,
 				    u64 changed)
 {
-	struct mt7996_phy *phy = mt7996_hw_phy(hw);
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
-	struct mt76_vif_link *mvif = mt76_vif_conf_link(&dev->mt76, vif, info);
+	struct mt76_vif_link *mvif;
+	struct mt7996_phy *phy;
+	struct mt76_phy *mphy;
 
 	mutex_lock(&dev->mt76.mutex);
+
+	mvif = mt76_vif_conf_link(&dev->mt76, vif, info);
+	if (!mvif)
+		goto out;
+
+	mphy = mt76_vif_link_phy(mvif);
+	if (!mphy)
+		goto out;
+
+	phy = mphy->priv;
 
 	/* station mode uses BSSID to map the wlan entry to a peer,
 	 * and then peer references bss_info_rfch to set bandwidth cap.
@@ -664,6 +659,7 @@ static void mt7996_bss_info_changed(struct ieee80211_hw *hw,
 	if (changed & BSS_CHANGED_MU_GROUPS)
 		mt7996_update_mu_group(hw, vif, info);
 
+out:
 	mutex_unlock(&dev->mt76.mutex);
 }
 
@@ -1487,10 +1483,12 @@ mt7996_net_fill_forward_path(struct ieee80211_hw *hw,
 #endif
 
 const struct ieee80211_ops mt7996_ops = {
-	.add_chanctx = ieee80211_emulate_add_chanctx,
-	.remove_chanctx = ieee80211_emulate_remove_chanctx,
-	.change_chanctx = ieee80211_emulate_change_chanctx,
-	.switch_vif_chanctx = ieee80211_emulate_switch_vif_chanctx,
+	.add_chanctx = mt76_add_chanctx,
+	.remove_chanctx = mt76_remove_chanctx,
+	.change_chanctx = mt76_change_chanctx,
+	.assign_vif_chanctx = mt76_assign_vif_chanctx,
+	.unassign_vif_chanctx = mt76_unassign_vif_chanctx,
+	.switch_vif_chanctx = mt76_switch_vif_chanctx,
 	.tx = mt7996_tx,
 	.start = mt7996_start,
 	.stop = mt7996_stop,
