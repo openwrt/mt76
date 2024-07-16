@@ -416,6 +416,18 @@ mt7996_band_valid(struct mt7996_dev *dev, u8 band)
 	return band == MT_BAND0 || band == MT_BAND2;
 }
 
+static inline struct mt7996_phy *
+mt7996_band_phy(struct mt7996_dev *dev, enum nl80211_band band)
+{
+	struct mt76_phy *mphy;
+
+	mphy = dev->mt76.band_phys[band];
+	if (!mphy)
+		return NULL;
+
+	return mphy->priv;
+}
+
 static inline struct mt7996_vif_link *
 mt7996_vif_link(struct mt7996_dev *dev, struct ieee80211_vif *vif, int link_id)
 {
