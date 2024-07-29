@@ -350,7 +350,7 @@ mt76_tx(struct mt76_phy *phy, struct ieee80211_sta *sta,
 	info->hw_queue |= FIELD_PREP(MT_TX_HW_QUEUE_PHY, phy->band_idx);
 
 	if ((info->flags & IEEE80211_TX_CTL_TX_OFFCHAN) ||
-	    (info->control.flags & IEEE80211_TX_CTRL_SCAN_TX))
+	    (info->control.flags & IEEE80211_TX_CTRL_DONT_USE_RATE_MASK))
 		head = &wcid->tx_offchannel;
 	else
 		head = &wcid->tx_pending;
