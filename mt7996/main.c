@@ -281,17 +281,12 @@ static int mt7996_add_interface(struct ieee80211_hw *hw,
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
 	struct mt76_vif_link *mlink = &mvif->deflink.mt76;
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
-	struct mt7996_phy *phy = mt7996_hw_phy(hw);
 
 	mutex_lock(&dev->mt76.mutex);
 
 	mt76_vif_init(vif, &mvif->mt76);
 	mlink->mvif = &mvif->mt76;
 	rcu_assign_pointer(mvif->mt76.link[0], mlink);
-
-	if (vif->type == NL80211_IFTYPE_MONITOR &&
-	    is_zero_ether_addr(vif->addr))
-		phy->monitor_vif = vif;
 
 	vif->offload_flags |= IEEE80211_OFFLOAD_ENCAP_4ADDR;
 
@@ -304,10 +299,7 @@ static void mt7996_remove_interface(struct ieee80211_hw *hw,
 				    struct ieee80211_vif *vif)
 {
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
-	struct mt7996_phy *phy = mt7996_hw_phy(hw);
 
-	if (vif == phy->monitor_vif)
-		phy->monitor_vif = NULL;
 	rcu_assign_pointer(mvif->mt76.link[0], NULL);
 }
 
