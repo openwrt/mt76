@@ -914,7 +914,6 @@ struct mt76_dev {
 	spinlock_t status_lock;
 
 	u32 wcid_mask[DIV_ROUND_UP(MT76_N_WCIDS, 32)];
-	u32 wcid_phy_mask[DIV_ROUND_UP(MT76_N_WCIDS, 32)];
 
 	u64 vif_mask;
 
@@ -1479,7 +1478,7 @@ void __mt76_sta_remove(struct mt76_phy *phy, struct ieee80211_vif *vif,
 void mt76_sta_pre_rcu_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			     struct ieee80211_sta *sta);
 
-int mt76_get_min_avg_rssi(struct mt76_dev *dev, bool ext_phy);
+int mt76_get_min_avg_rssi(struct mt76_dev *dev, u8 phy_idx);
 
 int mt76_get_txpower(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		     int *dbm);
