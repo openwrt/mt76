@@ -639,24 +639,11 @@ mt76_txq_schedule_pending_wcid(struct mt76_phy *phy, struct mt76_wcid *wcid,
 	return ret;
 }
 
-static void
-mt76_txq_free_wcid_offchannel(struct mt76_phy *phy, struct mt76_wcid *wcid)
-{
-	struct sk_buff_head *head = &wcid->tx_offchannel;
-	struct ieee80211_hw *hw = phy->hw;
-	struct sk_buff *skb;
-
-	spin_lock(&head->lock);
-	while ((skb = __skb_dequeue(head)) != NULL)
-		ieee80211_free_txskb(hw, skb);
-	spin_unlock(&head->lock);
-}
-
 static void mt76_txq_schedule_pending(struct mt76_phy *phy)
 {
 	LIST_HEAD(tx_list);
 
-	if (list_empty(&phy->tx_list) || phy->offchannel)
+	if (list_empty(&phy->tx_list))
 		return;
 
 	local_bh_disable();
@@ -665,7 +652,6 @@ static void mt76_txq_schedule_pending(struct mt76_phy *phy)
 	spin_lock(&phy->tx_lock);
 	list_splice_init(&phy->tx_list, &tx_list);
 	while (!list_empty(&tx_list)) {
-		struct sk_buff_head *head;
 		struct mt76_wcid *wcid;
 		int ret;
 
@@ -673,18 +659,16 @@ static void mt76_txq_schedule_pending(struct mt76_phy *phy)
 		list_del_init(&wcid->tx_list);
 
 		spin_unlock(&phy->tx_lock);
-		if (!phy->offchannel)
-			mt76_txq_free_wcid_offchannel(phy, wcid);
-		head = phy->offchannel ? &wcid->tx_offchannel : &wcid->tx_pending;
-		ret = mt76_txq_schedule_pending_wcid(phy, wcid, head);
+		ret = mt76_txq_schedule_pending_wcid(phy, wcid, &wcid->tx_offchannel);
+		if (ret >= 0 && !phy->offchannel)
+			ret = mt76_txq_schedule_pending_wcid(phy, wcid, &wcid->tx_pending);
 		spin_lock(&phy->tx_lock);
 
-		if (skb_queue_empty(&wcid->tx_pending) &&
-		    skb_queue_empty(&wcid->tx_offchannel))
-			continue;
-
-		if (list_empty(&wcid->tx_list))
+		if (!skb_queue_empty(&wcid->tx_pending) &&
+		    !skb_queue_empty(&wcid->tx_offchannel) &&
+		    list_empty(&wcid->tx_list))
 			list_add_tail(&wcid->tx_list, &phy->tx_list);
+
 		if (ret < 0)
 			break;
 	}
