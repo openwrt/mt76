@@ -781,6 +781,7 @@ int mt7915_mac_sta_event(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 			return ret;
 
 		msta->wcid.sta = 1;
+		msta->wcid.sta_disabled = 0;
 		mt76_sta_set_txq_wcid(sta, msta->wcid.idx);
 
 		return 0;
@@ -791,6 +792,7 @@ int mt7915_mac_sta_event(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	case MT76_STA_EVENT_DISASSOC:
 		mt7915_mcu_add_sta(dev, vif, sta, CONN_STATE_DISCONNECT, false);
 		mt76_sta_set_txq_wcid(sta, mvif->sta.wcid.idx);
+		msta->wcid.sta_disabled = 1;
 		msta->wcid.sta = 0;
 		return 0;
 	}
