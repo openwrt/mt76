@@ -1450,8 +1450,7 @@ mt76_sta_add(struct mt76_phy *phy, struct ieee80211_vif *vif,
 			continue;
 
 		mtxq = (struct mt76_txq *)sta->txq[i]->drv_priv;
-		if (!mtxq->wcid)
-			mtxq->wcid = wcid->idx;
+		mtxq->wcid = wcid->idx;
 	}
 
 	ewma_signal_init(&wcid->rssi);

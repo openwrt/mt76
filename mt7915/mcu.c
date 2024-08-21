@@ -1678,11 +1678,8 @@ int mt7915_mcu_add_sta(struct mt7915_dev *dev, struct ieee80211_vif *vif,
 	/* starec basic */
 	mt76_connac_mcu_sta_basic_tlv(&dev->mt76, skb, vif, link_sta,
 				      conn_state, newly);
-	if (conn_state == CONN_STATE_DISCONNECT)
-		goto out;
-
 	/* tag order is in accordance with firmware dependency. */
-	if (sta) {
+	if (sta && conn_state != CONN_STATE_DISCONNECT) {
 		/* starec bfer */
 		mt7915_mcu_sta_bfer_tlv(dev, skb, vif, sta);
 		/* starec ht */
@@ -1693,11 +1690,16 @@ int mt7915_mcu_add_sta(struct mt7915_dev *dev, struct ieee80211_vif *vif,
 		mt76_connac_mcu_sta_uapsd(skb, vif, sta);
 	}
 
-	ret = mt7915_mcu_sta_wtbl_tlv(dev, skb, vif, sta);
-	if (ret) {
-		dev_kfree_skb(skb);
-		return ret;
+	if (newly || conn_state != CONN_STATE_DISCONNECT) {
+		ret = mt7915_mcu_sta_wtbl_tlv(dev, skb, vif, sta);
+		if (ret) {
+			dev_kfree_skb(skb);
+			return ret;
+		}
 	}
+
+	if (conn_state == CONN_STATE_DISCONNECT)
+		goto out;
 
 	if (sta) {
 		/* starec amsdu */

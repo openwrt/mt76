@@ -625,7 +625,7 @@ static void mt7915_bss_info_changed(struct ieee80211_hw *hw,
 	if (set_bss_info == 1)
 		mt7915_mcu_add_bss_info(phy, vif, true);
 	if (set_sta == 1)
-		mt7915_mcu_add_sta(dev, vif, NULL, CONN_STATE_PORT_SECURE, true);
+		mt7915_mcu_add_sta(dev, vif, NULL, CONN_STATE_PORT_SECURE, false);
 
 	if (changed & BSS_CHANGED_ERP_CTS_PROT)
 		mt7915_mac_enable_rtscts(dev, vif, info->use_cts_prot);
@@ -660,7 +660,7 @@ static void mt7915_bss_info_changed(struct ieee80211_hw *hw,
 	if (set_bss_info == 0)
 		mt7915_mcu_add_bss_info(phy, vif, false);
 	if (set_sta == 0)
-		mt7915_mcu_add_sta(dev, vif, NULL, CONN_STATE_DISCONNECT, true);
+		mt7915_mcu_add_sta(dev, vif, NULL, CONN_STATE_DISCONNECT, false);
 
 	mutex_unlock(&dev->mt76.mutex);
 }
@@ -698,7 +698,7 @@ mt7915_start_ap(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	err = mt7915_mcu_add_bss_info(phy, vif, true);
 	if (err)
 		goto out;
-	err = mt7915_mcu_add_sta(dev, vif, NULL, CONN_STATE_PORT_SECURE, true);
+	err = mt7915_mcu_add_sta(dev, vif, NULL, CONN_STATE_PORT_SECURE, false);
 out:
 	mutex_unlock(&dev->mt76.mutex);
 
@@ -712,7 +712,7 @@ mt7915_stop_ap(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct mt7915_dev *dev = mt7915_hw_dev(hw);
 
 	mutex_lock(&dev->mt76.mutex);
-	mt7915_mcu_add_sta(dev, vif, NULL, CONN_STATE_DISCONNECT, true);
+	mt7915_mcu_add_sta(dev, vif, NULL, CONN_STATE_DISCONNECT, false);
 	mutex_unlock(&dev->mt76.mutex);
 }
 
@@ -744,16 +744,16 @@ int mt7915_mac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	INIT_LIST_HEAD(&msta->rc_list);
 	INIT_LIST_HEAD(&msta->wcid.poll_list);
 	msta->vif = mvif;
+	msta->wcid.sta_disabled = 1;
 	msta->wcid.idx = idx;
 	msta->wcid.phy_idx = ext_phy;
-	msta->wcid.tx_info |= MT_WCID_TX_INFO_SET;
 	msta->jiffies = jiffies;
 
 	ewma_avg_signal_init(&msta->avg_ack_signal);
 
 	mt7915_mac_wtbl_update(dev, idx,
 			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
-	mt76_sta_set_txq_wcid(sta, mvif->sta.wcid.idx);
+	mt7915_mcu_add_sta(dev, vif, sta, CONN_STATE_DISCONNECT, true);
 
 	return 0;
 }
@@ -762,10 +762,9 @@ int mt7915_mac_sta_event(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 			 struct ieee80211_sta *sta, enum mt76_sta_event ev)
 {
 	struct mt7915_dev *dev = container_of(mdev, struct mt7915_dev, mt76);
-	struct mt7915_vif *mvif = (struct mt7915_vif *)vif->drv_priv;
 	struct mt7915_sta *msta = (struct mt7915_sta *)sta->drv_priv;
+	int i, ret;
 	u32 addr;
-	int ret;
 
 	switch (ev) {
 	case MT76_STA_EVENT_ASSOC:
@@ -780,9 +779,9 @@ int mt7915_mac_sta_event(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		if (ret)
 			return ret;
 
+		msta->wcid.tx_info |= MT_WCID_TX_INFO_SET;
 		msta->wcid.sta = 1;
 		msta->wcid.sta_disabled = 0;
-		mt76_sta_set_txq_wcid(sta, msta->wcid.idx);
 
 		return 0;
 
@@ -790,8 +789,10 @@ int mt7915_mac_sta_event(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		return mt7915_mcu_add_sta(dev, vif, sta, CONN_STATE_PORT_SECURE, false);
 
 	case MT76_STA_EVENT_DISASSOC:
+		for (i = 0; i < ARRAY_SIZE(msta->twt.flow); i++)
+			mt7915_mac_twt_teardown_flow(dev, msta, i);
+
 		mt7915_mcu_add_sta(dev, vif, sta, CONN_STATE_DISCONNECT, false);
-		mt76_sta_set_txq_wcid(sta, mvif->sta.wcid.idx);
 		msta->wcid.sta_disabled = 1;
 		msta->wcid.sta = 0;
 		return 0;
@@ -805,13 +806,9 @@ void mt7915_mac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 {
 	struct mt7915_dev *dev = container_of(mdev, struct mt7915_dev, mt76);
 	struct mt7915_sta *msta = (struct mt7915_sta *)sta->drv_priv;
-	int i;
 
 	mt7915_mac_wtbl_update(dev, msta->wcid.idx,
 			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
-
-	for (i = 0; i < ARRAY_SIZE(msta->twt.flow); i++)
-		mt7915_mac_twt_teardown_flow(dev, msta, i);
 
 	spin_lock_bh(&mdev->sta_poll_lock);
 	if (!list_empty(&msta->wcid.poll_list))
@@ -838,7 +835,7 @@ static void mt7915_tx(struct ieee80211_hw *hw,
 		wcid = &sta->wcid;
 	}
 
-	if (vif && !wcid->sta) {
+	if (vif && !control->sta) {
 		struct mt7915_vif *mvif;
 
 		mvif = (struct mt7915_vif *)vif->drv_priv;
@@ -1213,13 +1210,13 @@ static void mt7915_sta_set_4addr(struct ieee80211_hw *hw,
 	struct mt7915_dev *dev = mt7915_hw_dev(hw);
 	struct mt7915_sta *msta = (struct mt7915_sta *)sta->drv_priv;
 
-	if (!msta->wcid.sta)
-		return;
-
 	if (enabled)
 		set_bit(MT_WCID_FLAG_4ADDR, &msta->wcid.flags);
 	else
 		clear_bit(MT_WCID_FLAG_4ADDR, &msta->wcid.flags);
+
+	if (!msta->wcid.sta)
+		return;
 
 	mt76_connac_mcu_wtbl_update_hdr_trans(&dev->mt76, vif, sta);
 }
@@ -1232,13 +1229,13 @@ static void mt7915_sta_set_decap_offload(struct ieee80211_hw *hw,
 	struct mt7915_dev *dev = mt7915_hw_dev(hw);
 	struct mt7915_sta *msta = (struct mt7915_sta *)sta->drv_priv;
 
-	if (!msta->wcid.sta)
-		return;
-
 	if (enabled)
 		set_bit(MT_WCID_FLAG_HDR_TRANS, &msta->wcid.flags);
 	else
 		clear_bit(MT_WCID_FLAG_HDR_TRANS, &msta->wcid.flags);
+
+	if (!msta->wcid.sta)
+		return;
 
 	mt76_connac_mcu_wtbl_update_hdr_trans(&dev->mt76, vif, sta);
 }
