@@ -115,38 +115,56 @@ out:
 	return ret;
 }
 
+static int mt7915_eeprom_load_efuse(struct mt7915_dev *dev)
+{
+	u32 eeprom_blk_size = MT7915_EEPROM_BLOCK_SIZE;
+	u16 eeprom_size = mt7915_eeprom_size(dev);
+	u8 free_block_num;
+	u32 block_num, i;
+	u8 *buf;
+	int ret;
+
+	buf = devm_kzalloc(dev->mt76.dev, eeprom_size, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	dev->mt76.otp.data = buf;
+	dev->mt76.otp.size = eeprom_size;
+
+	ret = mt7915_mcu_get_eeprom_free_block(dev, &free_block_num);
+	if (ret < 0)
+		return ret;
+
+	/* read eeprom data from efuse */
+	block_num = DIV_ROUND_UP(eeprom_size, eeprom_blk_size);
+	for (i = 0; i < block_num; i++) {
+		mt7915_mcu_get_eeprom(dev, buf, i * eeprom_blk_size);
+		buf += eeprom_blk_size;
+	}
+
+	/* efuse info isn't enough */
+	if (free_block_num >= 29)
+		return -EINVAL;
+
+	if (!dev->flash_mode)
+		memcpy(dev->mt76.eeprom.data, dev->mt76.otp.data, eeprom_size);
+
+	return 0;
+}
+
 static int mt7915_eeprom_load(struct mt7915_dev *dev)
 {
-	int ret;
 	u16 eeprom_size = mt7915_eeprom_size(dev);
+	int ret;
 
 	ret = mt76_eeprom_init(&dev->mt76, eeprom_size);
 	if (ret < 0)
 		return ret;
 
-	if (ret) {
+	if (ret)
 		dev->flash_mode = true;
-	} else {
-		u8 free_block_num;
-		u32 block_num, i;
-		u32 eeprom_blk_size = MT7915_EEPROM_BLOCK_SIZE;
 
-		ret = mt7915_mcu_get_eeprom_free_block(dev, &free_block_num);
-		if (ret < 0)
-			return ret;
-
-		/* efuse info isn't enough */
-		if (free_block_num >= 29)
-			return -EINVAL;
-
-		/* read eeprom data from efuse */
-		block_num = DIV_ROUND_UP(eeprom_size, eeprom_blk_size);
-		for (i = 0; i < block_num; i++) {
-			ret = mt7915_mcu_get_eeprom(dev, i * eeprom_blk_size);
-			if (ret < 0)
-				return ret;
-		}
-	}
+	mt7915_eeprom_load_efuse(dev);
 
 	return mt7915_check_eeprom(dev);
 }
