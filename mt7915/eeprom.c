@@ -265,6 +265,191 @@ void mt7915_eeprom_parse_hw_cap(struct mt7915_dev *dev,
 	dev->chainshift = hweight8(dev->mphy.chainmask);
 }
 
+static int mt7915_apply_cal_free_data(struct mt7915_dev *dev)
+{
+#define MT_EE_CAL_FREE_MAX_SIZE		70
+#define MT_EE_FREQ_OFFSET		0x77
+#define MT_EE_ADIE1_MT7976C_OFFSET	0x270
+#define MT_EE_ADIE1_E3_OFFSET		0x271
+#define MT_EE_END_OFFSET		0xffff
+	enum adie_type {
+		ADIE_7975,
+		ADIE_7976,
+	};
+	enum ddie_type {
+		DDIE_7915,
+		DDIE_7916,
+	};
+	static const u16 ddie_offs_list[][MT_EE_CAL_FREE_MAX_SIZE] = {
+		[DDIE_7915] = {0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19,
+			       0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x20, 0x21, 0x22, 0x23, 0x24,
+			       0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e,
+			       0x52, 0x70, 0x71, 0x72, 0x76, 0xa8, 0xa9, 0xaa, 0xab, 0xac,
+			       0xad, 0xae, 0xaf, -1},
+		[DDIE_7916] = {0x30, 0x31, 0x34, 0x35, 0x36, 0x38, 0x3c, 0x3a, 0x3d, 0x44,
+			       0x46, 0xc8, 0xc9, 0xca, 0xcb, 0xcc, 0xcd, 0xce, 0xcf, 0xe0, -1},
+	};
+	static const u16 adie_offs_list[][MT_EE_CAL_FREE_MAX_SIZE] = {
+		[ADIE_7975] = {0x7cd, 0x7cf, 0x7d1, 0x7d3, 0x802, 0x803, 0x804, 0x805, 0x806,
+			       0x808, 0x80a, 0x80b, 0x80c, 0x80d, 0x80e, 0x810, 0x812, 0x813,
+			       0x814, 0x815, 0x816, 0x818, 0x81a, 0x81b, 0x81c, 0x81d, 0x81e,
+			       0x820, 0x822, 0x823, 0x824, 0x825, 0x826, 0x827, 0x828, 0x829,
+			       0x82f, 0x8c0, 0x8c1, 0x8c2, 0x8c3, 0x9a0, 0x8d0, 0x8d1, 0x8d7,
+			       0x8d8, 0x8fa, 0x9a1, 0x9a5, 0x9a6, 0x9a8, 0x9aa, 0x9b0, 0x9b1,
+			       0x9b2, 0x9b3, 0x9b4, 0x9b5, 0x9b6, 0x9b7, -1},
+		[ADIE_7976] = {0x24c, 0x24d, 0x24e, 0x24f, 0x250, 0x251, 0x253, 0x255, 0x257,
+			       0x259, 0x990, 0x991, 0x994, 0x995, 0x9a6, 0x9a8, 0x9aa, -1},
+	};
+	static const u16 eep_offs_list[][MT_EE_CAL_FREE_MAX_SIZE] = {
+		[ADIE_7975] = {0xe00, 0xe01, 0xe02, 0xe03, 0xe04, 0xe05, 0xe06, 0xe07, 0xe08,
+			       0xe09, 0xe0a, 0xe0b, 0xe0c, 0xe0d, 0x80e, 0xe0f, 0xe10, 0xe11,
+			       0xe12, 0xe13, 0xe14, 0xe15, 0xe16, 0xe17, 0xe18, 0xe19, 0xe1a,
+			       0xe1b, 0xe1c, 0xe1d, 0xe1e, 0xe1f, 0xe20, 0xe21, 0xe22, 0xe23,
+			       0xe24, 0xe25, 0xe26, 0xe27, 0xe28, 0xe29, 0xe2a, 0xe2b, 0xe2c,
+			       0xe2d, 0xe2e, 0xe2f, 0xe33, 0xe34, 0xe36, 0xe38, 0xe39, 0xe3a,
+			       0xe3b, 0xe3c, 0xe3d, 0xe3e, 0xe3f, 0xe40, -1},
+		[ADIE_7976] = {0x33c, 0x33d, 0x33e, 0x33f, 0x340, 0x341, 0x343, 0x345, 0x347,
+			       0x349, 0x359, 0x35a, 0x35d, 0x35e, 0x36a, 0x36c, 0x36e, -1},
+	};
+	static const u16 *ddie_offs;
+	static const u16 *adie_offs[__MT_MAX_BAND];
+	static const u16 *eep_offs[__MT_MAX_BAND];
+	static u16 adie_base[__MT_MAX_BAND] = {0};
+	u8 *eeprom = dev->mt76.eeprom.data;
+	u8 buf[MT7915_EEPROM_BLOCK_SIZE];
+	int adie_id, band, i, ret;
+
+	switch (mt76_chip(&dev->mt76)) {
+	case 0x7915:
+		ddie_offs = ddie_offs_list[DDIE_7915];
+		ret = mt7915_mcu_get_eeprom(dev, buf, MT_EE_ADIE_FT_VERSION);
+		if (ret == -EINVAL)
+			return 0;
+		else if (ret)
+			return ret;
+		adie_id = buf[MT_EE_ADIE_FT_VERSION % MT7915_EEPROM_BLOCK_SIZE] - 1;
+		adie_offs[0] = adie_offs_list[ADIE_7975];
+		/* same as adie offset */
+		eep_offs[0] = NULL;
+		break;
+	case 0x7906:
+	case 0x7981:
+		if (is_mt7916(&dev->mt76))
+			ddie_offs = ddie_offs_list[DDIE_7916];
+		adie_offs[0] = adie_offs_list[ADIE_7976];
+		eep_offs[0] = NULL;
+		break;
+	case 0x7986:
+		adie_id = mt7915_check_adie(dev, true);
+		switch (adie_id) {
+		case MT7975_ONE_ADIE:
+		case MT7975_DUAL_ADIE:
+			adie_offs[0] = adie_offs_list[ADIE_7975];
+			eep_offs[0] = NULL;
+			if (adie_id == MT7975_DUAL_ADIE) {
+				adie_offs[1] = adie_offs_list[ADIE_7975];
+				eep_offs[1] = eep_offs_list[ADIE_7975];
+			}
+			break;
+		case MT7976_ONE_ADIE_DBDC:
+		case MT7976_ONE_ADIE:
+		case MT7976_DUAL_ADIE: {
+			u16 base = 0, offset = MT_EE_ADIE1_MT7976C_OFFSET;
+
+			adie_offs[0] = adie_offs_list[ADIE_7976];
+			eep_offs[0] = NULL;
+			if (adie_id == MT7976_DUAL_ADIE) {
+				adie_offs[1] = adie_offs_list[ADIE_7976];
+				eep_offs[1] = eep_offs_list[ADIE_7976];
+				base = MT_EE_ADIE1_BASE_7986;
+			}
+
+			/* E3 re-bonding workaround */
+			ret = mt7915_mcu_get_eeprom(dev, buf, offset + base);
+			if (ret)
+				break;
+			offset = (offset + base) % MT7915_EEPROM_BLOCK_SIZE;
+			eeprom[MT_EE_ADIE1_MT7976C_OFFSET] = buf[offset];
+			offset = (MT_EE_ADIE1_E3_OFFSET + base) % MT7915_EEPROM_BLOCK_SIZE;
+			eeprom[MT_EE_ADIE1_E3_OFFSET] = buf[offset];
+			break;
+		}
+		default:
+			return -EINVAL;
+		}
+		adie_base[1] = MT_EE_ADIE1_BASE_7986;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	/* ddie */
+	if (ddie_offs) {
+		u16 ddie_offset;
+		u32 block_num, prev_block_num = -1;
+
+		for (i = 0; i < MT_EE_CAL_FREE_MAX_SIZE; i++) {
+			ddie_offset = ddie_offs[i];
+			block_num = ddie_offset / MT7915_EEPROM_BLOCK_SIZE;
+
+			if (ddie_offset == MT_EE_END_OFFSET)
+				break;
+
+			if (prev_block_num != block_num) {
+				ret = mt7915_mcu_get_eeprom(dev, buf, ddie_offset);
+				if (ret) {
+					prev_block_num = -1;
+					continue;
+				}
+			}
+
+			eeprom[ddie_offset] = buf[ddie_offset % MT7915_EEPROM_BLOCK_SIZE];
+			prev_block_num = block_num;
+		}
+	}
+
+	/* adie */
+	for (band = 0; band < __MT_MAX_BAND; band++) {
+		u16 adie_offset, eep_offset;
+		u32 block_num, prev_block_num = -1;
+
+		if (!adie_offs[band])
+			continue;
+
+		for (i = 0; i < MT_EE_CAL_FREE_MAX_SIZE; i++) {
+			adie_offset = adie_offs[band][i] + adie_base[band];
+			eep_offset = adie_offset;
+			if (eep_offs[band])
+				eep_offset = eep_offs[band][i];
+			block_num = adie_offset / MT7915_EEPROM_BLOCK_SIZE;
+
+			if (adie_offs[band][i] == MT_EE_END_OFFSET)
+				break;
+
+			if (is_mt7915(&dev->mt76) && !adie_id &&
+			    adie_offset >= 0x8c0 && adie_offset <= 0x8c3)
+				continue;
+
+			if (prev_block_num != block_num) {
+				ret = mt7915_mcu_get_eeprom(dev, buf, adie_offset);
+				if (ret) {
+					prev_block_num = -1;
+					continue;
+				}
+			}
+
+			eeprom[eep_offset] = buf[adie_offset % MT7915_EEPROM_BLOCK_SIZE];
+			prev_block_num = block_num;
+
+			/* workaround for Harrier */
+			if (is_mt7915(&dev->mt76) && adie_offset == 0x9a1)
+				eeprom[MT_EE_FREQ_OFFSET] = eeprom[adie_offset];
+		}
+	}
+
+	return 0;
+}
+
 int mt7915_eeprom_init(struct mt7915_dev *dev)
 {
 	int ret;
@@ -281,6 +466,10 @@ int mt7915_eeprom_init(struct mt7915_dev *dev)
 	}
 
 	mt7915_eeprom_load_precal(dev);
+	ret = mt7915_apply_cal_free_data(dev);
+	if (ret)
+		return ret;
+
 	mt7915_eeprom_parse_hw_cap(dev, &dev->phy);
 	memcpy(dev->mphy.macaddr, dev->mt76.eeprom.data + MT_EE_MAC_ADDR,
 	       ETH_ALEN);
