@@ -61,10 +61,10 @@ int mt76x0_config(struct ieee80211_hw *hw, u32 changed)
 {
 	struct mt76x02_dev *dev = hw->priv;
 
-	mutex_lock(&dev->mt76.mutex);
-
 	if (changed & IEEE80211_CONF_CHANGE_CHANNEL)
 		mt76_update_channel(&dev->mphy);
+
+	mutex_lock(&dev->mt76.mutex);
 
 	if (changed & IEEE80211_CONF_CHANGE_POWER) {
 		struct mt76_phy *mphy = &dev->mphy;
