@@ -14,6 +14,7 @@
 #include <linux/usb.h>
 #include <linux/average.h>
 #include <linux/soc/mediatek/mtk_wed.h>
+#include <net/netlink.h>
 #include <net/mac80211.h>
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6,6,0)
 #include <net/page_pool.h>
@@ -1473,6 +1474,7 @@ static inline void mt76_testmode_reset(struct mt76_phy *phy, bool disable)
 #endif
 }
 
+extern const struct nla_policy mt76_tm_policy[NUM_MT76_TM_ATTRS];
 
 /* internal */
 static inline struct ieee80211_hw *

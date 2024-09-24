@@ -193,6 +193,4 @@ enum mt76_testmode_tx_mode {
 	MT76_TM_TX_MODE_MAX = NUM_MT76_TM_TX_MODES - 1,
 };
 
-extern const struct nla_policy mt76_tm_policy[NUM_MT76_TM_ATTRS];
-
 #endif
