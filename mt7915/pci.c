@@ -16,10 +16,6 @@ static LIST_HEAD(hif_list);
 static DEFINE_SPINLOCK(hif_lock);
 static u32 hif_idx;
 
-static int hif2_enable = -1;
-module_param(hif2_enable, int, 0644);
-MODULE_PARM_DESC(hif2_enable, "Enable second PCIe link support");
-
 static const struct pci_device_id mt7915_pci_device_table[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_MEDIATEK, 0x7915) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_MEDIATEK, 0x7906) },
@@ -87,13 +83,6 @@ static struct mt7915_hif *mt7915_pci_init_hif2(struct pci_dev *pdev)
 static int mt7915_pci_hif2_probe(struct pci_dev *pdev)
 {
 	struct mt7915_hif *hif;
-
-	if (!hif2_enable)
-		return -ENODEV;
-
-	/* Skip the second PCIe link on MT7915 due to SER failure */
-	if (hif2_enable < 0 && pdev->device == 0x7916)
-		return -ENODEV;
 
 	hif = devm_kzalloc(&pdev->dev, sizeof(*hif), GFP_KERNEL);
 	if (!hif)
