@@ -384,7 +384,7 @@ static int mt7925_mac_link_bss_add(struct mt792x_dev *dev,
 
 	mlink->wcid.idx = idx;
 	mlink->wcid.tx_info |= MT_WCID_TX_INFO_SET;
-	mt76_wcid_init(&mlink->wcid, mconf->mt76.band_idx);
+	mt76_wcid_init(&mlink->wcid, 0);
 
 	mt7925_mac_wtbl_update(dev, idx,
 			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
@@ -845,7 +845,7 @@ static int mt7925_mac_link_sta_add(struct mt76_dev *mdev,
 		return -ENOSPC;
 
 	mconf = mt792x_vif_to_link(mvif, link_id);
-	mt76_wcid_init(&mlink->wcid, mvif->bss_conf.mt76.band_idx);
+	mt76_wcid_init(&mlink->wcid, 0);
 	mlink->wcid.sta = 1;
 	mlink->wcid.idx = idx;
 	mlink->wcid.tx_info |= MT_WCID_TX_INFO_SET;
