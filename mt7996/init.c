@@ -331,6 +331,7 @@ static void __mt7996_init_txpower(struct mt7996_phy *phy,
 		target_power = DIV_ROUND_UP(target_power, 2);
 		chan->max_power = min_t(int, chan->max_reg_power,
 					target_power);
+		phy->txpower = max(phy->txpower, chan->max_power);
 		chan->orig_mpwr = target_power;
 	}
 }
