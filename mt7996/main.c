@@ -1555,10 +1555,14 @@ mt7996_set_radar_background(struct ieee80211_hw *hw,
 			    struct cfg80211_chan_def *chandef)
 {
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
-	struct mt7996_phy *phy = mt7996_band_phy(dev, chandef->chan->band);
+	struct mt7996_phy *phy;
 	int ret = -EINVAL;
 	bool running;
 
+	if (chandef)
+		phy = mt7996_band_phy(dev, chandef->chan->band);
+	else
+		phy = dev->rdd2_phy;
 	if (!phy)
 	    return -EINVAL;
 
