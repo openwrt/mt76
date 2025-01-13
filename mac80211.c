@@ -1035,9 +1035,6 @@ EXPORT_SYMBOL_GPL(mt76_update_channel);
 static struct mt76_sband *
 mt76_get_survey_sband(struct mt76_phy *phy, int *idx)
 {
-	if (idx == 0 && phy->dev->drv->update_survey)
-		mt76_update_survey(phy);
-
 	if (*idx < phy->sband_2g.sband.n_channels)
 		return &phy->sband_2g;
 
@@ -1073,6 +1070,10 @@ int mt76_get_survey(struct ieee80211_hw *hw, int idx,
 			continue;
 
 		sband = mt76_get_survey_sband(phy, &idx);
+
+		if (idx == 0 && phy->dev->drv->update_survey)
+			mt76_update_survey(phy);
+
 		if (sband || !hw->wiphy->n_radio)
 			break;
 	}
