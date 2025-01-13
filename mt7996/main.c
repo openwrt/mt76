@@ -682,7 +682,6 @@ static void mt7996_bss_info_changed(struct ieee80211_hw *hw,
 {
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
 	struct mt76_vif_link *mvif;
-	struct mt7996_vif_link *link;
 	struct mt7996_phy *phy;
 	struct mt76_phy *mphy;
 
@@ -692,7 +691,6 @@ static void mt7996_bss_info_changed(struct ieee80211_hw *hw,
 	if (!mvif)
 		goto out;
 
-	link = container_of(mvif, struct mt7996_vif_link, mt76);
 	mphy = mt76_vif_link_phy(mvif);
 	if (!mphy)
 		goto out;
