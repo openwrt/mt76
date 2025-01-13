@@ -197,7 +197,7 @@ static const struct thermal_cooling_device_ops mt7996_thermal_ops = {
 static void mt7996_unregister_thermal(struct mt7996_phy *phy)
 {
 	struct wiphy *wiphy = phy->mt76->hw->wiphy;
-	char name[sizeof("cooling_device%d")];
+	char name[sizeof("cooling_deviceXXX")];
 
 	if (!phy->cdev)
 		return;
@@ -210,7 +210,7 @@ static void mt7996_unregister_thermal(struct mt7996_phy *phy)
 static int mt7996_thermal_init(struct mt7996_phy *phy)
 {
 	struct wiphy *wiphy = phy->mt76->hw->wiphy;
-	char cname[sizeof("cooling_device%d")];
+	char cname[sizeof("cooling_deviceXXX")];
 	struct thermal_cooling_device *cdev;
 	struct device *hwmon;
 	const char *name;
