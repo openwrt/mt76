@@ -194,23 +194,43 @@ int mt76_switch_vif_chanctx(struct ieee80211_hw *hw,
 {
 	struct mt76_chanctx *old_ctx = (struct mt76_chanctx *)vifs->old_ctx->drv_priv;
 	struct mt76_chanctx *new_ctx = (struct mt76_chanctx *)vifs->new_ctx->drv_priv;
+	struct ieee80211_chanctx_conf *conf = vifs->new_ctx;
 	struct mt76_phy *old_phy = old_ctx->phy;
-	struct mt76_phy *phy = new_ctx->phy;
+	struct mt76_phy *phy = hw->priv;
 	struct mt76_dev *dev = phy->dev;
 	struct mt76_vif_link *mlink;
 	bool update_chan;
 	int i, ret = 0;
 
+	if (mode == CHANCTX_SWMODE_SWAP_CONTEXTS)
+		phy = new_ctx->phy = dev->band_phys[conf->def.chan->band];
+	else
+		phy = new_ctx->phy;
+	if (!phy)
+		return -EINVAL;
+
 	update_chan = phy->chanctx != new_ctx;
-	if (update_chan)
+	if (update_chan) {
+		if (dev->scan.phy == phy)
+			mt76_abort_scan(dev);
+
 		cancel_delayed_work_sync(&phy->mac_work);
+	}
 
 	mutex_lock(&dev->mutex);
+
+	if (mode == CHANCTX_SWMODE_SWAP_CONTEXTS &&
+	    phy != old_phy && old_phy->chanctx == old_ctx)
+		old_phy->chanctx = NULL;
+
 	if (update_chan)
 		ret = mt76_phy_update_channel(phy, vifs->new_ctx);
 
-	if (ret || old_phy == phy)
+	if (ret)
 		goto out;
+
+	if (old_phy == phy)
+		goto skip_link_replace;
 
 	for (i = 0; i < n_vifs; i++) {
 		mlink = mt76_vif_conf_link(dev, vifs[i].vif, vifs[i].link_conf);
@@ -223,7 +243,15 @@ int mt76_switch_vif_chanctx(struct ieee80211_hw *hw,
 		ret = dev->drv->vif_link_add(phy, vifs[i].vif,
 					     vifs[i].link_conf, mlink);
 		if (ret)
-			break;
+			goto out;
+
+	}
+
+skip_link_replace:
+	for (i = 0; i < n_vifs; i++) {
+		mlink = mt76_vif_conf_link(dev, vifs[i].vif, vifs[i].link_conf);
+		if (!mlink)
+			continue;
 
 		mlink->ctx = vifs->new_ctx;
 	}
