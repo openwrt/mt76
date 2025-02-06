@@ -1354,55 +1354,6 @@ mt7915_twt_teardown_request(struct ieee80211_hw *hw,
 	mutex_unlock(&dev->mt76.mutex);
 }
 
-static int
-mt7915_set_radar_background(struct ieee80211_hw *hw,
-			    struct cfg80211_chan_def *chandef)
-{
-	struct mt7915_phy *phy = mt7915_hw_phy(hw);
-	struct mt7915_dev *dev = phy->dev;
-	int ret = -EINVAL;
-	bool running;
-
-	mutex_lock(&dev->mt76.mutex);
-
-	if (dev->mt76.region == NL80211_DFS_UNSET)
-		goto out;
-
-	if (dev->rdd2_phy && dev->rdd2_phy != phy) {
-		/* rdd2 is already locked */
-		ret = -EBUSY;
-		goto out;
-	}
-
-	/* rdd2 already configured on a radar channel */
-	running = dev->rdd2_phy &&
-		  cfg80211_chandef_valid(&dev->rdd2_chandef) &&
-		  !!(dev->rdd2_chandef.chan->flags & IEEE80211_CHAN_RADAR);
-
-	if (!chandef || running ||
-	    !(chandef->chan->flags & IEEE80211_CHAN_RADAR)) {
-		ret = mt7915_mcu_rdd_background_enable(phy, NULL);
-		if (ret)
-			goto out;
-
-		if (!running)
-			goto update_phy;
-	}
-
-	ret = mt7915_mcu_rdd_background_enable(phy, chandef);
-	if (ret)
-		goto out;
-
-update_phy:
-	dev->rdd2_phy = chandef ? phy : NULL;
-	if (chandef)
-		dev->rdd2_chandef = *chandef;
-out:
-	mutex_unlock(&dev->mt76.mutex);
-
-	return ret;
-}
-
 #ifdef CONFIG_NET_MEDIATEK_SOC_WED
 static int
 mt7915_net_fill_forward_path(struct ieee80211_hw *hw,
@@ -1482,7 +1433,6 @@ const struct ieee80211_ops mt7915_ops = {
 #ifdef CONFIG_MAC80211_DEBUGFS
 	.sta_add_debugfs = mt7915_sta_add_debugfs,
 #endif
-	.set_radar_background = mt7915_set_radar_background,
 #ifdef CONFIG_NET_MEDIATEK_SOC_WED
 	.net_fill_forward_path = mt7915_net_fill_forward_path,
 #endif
