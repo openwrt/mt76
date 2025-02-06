@@ -1744,61 +1744,6 @@ mt7915_mcu_beacon_cntdwn(struct ieee80211_vif *vif, struct sk_buff *rskb,
 }
 
 static void
-mt7915_mcu_beacon_mbss(struct sk_buff *rskb, struct sk_buff *skb,
-		       struct ieee80211_vif *vif, struct bss_info_bcn *bcn,
-		       struct ieee80211_mutable_offsets *offs)
-{
-	struct bss_info_bcn_mbss *mbss;
-	const struct element *elem;
-	struct tlv *tlv;
-
-	if (!vif->bss_conf.bssid_indicator)
-		return;
-
-	tlv = mt7915_mcu_add_nested_subtlv(rskb, BSS_INFO_BCN_MBSSID,
-					   sizeof(*mbss), &bcn->sub_ntlv,
-					   &bcn->len);
-
-	mbss = (struct bss_info_bcn_mbss *)tlv;
-	mbss->offset[0] = cpu_to_le16(offs->tim_offset);
-	mbss->bitmap = cpu_to_le32(1);
-
-	for_each_element_id(elem, WLAN_EID_MULTIPLE_BSSID,
-			    &skb->data[offs->mbssid_off],
-			    skb->len - offs->mbssid_off) {
-		const struct element *sub_elem;
-
-		if (elem->datalen < 2)
-			continue;
-
-		for_each_element(sub_elem, elem->data + 1, elem->datalen - 1) {
-			const struct ieee80211_bssid_index *idx;
-			const u8 *idx_ie;
-
-			if (sub_elem->id || sub_elem->datalen < 4)
-				continue; /* not a valid BSS profile */
-
-			/* Find WLAN_EID_MULTI_BSSID_IDX
-			 * in the merged nontransmitted profile
-			 */
-			idx_ie = cfg80211_find_ie(WLAN_EID_MULTI_BSSID_IDX,
-						  sub_elem->data,
-						  sub_elem->datalen);
-			if (!idx_ie || idx_ie[1] < sizeof(*idx))
-				continue;
-
-			idx = (void *)(idx_ie + 2);
-			if (!idx->bssid_index || idx->bssid_index > 31)
-				continue;
-
-			mbss->offset[idx->bssid_index] =
-				cpu_to_le16(idx_ie - skb->data);
-			mbss->bitmap |= cpu_to_le32(BIT(idx->bssid_index));
-		}
-	}
-}
-
-static void
 mt7915_mcu_beacon_cont(struct mt7915_dev *dev, struct ieee80211_vif *vif,
 		       struct sk_buff *rskb, struct sk_buff *skb,
 		       struct bss_info_bcn *bcn,
@@ -1993,9 +1938,6 @@ int mt7915_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	int len = MT7915_MAX_BSS_OFFLOAD_SIZE;
 	bool ext_phy = phy != &dev->phy;
 
-	if (vif->bss_conf.nontransmitted)
-		return 0;
-
 	rskb = __mt76_connac_mcu_alloc_sta_req(&dev->mt76, &mvif->mt76,
 					       NULL, len);
 	if (IS_ERR(rskb))
@@ -2023,8 +1965,8 @@ int mt7915_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	mt7915_mcu_beacon_check_caps(phy, vif, skb);
 
+	/* TODO: subtag - 11v MBSSID */
 	mt7915_mcu_beacon_cntdwn(vif, rskb, skb, bcn, &offs);
-	mt7915_mcu_beacon_mbss(rskb, skb, vif, bcn, &offs);
 	mt7915_mcu_beacon_cont(dev, vif, rskb, skb, bcn, &offs);
 	dev_kfree_skb(skb);
 
