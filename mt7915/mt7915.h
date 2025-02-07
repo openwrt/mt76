@@ -291,10 +291,6 @@ struct mt7915_dev {
 	struct tasklet_struct irq_tasklet;
 	struct mt7915_phy phy;
 
-	/* monitor rx chain configured channel */
-	struct cfg80211_chan_def rdd2_chandef;
-	struct mt7915_phy *rdd2_phy;
-
 	u16 chainmask;
 	u16 chainshift;
 	u32 hif_idx;
@@ -348,7 +344,6 @@ enum {
 enum {
 	MT_RX_SEL0,
 	MT_RX_SEL1,
-	MT_RX_SEL2, /* monitor chain */
 };
 
 enum mt7915_rdd_cmd {
@@ -503,8 +498,6 @@ int mt7915_mcu_get_temperature(struct mt7915_phy *phy);
 int mt7915_mcu_set_thermal_throttling(struct mt7915_phy *phy, u8 state);
 int mt7915_mcu_get_rx_rate(struct mt7915_phy *phy, struct ieee80211_vif *vif,
 			   struct ieee80211_sta *sta, struct rate_info *rate);
-int mt7915_mcu_rdd_background_enable(struct mt7915_phy *phy,
-				     struct cfg80211_chan_def *chandef);
 int mt7915_mcu_rf_regval(struct mt7915_dev *dev, u32 regidx, u32 *val, bool set);
 int mt7915_mcu_wa_cmd(struct mt7915_dev *dev, int cmd, u32 a1, u32 a2, u32 a3);
 int mt7915_mcu_fw_log_2_host(struct mt7915_dev *dev, u8 type, u8 ctrl);
