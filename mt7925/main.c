@@ -1232,6 +1232,9 @@ int mt7925_set_tx_sar_pwr(struct ieee80211_hw *hw,
 {
 	struct mt76_phy *mphy = hw->priv;
 
+  int tx_power;
+  struct mt76_power_limits limits_array;
+
 	if (sar) {
 		int err = mt76_init_sar_power(hw, sar);
 
@@ -1239,6 +1242,15 @@ int mt7925_set_tx_sar_pwr(struct ieee80211_hw *hw,
 			return err;
 	}
 	mt792x_init_acpi_sar_power(mt792x_hw_phy(hw), !sar);
+
+  tx_power = mt76_get_power_bound(mphy, hw->conf.power_level);
+  tx_power = mt76_get_rate_power_limits(
+    mphy,
+    mphy->chandef.chan,
+    &limits_array,
+    tx_power
+  );
+  mphy->txpower_cur = tx_power;
 
 	return mt7925_mcu_set_rate_txpower(mphy);
 }

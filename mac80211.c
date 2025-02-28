@@ -1544,6 +1544,17 @@ void mt76_wcid_cleanup(struct mt76_dev *dev, struct mt76_wcid *wcid)
 }
 EXPORT_SYMBOL_GPL(mt76_wcid_cleanup);
 
+s8 mt76_get_power_bound(struct mt76_phy *phy, s8 txpower)
+{
+  int n_chains = hweight16(phy->chainmask);
+
+  txpower = mt76_get_sar_power(phy, phy->chandef.chan, txpower * 2);
+  txpower -= mt76_tx_power_nss_delta(n_chains);
+
+  return txpower;
+}
+EXPORT_SYMBOL_GPL(mt76_get_power_bound);
+
 int mt76_get_txpower(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		     int *dbm)
 {
