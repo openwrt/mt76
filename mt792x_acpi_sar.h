@@ -15,6 +15,30 @@
 #define MT792x_ACPI_MTGS		"MTGS"
 #define MT792x_ACPI_MTFG		"MTFG"
 
+#define MT792X_ACPI_MTCL_INVALID	0xffffffff
+
+static const char * const cc_list_all[] = {
+	"00", "EU", "AR", "AU", "AZ", "BY", "BO", "BR",
+	"CA", "CL", "CN", "ID", "JP", "MY", "MX", "ME",
+	"MA", "NZ", "NG", "PH", "RU", "RS", "SG", "KR",
+	"TW", "TH", "UA", "GB", "US", "VN", "KH", "PY",
+};
+
+static const char * const cc_list_eu[] = {
+	"AD", "AT", "BE", "BG", "CY", "CZ", "HR", "DK",
+	"EE", "FI", "FR", "DE", "GR", "HU", "IS", "IE",
+	"IT", "LV", "LI", "LT", "LU", "MC", "MT", "NL",
+	"NO", "PL", "PT", "RO", "SK", "SI", "ES", "SE",
+	"CH",
+};
+
+static const char * const cc_list_be[] = {
+	"AR", "BR", "BY", "CL", "IQ", "MX", "OM", "RU",
+	"RW", "VN", "KR", "UA", "", "", "", "",
+	"EU", "AT", "CN", "CA", "TW", "NZ", "PH", "UK",
+	"US",
+};
+
 struct mt792x_asar_dyn_limit {
 	u8 idx;
 	u8 frp[5];
@@ -72,6 +96,17 @@ struct mt792x_asar_geo_v2 {
 	DECLARE_FLEX_ARRAY(struct mt792x_asar_geo_limit_v2, tbl);
 } __packed;
 
+struct mt792x_asar_cl_v3 {
+	u8 names[4];
+	u8 version;
+	u8 mode_6g;
+	u8 cl6g[6];
+	u8 mode_5g9;
+	u8 cl5g9[6];
+	u8 mode_be;
+	u8 clbe[6];
+} __packed;
+
 struct mt792x_asar_cl {
 	u8 names[4];
 	u8 version;
@@ -100,7 +135,10 @@ struct mt792x_acpi_sar {
 		struct mt792x_asar_geo *geo;
 		struct mt792x_asar_geo_v2 *geo_v2;
 	};
-	struct mt792x_asar_cl *countrylist;
+	union {
+		struct mt792x_asar_cl *countrylist;
+		struct mt792x_asar_cl_v3 *countrylist_v3;
+	};
 	struct mt792x_asar_fg *fg;
 };
 
