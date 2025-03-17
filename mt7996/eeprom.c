@@ -87,6 +87,36 @@ mt7996_eeprom_parse_stream(const u8 *eeprom, u8 band_idx, u8 *path,
 	}
 }
 
+static void
+mt7996_eeprom_fixup_tx_power(struct mt7996_dev *dev, const u8 *def)
+{
+	u8 *eeprom = dev->mt76.eeprom.data;
+	int i;
+	bool zeros_detected = false;
+
+	if (!eeprom[MT_EE_TX0_POWER_2G]) {
+		eeprom[MT_EE_TX0_POWER_2G] = def[MT_EE_TX0_POWER_2G];
+		zeros_detected = true;
+	}
+
+	for (i = MT_EE_TX0_POWER_5G; i < MT_EE_TX0_POWER_5G + 5; ++i) {
+		if (!eeprom[i]) {
+			eeprom[i] = def[i];
+			zeros_detected = true;
+		}
+	}
+
+	for (i = MT_EE_TX0_POWER_6G; i < MT_EE_TX0_POWER_6G + 8; ++i) {
+		if (!eeprom[i]) {
+			eeprom[i] = def[i];
+			zeros_detected = true;
+		}
+	}
+
+	if (zeros_detected)
+		dev_warn(dev->mt76.dev, "eeprom tx_power zeros detected, using defaults\n");
+}
+
 static bool mt7996_eeprom_variant_valid(struct mt7996_dev *dev, const u8 *def)
 {
 #define FEM_INT	0
@@ -141,6 +171,8 @@ mt7996_eeprom_check_or_use_default(struct mt7996_dev *dev, bool use_default)
 		ret = -EINVAL;
 		goto out;
 	}
+
+	mt7996_eeprom_fixup_tx_power(dev, fw->data);
 
 	if (!use_default && mt7996_eeprom_variant_valid(dev, fw->data))
 		goto out;
