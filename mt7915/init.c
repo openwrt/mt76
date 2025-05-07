@@ -449,12 +449,13 @@ mt7915_init_wiphy(struct mt7915_phy *phy)
 
 			vht_cap->cap |=
 				IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_11454 |
-				IEEE80211_VHT_CAP_MAX_A_MPDU_LENGTH_EXPONENT_MASK;
+				IEEE80211_VHT_CAP_MAX_A_MPDU_LENGTH_EXPONENT_MASK |
+				IEEE80211_VHT_CAP_SHORT_GI_160;
 
 			/* mt7916 dbdc with 2g 2x2 bw40 and 5g 2x2 bw160c */
-			vht_cap->cap |=
-				IEEE80211_VHT_CAP_SHORT_GI_160 |
-				IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160MHZ;
+			if (is_mt7916(&dev->mt76))
+				vht_cap->cap |=
+					IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160MHZ;
 		}
 
 		if (!is_mt7915(&dev->mt76) || !dev->dbdc_support)
