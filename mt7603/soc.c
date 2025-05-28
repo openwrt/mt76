@@ -52,15 +52,21 @@ error:
 	return ret;
 }
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6,11,0))
 static int
+#else
+static void
+#endif
 mt76_wmac_remove(struct platform_device *pdev)
 {
 	struct mt76_dev *mdev = platform_get_drvdata(pdev);
 	struct mt7603_dev *dev = container_of(mdev, struct mt7603_dev, mt76);
 
 	mt7603_unregister_device(dev);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6,11,0))
 
 	return 0;
+#endif
 }
 
 static const struct of_device_id of_wmac_match[] = {
