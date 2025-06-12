@@ -2871,9 +2871,9 @@ int mt7925_mcu_hw_scan(struct mt76_phy *phy, struct ieee80211_vif *vif,
 		if (i > MT7925_RNR_SCAN_MAX_BSSIDS)
 			break;
 
-		short_ssid[i] = ~crc32_le(~0, sreq->ssids[i].ssid,
+		short_ssid[n_ssids] = ~crc32_le(~0, sreq->ssids[i].ssid,
 					  sreq->ssids[i].ssid_len);
-		ssid->ssids[i].ssid_len = cpu_to_le32(sreq->ssids[i].ssid_len);
+		ssid->ssids[n_ssids].ssid_len = cpu_to_le32(sreq->ssids[i].ssid_len);
 		memcpy(ssid->ssids[i].ssid, sreq->ssids[i].ssid,
 		       sreq->ssids[i].ssid_len);
 		n_ssids++;
