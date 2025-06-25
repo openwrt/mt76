@@ -45,13 +45,20 @@ static int mt7622_wmac_probe(struct platform_device *pdev)
 	return mt7615_mmio_probe(&pdev->dev, mem_base, irq, mt7615e_reg_map);
 }
 
-static int mt7622_wmac_remove(struct platform_device *pdev)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,11,0)
+static int
+#else
+static void
+#endif
+mt7622_wmac_remove(struct platform_device *pdev)
 {
 	struct mt7615_dev *dev = platform_get_drvdata(pdev);
 
 	mt7615_unregister_device(dev);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,11,0)
 	return 0;
+#endif
 }
 
 static const struct of_device_id mt7622_wmac_of_match[] = {
