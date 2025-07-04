@@ -959,8 +959,8 @@ mt7996_mac_sta_deinit_link(struct mt7996_dev *dev,
 }
 
 static void
-mt7996_mac_sta_remove_links(struct mt7996_dev *dev, struct ieee80211_sta *sta,
-			    unsigned long links)
+mt7996_mac_sta_remove_links(struct mt7996_dev *dev, struct ieee80211_vif *vif,
+			    struct ieee80211_sta *sta, unsigned long links)
 {
 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
 	struct mt76_dev *mdev = &dev->mt76;
@@ -968,6 +968,8 @@ mt7996_mac_sta_remove_links(struct mt7996_dev *dev, struct ieee80211_sta *sta,
 
 	for_each_set_bit(link_id, &links, IEEE80211_MLD_MAX_NUM_LINKS) {
 		struct mt7996_sta_link *msta_link = NULL;
+		struct mt7996_vif_link *link;
+		struct mt76_phy *mphy;
 
 		msta_link = rcu_replace_pointer(msta->link[link_id], msta_link,
 						lockdep_is_held(&mdev->mutex));
@@ -975,6 +977,15 @@ mt7996_mac_sta_remove_links(struct mt7996_dev *dev, struct ieee80211_sta *sta,
 			continue;
 
 		mt7996_mac_sta_deinit_link(dev, msta_link);
+		link = mt7996_vif_link(dev, vif, link_id);
+		if (!link)
+			continue;
+
+		mphy = mt76_vif_link_phy(&link->mt76);
+		if (!mphy)
+			continue;
+
+		mphy->num_sta--;
 		if (msta->deflink_id == link_id) {
 			msta->deflink_id = IEEE80211_LINK_UNSPECIFIED;
 			continue;
@@ -996,6 +1007,7 @@ mt7996_mac_sta_add_links(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		struct ieee80211_bss_conf *link_conf;
 		struct ieee80211_link_sta *link_sta;
 		struct mt7996_vif_link *link;
+		struct mt76_phy *mphy;
 
 		if (rcu_access_pointer(msta->link[link_id]))
 			continue;
@@ -1022,12 +1034,19 @@ mt7996_mac_sta_add_links(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 					       link_id);
 		if (err)
 			goto error_unlink;
+
+		mphy = mt76_vif_link_phy(&link->mt76);
+		if (!mphy) {
+			err = -EINVAL;
+			goto error_unlink;
+		}
+		mphy->num_sta++;
 	}
 
 	return 0;
 
 error_unlink:
-	mt7996_mac_sta_remove_links(dev, sta, new_links);
+	mt7996_mac_sta_remove_links(dev, vif, sta, new_links);
 
 	return err;
 }
@@ -1044,7 +1063,7 @@ mt7996_mac_sta_change_links(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	mutex_lock(&dev->mt76.mutex);
 
-	mt7996_mac_sta_remove_links(dev, sta, rem);
+	mt7996_mac_sta_remove_links(dev, vif, sta, rem);
 	ret = mt7996_mac_sta_add_links(dev, vif, sta, add);
 
 	mutex_unlock(&dev->mt76.mutex);
@@ -1053,25 +1072,21 @@ mt7996_mac_sta_change_links(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 }
 
 static int
-mt7996_mac_sta_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
+mt7996_mac_sta_add(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		   struct ieee80211_sta *sta)
 {
-	struct mt76_dev *mdev = mphy->dev;
-	struct mt7996_dev *dev = container_of(mdev, struct mt7996_dev, mt76);
 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
 	unsigned long links = sta->valid_links ? sta->valid_links : BIT(0);
 	int err;
 
-	mutex_lock(&mdev->mutex);
+	mutex_lock(&dev->mt76.mutex);
 
 	msta->deflink_id = IEEE80211_LINK_UNSPECIFIED;
 	msta->vif = mvif;
 	err = mt7996_mac_sta_add_links(dev, vif, sta, links);
-	if (!err)
-		mphy->num_sta++;
 
-	mutex_unlock(&mdev->mutex);
+	mutex_unlock(&dev->mt76.mutex);
 
 	return err;
 }
@@ -1148,19 +1163,14 @@ mt7996_mac_sta_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 }
 
 static void
-mt7996_mac_sta_remove(struct mt76_phy *mphy, struct ieee80211_vif *vif,
+mt7996_mac_sta_remove(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		      struct ieee80211_sta *sta)
 {
-	struct mt76_dev *mdev = mphy->dev;
-	struct mt7996_dev *dev = container_of(mdev, struct mt7996_dev, mt76);
 	unsigned long links = sta->valid_links ? sta->valid_links : BIT(0);
 
-	mutex_lock(&mdev->mutex);
-
-	mt7996_mac_sta_remove_links(dev, sta, links);
-	mphy->num_sta--;
-
-	mutex_unlock(&mdev->mutex);
+	mutex_lock(&dev->mt76.mutex);
+	mt7996_mac_sta_remove_links(dev, vif, sta, links);
+	mutex_unlock(&dev->mt76.mutex);
 }
 
 static int
@@ -1168,20 +1178,16 @@ mt7996_sta_state(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		 struct ieee80211_sta *sta, enum ieee80211_sta_state old_state,
 		 enum ieee80211_sta_state new_state)
 {
-	struct mt76_phy *mphy = mt76_vif_phy(hw, vif);
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
 	enum mt76_sta_event ev;
 
-	if (!mphy)
-		return -EINVAL;
-
 	if (old_state == IEEE80211_STA_NOTEXIST &&
 	    new_state == IEEE80211_STA_NONE)
-		return mt7996_mac_sta_add(mphy, vif, sta);
+		return mt7996_mac_sta_add(dev, vif, sta);
 
 	if (old_state == IEEE80211_STA_NONE &&
 	    new_state == IEEE80211_STA_NOTEXIST)
-		mt7996_mac_sta_remove(mphy, vif, sta);
+		mt7996_mac_sta_remove(dev, vif, sta);
 
 	if (old_state == IEEE80211_STA_AUTH &&
 	    new_state == IEEE80211_STA_ASSOC)
