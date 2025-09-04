@@ -112,6 +112,7 @@
 #define MT7996_CRIT_TEMP		110
 #define MT7996_MAX_TEMP			120
 
+#define MT7996_MAX_HIF_RXD_IN_PG	5
 #define MT7996_RRO_MSDU_PG_HASH_SIZE	127
 #define MT7996_RRO_MAX_SESSION		1024
 #define MT7996_RRO_WINDOW_MAX_LEN	1024
@@ -299,6 +300,49 @@ struct mt7996_wed_rro_session_id {
 	u16 id;
 };
 
+struct mt7996_msdu_page {
+	struct list_head list;
+
+	struct mt76_queue *q;
+	dma_addr_t dma_addr;
+	void *buf;
+};
+
+struct mt7996_rro_hif {
+	u32 rx_blk_base_low;
+	u32 rx_blk_base_high	: 4;
+	u32 eth_hdr_ofst	: 7;
+	u32 rsv			: 1;
+	u32 ring_no		: 2;
+	u32 dst_sel		: 2;
+	u32 sdl			: 14;
+	u32 ls			: 1;
+	u32 rsv2		: 1;
+	u32 pn_31_0;
+	u32 pn_47_32		: 16;
+	u32 cs_status		: 4;
+	u32 cs_type		: 4;
+	u32 c			: 1;
+	u32 f			: 1;
+	u32 un			: 1;
+	u32 rsv3		: 1;
+	u32 is_fc_data		: 1;
+	u32 uc			: 1;
+	u32 mc			: 1;
+	u32 bc			: 1;
+	u16 rx_token_id;
+	u16 rsv4;
+	u32 rsv5;
+};
+
+struct mt7996_msdu_page_info {
+	struct mt7996_rro_hif rxd[MT7996_MAX_HIF_RXD_IN_PG];
+	u32 next_pg_low;
+	u32 next_pg_high	: 4;
+	u32 rsv			: 27;
+	u32 owner		: 1;
+};
+
 struct mt7996_phy {
 	struct mt76_phy *mt76;
 	struct mt7996_dev *dev;
@@ -416,6 +460,9 @@ struct mt7996_dev {
 		struct work_struct work;
 		struct list_head poll_list;
 		spinlock_t lock;
+
+		struct list_head page_cache;
+		struct list_head page_map[MT7996_RRO_MSDU_PG_HASH_SIZE];
 	} wed_rro;
 
 	bool ibf;
@@ -773,6 +820,10 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 void mt7996_tx_token_put(struct mt7996_dev *dev);
 void mt7996_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 			 struct sk_buff *skb, u32 *info);
+void mt7996_rro_msdu_page_map_free(struct mt7996_dev *dev);
+int mt7996_rro_msdu_page_add(struct mt76_dev *mdev, struct mt76_queue *q,
+			     dma_addr_t dma_addr, void *data);
+void mt7996_rro_rx_process(struct mt76_dev *mdev, void *data);
 bool mt7996_rx_check(struct mt76_dev *mdev, void *data, int len);
 void mt7996_stats_work(struct work_struct *work);
 int mt76_dfs_start_rdd(struct mt7996_dev *dev, bool force);
