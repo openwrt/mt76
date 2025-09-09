@@ -2360,6 +2360,7 @@ mt7996_mac_full_reset(struct mt7996_dev *dev)
 {
 	struct ieee80211_hw *hw = mt76_hw(dev);
 	struct mt7996_phy *phy;
+	LIST_HEAD(list);
 	int i;
 
 	dev->recovery.hw_full_reset = true;
@@ -2376,18 +2377,38 @@ mt7996_mac_full_reset(struct mt7996_dev *dev)
 		if (!mt7996_mac_restart(dev))
 			break;
 	}
-	mutex_unlock(&dev->mt76.mutex);
 
 	if (i == 10)
 		dev_err(dev->mt76.dev, "chip full reset failed\n");
 
-	ieee80211_restart_hw(mt76_hw(dev));
-	ieee80211_wake_queues(mt76_hw(dev));
-
-	dev->recovery.hw_full_reset = false;
 	mt7996_for_each_phy(dev, phy)
-		ieee80211_queue_delayed_work(hw, &phy->mt76->mac_work,
-					     MT7996_WATCHDOG_TIME);
+		phy->omac_mask = 0;
+
+	mt76_reset_device(&dev->mt76);
+
+	INIT_LIST_HEAD(&dev->sta_rc_list);
+	INIT_LIST_HEAD(&dev->twt_list);
+
+	spin_lock_bh(&dev->wed_rro.lock);
+	list_splice_init(&dev->wed_rro.poll_list, &list);
+	spin_unlock_bh(&dev->wed_rro.lock);
+
+	while (!list_empty(&list)) {
+		struct mt7996_wed_rro_session_id *e;
+
+		e = list_first_entry(&list, struct mt7996_wed_rro_session_id,
+				     list);
+		list_del_init(&e->list);
+		kfree(e);
+	}
+
+	i = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7996_WTBL_STA);
+	dev->mt76.global_wcid.idx = i;
+	dev->recovery.hw_full_reset = false;
+
+	mutex_unlock(&dev->mt76.mutex);
+
+	ieee80211_restart_hw(mt76_hw(dev));
 }
 
 void mt7996_mac_reset_work(struct work_struct *work)
