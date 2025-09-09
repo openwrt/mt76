@@ -301,7 +301,7 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	struct mt7996_dev *dev = phy->dev;
 	u8 band_idx = phy->mt76->band_idx;
 	struct mt76_txq *mtxq;
-	int idx, ret;
+	int mld_idx, idx, ret;
 
 	mlink->idx = __ffs64(~dev->mt76.vif_mask);
 	if (mlink->idx >= mt7996_max_interface_num(dev))
@@ -316,10 +316,12 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 		mvif->mld_remap_idx = get_free_idx(dev->mld_remap_idx_mask,
 						   0, 15);
 	}
-	link->mld_idx = get_own_mld_idx(dev->mld_idx_mask, false);
-	if (link->mld_idx < 0)
+
+	mld_idx = get_own_mld_idx(dev->mld_idx_mask, false);
+	if (mld_idx < 0)
 		return -ENOSPC;
 
+	link->mld_idx = mld_idx;
 	link->phy = phy;
 	mlink->omac_idx = idx;
 	mlink->band_idx = band_idx;
