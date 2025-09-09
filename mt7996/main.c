@@ -2170,7 +2170,7 @@ mt7996_net_fill_forward_path(struct ieee80211_hw *hw,
 	if (dev->hif2 &&
 	    ((is_mt7996(&dev->mt76) && msta_link->wcid.phy_idx == MT_BAND2) ||
 	     (is_mt7992(&dev->mt76) && msta_link->wcid.phy_idx == MT_BAND1)))
-	    wed = &dev->mt76.mmio.wed_hif2;
+		wed = &dev->mt76.mmio.wed_hif2;
 
 	if (!mtk_wed_device_active(wed))
 		return -ENODEV;

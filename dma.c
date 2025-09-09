@@ -205,7 +205,7 @@ mt76_dma_queue_magic_cnt_init(struct mt76_dev *dev, struct mt76_queue *q)
 		}
 	} else if (mt76_queue_is_wed_rro_rxdmad_c(q)) {
 		struct mt76_rro_rxdmad_c *dmad = (void *)q->desc;
-		u32 data3 = FIELD_PREP(RRO_DATA3_MAGIC_CNT_MASK,
+		u32 data3 = FIELD_PREP(RRO_RXDMAD_DATA3_MAGIC_CNT_MASK,
 				       MT_DMA_MAGIC_CNT - 1);
 		int i;
 
@@ -480,7 +480,7 @@ mt76_dma_get_rxdmad_c_buf(struct mt76_dev *dev, struct mt76_queue *q,
 	u8 ind_reason;
 	void *buf;
 
-	rx_token_id = FIELD_GET(RRO_DATA2_RX_TOKEN_ID_MASK, data2);
+	rx_token_id = FIELD_GET(RRO_RXDMAD_DATA2_RX_TOKEN_ID_MASK, data2);
 	t = mt76_rx_token_release(dev, rx_token_id);
 	if (!t)
 		return ERR_PTR(-EAGAIN);
@@ -491,12 +491,12 @@ mt76_dma_get_rxdmad_c_buf(struct mt76_dev *dev, struct mt76_queue *q,
 				page_pool_get_dma_dir(q->page_pool));
 
 	if (len)
-		*len = FIELD_GET(RRO_DATA1_SDL0_MASK, data1);
+		*len = FIELD_GET(RRO_RXDMAD_DATA1_SDL0_MASK, data1);
 	if (more)
-		*more = !FIELD_GET(RRO_DATA1_LS_MASK, data1);
+		*more = !FIELD_GET(RRO_RXDMAD_DATA1_LS_MASK, data1);
 
 	buf = t->ptr;
-	ind_reason = FIELD_GET(RRO_DATA2_IND_REASON_MASK, data2);
+	ind_reason = FIELD_GET(RRO_RXDMAD_DATA2_IND_REASON_MASK, data2);
 	if (ind_reason == MT_DMA_WED_IND_REASON_REPEAT ||
 	    ind_reason == MT_DMA_WED_IND_REASON_OLDPKT) {
 		mt76_put_page_pool_buf(buf, false);
@@ -600,7 +600,7 @@ mt76_dma_dequeue(struct mt76_dev *dev, struct mt76_queue *q, bool flush,
 			goto done;
 
 		dmad = q->entry[idx].buf;
-		magic_cnt = FIELD_GET(RRO_DATA3_MAGIC_CNT_MASK,
+		magic_cnt = FIELD_GET(RRO_RXDMAD_DATA3_MAGIC_CNT_MASK,
 				      le32_to_cpu(dmad->data3));
 		if (magic_cnt != q->magic_cnt)
 			return NULL;

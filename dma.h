@@ -59,13 +59,13 @@ struct mt76_wed_rro_desc {
 } __packed __aligned(4);
 
 /* data1 */
-#define RRO_DATA1_LS_MASK		BIT(30)
-#define RRO_DATA1_SDL0_MASK		GENMASK(29, 16)
+#define RRO_RXDMAD_DATA1_LS_MASK		BIT(30)
+#define RRO_RXDMAD_DATA1_SDL0_MASK		GENMASK(29, 16)
 /* data2 */
-#define RRO_DATA2_RX_TOKEN_ID_MASK	GENMASK(31, 16)
-#define RRO_DATA2_IND_REASON_MASK	GENMASK(15, 12)
+#define RRO_RXDMAD_DATA2_RX_TOKEN_ID_MASK	GENMASK(31, 16)
+#define RRO_RXDMAD_DATA2_IND_REASON_MASK	GENMASK(15, 12)
 /* data3 */
-#define RRO_DATA3_MAGIC_CNT_MASK	GENMASK(31, 28)
+#define RRO_RXDMAD_DATA3_MAGIC_CNT_MASK		GENMASK(31, 28)
 struct mt76_rro_rxdmad_c {
 	__le32 data0;
 	__le32 data1;

@@ -287,13 +287,12 @@ struct mt7996_hif {
 	enum pcie_link_width width;
 };
 
+#define WED_RRO_ADDR_SIGNATURE_MASK	GENMASK(31, 24)
+#define WED_RRO_ADDR_COUNT_MASK		GENMASK(14, 4)
+#define WED_RRO_ADDR_HEAD_HIGH_MASK	GENMASK(3, 0)
 struct mt7996_wed_rro_addr {
-	u32 head_low;
-	u32 head_high : 4;
-	u32 count: 11;
-	u32 oor: 1;
-	u32 rsv : 8;
-	u32 signature : 8;
+	__le32 head_low;
+	__le32 data;
 };
 
 struct mt7996_wed_rro_session_id {
@@ -309,39 +308,26 @@ struct mt7996_msdu_page {
 	void *buf;
 };
 
+/* data1 */
+#define RRO_HIF_DATA1_LS_MASK		BIT(30)
+#define RRO_HIF_DATA1_SDL_MASK		GENMASK(29, 16)
+/* data4 */
+#define RRO_HIF_DATA4_RX_TOKEN_ID_MASK	GENMASK(15, 0)
 struct mt7996_rro_hif {
-	u32 rx_blk_base_low;
-	u32 rx_blk_base_high	: 4;
-	u32 eth_hdr_ofst	: 7;
-	u32 rsv			: 1;
-	u32 ring_no		: 2;
-	u32 dst_sel		: 2;
-	u32 sdl			: 14;
-	u32 ls			: 1;
-	u32 rsv2		: 1;
-	u32 pn_31_0;
-	u32 pn_47_32		: 16;
-	u32 cs_status		: 4;
-	u32 cs_type		: 4;
-	u32 c			: 1;
-	u32 f			: 1;
-	u32 un			: 1;
-	u32 rsv3		: 1;
-	u32 is_fc_data		: 1;
-	u32 uc			: 1;
-	u32 mc			: 1;
-	u32 bc			: 1;
-	u16 rx_token_id;
-	u16 rsv4;
-	u32 rsv5;
+	__le32 data0;
+	__le32 data1;
+	__le32 data2;
+	__le32 data3;
+	__le32 data4;
+	__le32 data5;
 };
 
+#define MSDU_PAGE_INFO_OWNER_MASK	BIT(31)
+#define MSDU_PAGE_INFO_PG_HIGH_MASK	GENMASK(3, 0)
 struct mt7996_msdu_page_info {
 	struct mt7996_rro_hif rxd[MT7996_MAX_HIF_RXD_IN_PG];
-	u32 next_pg_low;
-	u32 next_pg_high	: 4;
-	u32 rsv			: 27;
-	u32 owner		: 1;
+	__le32 pg_low;
+	__le32 data;
 };
 
 #define MT7996_MAX_RRO_RRS_RING 4

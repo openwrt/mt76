@@ -1780,7 +1780,7 @@ int mt7996_rro_msdu_page_add(struct mt76_dev *mdev, struct mt76_queue *q,
 	struct mt7996_msdu_page *p;
 	u32 hash;
 
-	pinfo->owner = 1;
+	pinfo->data |= cpu_to_le32(FIELD_PREP(MSDU_PAGE_INFO_OWNER_MASK, 1));
 	p = mt7996_msdu_page_get(dev);
 	if (!p)
 		return -ENOMEM;
@@ -1834,24 +1834,35 @@ void mt7996_rro_rx_process(struct mt76_dev *mdev, void *data)
 		struct mt7996_rro_hif *rxd;
 		int j, len, qid, data_len;
 		struct mt76_txwi_cache *t;
+		dma_addr_t dma_addr = 0;
+		u16 rx_token_id, count;
 		struct mt76_queue *q;
-		dma_addr_t dma_addr;
 		struct sk_buff *skb;
-		u32 info = 0;
+		u32 info = 0, data;
+		u8 signature;
 		void *buf;
+		bool ls;
 
 		seq_num = FIELD_GET(MT996_RRO_SN_MASK, cmd->start_sn + i);
 		e = mt7996_rro_addr_elem_get(dev, cmd->se_id, seq_num);
-		if (e->signature != (seq_num / MT7996_RRO_WINDOW_MAX_LEN)) {
-			e->signature = 0xff;
+		data = le32_to_cpu(e->data);
+		signature = FIELD_GET(WED_RRO_ADDR_SIGNATURE_MASK, data);
+		if (signature != (seq_num / MT7996_RRO_WINDOW_MAX_LEN)) {
+			u32 val = FIELD_PREP(WED_RRO_ADDR_SIGNATURE_MASK,
+					     0xff);
+
+			e->data |= cpu_to_le32(val);
 			goto update_ack_seq_num;
 		}
 
-		dma_addr = e->head_high;
+#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
+		dma_addr = FIELD_GET(WED_RRO_ADDR_HEAD_HIGH_MASK, data);
 		dma_addr <<= 32;
-		dma_addr |= e->head_low;
+#endif
+		dma_addr |= le32_to_cpu(e->head_low);
 
-		for (j = 0; j < e->count; j++) {
+		count = FIELD_GET(WED_RRO_ADDR_COUNT_MASK, data);
+		for (j = 0; j < count; j++) {
 			if (!p) {
 				p = mt7996_rro_msdu_page_get(dev, dma_addr);
 				if (!p)
@@ -1864,9 +1875,12 @@ void mt7996_rro_rx_process(struct mt76_dev *mdev, void *data)
 			}
 
 			rxd = &pinfo->rxd[j % MT7996_MAX_HIF_RXD_IN_PG];
-			len = rxd->sdl;
+			len = FIELD_GET(RRO_HIF_DATA1_SDL_MASK,
+					le32_to_cpu(rxd->data1));
 
-			t = mt76_rx_token_release(mdev, rxd->rx_token_id);
+			rx_token_id = FIELD_GET(RRO_HIF_DATA4_RX_TOKEN_ID_MASK,
+						le32_to_cpu(rxd->data4));
+			t = mt76_rx_token_release(mdev, rx_token_id);
 			if (!t)
 				goto next_page;
 
@@ -1895,17 +1909,19 @@ void mt7996_rro_rx_process(struct mt76_dev *mdev, void *data)
 				goto next_page;
 			}
 
+			ls = FIELD_GET(RRO_HIF_DATA1_LS_MASK,
+				       le32_to_cpu(rxd->data1));
 			if (q->rx_head) {
 				/* TODO: Take into account non-linear skb. */
 				mt76_put_page_pool_buf(buf, false);
-				if (rxd->ls) {
+				if (ls) {
 					dev_kfree_skb(q->rx_head);
 					q->rx_head = NULL;
 				}
 				goto next_page;
 			}
 
-			if (rxd->ls && !mt7996_rx_check(mdev, buf, len))
+			if (ls && !mt7996_rx_check(mdev, buf, len))
 				goto next_page;
 
 			skb = build_skb(buf, q->buf_size);
@@ -1921,7 +1937,7 @@ void mt7996_rro_rx_process(struct mt76_dev *mdev, void *data)
 				goto next_page;
 			}
 
-			if (!rxd->ls) {
+			if (!ls) {
 				q->rx_head = skb;
 				goto next_page;
 			}
@@ -1933,9 +1949,15 @@ void mt7996_rro_rx_process(struct mt76_dev *mdev, void *data)
 			mt7996_queue_rx_skb(mdev, qid, skb, &info);
 next_page:
 			if ((j + 1) % MT7996_MAX_HIF_RXD_IN_PG == 0) {
-				dma_addr = pinfo->next_pg_high;
+#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
+				dma_addr =
+					FIELD_GET(MSDU_PAGE_INFO_PG_HIGH_MASK,
+						  le32_to_cpu(pinfo->data));
 				dma_addr <<= 32;
-				dma_addr |= pinfo->next_pg_low;
+				dma_addr |= le32_to_cpu(pinfo->pg_low);
+#else
+				dma_addr = le32_to_cpu(pinfo->pg_low);
+#endif
 				mt7996_msdu_page_put_to_cache(dev, p);
 				p = NULL;
 			}
