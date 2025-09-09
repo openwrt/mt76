@@ -1298,7 +1298,7 @@ static void mt7996_tx(struct ieee80211_hw *hw,
 			link_id = mvif->mt76.deflink_id;
 	}
 
-	if (ieee80211_vif_is_mld(vif)) {
+	if (vif && ieee80211_vif_is_mld(vif)) {
 		struct ieee80211_bss_conf *link_conf;
 
 		if (msta) {
