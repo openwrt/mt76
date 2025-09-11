@@ -1000,13 +1000,9 @@ mt7996_mac_sta_init_link(struct mt7996_dev *dev,
 	return 0;
 }
 
-static void
-mt7996_mac_sta_deinit_link(struct mt7996_dev *dev,
-			   struct mt7996_sta_link *msta_link)
+void mt7996_mac_sta_deinit_link(struct mt7996_dev *dev,
+				struct mt7996_sta_link *msta_link)
 {
-	mt7996_mac_wtbl_update(dev, msta_link->wcid.idx,
-			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
-
 	spin_lock_bh(&dev->mt76.sta_poll_lock);
 	if (!list_empty(&msta_link->wcid.poll_list))
 		list_del_init(&msta_link->wcid.poll_list);
@@ -1035,6 +1031,9 @@ mt7996_mac_sta_remove_links(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 						lockdep_is_held(&mdev->mutex));
 		if (!msta_link)
 			continue;
+
+		mt7996_mac_wtbl_update(dev, msta_link->wcid.idx,
+				       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
 
 		mt7996_mac_sta_deinit_link(dev, msta_link);
 		link = mt7996_vif_link(dev, vif, link_id);
