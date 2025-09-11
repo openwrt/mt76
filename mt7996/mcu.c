@@ -3343,8 +3343,6 @@ int mt7996_mcu_init_firmware(struct mt7996_dev *dev)
 			return ret;
 	}
 
-	mt76_connac_mcu_del_wtbl_all(&dev->mt76);
-
 	ret = mt7996_mcu_init_rx_airtime(dev);
 	if (ret)
 		return ret;
