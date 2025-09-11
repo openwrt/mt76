@@ -2383,6 +2383,27 @@ mt7996_mac_reset_sta_iter(void *data, struct ieee80211_sta *sta)
 }
 
 static void
+mt7996_mac_reset_vif_iter(void *data, u8 *mac, struct ieee80211_vif *vif)
+{
+	struct mt76_vif_link *mlink = (struct mt76_vif_link *)vif->drv_priv;
+	struct mt76_vif_data *mvif = mlink->mvif;
+	struct mt7996_dev *dev = data;
+	int i;
+
+	rcu_read_lock();
+	for (i = 0; i < ARRAY_SIZE(mvif->link); i++) {
+
+		mlink = mt76_dereference(mvif->link[i], &dev->mt76);
+		if (!mlink || mlink == (struct mt76_vif_link *)vif->drv_priv)
+			continue;
+
+		rcu_assign_pointer(mvif->link[i], NULL);
+		kfree_rcu(mlink, rcu_head);
+	}
+	rcu_read_unlock();
+}
+
+static void
 mt7996_mac_full_reset(struct mt7996_dev *dev)
 {
 	struct ieee80211_hw *hw = mt76_hw(dev);
@@ -2412,6 +2433,9 @@ mt7996_mac_full_reset(struct mt7996_dev *dev)
 		phy->omac_mask = 0;
 
 	ieee80211_iterate_stations_atomic(hw, mt7996_mac_reset_sta_iter, dev);
+	ieee80211_iterate_active_interfaces_atomic(hw,
+						   IEEE80211_IFACE_SKIP_SDATA_NOT_IN_DRIVER,
+						   mt7996_mac_reset_vif_iter, dev);
 	mt76_reset_device(&dev->mt76);
 
 	INIT_LIST_HEAD(&dev->sta_rc_list);
