@@ -1,4 +1,4 @@
-#SPDX-License-Identifier: ISC
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 
 EXTRA_CFLAGS += -DCONFIG_MT76_LEDS
 obj-$(CONFIG_MT7615_COMMON) += mt7615-common.o

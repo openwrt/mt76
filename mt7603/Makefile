@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 EXTRA_CFLAGS += -Werror -DCONFIG_MT76_LEDS
 obj-m += mt7603e.o
 
