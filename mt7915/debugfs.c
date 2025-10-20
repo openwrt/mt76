@@ -1451,7 +1451,7 @@ static ssize_t mt7915_sta_fixed_rate_set(struct file *file,
 
 out:
 	vif = container_of((void *)msta->vif, struct ieee80211_vif, drv_priv);
-	ret = mt7915_mcu_set_fixed_rate_ctrl(dev, vif, sta, &phy, field);
+	ret = mt7915_mcu_set_fixed_rate_ctrl(dev, vif, sta, &msta->wcid, &phy, field);
 	if (ret)
 		return -EFAULT;
 

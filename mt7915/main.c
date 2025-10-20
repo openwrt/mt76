@@ -746,7 +746,14 @@ int mt7915_mac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	bool ext_phy = mvif->phy != &dev->phy;
 	int idx;
 
-	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7915_WTBL_STA);
+	if (mtk_wed_device_active(&dev->mt76.mmio.wed) &&
+	    !is_mt7915(&dev->mt76) &&
+	    test_bit(MT_WCID_FLAG_4ADDR, &msta->wcid.flags))
+		idx = __mt76_wcid_alloc(mdev->wcid_mask, MT76_WED_WDS_MIN,
+					MT76_WED_WDS_MAX);
+	else
+		idx = mt76_wcid_alloc(mdev->wcid_mask, MT7915_WTBL_STA);
+
 	if (idx < 0)
 		return -ENOSPC;
 
@@ -835,7 +842,7 @@ int mt7915_mac_sta_event(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		addr = mt7915_mac_wtbl_lmac_addr(dev, msta->wcid.idx, 30);
 		mt76_rmw_field(dev, addr, GENMASK(7, 0), 0xa0);
 
-		ret = mt7915_mcu_add_rate_ctrl(dev, vif, sta, false);
+		ret = mt7915_mcu_add_rate_ctrl(dev, vif, sta, &msta->wcid, false);
 		if (ret)
 			return ret;
 
@@ -1264,6 +1271,40 @@ mt7915_set_bitrate_mask(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	return 0;
 }
 
+static void mt7915_sta_wed_set_4addr(struct mt7915_dev *dev, struct ieee80211_vif *vif,
+				     struct ieee80211_sta *sta)
+{
+	struct mt7915_sta *msta = (struct mt7915_sta *)sta->drv_priv;
+	int min = MT76_WED_WDS_MIN, max = MT76_WED_WDS_MAX;
+	int idx, prev_idx = msta->wcid.idx;
+	struct mt76_wcid wcid = msta->wcid;
+	int state;
+
+	if (!is_mt7915(&dev->mt76))
+	       return;
+
+	if (msta->wcid.idx >= min && msta->wcid.idx < max)
+		return;
+
+	idx = __mt76_wcid_alloc(dev->mt76.wcid_mask, min, max);
+	if (idx < 0)
+		return;
+
+	wcid.idx = idx;
+	state = msta->wcid.sta ? CONN_STATE_PORT_SECURE : CONN_STATE_DISCONNECT;
+	__mt7915_mcu_add_sta(dev, vif, sta, &wcid, state, true);
+	mt7915_mcu_add_rate_ctrl(dev, vif, sta, &wcid, false);
+	rcu_assign_pointer(dev->mt76.wcid[idx], &msta->wcid);
+	msta->wcid.idx = idx;
+
+	synchronize_rcu();
+
+	rcu_assign_pointer(dev->mt76.wcid[prev_idx], NULL);
+	mt76_wcid_mask_clear(dev->mt76.wcid_mask, prev_idx);
+	wcid.idx = prev_idx;
+	__mt7915_mcu_add_sta(dev, vif, sta, &wcid, CONN_STATE_DISCONNECT, false);
+}
+
 static void mt7915_sta_set_4addr(struct ieee80211_hw *hw,
 				 struct ieee80211_vif *vif,
 				 struct ieee80211_sta *sta,
@@ -1276,6 +1317,9 @@ static void mt7915_sta_set_4addr(struct ieee80211_hw *hw,
 		set_bit(MT_WCID_FLAG_4ADDR, &msta->wcid.flags);
 	else
 		clear_bit(MT_WCID_FLAG_4ADDR, &msta->wcid.flags);
+
+	if (mtk_wed_device_active(&dev->mt76.mmio.wed) && enabled)
+		mt7915_sta_wed_set_4addr(dev, vif, sta);
 
 	if (!msta->wcid.sta)
 		return;
@@ -1726,15 +1770,19 @@ mt7915_net_fill_forward_path(struct ieee80211_hw *hw,
 	if (!mtk_wed_device_active(wed))
 		return -ENODEV;
 
-	if (msta->wcid.idx > 0xff)
+	if (msta->wcid.idx > MT7915_WTBL_STA)
 		return -EIO;
 
 	path->type = DEV_PATH_MTK_WDMA;
 	path->dev = ctx->dev;
 	path->mtk_wdma.wdma_idx = wed->wdma_idx;
 	path->mtk_wdma.bss = mvif->mt76.idx;
-	path->mtk_wdma.wcid = is_mt7915(&dev->mt76) ? msta->wcid.idx : 0x3ff;
 	path->mtk_wdma.queue = phy != &dev->phy;
+	if (test_bit(MT_WCID_FLAG_4ADDR, &msta->wcid.flags) ||
+	    is_mt7915(&dev->mt76))
+		path->mtk_wdma.wcid = msta->wcid.idx;
+	else
+		path->mtk_wdma.wcid = 0x3ff;
 
 	ctx->dev = NULL;
 
