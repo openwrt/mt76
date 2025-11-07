@@ -335,6 +335,8 @@ struct mt7996_sta {
 	struct mt7996_sta_ba ba_tx[IEEE80211_NUM_TIDS];
 	struct mt7996_sta_ba ba_rx[IEEE80211_NUM_TIDS];
 
+	struct ieee80211_neg_ttlm neg_ttlm;
+
 	struct mt7996_vif *vif;
 };
 
@@ -862,6 +864,10 @@ int mt7996_mcu_add_sta(struct mt7996_dev *dev,
 		       struct mt7996_vif_link *link,
 		       struct mt7996_sta_link *msta_link,
 		       int conn_state, bool newly);
+int mt7996_mcu_peer_mld_ttlm_req(struct mt7996_dev *dev,
+				 struct ieee80211_vif *vif,
+				 struct ieee80211_sta *sta,
+				 const struct ieee80211_neg_ttlm *ttlm);
 int mt7996_mcu_set_peer_mld(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			    struct ieee80211_sta *sta);
 int mt7996_mcu_teardown_mld_sta(struct mt7996_dev *dev,

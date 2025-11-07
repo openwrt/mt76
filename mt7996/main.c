@@ -1809,6 +1809,10 @@ mt7996_mac_sta_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	switch (ev) {
 	case MT76_STA_EVENT_ASSOC:
 		msta->conn_state = CONN_STATE_CONNECT;
+		/* the firmware of a hardware restart lost the mapping */
+		if (sta->mlo && msta->neg_ttlm.valid)
+			mt7996_mcu_peer_mld_ttlm_req(dev, vif, sta,
+						     &msta->neg_ttlm);
 		break;
 	case MT76_STA_EVENT_AUTHORIZE:
 		msta->conn_state = CONN_STATE_PORT_SECURE;
@@ -1816,6 +1820,7 @@ mt7996_mac_sta_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	case MT76_STA_EVENT_DISASSOC:
 		msta->conn_state = CONN_STATE_DISCONNECT;
 		msta->peer_mld_links = 0;
+		msta->neg_ttlm.valid = false;
 		mt7996_mac_sta_clear_connected(dev, msta);
 		break;
 	}
@@ -3583,6 +3588,24 @@ mt7996_adv_ttlm_cancel(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	mt7996_mcu_mld_adv_ttlm_cancel(mt7996_hw_dev(hw), vif, cookie);
 }
 
+static int
+mt7996_set_sta_ttlm(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+		    struct ieee80211_sta *sta,
+		    const struct ieee80211_neg_ttlm *ttlm)
+{
+	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	struct mt7996_dev *dev = mt7996_hw_dev(hw);
+	int ret;
+
+	mutex_lock(&dev->mt76.mutex);
+	ret = mt7996_mcu_peer_mld_ttlm_req(dev, vif, sta, ttlm);
+	if (!ret)
+		msta->neg_ttlm = *ttlm;
+	mutex_unlock(&dev->mt76.mutex);
+
+	return ret;
+}
+
 const struct ieee80211_ops mt7996_ops = {
 	.add_chanctx = mt76_add_chanctx,
 	.remove_chanctx = mt76_remove_chanctx,
@@ -3650,4 +3673,5 @@ const struct ieee80211_ops mt7996_ops = {
 	.set_eml_op_mode = mt7996_set_eml_op_mode,
 	.adv_ttlm_request = mt7996_adv_ttlm_request,
 	.adv_ttlm_cancel = mt7996_adv_ttlm_cancel,
+	.set_sta_ttlm = mt7996_set_sta_ttlm,
 };

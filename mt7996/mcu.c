@@ -3759,6 +3759,51 @@ static u32 mt7996_mcu_peer_mld_amsdu_len(u16 max_amsdu_len)
 	}
 }
 
+int mt7996_mcu_peer_mld_ttlm_req(struct mt7996_dev *dev,
+				 struct ieee80211_vif *vif,
+				 struct ieee80211_sta *sta,
+				 const struct ieee80211_neg_ttlm *ttlm)
+{
+	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	unsigned long links = mt7996_mac_sta_links(dev, vif, sta);
+	struct peer_mld_req_hdr hdr = { .fw_mld_idx = cpu_to_le16(0xff) };
+	struct mt7996_sta_link *msta_link;
+	struct peer_mld_ttlm_req *req;
+	unsigned int link_id, tid;
+	struct sk_buff *skb;
+	struct tlv *tlv;
+
+	memcpy(hdr.peer_mld_addr, sta->addr, ETH_ALEN);
+
+	skb = mt76_mcu_msg_alloc(&dev->mt76, NULL, sizeof(hdr) + sizeof(*req));
+	if (!skb)
+		return -ENOMEM;
+
+	skb_put_data(skb, &hdr, sizeof(hdr));
+	tlv = mt7996_mcu_add_uni_tlv(skb, UNI_CMD_PEER_MLD_TTLM_REQ,
+				     sizeof(*req));
+	req = (struct peer_mld_ttlm_req *)tlv;
+	memcpy(req->mld_addr, vif->addr, ETH_ALEN);
+	req->enabled_link_bitmap = cpu_to_le16(vif->valid_links);
+
+	for_each_set_bit(link_id, &links, IEEE80211_MLD_MAX_NUM_LINKS) {
+		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
+		if (!msta_link)
+			continue;
+
+		req->link_to_wcid[link_id] = cpu_to_le16(msta_link->wcid.idx);
+		for (tid = 0; tid < IEEE80211_TTLM_NUM_TIDS; tid++) {
+			if (ttlm->downlink[tid] & BIT(link_id))
+				req->dl_tid_map[link_id] |= BIT(tid);
+			if (ttlm->uplink[tid] & BIT(link_id))
+				req->ul_tid_map[link_id] |= BIT(tid);
+		}
+	}
+
+	return mt76_mcu_skb_send_msg(&dev->mt76, skb,
+				     MCU_WM_UNI_CMD(PEER_MLD), true);
+}
+
 int mt7996_mcu_set_peer_mld(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			    struct ieee80211_sta *sta)
 {
