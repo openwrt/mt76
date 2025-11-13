@@ -212,6 +212,13 @@ static int mt7996_eeprom_load(struct mt7996_dev *dev)
 				goto out;
 			}
 		}
+
+		/* read tx_power values from fw */
+		u8 *eeprom = dev->mt76.eeprom.data;
+		if (!eeprom[MT_EE_TX0_POWER_2G] || !eeprom[MT_EE_TX0_POWER_5G] || !eeprom[MT_EE_TX0_POWER_6G] ) {
+			use_default = true;
+			goto out;
+		}
 	}
 
 out:
