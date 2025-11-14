@@ -193,7 +193,15 @@ static const struct cfg80211_sar_capa mt76_sar_capa = {
 	.freq_ranges = &mt76_sar_freq_ranges[0],
 };
 
-static int mt76_led_init(struct mt76_phy *phy)
+static const char * mt76_create_tpt_led_trigger(struct ieee80211_hw * hw)
+{
+	return ieee80211_create_tpt_led_trigger(hw,
+				IEEE80211_TPT_LEDTRIG_FL_RADIO,
+				mt76_tpt_blink,
+				ARRAY_SIZE(mt76_tpt_blink));
+}
+
+static int mt76_led_init(struct mt76_phy *phy, const char *trigger)
 {
 	struct mt76_dev *dev = phy->dev;
 	struct ieee80211_hw *hw = phy->hw;
@@ -228,11 +236,7 @@ static int mt76_led_init(struct mt76_phy *phy)
 		 wiphy_name(hw->wiphy));
 
 	phy->leds.cdev.name = phy->leds.name;
-	phy->leds.cdev.default_trigger =
-		ieee80211_create_tpt_led_trigger(hw,
-					IEEE80211_TPT_LEDTRIG_FL_RADIO,
-					mt76_tpt_blink,
-					ARRAY_SIZE(mt76_tpt_blink));
+	phy->leds.cdev.default_trigger = trigger;
 
 	dev_info(dev->dev,
 		"registering led '%s'\n", phy->leds.name);
@@ -549,6 +553,7 @@ int mt76_register_phy(struct mt76_phy *phy, bool vht,
 		      struct ieee80211_rate *rates, int n_rates)
 {
 	int ret;
+	const char *trigger;
 
 	ret = mt76_phy_init(phy, phy->hw);
 	if (ret)
@@ -572,8 +577,10 @@ int mt76_register_phy(struct mt76_phy *phy, bool vht,
 			return ret;
 	}
 
+	trigger = mt76_create_tpt_led_trigger(phy->hw);
+
 	if (IS_ENABLED(CONFIG_MT76_LEDS)) {
-		ret = mt76_led_init(phy);
+		ret = mt76_led_init(phy, trigger);
 		if (ret)
 			return ret;
 	}
@@ -738,6 +745,7 @@ int mt76_register_device(struct mt76_dev *dev, bool vht,
 	struct ieee80211_hw *hw = dev->hw;
 	struct mt76_phy *phy = &dev->phy;
 	int ret;
+	const char *trigger;
 
 	dev_set_drvdata(dev->dev, dev);
 	mt76_wcid_init(&dev->global_wcid, phy->band_idx);
@@ -768,8 +776,10 @@ int mt76_register_device(struct mt76_dev *dev, bool vht,
 	mt76_check_sband(&dev->phy, &phy->sband_5g, NL80211_BAND_5GHZ);
 	mt76_check_sband(&dev->phy, &phy->sband_6g, NL80211_BAND_6GHZ);
 
+	trigger = mt76_create_tpt_led_trigger(hw);
+
 	if (IS_ENABLED(CONFIG_MT76_LEDS)) {
-		ret = mt76_led_init(phy);
+		ret = mt76_led_init(phy, trigger);
 		if (ret)
 			return ret;
 	}
