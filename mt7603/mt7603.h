@@ -25,7 +25,7 @@
 #define MT7628_FIRMWARE_E1	"mt7628_e1.bin"
 #define MT7628_FIRMWARE_E2	"mt7628_e2.bin"
 
-#define MT7603_EEPROM_SIZE	1024
+#define MT7603_EEPROM_SIZE	512
 
 #define MT_AGG_SIZE_LIMIT(_n)	(((_n) + 1) * 4)
 
