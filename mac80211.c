@@ -1828,7 +1828,10 @@ EXPORT_SYMBOL_GPL(mt76_get_sar_power);
 static void
 __mt76_csa_finish(void *priv, u8 *mac, struct ieee80211_vif *vif)
 {
-	if (vif->bss_conf.csa_active && ieee80211_beacon_cntdwn_is_complete(vif, 0))
+	if (!vif->bss_conf.csa_active || vif->type == NL80211_IFTYPE_STATION)
+		return;
+
+	if (ieee80211_beacon_cntdwn_is_complete(vif, 0))
 		ieee80211_csa_finish(vif, 0);
 }
 
@@ -1850,7 +1853,7 @@ __mt76_csa_check(void *priv, u8 *mac, struct ieee80211_vif *vif)
 {
 	struct mt76_dev *dev = priv;
 
-	if (!vif->bss_conf.csa_active)
+	if (!vif->bss_conf.csa_active || vif->type == NL80211_IFTYPE_STATION)
 		return;
 
 	dev->csa_complete |= ieee80211_beacon_cntdwn_is_complete(vif, 0);
