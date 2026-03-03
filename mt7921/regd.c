@@ -71,18 +71,43 @@ mt7921_regd_channel_update(struct wiphy *wiphy, struct mt792x_dev *dev)
 	}
 }
 
-void mt7921_regd_update(struct mt792x_dev *dev)
+int mt7921_mcu_regd_update(struct mt792x_dev *dev, u8 *alpha2,
+			   enum environment_cap country_ie_env)
 {
 	struct mt76_dev *mdev = &dev->mt76;
 	struct ieee80211_hw *hw = mdev->hw;
 	struct wiphy *wiphy = hw->wiphy;
+	int ret = 0;
 
-	mt7921_mcu_set_clc(dev, mdev->alpha2, dev->country_ie_env);
+	dev->regd_in_progress = true;
+
+	mt792x_mutex_acquire(dev);
+	if (!dev->regd_change)
+		goto err;
+
+	ret = mt7921_mcu_set_clc(dev, alpha2, country_ie_env);
+	if (ret < 0)
+		goto err;
+
 	mt7921_regd_channel_update(wiphy, dev);
-	mt76_connac_mcu_set_channel_domain(hw->priv);
-	mt7921_set_tx_sar_pwr(hw, NULL);
+
+	ret = mt76_connac_mcu_set_channel_domain(hw->priv);
+	if (ret < 0)
+		goto err;
+
+	ret = mt7921_set_tx_sar_pwr(hw, NULL);
+	if (ret < 0)
+		goto err;
+
+err:
+	mt792x_mutex_release(dev);
+	dev->regd_change = false;
+	dev->regd_in_progress = false;
+	wake_up(&dev->wait);
+
+	return ret;
 }
-EXPORT_SYMBOL_GPL(mt7921_regd_update);
+EXPORT_SYMBOL_GPL(mt7921_mcu_regd_update);
 
 void mt7921_regd_notifier(struct wiphy *wiphy,
 			  struct regulatory_request *request)
@@ -105,12 +130,6 @@ void mt7921_regd_notifier(struct wiphy *wiphy,
 	if (pm->suspended)
 		return;
 
-	dev->regd_in_progress = true;
-
-	mt792x_mutex_acquire(dev);
-	mt7921_regd_update(dev);
-	mt792x_mutex_release(dev);
-
-	dev->regd_in_progress = false;
-	wake_up(&dev->wait);
+	mt7921_mcu_regd_update(dev, request->alpha2,
+			       request->country_ie_env);
 }
