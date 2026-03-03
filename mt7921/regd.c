@@ -117,6 +117,10 @@ void mt7921_regd_notifier(struct wiphy *wiphy,
 	struct mt76_connac_pm *pm = &dev->pm;
 	struct mt76_dev *mdev = &dev->mt76;
 
+	if (req->initiator == NL80211_REGDOM_SET_BY_USER &&
+	    !dev->regd_user)
+		dev->regd_user = true;
+
 	/* do not need to update the same country twice */
 	if (!memcmp(req->alpha2, mdev->alpha2, 2) &&
 	    dev->country_ie_env == req->country_ie_env)
@@ -168,7 +172,8 @@ int mt7921_regd_change(struct mt792x_phy *phy, char *alpha2)
 		return 0;
 
 	if (!mt7921_regd_is_valid_alpha2(alpha2) ||
-	    !mt7921_regd_clc_supported(dev))
+	    !mt7921_regd_clc_supported(dev) ||
+	    dev->regd_user)
 		return -EINVAL;
 
 	if (mdev->alpha2[0] != '0' && mdev->alpha2[1] != '0')
