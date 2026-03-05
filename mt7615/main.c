@@ -97,7 +97,11 @@ static void mt7615_stop(struct ieee80211_hw *hw, bool suspend)
 	struct mt7615_phy *phy = mt7615_hw_phy(hw);
 
 	cancel_delayed_work_sync(&phy->mt76->mac_work);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
 	timer_delete_sync(&phy->roc_timer);
+#else
+	del_timer_sync(&phy->roc_timer);
+#endif
 	cancel_work_sync(&phy->roc_work);
 
 	cancel_delayed_work_sync(&dev->pm.ps_work);
@@ -1047,7 +1051,11 @@ void mt7615_roc_work(struct work_struct *work)
 
 void mt7615_roc_timer(struct timer_list *timer)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0)
 	struct mt7615_phy *phy = timer_container_of(phy, timer, roc_timer);
+#else
+	struct mt7615_phy *phy = from_timer(phy, timer, roc_timer);
+#endif
 
 	ieee80211_queue_work(phy->mt76->hw, &phy->roc_work);
 }
@@ -1198,7 +1206,11 @@ static int mt7615_cancel_remain_on_channel(struct ieee80211_hw *hw,
 	if (!test_and_clear_bit(MT76_STATE_ROC, &phy->mt76->state))
 		return 0;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
 	timer_delete_sync(&phy->roc_timer);
+#else
+	del_timer_sync(&phy->roc_timer);
+#endif
 	cancel_work_sync(&phy->roc_work);
 
 	mt7615_mutex_acquire(phy->dev);

@@ -305,7 +305,11 @@ EXPORT_SYMBOL_GPL(mt792x_tx_worker);
 
 void mt792x_roc_timer(struct timer_list *timer)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0)
 	struct mt792x_phy *phy = timer_container_of(phy, timer, roc_timer);
+#else
+	struct mt792x_phy *phy = from_timer(phy, timer, roc_timer);
+#endif
 
 	ieee80211_queue_work(phy->mt76->hw, &phy->roc_work);
 }
@@ -313,7 +317,11 @@ EXPORT_SYMBOL_GPL(mt792x_roc_timer);
 
 void mt792x_csa_timer(struct timer_list *timer)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0)
 	struct mt792x_vif *mvif = timer_container_of(mvif, timer, csa_timer);
+#else
+	struct mt792x_vif *mvif = from_timer(mvif, timer, csa_timer);
+#endif
 
 	ieee80211_queue_work(mvif->phy->mt76->hw, &mvif->csa_work);
 }
@@ -362,7 +370,11 @@ void mt792x_unassign_vif_chanctx(struct ieee80211_hw *hw,
 	mutex_unlock(&dev->mt76.mutex);
 
 	if (vif->bss_conf.csa_active) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
 		timer_delete_sync(&mvif->csa_timer);
+#else
+		del_timer_sync(&mvif->csa_timer);
+#endif
 		cancel_work_sync(&mvif->csa_work);
 	}
 }
