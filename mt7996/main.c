@@ -364,15 +364,12 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 
 	ieee80211_iter_keys(mphy->hw, vif, mt7996_key_iter, &it);
 
-	if (!mlink->wcid->offchannel &&
+	if (vif->txq && !mlink->wcid->offchannel &&
 	    mvif->mt76.deflink_id == IEEE80211_LINK_UNSPECIFIED) {
-		if (vif->txq) {
-			struct mt76_txq *mtxq;
+		struct mt76_txq *mtxq = (struct mt76_txq *)vif->txq->drv_priv;
 
-			mtxq = (struct mt76_txq *)vif->txq->drv_priv;
-			mtxq->wcid = idx;
-		}
 		mvif->mt76.deflink_id = link_conf->link_id;
+		mtxq->wcid = idx;
 	}
 
 	if (vif->type == NL80211_IFTYPE_STATION) {
