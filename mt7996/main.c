@@ -1155,21 +1155,22 @@ mt7996_mac_sta_remove_links(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			phy->mt76->num_sta--;
 
 		if (msta->deflink_id == link_id) {
-			if (msta->seclink_id == msta->deflink_id) {
+			msta->deflink_id = IEEE80211_LINK_UNSPECIFIED;
+			if (msta->seclink_id == link_id) {
 				/* no secondary link available */
-				msta->deflink_id = IEEE80211_LINK_UNSPECIFIED;
 				msta->seclink_id = msta->deflink_id;
 			} else {
 				struct mt7996_sta_link *msta_seclink;
 
 				/* switch to the secondary link */
-				msta->deflink_id = msta->seclink_id;
 				msta_seclink = mt76_dereference(
 						msta->link[msta->seclink_id],
 						mdev);
-				if (msta_seclink)
+				if (msta_seclink) {
+					msta->deflink_id = msta->seclink_id;
 					mt7996_sta_init_txq_wcid(sta,
 						msta_seclink->wcid.idx);
+				}
 			}
 		} else if (msta->seclink_id == link_id) {
 			msta->seclink_id = msta->deflink_id;
