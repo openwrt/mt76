@@ -96,7 +96,6 @@ void mt76_scan_rx_beacon(struct mt76_dev *dev, struct ieee80211_channel *chan)
 	dev->scan.beacon_received = true;
 	ieee80211_queue_delayed_work(phy->hw, &dev->scan_work, 0);
 }
-EXPORT_SYMBOL_GPL(mt76_scan_rx_beacon);
 
 void mt76_scan_work(struct work_struct *work)
 {
