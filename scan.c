@@ -29,6 +29,10 @@ static void mt76_scan_complete(struct mt76_dev *dev, bool abort)
 
 void mt76_abort_scan(struct mt76_dev *dev)
 {
+	spin_lock_bh(&dev->scan_lock);
+	dev->scan.beacon_wait = false;
+	spin_unlock_bh(&dev->scan_lock);
+
 	cancel_delayed_work_sync(&dev->scan_work);
 	mt76_scan_complete(dev, true);
 }
@@ -85,16 +89,21 @@ void mt76_scan_rx_beacon(struct mt76_dev *dev, struct ieee80211_channel *chan)
 {
 	struct mt76_phy *phy;
 
+	spin_lock(&dev->scan_lock);
+
 	if (!dev->scan.beacon_wait || dev->scan.beacon_received ||
 	    dev->scan.chan != chan)
-		return;
+		goto out;
 
 	phy = dev->scan.phy;
 	if (!phy)
-		return;
+		goto out;
 
 	dev->scan.beacon_received = true;
 	ieee80211_queue_delayed_work(phy->hw, &dev->scan_work, 0);
+
+out:
+	spin_unlock(&dev->scan_lock);
 }
 
 void mt76_scan_work(struct work_struct *work)
@@ -111,8 +120,10 @@ void mt76_scan_work(struct work_struct *work)
 	if (!phy || !req)
 		return;
 
+	spin_lock_bh(&dev->scan_lock);
 	beacon_rx = dev->scan.beacon_wait && dev->scan.beacon_received;
 	dev->scan.beacon_wait = false;
+	spin_unlock_bh(&dev->scan_lock);
 
 	if (beacon_rx)
 		goto probe;
@@ -140,8 +151,10 @@ void mt76_scan_work(struct work_struct *work)
 		goto out;
 
 	if (chandef.chan->flags & (IEEE80211_CHAN_NO_IR | IEEE80211_CHAN_RADAR)) {
+		spin_lock_bh(&dev->scan_lock);
 		dev->scan.beacon_received = false;
 		dev->scan.beacon_wait = true;
+		spin_unlock_bh(&dev->scan_lock);
 		goto out;
 	}
 
