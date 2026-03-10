@@ -2168,10 +2168,8 @@ mt76_offchannel_send_nullfunc(struct mt76_offchannel_cb_data *data,
 
 	if (!ieee80211_tx_prepare_skb(phy->hw, vif, skb,
 				      phy->main_chandef.chan->band,
-				      &sta)) {
-		ieee80211_free_txskb(phy->hw, skb);
+				      &sta))
 		return;
-	}
 
 	if (sta)
 		wcid = (struct mt76_wcid *)sta->drv_priv;
