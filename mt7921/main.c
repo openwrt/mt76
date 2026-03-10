@@ -374,7 +374,11 @@ void mt7921_roc_abort_sync(struct mt792x_dev *dev)
 	if (!test_and_clear_bit(MT76_STATE_ROC, &phy->mt76->state))
 		return;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
 	timer_delete_sync(&phy->roc_timer);
+#else
+	del_timer_sync(&phy->roc_timer);
+#endif
 	cancel_work(&phy->roc_work);
 
 	ieee80211_iterate_interfaces(mt76_hw(dev),
@@ -406,7 +410,11 @@ static int mt7921_abort_roc(struct mt792x_phy *phy, struct mt792x_vif *vif)
 {
 	int err = 0;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
 	timer_delete_sync(&phy->roc_timer);
+#else
+	del_timer_sync(&phy->roc_timer);
+#endif
 	cancel_work_sync(&phy->roc_work);
 
 	mt792x_mutex_acquire(phy->dev);
@@ -1499,7 +1507,11 @@ static void mt7921_abort_channel_switch(struct ieee80211_hw *hw,
 {
 	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
 	timer_delete_sync(&mvif->csa_timer);
+#else
+	del_timer_sync(&mvif->csa_timer);
+#endif
 	cancel_work_sync(&mvif->csa_work);
 }
 

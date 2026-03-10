@@ -85,7 +85,11 @@ static void mt7663u_stop(struct ieee80211_hw *hw, bool suspend)
 	struct mt7615_dev *dev = hw->priv;
 
 	clear_bit(MT76_STATE_RUNNING, &dev->mphy.state);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
 	timer_delete_sync(&phy->roc_timer);
+#else
+	del_timer_sync(&phy->roc_timer);
+#endif
 	cancel_work_sync(&phy->roc_work);
 	cancel_delayed_work_sync(&phy->scan_work);
 	cancel_delayed_work_sync(&phy->mt76->mac_work);
