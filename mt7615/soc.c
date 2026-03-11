@@ -42,7 +42,8 @@ static int mt7622_wmac_probe(struct platform_device *pdev)
 	if (IS_ERR(mem_base))
 		return PTR_ERR(mem_base);
 
-	return mt7615_mmio_probe(&pdev->dev, mem_base, irq, mt7615e_reg_map);
+	return mt7615_mmio_probe(&pdev->dev, mem_base, irq, mt7615e_reg_map,
+				 false);
 }
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6,11,0)
