@@ -4134,6 +4134,7 @@ mt7996_mcu_get_cal_free_data(struct mt7996_dev *dev)
 	}
 
 	for (band = 0; band < __MT_MAX_BAND; band++) {
+		u8 buf[MT7996_EEPROM_BLOCK_SIZE];
 		const struct cal_free_data *cal;
 		u16 prev_block_idx = -1;
 		u16 adie_base;
@@ -4156,13 +4157,13 @@ mt7996_mcu_get_cal_free_data(struct mt7996_dev *dev)
 			u16 eep_offset = cal[i].eep_offs;
 			u16 block_idx = adie_offset / MT7996_EEPROM_BLOCK_SIZE;
 			u16 offset = adie_offset % MT7996_EEPROM_BLOCK_SIZE;
-			u8 buf[MT7996_EEPROM_BLOCK_SIZE];
 
 			if (is_mt7996(&dev->mt76) && band == MT_BAND1 &&
 			    dev->var.type == MT7996_VAR_TYPE_444)
 				eep_offset -= MT_EE_7977BN_OFFSET;
 
 			if (prev_block_idx != block_idx) {
+				memset(buf, 0, sizeof(buf));
 				ret = mt7996_mcu_get_eeprom(dev, adie_offset, buf,
 							    MT7996_EEPROM_BLOCK_SIZE,
 							    EEPROM_MODE_EFUSE);
