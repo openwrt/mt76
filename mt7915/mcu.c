@@ -421,6 +421,11 @@ static void mt7915_mcu_rx_ps_sync(struct mt7915_dev *dev, struct sk_buff *skb)
 	if (!sta)
 		goto out;
 
+	if (p->ps_bit)
+		set_bit(MT_WCID_FLAG_PS, &wcid->flags);
+	else
+		clear_bit(MT_WCID_FLAG_PS, &wcid->flags);
+
 	ieee80211_sta_ps_transition_ni(sta, !!p->ps_bit);
 
 out:
