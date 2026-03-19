@@ -402,31 +402,6 @@ mt7915_mcu_rx_bcc_notify(struct mt7915_dev *dev, struct sk_buff *skb)
 			mt7915_mcu_cca_finish, mphy->hw);
 }
 
-static void mt7915_mcu_rx_ps_sync(struct mt7915_dev *dev, struct sk_buff *skb)
-{
-	struct mt7915_mcu_ps_notify *p;
-	struct ieee80211_sta *sta;
-	struct mt76_wcid *wcid;
-	u16 wcid_idx;
-
-	p = (struct mt7915_mcu_ps_notify *)skb->data;
-	wcid_idx = p->wtbl_lower | (p->wtbl_higher) << 8;
-
-	rcu_read_lock();
-	wcid = mt76_wcid_ptr(dev, wcid_idx);
-	if (!wcid)
-		goto out;
-
-	sta = wcid_to_sta(wcid);
-	if (!sta)
-		goto out;
-
-	ieee80211_sta_ps_transition_ni(sta, !!p->ps_bit);
-
-out:
-	rcu_read_unlock();
-}
-
 static void
 mt7915_mcu_rx_ext_event(struct mt7915_dev *dev, struct sk_buff *skb)
 {
@@ -448,9 +423,6 @@ mt7915_mcu_rx_ext_event(struct mt7915_dev *dev, struct sk_buff *skb)
 		break;
 	case MCU_EXT_EVENT_BCC_NOTIFY:
 		mt7915_mcu_rx_bcc_notify(dev, skb);
-		break;
-	case MCU_EXT_EVENT_PS_SYNC:
-		mt7915_mcu_rx_ps_sync(dev, skb);
 		break;
 	default:
 		break;
