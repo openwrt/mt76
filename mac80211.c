@@ -2274,8 +2274,13 @@ static void mt76_rx_beacon_iter(void *_data, u8 *mac,
 			continue;
 
 		link_conf = rcu_dereference(vif->link_conf[link_id]);
-		if (!link_conf ||
-		    !ether_addr_equal(link_conf->bssid, data->bssid))
+		if (!link_conf)
+			continue;
+
+		if (!ether_addr_equal(link_conf->bssid, data->bssid) &&
+		    (!link_conf->nontransmitted ||
+		     !ether_addr_equal(link_conf->transmitter_bssid,
+				       data->bssid)))
 			continue;
 
 		WRITE_ONCE(mlink->beacon_mon_last, jiffies);
