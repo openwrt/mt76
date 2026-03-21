@@ -464,9 +464,12 @@ void mt7925_roc_abort_sync(struct mt792x_dev *dev)
 	if (!test_and_clear_bit(MT76_STATE_ROC, &phy->mt76->state))
 		return;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
 	timer_delete_sync(&phy->roc_timer);
-
-	cancel_work(&phy->roc_work);
+#else
+	del_timer_sync(&phy->roc_timer);
+#endif
+	cancel_work_sync(&phy->roc_work);
 
 	ieee80211_iterate_interfaces(mt76_hw(dev),
 				     IEEE80211_IFACE_ITER_RESUME_ALL,
@@ -497,7 +500,11 @@ static int mt7925_abort_roc(struct mt792x_phy *phy,
 {
 	int err = 0;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
 	timer_delete_sync(&phy->roc_timer);
+#else
+	del_timer_sync(&phy->roc_timer);
+#endif
 	cancel_work_sync(&phy->roc_work);
 
 	mt792x_mutex_acquire(phy->dev);
