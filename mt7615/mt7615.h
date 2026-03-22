@@ -272,6 +272,7 @@ struct mt7615_dev {
 	bool fw_debug;
 	bool flash_eeprom;
 	bool dbdc_support;
+	bool is_mt7663_pci;
 
 	u8 fw_ver;
 
@@ -368,7 +369,7 @@ static inline int mt7622_wmac_init(struct mt7615_dev *dev)
 
 int mt7615_thermal_init(struct mt7615_dev *dev);
 int mt7615_mmio_probe(struct device *pdev, void __iomem *mem_base,
-		      int irq, const u32 *map);
+		      int irq, const u32 *map, bool is_mt7663_pci);
 u32 mt7615_reg_map(struct mt7615_dev *dev, u32 addr);
 
 u32 mt7615_reg_map(struct mt7615_dev *dev, u32 addr);
