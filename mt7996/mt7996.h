@@ -914,6 +914,7 @@ int mt7996_init_debugfs(struct mt7996_dev *dev);
 void mt7996_debugfs_rx_fw_monitor(struct mt7996_dev *dev, const void *data, int len);
 bool mt7996_debugfs_rx_log(struct mt7996_dev *dev, const void *data, int len);
 int mt7996_mcu_add_key(struct mt76_dev *dev, struct mt7996_vif_link *link,
+		       struct mt76_connac_sta_key_conf *sta_key_conf,
 		       struct ieee80211_key_conf *key, int mcu_cmd,
 		       struct mt76_wcid *wcid, enum set_key_cmd cmd);
 int mt7996_mcu_bcn_prot_enable(struct mt7996_dev *dev,
