@@ -330,6 +330,47 @@ void mt792x_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 }
 EXPORT_SYMBOL_GPL(mt792x_flush);
 
+int mt792x_get_txpower(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+		       unsigned int link_id, int *dbm)
+{
+	struct mt76_power_limits limits = {};
+	struct ieee80211_bss_conf *link_conf;
+	struct ieee80211_channel *chan;
+	struct mt792x_bss_conf *mconf;
+	struct mt792x_vif *mvif;
+	struct mt76_phy *phy;
+	s8 max_power;
+
+	if (!vif)
+		return mt76_get_txpower(hw, vif, link_id, dbm);
+
+	mvif = (struct mt792x_vif *)vif->drv_priv;
+	phy = mvif->phy->mt76;
+
+	mt792x_mutex_acquire(mvif->phy->dev);
+
+	link_conf = mt792x_vif_to_bss_conf(vif, link_id);
+	mconf = link_conf ? mt792x_link_conf_to_mconf(link_conf) : NULL;
+	if (mconf && mconf->mt76.ctx && mconf->mt76.ctx->def.chan)
+		chan = mconf->mt76.ctx->def.chan;
+	else
+		/* Fall back to the current PHY chandef if the requested link
+		 * does not have a valid channel context.
+		 */
+		chan = phy->chandef.chan;
+
+	mt792x_mutex_release(mvif->phy->dev);
+
+	if (!chan)
+		return -EINVAL;
+
+	max_power = mt76_connac_get_rate_power_limit(phy, chan, &limits);
+	*dbm = DIV_ROUND_UP(max_power, 2);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt792x_get_txpower);
+
 int mt792x_assign_vif_chanctx(struct ieee80211_hw *hw,
 			      struct ieee80211_vif *vif,
 			      struct ieee80211_bss_conf *link_conf,
