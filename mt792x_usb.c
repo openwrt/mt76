@@ -60,6 +60,32 @@ int mt792xu_check_bus(struct mt792x_dev *dev)
 }
 EXPORT_SYMBOL_GPL(mt792xu_check_bus);
 
+int mt792xu_reset_on_bus_error(struct mt792x_dev *dev)
+{
+	int err = 0;
+
+	if (!atomic_read(&dev->mt76.bus_hung))
+		err = mt792xu_check_bus(dev);
+
+	if (err) {
+		atomic_set(&dev->mt76.bus_hung, true);
+
+		if (!atomic_xchg(&dev->usb_reset_pending, 1)) {
+			dev_warn(dev->mt76.dev,
+				 "USB transport access failed (%d), queueing device reset\n",
+				 err);
+
+			schedule_work(&dev->usb_reset_work);
+		}
+
+		return err;
+	}
+
+	atomic_set(&dev->mt76.bus_hung, false);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt792xu_reset_on_bus_error);
+
 u32 mt792xu_rr(struct mt76_dev *dev, u32 addr)
 {
 	u32 ret;

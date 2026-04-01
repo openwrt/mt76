@@ -521,6 +521,7 @@ int mt792xu_init_reset(struct mt792x_dev *dev);
 void mt792xu_reset_work_init(struct mt792x_dev *dev);
 void mt792xu_reset_work_cleanup(struct mt792x_dev *dev);
 int mt792xu_check_bus(struct mt792x_dev *dev);
+int mt792xu_reset_on_bus_error(struct mt792x_dev *dev);
 u32 mt792xu_rr(struct mt76_dev *dev, u32 addr);
 void mt792xu_wr(struct mt76_dev *dev, u32 addr, u32 val);
 u32 mt792xu_rmw(struct mt76_dev *dev, u32 addr, u32 mask, u32 val);
