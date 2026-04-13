@@ -108,6 +108,11 @@ mt7925_tm_query(struct mt792x_dev *dev, struct mt7925_tm_cmd *req,
 
 	evt = (struct uni_cmd_testmode_evt *)skb->data;
 
+	if (skb->len < MT7925_EVT_RSP_LEN + 8) {
+		ret = -EINVAL;
+		goto out;
+	}
+
 	memcpy((char *)evt_resp, (char *)skb->data + 8, MT7925_EVT_RSP_LEN);
 
 out:
