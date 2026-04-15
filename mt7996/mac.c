@@ -2058,8 +2058,6 @@ void mt7996_mac_set_coverage_class(struct mt7996_phy *phy)
 {
 	s16 coverage_class = phy->coverage_class;
 	struct mt7996_dev *dev = phy->dev;
-	struct mt7996_phy *phy2 = mt7996_phy2(dev);
-	struct mt7996_phy *phy3 = mt7996_phy3(dev);
 	u32 reg_offset;
 	u32 cck = FIELD_PREP(MT_TIMEOUT_VAL_PLCP, 231) |
 		  FIELD_PREP(MT_TIMEOUT_VAL_CCA, 48);
@@ -2070,14 +2068,6 @@ void mt7996_mac_set_coverage_class(struct mt7996_phy *phy)
 
 	if (!test_bit(MT76_STATE_RUNNING, &phy->mt76->state))
 		return;
-
-	if (phy2)
-		coverage_class = max_t(s16, dev->phy.coverage_class,
-				       phy2->coverage_class);
-
-	if (phy3)
-		coverage_class = max_t(s16, coverage_class,
-				       phy3->coverage_class);
 
 	offset = 3 * coverage_class;
 	reg_offset = FIELD_PREP(MT_TIMEOUT_VAL_PLCP, offset) |
