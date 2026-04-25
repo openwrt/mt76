@@ -263,7 +263,7 @@ EXPORT_SYMBOL_GPL(mt792xu_dma_init);
 
 int mt792xu_wfsys_reset(struct mt792x_dev *dev)
 {
-	const struct mt792xu_wfsys_desc *desc = is_mt7925(&dev->mt76) ?
+	const struct mt792xu_wfsys_desc *desc = is_connac3(&dev->mt76) ?
 						&mt7925_wfsys_desc :
 						&mt7921_wfsys_desc;
 	u32 val;

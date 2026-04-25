@@ -172,9 +172,14 @@ struct mt76_connac_tx_free {
 
 extern const struct wiphy_wowlan_support mt76_connac_wowlan_support;
 
-static inline bool is_mt7925(struct mt76_dev *dev)
+static inline bool is_connac3(struct mt76_dev *dev)
 {
 	return mt76_chip(dev) == 0x7925 || mt76_chip(dev) == 0x7927;
+}
+
+static inline bool is_mt7925(struct mt76_dev *dev)
+{
+	return mt76_chip(dev) == 0x7925;
 }
 
 static inline bool is_mt7927(struct mt76_dev *dev)
