@@ -758,6 +758,13 @@ out:
 	return offload_caps;
 }
 
+static bool mt792x_needs_cnm_runtime(const void *drv_data)
+{
+	const char *fw_wm = drv_data;
+
+	return fw_wm && !strcmp(fw_wm, MT7927_FIRMWARE_WM);
+}
+
 struct ieee80211_ops *
 mt792x_get_mac80211_ops(struct device *dev,
 			const struct ieee80211_ops *mac80211_ops,
@@ -771,6 +778,10 @@ mt792x_get_mac80211_ops(struct device *dev,
 		return NULL;
 
 	*fw_features = mt792x_get_offload_capability(dev, drv_data);
+
+	if (mt792x_needs_cnm_runtime(drv_data))
+		*fw_features |= MT792x_FW_CAP_CNM;
+
 	if (!(*fw_features & MT792x_FW_CAP_CNM)) {
 		ops->remain_on_channel = NULL;
 		ops->cancel_remain_on_channel = NULL;
