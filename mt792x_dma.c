@@ -370,7 +370,54 @@ int mt792x_poll_rx(struct napi_struct *napi, int budget)
 }
 EXPORT_SYMBOL_GPL(mt792x_poll_rx);
 
-int mt792x_wfsys_reset(struct mt792x_dev *dev)
+static void mt7927_sema_status_read(struct mt792x_dev *dev, u32 addr)
+{
+	u32 remap;
+
+	remap = mt76_rr(dev, MT7927_PCIE2AP_REMAP_WF_0_54);
+	mt76_wr(dev, MT7927_PCIE2AP_REMAP_WF_0_54,
+		(remap & ~MT7927_PCIE2AP_REMAP_WF_0_54_MASK) |
+		MT7927_PCIE2AP_REMAP_WF_0_54_VAL);
+	usleep_range(10, 20);
+
+	mt76_rr(dev, addr);
+
+	mt76_wr(dev, MT7927_PCIE2AP_REMAP_WF_0_54, remap);
+	usleep_range(10, 20);
+}
+
+static int mt7927_wfsys_reset(struct mt792x_dev *dev)
+{
+	struct mt76_dev *mdev = &dev->mt76;
+	u32 val;
+
+	mt7927_sema_status_read(dev, MT7927_SEMA_OWN_STA);
+
+	mt76_set(dev, MT7927_CBINFRA_RGU_WF_RST,
+		 MT7927_CBINFRA_RGU_WF_RST_WF_SUBSYS);
+	usleep_range(1000, 2000);
+
+	mt76_clear(dev, MT7927_CBINFRA_RGU_WF_RST,
+		   MT7927_CBINFRA_RGU_WF_RST_WF_SUBSYS);
+	usleep_range(5000, 10000);
+
+	mt76_wr(dev, MT7927_CBINFRA_MCU_OWN_SET, BIT(0));
+
+	if (!__mt76_poll_msec(mdev, MT7927_ROMCODE_INDEX, 0xffff,
+			      MT7927_MCU_IDLE_VALUE, 200)) {
+		val = mt76_rr(dev, MT7927_ROMCODE_INDEX);
+		dev_err(mdev->dev,
+			"MT7927 WFSYS reset timeout (ROMCODE_INDEX=0x%04x)\n",
+			val & 0xffff);
+		return -ETIMEDOUT;
+	}
+
+	mt7927_sema_status_read(dev, MT7927_SEMA_OWN_STA_REP);
+
+	return 0;
+}
+
+static int mt792x_wfsys_reset_default(struct mt792x_dev *dev)
 {
 	u32 addr = is_connac2(&dev->mt76) ? 0x18000140 : 0x7c000140;
 
@@ -383,6 +430,14 @@ int mt792x_wfsys_reset(struct mt792x_dev *dev)
 		return -ETIMEDOUT;
 
 	return 0;
+}
+
+int mt792x_wfsys_reset(struct mt792x_dev *dev)
+{
+	if (is_mt7927(&dev->mt76))
+		return mt7927_wfsys_reset(dev);
+
+	return mt792x_wfsys_reset_default(dev);
 }
 EXPORT_SYMBOL_GPL(mt792x_wfsys_reset);
 
