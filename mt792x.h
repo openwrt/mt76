@@ -206,6 +206,23 @@ struct mt792x_irq_map {
 	} rx;
 };
 
+struct mt792x_dma_ring {
+	u8 qid;
+	u16 n_desc;
+	u32 ring_base;
+};
+
+struct mt792x_dma_layout {
+	struct mt792x_dma_ring tx_data0;
+	struct mt792x_dma_ring tx_mcu;
+	struct mt792x_dma_ring tx_fwdl;
+	struct mt792x_dma_ring rx_data;
+	struct mt792x_dma_ring rx_mcu;
+};
+
+#define mt792x_dma_ring(_qid, _n_desc, _ring_base) \
+	{ .qid = (_qid), .n_desc = (_n_desc), .ring_base = (_ring_base) }
+
 #define mt792x_init_reset(dev)		((dev)->hif_ops->init_reset(dev))
 #define mt792x_dev_reset(dev)		((dev)->hif_ops->reset(dev))
 #define mt792x_mcu_init(dev)		((dev)->hif_ops->mcu_init(dev))
@@ -421,6 +438,8 @@ void mt792x_sta_statistics(struct ieee80211_hw *hw,
 void mt792x_set_coverage_class(struct ieee80211_hw *hw, int radio_idx,
 			       s16 coverage_class);
 void mt792x_dma_cleanup(struct mt792x_dev *dev);
+int mt792x_dma_alloc_queues(struct mt792x_dev *dev,
+			    const struct mt792x_dma_layout *layout);
 int mt792x_dma_enable(struct mt792x_dev *dev);
 int mt792x_wpdma_reset(struct mt792x_dev *dev, bool force);
 int mt792x_wpdma_reinit_cond(struct mt792x_dev *dev);

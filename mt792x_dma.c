@@ -87,6 +87,62 @@ void mt792x_rx_poll_complete(struct mt76_dev *mdev, enum mt76_rxq_id q)
 }
 EXPORT_SYMBOL_GPL(mt792x_rx_poll_complete);
 
+int mt792x_dma_alloc_queues(struct mt792x_dev *dev,
+			    const struct mt792x_dma_layout *layout)
+{
+	int ret;
+
+	mt76_dma_attach(&dev->mt76);
+
+	ret = mt792x_dma_disable(dev, true);
+	if (ret)
+		return ret;
+
+	/* init tx queue */
+	ret = mt76_connac_init_tx_queues(dev->phy.mt76, layout->tx_data0.qid,
+					 layout->tx_data0.n_desc,
+					 layout->tx_data0.ring_base,
+					 NULL, 0);
+	if (ret)
+		return ret;
+
+	mt76_wr(dev, MT_WFDMA0_TX_RING0_EXT_CTRL, 0x4);
+
+	/* command to WM */
+	ret = mt76_init_mcu_queue(&dev->mt76, MT_MCUQ_WM,
+				  layout->tx_mcu.qid,
+				  layout->tx_mcu.n_desc,
+				  layout->tx_mcu.ring_base);
+	if (ret)
+		return ret;
+
+	/* firmware download */
+	ret = mt76_init_mcu_queue(&dev->mt76, MT_MCUQ_FWDL,
+				  layout->tx_fwdl.qid,
+				  layout->tx_fwdl.n_desc,
+				  layout->tx_fwdl.ring_base);
+	if (ret)
+		return ret;
+
+	/* rx event */
+	ret = mt76_queue_alloc(dev, &dev->mt76.q_rx[MT_RXQ_MCU],
+			       layout->rx_mcu.qid,
+			       layout->rx_mcu.n_desc,
+			       MT_RX_BUF_SIZE,
+			       layout->rx_mcu.ring_base);
+	if (ret)
+		return ret;
+
+	/* rx data */
+	ret = mt76_queue_alloc(dev, &dev->mt76.q_rx[MT_RXQ_MAIN],
+			       layout->rx_data.qid,
+			       layout->rx_data.n_desc,
+			       MT_RX_BUF_SIZE,
+			       layout->rx_data.ring_base);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mt792x_dma_alloc_queues);
+
 #define PREFETCH(base, depth)	((base) << 16 | (depth))
 static void mt792x_dma_prefetch(struct mt792x_dev *dev)
 {
