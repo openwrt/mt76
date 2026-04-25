@@ -682,32 +682,69 @@ mt7925_mcu_sta_ba(struct mt76_dev *dev, struct mt76_vif_link *mvif,
 				     MCU_UNI_CMD(STA_REC_UPDATE), true);
 }
 
-/** starec & wtbl **/
 int mt7925_mcu_uni_tx_ba(struct mt792x_dev *dev,
 			 struct ieee80211_ampdu_params *params,
-			 bool enable)
+			 struct ieee80211_vif *vif, bool enable)
 {
-	struct mt792x_sta *msta = (struct mt792x_sta *)params->sta->drv_priv;
-	struct mt792x_vif *mvif = msta->vif;
+	struct ieee80211_sta *sta = params->sta;
+	struct mt792x_sta *msta = (struct mt792x_sta *)sta->drv_priv;
+	struct ieee80211_link_sta *link_sta;
+	unsigned int link_id;
 
-	if (enable && !params->amsdu)
-		msta->deflink.wcid.amsdu = false;
+	for_each_sta_active_link(vif, sta, link_sta, link_id) {
+		struct mt792x_link_sta *mlink;
+		struct mt792x_bss_conf *mconf;
+		int ret;
 
-	return mt7925_mcu_sta_ba(&dev->mt76, &mvif->bss_conf.mt76, params,
-				 &msta->deflink.wcid,
-				 enable, true);
+		mlink = mt792x_sta_to_link(msta, link_id);
+		if (!mlink)
+			return -EINVAL;
+
+		mconf = mt792x_vif_to_link(msta->vif, link_id);
+		if (!mconf)
+			return -EINVAL;
+
+		if (enable && !params->amsdu)
+			mlink->wcid.amsdu = false;
+
+		ret = mt7925_mcu_sta_ba(&dev->mt76, &mconf->mt76, params,
+					&mlink->wcid, enable, true);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
 }
 
 int mt7925_mcu_uni_rx_ba(struct mt792x_dev *dev,
 			 struct ieee80211_ampdu_params *params,
-			 bool enable)
+			 struct ieee80211_vif *vif, bool enable)
 {
-	struct mt792x_sta *msta = (struct mt792x_sta *)params->sta->drv_priv;
-	struct mt792x_vif *mvif = msta->vif;
+	struct ieee80211_sta *sta = params->sta;
+	struct mt792x_sta *msta = (struct mt792x_sta *)sta->drv_priv;
+	struct ieee80211_link_sta *link_sta;
+	unsigned int link_id;
 
-	return mt7925_mcu_sta_ba(&dev->mt76, &mvif->bss_conf.mt76, params,
-				 &msta->deflink.wcid,
-				 enable, false);
+	for_each_sta_active_link(vif, sta, link_sta, link_id) {
+		struct mt792x_link_sta *mlink;
+		struct mt792x_bss_conf *mconf;
+		int ret;
+
+		mlink = mt792x_sta_to_link(msta, link_id);
+		if (!mlink)
+			return -EINVAL;
+
+		mconf = mt792x_vif_to_link(msta->vif, link_id);
+		if (!mconf)
+			return -EINVAL;
+
+		ret = mt7925_mcu_sta_ba(&dev->mt76, &mconf->mt76, params,
+					&mlink->wcid, enable, false);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
 }
 
 static int mt7925_mcu_read_eeprom(struct mt792x_dev *dev, u32 offset, u8 *val)

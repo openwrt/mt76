@@ -318,10 +318,10 @@ int mt7925_mcu_set_beacon_filter(struct mt792x_dev *dev,
 				 bool enable);
 int mt7925_mcu_uni_tx_ba(struct mt792x_dev *dev,
 			 struct ieee80211_ampdu_params *params,
-			 bool enable);
+			 struct ieee80211_vif *vif, bool enable);
 int mt7925_mcu_uni_rx_ba(struct mt792x_dev *dev,
 			 struct ieee80211_ampdu_params *params,
-			 bool enable);
+			 struct ieee80211_vif *vif, bool enable);
 void mt7925_mlo_pm_work(struct work_struct *work);
 void mt7925_scan_work(struct work_struct *work);
 void mt7925_roc_work(struct work_struct *work);
