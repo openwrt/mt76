@@ -252,6 +252,18 @@ struct mt7925_txpwr {
 	s8 eht996x3_484[16][2];
 };
 
+static inline u8 mt7927_band_idx(enum nl80211_band band)
+{
+	switch (band) {
+	case NL80211_BAND_2GHZ:
+		return 0;
+	case NL80211_BAND_5GHZ:
+	case NL80211_BAND_6GHZ:
+	default:
+		return 1;
+	}
+}
+
 extern const struct ieee80211_ops mt7925_ops;
 
 int __mt7925_start(struct mt792x_phy *phy);

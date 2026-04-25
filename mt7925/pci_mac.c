@@ -3,6 +3,7 @@
 
 #include "mt7925.h"
 #include "../dma.h"
+#include "mcu.h"
 #include "mac.h"
 
 int mt7925e_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
@@ -143,6 +144,12 @@ int mt7925e_mac_reset(struct mt792x_dev *dev)
 	err = mt7925_mac_init(dev);
 	if (err)
 		goto out;
+
+	if (is_mt7927(&dev->mt76)) {
+		err = mt7925_mcu_set_dbdc(&dev->mphy, true);
+		if (err)
+			goto out;
+	}
 
 	err = __mt7925_start(&dev->phy);
 out:
