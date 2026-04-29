@@ -652,6 +652,7 @@ mt7603_sta_rate_tbl_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	mt7603_wtbl_set_rates(dev, msta, NULL, msta->rates);
 	msta->rate_probe = false;
 	mt7603_wtbl_set_smps(dev, msta,
+			     !dev->smps_disable &&
 			     sta->deflink.smps_mode == IEEE80211_SMPS_DYNAMIC);
 	spin_unlock_bh(&dev->mt76.lock);
 }
