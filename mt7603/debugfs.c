@@ -115,4 +115,6 @@ void mt7603_init_debugfs(struct mt7603_dev *dev)
 			    &dev->sensitivity_limit);
 	debugfs_create_bool("dynamic_sensitivity", 0600, dir,
 			    &dev->dynamic_sensitivity);
+	debugfs_create_bool("smps_disable", 0600, dir,
+			    &dev->smps_disable);
 }

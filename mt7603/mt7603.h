@@ -137,6 +137,7 @@ struct mt7603_dev {
 	u8 ed_strong_signal;
 
 	bool dynamic_sensitivity;
+	bool smps_disable;
 	s8 sensitivity;
 	u8 sensitivity_limit;
 
