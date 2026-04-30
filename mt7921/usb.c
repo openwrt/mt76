@@ -197,7 +197,6 @@ static int mt7921u_probe(struct usb_interface *usb_intf,
 	dev->fw_features = features;
 	dev->hif_ops = &hif_ops;
 
-	udev = usb_get_dev(udev);
 	usb_reset_device(udev);
 
 	usb_set_intfdata(usb_intf, dev);
@@ -246,7 +245,6 @@ error:
 	mt76u_queues_deinit(&dev->mt76);
 
 	usb_set_intfdata(usb_intf, NULL);
-	usb_put_dev(interface_to_usbdev(usb_intf));
 
 	mt76_free_device(&dev->mt76);
 
