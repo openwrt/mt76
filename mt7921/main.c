@@ -828,6 +828,9 @@ int mt7921_mac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	msta->deflink.last_txs = jiffies;
 	msta->deflink.sta = msta;
 
+	if (sta->tdls)
+		set_bit(MT_WCID_FLAG_TDLS_PEER, &msta->deflink.wcid.flags);
+
 	ret = mt76_connac_pm_wake(&dev->mphy, &dev->pm);
 	if (ret)
 		return ret;

@@ -1162,6 +1162,9 @@ mt7996_mac_sta_init_link(struct mt7996_dev *dev,
 	msta_link->wcid.link_valid = !!sta->valid_links;
 	msta_link->wcid.def_wcid = &msta->deflink.wcid;
 
+	if (link_sta->sta->tdls)
+		set_bit(MT_WCID_FLAG_TDLS_PEER, &msta_link->wcid.flags);
+
 	ewma_avg_signal_init(&msta_link->avg_ack_signal);
 	ewma_signal_init(&msta_link->wcid.rssi);
 

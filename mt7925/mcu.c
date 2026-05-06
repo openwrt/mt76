@@ -1091,6 +1091,11 @@ mt7925_mcu_sta_hdr_trans_tlv(struct sk_buff *skb,
 		hdr_trans->to_ds = true;
 		hdr_trans->from_ds = true;
 	}
+
+	if (test_bit(MT_WCID_FLAG_TDLS_PEER, &wcid->flags)) {
+		hdr_trans->to_ds = false;
+		hdr_trans->from_ds = false;
+	}
 }
 
 int mt7925_mcu_wtbl_update_hdr_trans(struct mt792x_dev *dev,

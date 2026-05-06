@@ -2213,6 +2213,11 @@ mt7996_mcu_sta_hdr_trans_tlv(struct mt7996_dev *dev, struct sk_buff *skb,
 		hdr_trans->from_ds = true;
 		hdr_trans->mesh = true;
 	}
+
+	if (test_bit(MT_WCID_FLAG_TDLS_PEER, &wcid->flags)) {
+		hdr_trans->to_ds = false;
+		hdr_trans->from_ds = false;
+	}
 }
 
 static enum mcu_mmps_mode
