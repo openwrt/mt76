@@ -445,7 +445,7 @@ mt7603_release_buffered_frames(struct ieee80211_hw *hw,
 	struct sk_buff *skb, *tmp;
 
 	__skb_queue_head_init(&list);
-	
+
 	mt7603_wtbl_set_ps(dev, msta, false);
 
 	spin_lock_bh(&dev->ps_lock);
