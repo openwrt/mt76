@@ -398,11 +398,11 @@ static int mt7925_mac_link_bss_add(struct mt792x_dev *dev,
 	mconf->mt76.band_idx = 0xff;
 
 	if (is_mt7927(&dev->mt76)) {
-		struct ieee80211_channel *chan = NULL;
+		struct ieee80211_channel *chan;
 
 		if (link_conf->chanreq.oper.chan)
 			chan = link_conf->chanreq.oper.chan;
-		else if (mvif->phy->mt76->chandef.chan)
+		else
 			chan = mvif->phy->mt76->chandef.chan;
 
 		mconf->mt76.band_idx = mt7927_band_idx(chan->band);
