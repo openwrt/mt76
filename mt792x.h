@@ -174,6 +174,11 @@ struct mt792x_phy {
 	struct mt76_mib_stats mib;
 
 	u8 sta_work_count;
+
+	/* USB AP mode firmware hang watchdog */
+	u32 tx_watch_prev;
+	u8  tx_watch_count;
+
 	u8 clc_chan_conf;
 	enum mt792x_reg_power_type power_type;
 

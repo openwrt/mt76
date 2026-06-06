@@ -22,6 +22,34 @@ void mt792x_mac_work(struct work_struct *work)
 		mphy->mac_work_count = 0;
 
 		mt792x_mac_update_mib_stats(phy);
+
+		/* USB AP mode firmware hang watchdog.
+		 *
+		 * For USB, pm.enable=false and drv_own/fw_own are not
+		 * implemented, so the normal MCU-timeout self-healing path
+		 * does not exist. The firmware can hang completely — both
+		 * RX and TX dead, no beacons — without logging any error.
+		 *
+		 * tx_mpdu_attempts_cnt is read via mt76_rr() which maps to
+		 * USB vendor-control transfers, not bulk, so it is readable
+		 * even when the bulk endpoint is frozen. While any BSS is
+		 * active (omac_mask != 0) the firmware always generates
+		 * beacon frames, so this counter must advance. Four
+		 * consecutive frozen cycles (~2 s) means firmware hang.
+		 */
+		if (mt76_is_usb(&phy->dev->mt76) && phy->omac_mask) {
+			if (phy->mib.tx_mpdu_attempts_cnt == phy->tx_watch_prev) {
+				if (++phy->tx_watch_count >= 4) {
+					phy->tx_watch_count = 0;
+					dev_warn(phy->dev->mt76.dev,
+						 "mt7921u: TX frozen, triggering chip reset\n");
+					mt792x_reset(&phy->dev->mt76);
+				}
+			} else {
+				phy->tx_watch_count = 0;
+			}
+			phy->tx_watch_prev = phy->mib.tx_mpdu_attempts_cnt;
+		}
 	}
 
 	mt792x_mutex_release(phy->dev);
