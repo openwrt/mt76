@@ -2116,6 +2116,13 @@ static void mt7925_link_info_changed(struct ieee80211_hw *hw,
 	if (changed & BSS_CHANGED_CQM)
 		mt7925_mcu_set_rssimonitor(dev, vif);
 
+	if (changed & BSS_CHANGED_TXPOWER &&
+	    (!phy->txpower_set || info->txpower != phy->txpower)) {
+		phy->txpower = info->txpower;
+		phy->txpower_set = true;
+		mt7925_mcu_set_rate_txpower(phy->mt76);
+	}
+
 	mt792x_mutex_release(dev);
 }
 

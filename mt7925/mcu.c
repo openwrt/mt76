@@ -3906,6 +3906,21 @@ int mt7925_mcu_set_rate_txpower(struct mt76_phy *phy)
 			return err;
 	}
 
+	if (phy->chandef.chan) {
+		struct mt76_power_limits la = {};
+		int tx_power;
+
+		tx_power = dev->phy.txpower_set ? dev->phy.txpower :
+						  mdev->hw->conf.power_level;
+		if (!tx_power)
+			tx_power = phy->chandef.chan->max_power;
+
+		tx_power = mt76_get_power_bound(phy, tx_power);
+		tx_power = mt76_get_rate_power_limits(phy, phy->chandef.chan,
+						      &la, tx_power);
+		phy->txpower_cur = tx_power;
+	}
+
 	return 0;
 }
 
