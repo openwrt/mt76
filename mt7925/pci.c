@@ -117,6 +117,7 @@ static void mt7925e_unregister_device(struct mt792x_dev *dev)
 	cancel_work_sync(&dev->init_work);
 	dev->hw_init_done = false;
 
+	cancel_delayed_work_sync(&dev->phy.scan_retry_work);
 	mt76_unregister_device(&dev->mt76);
 	set_bit(MT76_REMOVED, &dev->mphy.state);
 	cancel_work_sync(&dev->reset_work);
