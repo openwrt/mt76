@@ -12,6 +12,9 @@
 #include "mcu.h"
 #include "mac.h"
 
+#define MT7925_SCAN_RETRY_MAX		3
+#define MT7925_SCAN_RETRY_MS		1500
+
 static void
 mt7925_init_he_caps(struct mt792x_phy *phy, enum nl80211_band band,
 		    struct ieee80211_sband_iftype_data *data,
@@ -1475,6 +1478,55 @@ void mt7925_mlo_pm_work(struct work_struct *work)
 					    mt7925_mlo_pm_iter, dev);
 }
 
+void mt7925_abort_scan(struct mt792x_phy *phy)
+{
+	struct cfg80211_scan_info info = {
+		.aborted = true,
+	};
+	bool scanning;
+
+	scanning = test_and_clear_bit(MT76_HW_SCANNING, &phy->mt76->state);
+	if (!phy->scan_req && !scanning)
+		return;
+
+	phy->scan_req = NULL;
+	phy->scan_vif = NULL;
+	phy->scan_2ghz = false;
+	phy->scan_zero_complete_retries = 0;
+	ieee80211_scan_completed(phy->mt76->hw, &info);
+}
+
+void mt7925_scan_retry_work(struct work_struct *work)
+{
+	struct mt792x_phy *phy;
+	struct mt792x_dev *dev;
+	int err;
+
+	phy = container_of(work, struct mt792x_phy, scan_retry_work.work);
+	dev = phy->dev;
+
+	if (!phy->scan_req || !phy->scan_vif)
+		return;
+
+	mt792x_mutex_acquire(dev);
+	if (!phy->scan_req || !phy->scan_vif) {
+		mt792x_mutex_release(dev);
+		return;
+	}
+
+	if (dev->pm.suspended) {
+		mt7925_abort_scan(phy);
+		mt792x_mutex_release(dev);
+		return;
+	}
+
+	err = mt7925_mcu_hw_scan(phy->mt76, phy->scan_vif, phy->scan_req);
+	if (err)
+		mt7925_abort_scan(phy);
+
+	mt792x_mutex_release(dev);
+}
+
 void mt7925_scan_work(struct work_struct *work)
 {
 	struct mt792x_phy *phy;
@@ -1508,6 +1560,7 @@ void mt7925_scan_work(struct work_struct *work)
 
 		while (tlv_len > 0 && le16_to_cpu(tlv->len) <= tlv_len) {
 			struct mt7925_mcu_scan_chinfo_event *evt;
+			struct mt76_connac_hw_scan_done *scan_done;
 
 			switch (le16_to_cpu(tlv->tag)) {
 			case UNI_EVENT_SCAN_DONE_BASIC:
@@ -1515,6 +1568,33 @@ void mt7925_scan_work(struct work_struct *work)
 					struct cfg80211_scan_info info = {
 						.aborted = false,
 					};
+					u16 len = le16_to_cpu(tlv->len);
+
+					scan_done = (struct mt76_connac_hw_scan_done *)tlv->data;
+					if (is_mt7927(&phy->dev->mt76) &&
+					    len >= sizeof(*tlv) +
+						   offsetof(struct mt76_connac_hw_scan_done,
+							    complete_channel_num) +
+						   sizeof(scan_done->complete_channel_num) &&
+					    !scan_done->complete_channel_num &&
+					    phy->scan_2ghz &&
+					    phy->scan_req && phy->scan_vif &&
+					    phy->scan_zero_complete_retries <
+					    MT7925_SCAN_RETRY_MAX) {
+						unsigned long delay;
+
+						phy->scan_zero_complete_retries++;
+						delay = msecs_to_jiffies(MT7925_SCAN_RETRY_MS);
+						ieee80211_queue_delayed_work(phy->mt76->hw,
+									     &phy->scan_retry_work,
+									     delay);
+						break;
+					}
+
+					phy->scan_req = NULL;
+					phy->scan_vif = NULL;
+					phy->scan_2ghz = false;
+					phy->scan_zero_complete_retries = 0;
 					ieee80211_scan_completed(phy->mt76->hw, &info);
 				}
 				break;
@@ -1544,11 +1624,31 @@ mt7925_hw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	       struct ieee80211_scan_request *req)
 {
 	struct mt792x_dev *dev = mt792x_hw_dev(hw);
+	struct mt792x_phy *phy = mt792x_hw_phy(hw);
 	struct mt76_phy *mphy = hw->priv;
 	int err;
+	int i;
 
 	mt792x_mutex_acquire(dev);
+	phy->scan_req = req;
+	phy->scan_vif = vif;
+	phy->scan_2ghz = false;
+	phy->scan_zero_complete_retries = 0;
+
+	for (i = 0; i < req->req.n_channels; i++) {
+		if (req->req.channels[i]->band == NL80211_BAND_2GHZ) {
+			phy->scan_2ghz = true;
+			break;
+		}
+	}
+
 	err = mt7925_mcu_hw_scan(mphy, vif, req);
+	if (err) {
+		phy->scan_req = NULL;
+		phy->scan_vif = NULL;
+		phy->scan_2ghz = false;
+		phy->scan_zero_complete_retries = 0;
+	}
 	mt792x_mutex_release(dev);
 
 	return err;
@@ -1559,7 +1659,9 @@ mt7925_cancel_hw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
 	struct mt792x_dev *dev = mt792x_hw_dev(hw);
 	struct mt76_phy *mphy = hw->priv;
+	struct mt792x_phy *phy = mt792x_hw_phy(hw);
 
+	cancel_delayed_work_sync(&phy->scan_retry_work);
 	mt792x_mutex_acquire(dev);
 	mt7925_mcu_cancel_hw_scan(mphy, vif);
 	mt792x_mutex_release(dev);
@@ -1637,12 +1739,17 @@ static int mt7925_suspend(struct ieee80211_hw *hw,
 	struct mt792x_phy *phy = mt792x_hw_phy(hw);
 
 	cancel_delayed_work_sync(&phy->scan_work);
+	cancel_delayed_work_sync(&phy->scan_retry_work);
 	cancel_delayed_work_sync(&phy->mt76->mac_work);
 
 	cancel_delayed_work_sync(&dev->pm.ps_work);
 	mt76_connac_free_pending_tx_skbs(&dev->pm, NULL);
 
 	mt792x_mutex_acquire(dev);
+	if (phy->scan_req && phy->scan_vif)
+		mt7925_mcu_cancel_hw_scan(phy->mt76, phy->scan_vif);
+	else
+		mt7925_abort_scan(phy);
 
 	clear_bit(MT76_STATE_RUNNING, &phy->mt76->state);
 	ieee80211_iterate_active_interfaces(hw,

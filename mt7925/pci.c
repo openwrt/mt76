@@ -44,6 +44,7 @@ static void mt7925e_unregister_device(struct mt792x_dev *dev)
 		wiphy_rfkill_stop_polling(hw->wiphy);
 
 	cancel_work_sync(&dev->init_work);
+	cancel_delayed_work_sync(&dev->phy.scan_retry_work);
 	mt76_unregister_device(&dev->mt76);
 	mt76_for_each_q_rx(&dev->mt76, i)
 		napi_disable(&dev->mt76.napi[i]);
