@@ -208,6 +208,29 @@ static const struct file_operations mt7915_sys_recovery_ops = {
 	.llseek = default_llseek,
 };
 
+static int mt7915_vow_atf_set(void *data, u64 val)
+{
+	struct mt7915_dev *dev = data;
+
+	dev->vow_atf_en = !!val;
+	mt7915_mcu_set_vow_feature_ctrl(dev);
+
+	return mt7915_mcu_set_vow_drr_ctrl(dev, NULL,
+					   VOW_DRR_CTRL_AIRTIME_DEFICIT_BOUND, 0);
+}
+
+static int mt7915_vow_atf_get(void *data, u64 *val)
+{
+	struct mt7915_dev *dev = data;
+
+	*val = dev->vow_atf_en;
+
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(fops_vow_atf, mt7915_vow_atf_get, mt7915_vow_atf_set,
+			 "%lld\n");
+
 static int
 mt7915_radar_trigger(void *data, u64 val)
 {
@@ -1323,6 +1346,8 @@ int mt7915_init_debugfs(struct mt7915_phy *phy)
 	debugfs_create_devm_seqfile(dev->mt76.dev, "twt_stats", dir,
 				    mt7915_twt_stats);
 	debugfs_create_file("rf_regval", 0600, dir, dev, &fops_rf_regval);
+	if (!is_mt7915(&dev->mt76))
+		debugfs_create_file("vow_atf", 0600, dir, dev, &fops_vow_atf);
 
 	if (!dev->dbdc_support || phy->mt76->band_idx) {
 		debugfs_create_u32("dfs_hw_pattern", 0400, dir,

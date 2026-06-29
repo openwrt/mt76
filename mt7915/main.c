@@ -280,6 +280,9 @@ static int mt7915_add_interface(struct ieee80211_hw *hw,
 out:
 	mutex_unlock(&dev->mt76.mutex);
 
+	if (!is_mt7915(&dev->mt76))
+		mt7915_mcu_set_vow_band(dev, mvif);
+
 	return ret;
 }
 
@@ -739,6 +742,13 @@ mt7915_channel_switch_beacon(struct ieee80211_hw *hw,
 	mutex_unlock(&dev->mt76.mutex);
 }
 
+static void
+mt7915_sta_vow_set_airtime_weight(struct mt7915_dev *dev,
+				  struct mt7915_sta *msta, u16 weight)
+{
+	mt7915_mcu_set_vow_drr_ctrl(dev, msta, VOW_DRR_CTRL_STA_ALL, weight);
+}
+
 int mt7915_mac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		       struct ieee80211_sta *sta)
 {
@@ -775,6 +785,12 @@ int mt7915_mac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	mt7915_mac_wtbl_update(dev, idx,
 			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
 	mt7915_mcu_add_sta(dev, vif, sta, CONN_STATE_DISCONNECT, true);
+
+	if (!is_mt7915(&dev->mt76)) {
+		mt7915_mcu_set_vow_drr_ctrl(dev, msta, VOW_DRR_CTRL_STA_PAUSE, 0);
+		mt7915_sta_vow_set_airtime_weight(dev, msta,
+						  IEEE80211_DEFAULT_AIRTIME_WEIGHT);
+	}
 
 	return 0;
 }
@@ -1355,6 +1371,19 @@ static void mt7915_sta_set_decap_offload(struct ieee80211_hw *hw,
 	mt76_connac_mcu_wtbl_update_hdr_trans(&dev->mt76, vif, sta);
 }
 
+static void mt7915_sta_set_airtime_weight(struct ieee80211_hw *hw,
+					  struct ieee80211_vif *vif,
+					  struct ieee80211_sta *sta, u16 weight)
+{
+	struct mt7915_dev *dev = mt7915_hw_dev(hw);
+	struct mt7915_sta *msta = (struct mt7915_sta *)sta->drv_priv;
+
+	if (is_mt7915(&dev->mt76) || !msta->wcid.sta)
+		return;
+
+	mt7915_sta_vow_set_airtime_weight(dev, msta, weight);
+}
+
 static int mt7915_sta_set_txpwr(struct ieee80211_hw *hw,
 				struct ieee80211_vif *vif,
 				struct ieee80211_sta *sta)
@@ -1855,6 +1884,7 @@ const struct ieee80211_ops mt7915_ops = {
 	.sta_set_txpwr = mt7915_sta_set_txpwr,
 	.sta_set_4addr = mt7915_sta_set_4addr,
 	.sta_set_decap_offload = mt7915_sta_set_decap_offload,
+	.sta_set_airtime_weight = mt7915_sta_set_airtime_weight,
 	.add_twt_setup = mt7915_mac_add_twt_setup,
 	.twt_teardown_request = mt7915_twt_teardown_request,
 	.set_frag_threshold = mt7915_set_frag_threshold,

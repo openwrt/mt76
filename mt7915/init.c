@@ -620,6 +620,33 @@ mt7915_init_led_mux(struct mt7915_dev *dev)
 	}
 }
 
+void mt7915_vow_init(struct mt7915_dev *dev)
+{
+	dev->vow_atf_en = true;
+
+	mt7915_mcu_set_vow_drr_ctrl(dev, NULL, VOW_DRR_CTRL_AIRTIME_DEFICIT_BOUND, 0);
+	mt7915_mcu_set_vow_drr_ctrl(dev, NULL, VOW_DRR_CTRL_AIRTIME_QUANTUM_ALL, 0);
+	mt7915_mcu_set_vow_feature_ctrl(dev);
+}
+
+/* Assignment of BSS group index aligns FW.
+ * 0: Band 0 - BSS 0
+ * 4: Band 1 - BSS 0
+ * 9..23: Band 0 - BSS 0x11..0x1f
+ * 25..39: Band 1 - BSS 0x11..0x1f
+ */
+u8 mt7915_vow_sta_bss_grp(struct mt76_vif_link *mvif)
+{
+	const u8 hw_bssid_num = HW_BSSID_MAX + 1;
+
+	if (mvif->omac_idx < hw_bssid_num)
+		return mvif->band_idx * hw_bssid_num + mvif->omac_idx;
+
+	/* Extended BSS */
+	return hw_bssid_num * 2 + (mvif->band_idx == 0 ? 1 : 17) +
+	       mvif->omac_idx - EXT_BSSID_1;
+}
+
 void mt7915_mac_init(struct mt7915_dev *dev)
 {
 	int i;
@@ -647,6 +674,9 @@ void mt7915_mac_init(struct mt7915_dev *dev)
 		mt7915_mac_init_band(dev, i);
 
 	mt7915_init_led_mux(dev);
+
+	if (!is_mt7915(&dev->mt76))
+		mt7915_vow_init(dev);
 }
 
 int mt7915_txbf_init(struct mt7915_dev *dev)
