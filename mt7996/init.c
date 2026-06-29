@@ -611,6 +611,7 @@ static void mt7996_mac_init_basic_rates(struct mt7996_dev *dev)
 void mt7996_mac_init(struct mt7996_dev *dev)
 {
 #define HIF_TXD_V2_1	0x21
+	struct mt7996_phy *phy;
 	int i, rx_path_type;
 
 	mt76_clear(dev, MT_MDP_DCR2, MT_MDP_DCR2_RX_TRANS_SHORT);
@@ -657,6 +658,9 @@ void mt7996_mac_init(struct mt7996_dev *dev)
 	for (i = MT_BAND0; i <= MT_BAND2; i++)
 		mt7996_mac_init_band(dev, i);
 
+	mt7996_for_each_phy(dev, phy)
+		mt7996_vow_init(phy);
+
 	mt7996_mac_init_basic_rates(dev);
 }
 
@@ -678,6 +682,17 @@ int mt7996_txbf_init(struct mt7996_dev *dev)
 
 	/* enable eBF */
 	return mt7996_mcu_set_txbf(dev, BF_HW_EN_UPDATE);
+}
+
+void mt7996_vow_init(struct mt7996_phy *phy)
+{
+	phy->dev->vow_atf_en = true;
+
+	mt7996_mcu_set_vow_drr_ctrl(phy->dev, phy->mt76->band_idx, NULL, NULL,
+				    VOW_DRR_CTRL_AIRTIME_DEFICIT_BOUND, 0);
+	mt7996_mcu_set_vow_drr_ctrl(phy->dev, phy->mt76->band_idx, NULL, NULL,
+				    VOW_DRR_CTRL_AIRTIME_QUANTUM_ALL, 0);
+	mt7996_mcu_set_vow_feature_ctrl(phy);
 }
 
 static int mt7996_register_phy(struct mt7996_dev *dev, enum mt76_band_id band)

@@ -870,6 +870,41 @@ mt7996_rf_regval_set(void *data, u64 val)
 DEFINE_DEBUGFS_ATTRIBUTE(fops_rf_regval, mt7996_rf_regval_get,
 			 mt7996_rf_regval_set, "0x%08llx\n");
 
+static int mt7996_vow_atf_set(void *data, u64 val)
+{
+	struct mt7996_dev *dev = data;
+	struct mt7996_phy *phy;
+	int ret;
+
+	dev->vow_atf_en = !!val;
+
+	mt7996_for_each_phy(dev, phy) {
+		ret = mt7996_mcu_set_vow_drr_ctrl(dev, phy->mt76->band_idx, NULL,
+						  NULL,
+						  VOW_DRR_CTRL_AIRTIME_DEFICIT_BOUND, 0);
+		if (ret)
+			return ret;
+
+		ret = mt7996_mcu_set_vow_feature_ctrl(phy);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int mt7996_vow_atf_get(void *data, u64 *val)
+{
+	struct mt7996_dev *dev = data;
+
+	*val = dev->vow_atf_en;
+
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(fops_vow_atf, mt7996_vow_atf_get, mt7996_vow_atf_set,
+			 "%lld\n");
+
 int mt7996_init_debugfs(struct mt7996_dev *dev)
 {
 	struct dentry *dir;
@@ -894,6 +929,7 @@ int mt7996_init_debugfs(struct mt7996_dev *dev)
 	debugfs_create_devm_seqfile(dev->mt76.dev, "twt_stats", dir,
 				    mt7996_twt_stats);
 	debugfs_create_file("rf_regval", 0600, dir, dev, &fops_rf_regval);
+	debugfs_create_file("vow_atf", 0600, dir, dev, &fops_vow_atf);
 
 	debugfs_create_u32("dfs_hw_pattern", 0400, dir, &dev->hw_pattern);
 	debugfs_create_file("radar_trigger", 0200, dir, dev,

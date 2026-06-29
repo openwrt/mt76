@@ -240,6 +240,53 @@ struct mt7996_twt_flow {
 
 DECLARE_EWMA(avg_signal, 10, 8)
 
+enum {
+	VOW_SEARCH_AC_FIRST,
+	VOW_SEARCH_WMM_FIRST,
+};
+
+enum {
+	VOW_SCH_TYPE_FOLLOW_POLICY,
+	VOW_SCH_TYPE_FOLLOW_HW,
+};
+
+enum {
+	VOW_SCH_POLICY_SRR, /* Shared Round-Robin */
+	VOW_SCH_POLICY_WRR, /* Weighted Round-Robin */
+};
+
+/* VOW feature control (UNI_VOW_FEATURE_CTRL) word fields. The apply mask (DW0)
+ * and the control word (DW5) share these bit positions.
+ */
+#define VOW_FEATURE_APPLY_REFILL_PERIOD		BIT(0)
+#define VOW_FEATURE_REFILL_PERIOD		GENMASK(2, 0)
+#define VOW_FEATURE_BAND1_SEARCH_RULE		BIT(4)
+#define VOW_FEATURE_BAND0_SEARCH_RULE		BIT(5)
+#define VOW_FEATURE_WATF_EN			BIT(9)
+#define VOW_FEATURE_GRP_NO_CHANGE_IN_TXOP	BIT(12)
+#define VOW_FEATURE_ATF_EN			BIT(13)
+#define VOW_FEATURE_BWC_TOKEN_REFILL_EN		BIT(14)
+#define VOW_FEATURE_BWC_EN			BIT(15)
+
+/* ATF control word (DW8) */
+#define VOW_ATF_APPLY_KEEP_QUANTUM		BIT(2)
+#define VOW_ATF_KEEP_QUANTUM			BIT(3)
+#define VOW_ATF_APPLY_VOW_CTRL			BIT(24)
+#define VOW_ATF_VOW_CTRL_VAL			BIT(25)
+#define VOW_ATF_VOW_CTRL_BIT			GENMASK(30, 26)
+
+/* Scheduler control word (DW9) */
+#define VOW_SCH_APPLY_CTRL			BIT(6)
+#define VOW_SCH_TYPE				GENMASK(8, 7)
+#define VOW_SCH_POLICY				GENMASK(10, 9)
+
+enum vow_drr_ctrl_id {
+	VOW_DRR_CTRL_STA_ALL = 0x00,
+	VOW_DRR_CTRL_AIRTIME_DEFICIT_BOUND = 0x10,
+	VOW_DRR_CTRL_AIRTIME_QUANTUM_ALL = 0x28,
+	VOW_DRR_CTRL_STA_PAUSE = 0x30,
+};
+
 struct mt7996_sta_link {
 	struct mt76_wcid wcid; /* must be first */
 
@@ -519,6 +566,8 @@ struct mt7996_dev {
 		u8 type:4;
 		u8 fem:4;
 	} var;
+
+	bool vow_atf_en;
 };
 
 enum {
@@ -760,6 +809,11 @@ int mt7996_mcu_get_efuse_free_block(struct mt7996_dev *dev, u8 *block_num);
 int mt7996_mcu_get_chip_config(struct mt7996_dev *dev, u32 *cap);
 int mt7996_mcu_set_ser(struct mt7996_dev *dev, u8 action, u8 set, u8 band);
 int mt7996_mcu_set_txbf(struct mt7996_dev *dev, u8 action);
+int mt7996_mcu_set_vow_drr_ctrl(struct mt7996_dev *dev, u8 band_idx,
+				struct mt76_wcid *wcid, struct mt76_vif_link *mvif,
+				enum vow_drr_ctrl_id id, u16 weight);
+int mt7996_mcu_set_vow_feature_ctrl(struct mt7996_phy *phy);
+void mt7996_vow_init(struct mt7996_phy *phy);
 int mt7996_mcu_set_fcc5_lpn(struct mt7996_dev *dev, int val);
 int mt7996_mcu_set_pulse_th(struct mt7996_dev *dev,
 			    const struct mt7996_dfs_pulse *pulse);
