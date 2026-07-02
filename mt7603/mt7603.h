@@ -86,6 +86,7 @@ struct mt7603_vif {
 	struct mt7603_sta sta; /* must be first */
 
 	u8 idx;
+	struct ieee80211_tx_queue_params tx_params[IEEE80211_NUM_ACS];
 };
 
 enum mt7603_reset_cause {
