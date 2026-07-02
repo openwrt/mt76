@@ -168,6 +168,9 @@ struct mt792x_phy {
 	s16 coverage_class;
 	u8 slottime;
 
+	int txpower;
+	bool txpower_set;
+
 	u32 rx_ampdu_ts;
 	u32 ampdu_ref;
 
@@ -179,6 +182,11 @@ struct mt792x_phy {
 
 	struct sk_buff_head scan_event_list;
 	struct delayed_work scan_work;
+	struct ieee80211_scan_request *scan_req;
+	struct ieee80211_vif *scan_vif;
+	struct delayed_work scan_retry_work;
+	bool scan_2ghz;
+	u8 scan_zero_complete_retries;
 #ifdef CONFIG_ACPI
 	void *acpisar;
 #endif

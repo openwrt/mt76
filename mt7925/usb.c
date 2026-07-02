@@ -344,11 +344,21 @@ MODULE_DEVICE_TABLE(usb, mt7925u_device_table);
 MODULE_FIRMWARE(MT7925_FIRMWARE_WM);
 MODULE_FIRMWARE(MT7925_ROM_PATCH);
 
+static void mt7925u_disconnect(struct usb_interface *usb_intf)
+{
+	struct mt792x_dev *dev = usb_get_intfdata(usb_intf);
+
+	if (dev)
+		cancel_delayed_work_sync(&dev->phy.scan_retry_work);
+
+	mt792xu_disconnect(usb_intf);
+}
+
 static struct usb_driver mt7925u_driver = {
 	.name		= KBUILD_MODNAME,
 	.id_table	= mt7925u_device_table,
 	.probe		= mt7925u_probe,
-	.disconnect	= mt792xu_disconnect,
+	.disconnect	= mt7925u_disconnect,
 #ifdef CONFIG_PM
 	.suspend	= mt7925u_suspend,
 	.resume		= mt7925u_resume,

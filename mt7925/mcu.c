@@ -3314,6 +3314,7 @@ int mt7925_mcu_cancel_hw_scan(struct mt76_phy *phy,
 			      struct ieee80211_vif *vif)
 {
 	struct mt76_vif_link *mvif = (struct mt76_vif_link *)vif->drv_priv;
+	struct mt792x_phy *mphy = phy->priv;
 	struct {
 		struct scan_hdr {
 			u8 seq_num;
@@ -3337,13 +3338,9 @@ int mt7925_mcu_cancel_hw_scan(struct mt76_phy *phy,
 		},
 	};
 
-	if (test_and_clear_bit(MT76_HW_SCANNING, &phy->state)) {
-		struct cfg80211_scan_info info = {
-			.aborted = true,
-		};
-
-		ieee80211_scan_completed(phy->hw, &info);
-	}
+	cancel_delayed_work(&mphy->scan_retry_work);
+	if (test_bit(MT76_HW_SCANNING, &phy->state) || mphy->scan_req)
+		mt7925_abort_scan(mphy);
 
 	return mt76_mcu_send_msg(phy->dev, MCU_UNI_CMD(SCAN_REQ),
 				 &req, sizeof(req), true);
@@ -3904,6 +3901,21 @@ int mt7925_mcu_set_rate_txpower(struct mt76_phy *phy)
 						   NL80211_BAND_6GHZ);
 		if (err < 0)
 			return err;
+	}
+
+	if (phy->chandef.chan) {
+		struct mt76_power_limits la = {};
+		int tx_power;
+
+		tx_power = dev->phy.txpower_set ? dev->phy.txpower :
+						  mdev->hw->conf.power_level;
+		if (!tx_power)
+			tx_power = phy->chandef.chan->max_power;
+
+		tx_power = mt76_get_power_bound(phy, tx_power);
+		tx_power = mt76_get_rate_power_limits(phy, phy->chandef.chan,
+						      &la, tx_power);
+		phy->txpower_cur = tx_power;
 	}
 
 	return 0;

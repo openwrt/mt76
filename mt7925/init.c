@@ -223,6 +223,7 @@ int mt7925_register_device(struct mt792x_dev *dev)
 	spin_lock_init(&dev->pm.txq_lock);
 	INIT_DELAYED_WORK(&dev->mphy.mac_work, mt792x_mac_work);
 	INIT_DELAYED_WORK(&dev->phy.scan_work, mt7925_scan_work);
+	INIT_DELAYED_WORK(&dev->phy.scan_retry_work, mt7925_scan_retry_work);
 	INIT_DELAYED_WORK(&dev->coredump.work, mt7925_coredump_work);
 #if IS_ENABLED(CONFIG_IPV6)
 	INIT_WORK(&dev->ipv6_ns_work, mt7925_set_ipv6_ns_work);
