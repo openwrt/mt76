@@ -4596,6 +4596,11 @@ int mt7996_mcu_get_eeprom(struct mt7996_dev *dev, u32 offset, u8 *buf, u32 buf_l
 		return ret;
 
 	event = (struct mt7996_mcu_eeprom_access_event *)skb->data;
+	if (skb->len < sizeof(*event)) {
+		dev_kfree_skb(skb);
+		return -EINVAL;
+	}
+
 	if (event->valid) {
 		u32 ret_len = le32_to_cpu(event->eeprom.ext_eeprom.data_len);
 		u32 block = mode == EEPROM_MODE_EXT ? MT7996_EXT_EEPROM_BLOCK_SIZE :
@@ -4616,14 +4621,23 @@ int mt7996_mcu_get_eeprom(struct mt7996_dev *dev, u32 offset, u8 *buf, u32 buf_l
 			if (!buf_len || buf_len > MT7996_EEPROM_BLOCK_SIZE)
 				buf_len = MT7996_EEPROM_BLOCK_SIZE;
 
+			if (event->eeprom.efuse + buf_len > skb->data + skb->len) {
+				ret = -EINVAL;
+				break;
+			}
 			memcpy(buf, event->eeprom.efuse, buf_len);
 			break;
 		case EEPROM_MODE_EXT:
 			if (!buf_len || buf_len > MT7996_EXT_EEPROM_BLOCK_SIZE)
 				buf_len = MT7996_EXT_EEPROM_BLOCK_SIZE;
+			if (ret_len < buf_len)
+				buf_len = ret_len;
 
-			memcpy(buf, event->eeprom.ext_eeprom.data,
-			       ret_len < buf_len ? ret_len : buf_len);
+			if (event->eeprom.ext_eeprom.data + buf_len > skb->data + skb->len) {
+				ret = -EINVAL;
+				break;
+			}
+			memcpy(buf, event->eeprom.ext_eeprom.data, buf_len);
 			break;
 		default:
 			ret = -EINVAL;
