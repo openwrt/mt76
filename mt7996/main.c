@@ -258,7 +258,7 @@ mt7996_set_hw_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 
 	mt76_wcid_key_setup(&dev->mt76, &msta_link->wcid, key);
 
-	err = mt7996_mcu_add_key(&dev->mt76, link, key,
+	err = mt7996_mcu_add_key(&dev->mt76, link, &msta_link->bip, key,
 				 MCU_WMWA_UNI_CMD(STA_REC_UPDATE),
 				 &msta_link->wcid, cmd);
 
