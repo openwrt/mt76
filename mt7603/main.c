@@ -460,18 +460,19 @@ mt7603_release_buffered_frames(struct ieee80211_hw *hw,
 		__skb_unlink(skb, &msta->psq);
 		mt7603_ps_set_more_data(skb);
 		__skb_queue_tail(&list, skb);
-		nframes--;
+		if (nframes > 0)
+			nframes--;
 	}
 	spin_unlock_bh(&dev->ps_lock);
 
-	if (!skb_queue_empty(&list))
-		ieee80211_sta_eosp(sta);
-
 	mt7603_ps_tx_list(dev, &list);
 
-	if (nframes)
+	if (nframes) {
 		mt76_release_buffered_frames(hw, sta, tids, nframes, reason,
 					     more_data);
+	} else {
+		ieee80211_sta_eosp(sta);
+	}
 }
 
 static int
