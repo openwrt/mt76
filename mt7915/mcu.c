@@ -2957,6 +2957,11 @@ int mt7915_mcu_get_eeprom(struct mt7915_dev *dev, u32 offset, u8 *read_buf)
 		return -EINVAL;
 	}
 
+	if (!le32_to_cpu(res->valid)) {
+		dev_kfree_skb(skb);
+		return -ENODATA;
+	}
+
 	if (!buf) {
 		u32 addr = le32_to_cpu(res->addr);
 
