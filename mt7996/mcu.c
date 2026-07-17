@@ -273,8 +273,6 @@ mt7996_mcu_set_timeout(struct mt76_dev *mdev, int cmd)
 	case MCU_UNI_CMD_THERMAL:
 	case MCU_UNI_CMD_TWT:
 	case MCU_UNI_CMD_GET_MIB_INFO:
-	case MCU_UNI_CMD_STA_REC_UPDATE:
-	case MCU_UNI_CMD_BSS_INFO_UPDATE:
 		mdev->mcu.timeout = 2 * HZ;
 		return;
 	case MCU_UNI_CMD_EFUSE_CTRL:
