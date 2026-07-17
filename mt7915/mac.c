@@ -437,7 +437,14 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 		if (v0 & MT_PRXV_HT_AD_CODE)
 			status->enc_flags |= RX_ENC_FLAG_LDPC;
 
-		status->chains = mphy->antenna_mask;
+		/* The single-adie mt7986 default chainmask is stored without
+		 * the band shift, unlike the set_antenna path; fall back to
+		 * the raw mask when the band group is empty
+		 */
+		status->chains = mphy->chainmask >>
+				 (mphy->band_idx * dev->chainshift);
+		if (!status->chains)
+			status->chains = mphy->chainmask;
 		status->chain_signal[0] = to_rssi(MT_PRXV_RCPI0, v1);
 		status->chain_signal[1] = to_rssi(MT_PRXV_RCPI1, v1);
 		status->chain_signal[2] = to_rssi(MT_PRXV_RCPI2, v1);
