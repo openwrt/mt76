@@ -112,11 +112,12 @@ enum {
 /* Layout of the per-station DRR config value (VOW_DRR_CTRL_STA_ALL). The AC
  * quantum fields are in hardware (LMAC) order, i.e. AC0 = BK ... AC3 = VO.
  */
-#define VOW_DRR_STA_BSS_GRP_MASK	GENMASK(5, 0)
+#define VOW_DRR_STA_BSS_GRP_MASK	GENMASK(3, 0)
 #define VOW_DRR_STA_AC0_QNTM_MASK	GENMASK(10, 8)
 #define VOW_DRR_STA_AC1_QNTM_MASK	GENMASK(14, 12)
 #define VOW_DRR_STA_AC2_QNTM_MASK	GENMASK(18, 16)
 #define VOW_DRR_STA_AC3_QNTM_MASK	GENMASK(22, 20)
+#define VOW_DRR_STA_BWC_GRP_MASK	GENMASK(29, 24)
 
 /* A station references one of the global DWRR quantum levels per AC. The
  * mac80211 airtime weight spans a wider, finer range than the eight hardware

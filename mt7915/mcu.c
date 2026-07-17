@@ -3706,9 +3706,10 @@ int mt7915_mcu_set_vow_drr_ctrl(struct mt7915_dev *dev, struct mt7915_sta *msta,
 	};
 
 	switch (id) {
-	case VOW_DRR_CTRL_STA_ALL:
-		setting |= FIELD_PREP(VOW_DRR_STA_BSS_GRP_MASK,
-				      mt7915_vow_sta_bss_grp(&msta->vif->mt76));
+	case VOW_DRR_CTRL_STA_ALL: {
+		u8 grp = mt7915_vow_sta_bss_grp(&msta->vif->mt76);
+
+		setting |= FIELD_PREP(VOW_DRR_STA_BSS_GRP_MASK, grp);
 		setting |= FIELD_PREP(VOW_DRR_STA_AC0_QNTM_MASK,
 				      mt76_connac_vow_dwrr_quantum(weight, IEEE80211_AC_BK));
 		setting |= FIELD_PREP(VOW_DRR_STA_AC1_QNTM_MASK,
@@ -3717,9 +3718,11 @@ int mt7915_mcu_set_vow_drr_ctrl(struct mt7915_dev *dev, struct mt7915_sta *msta,
 				      mt76_connac_vow_dwrr_quantum(weight, IEEE80211_AC_VI));
 		setting |= FIELD_PREP(VOW_DRR_STA_AC3_QNTM_MASK,
 				      mt76_connac_vow_dwrr_quantum(weight, IEEE80211_AC_VO));
-		setting |= UMAC_BWC_GROUP_MIN << 24;
+		setting |= FIELD_PREP(VOW_DRR_STA_BWC_GRP_MASK,
+				      grp + UMAC_BWC_GROUP_MIN);
 		req.air_time_ctrl.com_value = cpu_to_le32(setting);
 		break;
+	}
 	case VOW_DRR_CTRL_STA_PAUSE:
 		/* com_value 0 keeps the station unpaused */
 		break;
