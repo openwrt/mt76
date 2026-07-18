@@ -843,23 +843,32 @@ mt7996_mcu_rx_ps_sync(struct mt7996_dev *dev, struct sk_buff *skb)
 {
 	struct mt7996_mcu_ps_sync_event *event = (void *)skb->data;
 	struct tlv *tlv;
+	u16 tag = 0, tag_len = 0;
 	int len;
+
+	if (skb->len < sizeof(*event)) {
+		dev_warn_ratelimited(dev->mt76.dev,
+				     "short PS sync event: %u bytes\n",
+				     skb->len);
+		return;
+	}
 
 	skb_pull(skb, sizeof(*event));
 
 	len = skb->len;
-	while (len > sizeof(*tlv)) {
-		u16 tag, tag_len;
-
+	while (len >= sizeof(*tlv)) {
 		tlv = (struct tlv *)skb->data;
 		tag = le16_to_cpu(tlv->tag);
 		tag_len = le16_to_cpu(tlv->len);
-		if (tag_len > len)
-			break;
+		if (tag_len < sizeof(*tlv) || tag_len > len)
+			goto invalid;
 
 		switch (tag) {
 		case UNI_PS_CLIENT_INFO: {
 			struct mt7996_mcu_ps_client_info *info = (void *)tlv;
+
+			if (tag_len < sizeof(*info))
+				goto invalid;
 
 			mt7996_mcu_ps_transition(dev,
 						 le16_to_cpu(info->wlan_idx),
@@ -868,8 +877,16 @@ mt7996_mcu_rx_ps_sync(struct mt7996_dev *dev, struct sk_buff *skb)
 		}
 		case UNI_PS_MULTI_CLIENT_INFO: {
 			struct mt7996_mcu_ps_multi_client_info *info = (void *)tlv;
-			u16 cnt = le16_to_cpu(info->sta_cnt);
+			u16 cnt;
 			int i;
+
+			if (tag_len < sizeof(*info))
+				goto invalid;
+
+			cnt = le16_to_cpu(info->sta_cnt);
+			if (cnt > (tag_len - sizeof(*info)) /
+				  sizeof(info->sta_ps_info[0]))
+				goto invalid;
 
 			for (i = 0; i < cnt; i++) {
 				u16 entry = le16_to_cpu(info->sta_ps_info[i]);
@@ -895,6 +912,13 @@ mt7996_mcu_rx_ps_sync(struct mt7996_dev *dev, struct sk_buff *skb)
 		skb_pull(skb, tag_len);
 		len -= tag_len;
 	}
+
+	return;
+
+invalid:
+	dev_warn_ratelimited(dev->mt76.dev,
+			     "invalid PS sync TLV: tag=%u len=%u remaining=%d\n",
+			     tag, tag_len, len);
 }
 
 static void
