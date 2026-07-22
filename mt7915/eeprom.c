@@ -267,7 +267,12 @@ void mt7915_eeprom_parse_hw_cap(struct mt7915_dev *dev,
 		mphy->chainmask <<= dev->chainshift;
 	mphy->antenna_mask = BIT(nss) - 1;
 	dev->chainmask |= mphy->chainmask;
-	dev->chainshift = hweight8(dev->mphy.chainmask);
+	/* The single-phy band-1 configuration (single-adie mt7986) uses
+	 * chains 0..n like a band-0 phy, so band-1 masks are only shifted
+	 * when a band-0 phy exists
+	 */
+	if (!dev->mphy.band_idx)
+		dev->chainshift = hweight8(dev->mphy.chainmask);
 }
 
 int mt7915_eeprom_init(struct mt7915_dev *dev)
