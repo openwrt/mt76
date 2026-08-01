@@ -166,7 +166,8 @@ void mt76x02_mac_wcid_setup(struct mt76x02_dev *dev, u8 idx,
 }
 EXPORT_SYMBOL_GPL(mt76x02_mac_wcid_setup);
 
-void mt76x02_mac_wcid_set_drop(struct mt76x02_dev *dev, u8 idx, bool drop)
+static void
+__mt76x02_mac_wcid_set_drop(struct mt76x02_dev *dev, u8 idx, bool drop)
 {
 	u32 val = mt76_rr(dev, MT_WCID_DROP(idx));
 	u32 bit = MT_WCID_DROP_MASK(idx);
@@ -174,6 +175,24 @@ void mt76x02_mac_wcid_set_drop(struct mt76x02_dev *dev, u8 idx, bool drop)
 	/* prevent unnecessary writes */
 	if ((val & bit) != (bit * drop))
 		mt76_wr(dev, MT_WCID_DROP(idx), (val & ~bit) | (bit * drop));
+}
+
+void mt76x02_mac_wcid_set_drop(struct mt76x02_dev *dev, u8 idx, bool drop)
+{
+	/*
+	 * On MMIO devices the mask is updated from the rx and tx paths in
+	 * parallel. USB devices only get here from station setup, where
+	 * mt76.mutex already serialises the two callers and where register
+	 * access can sleep.
+	 */
+	if (!mt76_is_mmio(&dev->mt76)) {
+		__mt76x02_mac_wcid_set_drop(dev, idx, drop);
+		return;
+	}
+
+	spin_lock_bh(&dev->mt76.lock);
+	__mt76x02_mac_wcid_set_drop(dev, idx, drop);
+	spin_unlock_bh(&dev->mt76.lock);
 }
 
 static u16
