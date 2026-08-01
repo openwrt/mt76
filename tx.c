@@ -412,7 +412,7 @@ mt76_txq_dequeue(struct mt76_phy *phy, struct mt76_txq *mtxq)
 
 static void
 mt76_queue_ps_skb(struct mt76_phy *phy, struct ieee80211_sta *sta,
-		  struct sk_buff *skb, bool last,
+		  struct sk_buff *skb, bool last, bool more_data,
 		  enum ieee80211_frame_release_type reason)
 {
 	struct mt76_wcid *wcid = (struct mt76_wcid *)sta->drv_priv;
@@ -429,8 +429,27 @@ mt76_queue_ps_skb(struct mt76_phy *phy, struct ieee80211_sta *sta,
 			*ieee80211_get_qos_ctl(hdr) |= IEEE80211_QOS_CTL_EOSP;
 	}
 
-	mt76_skb_set_moredata(skb, !last);
+	mt76_skb_set_moredata(skb, !last || more_data);
 	__mt76_tx_queue_skb(phy, MT_TXQ_PSD, skb, wcid, sta, NULL);
+}
+
+static bool
+mt76_ps_tids_pending(struct ieee80211_sta *sta, u16 tids)
+{
+	int i;
+
+	for (i = 0; tids; i++, tids >>= 1) {
+		unsigned long frames, bytes;
+
+		if (!(tids & 1) || !sta->txq[i])
+			continue;
+
+		ieee80211_txq_get_depth(sta->txq[i], &frames, &bytes);
+		if (frames)
+			return true;
+	}
+
+	return false;
 }
 
 void
@@ -443,6 +462,7 @@ mt76_release_buffered_frames(struct ieee80211_hw *hw, struct ieee80211_sta *sta,
 	struct mt76_dev *dev = phy->dev;
 	struct sk_buff *last_skb = NULL;
 	struct mt76_queue *hwq = phy->q_tx[MT_TXQ_PSD];
+	u16 release_tids = tids;
 	int i;
 
 	spin_lock_bh(&hwq->lock);
@@ -462,14 +482,15 @@ mt76_release_buffered_frames(struct ieee80211_hw *hw, struct ieee80211_sta *sta,
 			nframes--;
 			if (last_skb)
 				mt76_queue_ps_skb(phy, sta, last_skb, false,
-						  reason);
+						  false, reason);
 
 			last_skb = skb;
 		} while (nframes);
 	}
 
 	if (last_skb) {
-		mt76_queue_ps_skb(phy, sta, last_skb, true, reason);
+		more_data |= mt76_ps_tids_pending(sta, release_tids);
+		mt76_queue_ps_skb(phy, sta, last_skb, true, more_data, reason);
 		dev->queue_ops->kick(dev, hwq);
 	} else {
 		ieee80211_sta_eosp(sta);
