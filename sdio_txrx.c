@@ -130,13 +130,14 @@ mt76s_rx_run_queue(struct mt76_dev *dev, enum mt76_rxq_id qid,
 
 		/* Optimized path for TXS */
 		if (!dev->drv->rx_check || dev->drv->rx_check(dev, buf, len)) {
+			if (q->queued + i + 1 == q->ndesc)
+				break;
+
 			e->skb = mt76s_build_rx_skb(buf, len,
 						    round_up(len + 4, 4));
 			if (!e->skb)
 				break;
 
-			if (q->queued + i + 1 == q->ndesc)
-				break;
 			i++;
 		}
 		buf += round_up(len + 4, 4);
