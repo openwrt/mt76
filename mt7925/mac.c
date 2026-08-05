@@ -1675,12 +1675,18 @@ void mt7925_coredump_work(struct work_struct *work)
 	dev = (struct mt792x_dev *)container_of(work, struct mt792x_dev,
 						coredump.work.work);
 
-	if (time_is_after_jiffies(dev->coredump.last_activity +
+	/* if received the last coredump payload or timeout, start
+	 * saving coredump file and trigger reset.
+	 * Otherwise, wait for other coredump payload coming
+	 */
+	if (!dev->coredump.complete &&
+	    time_is_after_jiffies(dev->coredump.last_activity +
 				  4 * MT76_CONNAC_COREDUMP_TIMEOUT)) {
 		queue_delayed_work(dev->mt76.wq, &dev->coredump.work,
 				   MT76_CONNAC_COREDUMP_TIMEOUT);
 		return;
 	}
+	dev->coredump.complete = false;
 
 	skb_queue_head_init(&local_list);
 	spin_lock_bh(&dev->mt76.lock);

@@ -13,6 +13,7 @@
 #define MT_STA_BFER			BIT(0)
 #define MT_STA_BFEE			BIT(1)
 #define MT7925_WOW_PATTERN_NEW_FW_DATE	"20260414153105"
+#define MT7925_COREDUMP_END_STR		"; coredump end"
 
 static bool mt7925_vif_is_nan(struct ieee80211_vif *vif)
 {
@@ -762,10 +763,19 @@ mt7925_mcu_uni_rx_unsolicited_event(struct mt792x_dev *dev,
 	case MCU_UNI_EVENT_RSSI_MONITOR:
 		mt7925_mcu_rssi_monitor_event(dev, skb);
 		break;
-	case MCU_UNI_EVENT_COREDUMP:
+	case MCU_UNI_EVENT_COREDUMP: {
+		size_t hdr_len = sizeof(struct mt7925_mcu_rxd) + 8;
+		bool end;
+
 		dev->fw_assert = true;
+		end = skb->len > hdr_len &&
+		      strnstr(skb->data + hdr_len, MT7925_COREDUMP_END_STR,
+			      skb->len - hdr_len);
 		mt76_connac_mcu_coredump_event(&dev->mt76, skb, &dev->coredump);
+		if (end)
+			dev->coredump.complete = true;
 		return;
+	}
 	case MCU_UNI_EVENT_NAN:
 		mt7925_nan_mcu_event(dev, skb);
 		break;
