@@ -1665,7 +1665,11 @@ void mt7925_mac_reset_vif_work(struct wiphy *wiphy, struct wiphy_work *work)
 
 void mt7925_coredump_work(struct work_struct *work)
 {
+	size_t hdr_len = sizeof(struct mt7925_mcu_rxd) + 8;
+	struct sk_buff_head local_list;
 	struct mt792x_dev *dev;
+	struct sk_buff *skb;
+	size_t total_sz = 0;
 	char *dump, *data;
 
 	dev = (struct mt792x_dev *)container_of(work, struct mt792x_dev,
@@ -1678,35 +1682,48 @@ void mt7925_coredump_work(struct work_struct *work)
 		return;
 	}
 
-	dump = vzalloc(MT76_CONNAC_COREDUMP_SZ);
+	skb_queue_head_init(&local_list);
+	spin_lock_bh(&dev->mt76.lock);
+	skb_queue_splice_init(&dev->coredump.msg_list, &local_list);
+	spin_unlock_bh(&dev->mt76.lock);
+
+	skb_queue_walk(&local_list, skb) {
+		if (skb->len > hdr_len)
+			total_sz += skb->len - hdr_len;
+	}
+
+	if (!total_sz) {
+		skb_queue_purge(&local_list);
+		goto reset;
+	}
+
+	dump = vzalloc(total_sz);
 	data = dump;
 
 	while (true) {
-		struct sk_buff *skb;
-
-		spin_lock_bh(&dev->mt76.lock);
-		skb = __skb_dequeue(&dev->coredump.msg_list);
-		spin_unlock_bh(&dev->mt76.lock);
+		skb = __skb_dequeue(&local_list);
 
 		if (!skb)
 			break;
 
-		skb_pull(skb, sizeof(struct mt7925_mcu_rxd) + 8);
-		if (!dump || data + skb->len - dump > MT76_CONNAC_COREDUMP_SZ) {
+		if (skb->len <= hdr_len) {
 			dev_kfree_skb(skb);
 			continue;
 		}
 
-		memcpy(data, skb->data, skb->len);
-		data += skb->len;
+		skb_pull(skb, hdr_len);
+		if (dump) {
+			memcpy(data, skb->data, skb->len);
+			data += skb->len;
+		}
 
 		dev_kfree_skb(skb);
 	}
 
 	if (dump)
-		dev_coredumpv(dev->mt76.dev, dump, MT76_CONNAC_COREDUMP_SZ,
-			      GFP_KERNEL);
+		dev_coredumpv(dev->mt76.dev, dump, total_sz, GFP_KERNEL);
 
+reset:
 	mt792x_reset(&dev->mt76);
 }
 
