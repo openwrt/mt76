@@ -170,6 +170,42 @@ static int mt76_get_of_eeprom(struct mt76_dev *dev, void *eep, int len)
 	return mt76_get_of_data_from_nvmem(dev, eep, "eeprom", len);
 }
 
+static bool
+mt76_macaddr_taken(struct mt76_phy *phy)
+{
+	struct mt76_dev *dev = phy->dev;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(dev->phys); i++) {
+		struct mt76_phy *other = dev->phys[i];
+
+		if (!other || other == phy)
+			continue;
+
+		if (ether_addr_equal(other->macaddr, phy->macaddr))
+			return true;
+	}
+
+	return false;
+}
+
+static void
+mt76_macaddr_deduplicate(struct mt76_phy *phy)
+{
+	int i;
+
+	if (!mt76_macaddr_taken(phy))
+		return;
+
+	phy->macaddr[0] |= 2;
+	phy->macaddr[0] ^= BIT(7);
+	if (phy->band_idx == MT_BAND2)
+		phy->macaddr[0] ^= BIT(6);
+
+	for (i = 0; i < ARRAY_SIZE(phy->dev->phys) && mt76_macaddr_taken(phy); i++)
+		phy->macaddr[5]++;
+}
+
 int
 mt76_eeprom_override(struct mt76_phy *phy)
 {
@@ -207,6 +243,8 @@ mt76_eeprom_override(struct mt76_phy *phy)
 			 "Invalid MAC address, using random address %pM\n",
 			 phy->macaddr);
 	}
+
+	mt76_macaddr_deduplicate(phy);
 
 	return 0;
 }
