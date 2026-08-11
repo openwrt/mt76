@@ -137,6 +137,8 @@ int mt7925e_mac_reset(struct mt792x_dev *dev)
 	if (err)
 		goto out;
 
+	mt7925e_axidma_cal_cache_init(dev);
+
 	err = mt7925_mcu_set_eeprom(dev);
 	if (err)
 		goto out;
