@@ -4,6 +4,7 @@
 #include "mt7603.h"
 #include "mac.h"
 #include "eeprom.h"
+#include "mcu.h"
 
 const struct mt76_driver_ops mt7603_drv_ops = {
 	.txwi_size = MT_TXD_SIZE,
@@ -274,6 +275,40 @@ mt7603_mac_init(struct mt7603_dev *dev)
 			       (i + 1) * (20 + 4096));
 }
 
+/* The MT7592N on the ZTE ZXHN H267A (MT751020) will not answer any MCU
+ * command unless the first one issued after the firmware starts is already
+ * queued by the time mt7603_dma_sched_init() runs.
+ *
+ * Until the scheduler is programmed the PSE hands out zero pages, so a queued
+ * descriptor simply stalls (TX_DMA_BUSY latches, DMA_IDX does not move);
+ * mt7603_dma_sched_init() then releases it and the MCU replies normally from
+ * that point on. Issue the first command the other way round -- scheduler
+ * first, command second, which is what the unpatched order does -- and the
+ * chip fetches the descriptor and silently never responds, or, on a cold
+ * probe, hangs the SoC bus hard enough to take the whole system with it.
+ *
+ * So send one command non-blocking beforehand, purely so that something is
+ * pending across sched_init. It is deliberately the same EFUSE_BUFFER_MODE
+ * command that mt7603_mcu_set_eeprom() issues immediately afterwards, with
+ * the same real payload the vendor uploads (never a zeroed message).
+ *
+ * This is an empirical ordering fix established on hardware by bisecting the
+ * order of the two calls; the underlying mechanism is not understood.
+ *
+ * Scoped to non-mt7628 hardware: the bug and its fix are both about the
+ * discrete PCIe MT7603-family chip's own MCU/DMA boot sequence, which the
+ * SoC-integrated mt7628 variant doesn't go through the same way, so there's
+ * no reason to add this extra round-trip to init on hardware that hasn't
+ * shown the bug.
+ */
+static void mt7603_mcu_prime(struct mt7603_dev *dev)
+{
+	if (is_mt7628(dev))
+		return;
+
+	mt7603_mcu_prime_eeprom(dev);
+}
+
 static int
 mt7603_init_hardware(struct mt7603_dev *dev)
 {
@@ -304,6 +339,7 @@ mt7603_init_hardware(struct mt7603_dev *dev)
 	if (ret)
 		return ret;
 
+	mt7603_mcu_prime(dev);
 	mt7603_dma_sched_init(dev);
 	mt7603_mcu_set_eeprom(dev);
 	mt7603_phy_init(dev);

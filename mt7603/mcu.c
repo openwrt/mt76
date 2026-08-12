@@ -233,71 +233,76 @@ void mt7603_mcu_exit(struct mt7603_dev *dev)
 	skb_queue_purge(&dev->mt76.mcu.res_q);
 }
 
-int mt7603_mcu_set_eeprom(struct mt7603_dev *dev)
-{
-	static const u16 req_fields[] = {
+static const u16 mt7603_ee_upload_fields[] = {
 #define WORD(_start)			\
-		_start,			\
-		_start + 1
+	_start,			\
+	_start + 1
 #define GROUP_2G(_start)		\
-		WORD(_start),		\
-		WORD(_start + 2),	\
-		WORD(_start + 4)
+	WORD(_start),		\
+	WORD(_start + 2),	\
+	WORD(_start + 4)
 
-		MT_EE_NIC_CONF_0 + 1,
-		WORD(MT_EE_NIC_CONF_1),
-		MT_EE_WIFI_RF_SETTING,
-		MT_EE_TX_POWER_DELTA_BW40,
-		MT_EE_TX_POWER_DELTA_BW80 + 1,
-		MT_EE_TX_POWER_EXT_PA_5G,
-		MT_EE_TEMP_SENSOR_CAL,
-		GROUP_2G(MT_EE_TX_POWER_0_START_2G),
-		GROUP_2G(MT_EE_TX_POWER_1_START_2G),
-		WORD(MT_EE_TX_POWER_CCK),
-		WORD(MT_EE_TX_POWER_OFDM_2G_6M),
-		WORD(MT_EE_TX_POWER_OFDM_2G_24M),
-		WORD(MT_EE_TX_POWER_OFDM_2G_54M),
-		WORD(MT_EE_TX_POWER_HT_BPSK_QPSK),
-		WORD(MT_EE_TX_POWER_HT_16_64_QAM),
-		WORD(MT_EE_TX_POWER_HT_64_QAM),
-		MT_EE_ELAN_RX_MODE_GAIN,
-		MT_EE_ELAN_RX_MODE_NF,
-		MT_EE_ELAN_RX_MODE_P1DB,
-		MT_EE_ELAN_BYPASS_MODE_GAIN,
-		MT_EE_ELAN_BYPASS_MODE_NF,
-		MT_EE_ELAN_BYPASS_MODE_P1DB,
-		WORD(MT_EE_STEP_NUM_NEG_6_7),
-		WORD(MT_EE_STEP_NUM_NEG_4_5),
-		WORD(MT_EE_STEP_NUM_NEG_2_3),
-		WORD(MT_EE_STEP_NUM_NEG_0_1),
-		WORD(MT_EE_REF_STEP_24G),
-		WORD(MT_EE_STEP_NUM_PLUS_1_2),
-		WORD(MT_EE_STEP_NUM_PLUS_3_4),
-		WORD(MT_EE_STEP_NUM_PLUS_5_6),
-		MT_EE_STEP_NUM_PLUS_7,
-		MT_EE_XTAL_FREQ_OFFSET,
-		MT_EE_XTAL_TRIM_2_COMP,
-		MT_EE_XTAL_TRIM_3_COMP,
-		MT_EE_XTAL_WF_RFCAL,
+	MT_EE_NIC_CONF_0 + 1,
+	WORD(MT_EE_NIC_CONF_1),
+	MT_EE_WIFI_RF_SETTING,
+	MT_EE_TX_POWER_DELTA_BW40,
+	MT_EE_TX_POWER_DELTA_BW80 + 1,
+	MT_EE_TX_POWER_EXT_PA_5G,
+	MT_EE_TEMP_SENSOR_CAL,
+	GROUP_2G(MT_EE_TX_POWER_0_START_2G),
+	GROUP_2G(MT_EE_TX_POWER_1_START_2G),
+	WORD(MT_EE_TX_POWER_CCK),
+	WORD(MT_EE_TX_POWER_OFDM_2G_6M),
+	WORD(MT_EE_TX_POWER_OFDM_2G_24M),
+	WORD(MT_EE_TX_POWER_OFDM_2G_54M),
+	WORD(MT_EE_TX_POWER_HT_BPSK_QPSK),
+	WORD(MT_EE_TX_POWER_HT_16_64_QAM),
+	WORD(MT_EE_TX_POWER_HT_64_QAM),
+	MT_EE_ELAN_RX_MODE_GAIN,
+	MT_EE_ELAN_RX_MODE_NF,
+	MT_EE_ELAN_RX_MODE_P1DB,
+	MT_EE_ELAN_BYPASS_MODE_GAIN,
+	MT_EE_ELAN_BYPASS_MODE_NF,
+	MT_EE_ELAN_BYPASS_MODE_P1DB,
+	WORD(MT_EE_STEP_NUM_NEG_6_7),
+	WORD(MT_EE_STEP_NUM_NEG_4_5),
+	WORD(MT_EE_STEP_NUM_NEG_2_3),
+	WORD(MT_EE_STEP_NUM_NEG_0_1),
+	WORD(MT_EE_REF_STEP_24G),
+	WORD(MT_EE_STEP_NUM_PLUS_1_2),
+	WORD(MT_EE_STEP_NUM_PLUS_3_4),
+	WORD(MT_EE_STEP_NUM_PLUS_5_6),
+	MT_EE_STEP_NUM_PLUS_7,
+	MT_EE_XTAL_FREQ_OFFSET,
+	MT_EE_XTAL_TRIM_2_COMP,
+	MT_EE_XTAL_TRIM_3_COMP,
+	MT_EE_XTAL_WF_RFCAL,
 
-		/* unknown fields below */
-		WORD(0x24),
-		0x34,
-		0x39,
-		0x3b,
-		WORD(0x42),
-		WORD(0x9e),
-		0xf2,
-		WORD(0xf8),
-		0xfa,
-		0x12e,
-		WORD(0x130), WORD(0x132), WORD(0x134), WORD(0x136),
-		WORD(0x138), WORD(0x13a), WORD(0x13c), WORD(0x13e),
+	/* unknown fields below */
+	WORD(0x24),
+	0x34,
+	0x39,
+	0x3b,
+	WORD(0x42),
+	WORD(0x9e),
+	0xf2,
+	WORD(0xf8),
+	0xfa,
+	0x12e,
+	WORD(0x130), WORD(0x132), WORD(0x134), WORD(0x136),
+	WORD(0x138), WORD(0x13a), WORD(0x13c), WORD(0x13e),
 
 #undef GROUP_2G
 #undef WORD
 
-	};
+};
+
+/* Shared body for mt7603_mcu_set_eeprom()/mt7603_mcu_prime_eeprom(): both
+ * build the same EFUSE_BUFFER_MODE upload from mt7603_ee_upload_fields[],
+ * differing only in whether the MCU reply is waited for.
+ */
+static int mt7603_mcu_upload_eeprom(struct mt7603_dev *dev, bool blocking)
+{
 	struct req_data {
 		__le16 addr;
 		u8 val;
@@ -309,14 +314,14 @@ int mt7603_mcu_set_eeprom(struct mt7603_dev *dev)
 		u8 pad[2];
 	} req_hdr = {
 		.buffer_mode = 1,
-		.len = ARRAY_SIZE(req_fields) - 1,
+		.len = ARRAY_SIZE(mt7603_ee_upload_fields) - 1,
 	};
 	const int size = 0xff * sizeof(struct req_data);
 	u8 *req, *eep = (u8 *)dev->mt76.eeprom.data;
 	int i, ret, len = sizeof(req_hdr) + size;
 	struct req_data *data;
 
-	BUILD_BUG_ON(ARRAY_SIZE(req_fields) * sizeof(*data) > size);
+	BUILD_BUG_ON(ARRAY_SIZE(mt7603_ee_upload_fields) * sizeof(*data) > size);
 
 	req = kmalloc(len, GFP_KERNEL);
 	if (!req)
@@ -325,16 +330,26 @@ int mt7603_mcu_set_eeprom(struct mt7603_dev *dev)
 	memcpy(req, &req_hdr, sizeof(req_hdr));
 	data = (struct req_data *)(req + sizeof(req_hdr));
 	memset(data, 0, size);
-	for (i = 0; i < ARRAY_SIZE(req_fields); i++) {
-		data[i].addr = cpu_to_le16(req_fields[i]);
-		data[i].val = eep[req_fields[i]];
+	for (i = 0; i < ARRAY_SIZE(mt7603_ee_upload_fields); i++) {
+		data[i].addr = cpu_to_le16(mt7603_ee_upload_fields[i]);
+		data[i].val = eep[mt7603_ee_upload_fields[i]];
 	}
 
 	ret = mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD_EFUSE_BUFFER_MODE,
-				req, len, true);
+				req, len, blocking);
 	kfree(req);
 
 	return ret;
+}
+
+int mt7603_mcu_set_eeprom(struct mt7603_dev *dev)
+{
+	return mt7603_mcu_upload_eeprom(dev, true);
+}
+
+void mt7603_mcu_prime_eeprom(struct mt7603_dev *dev)
+{
+	mt7603_mcu_upload_eeprom(dev, false);
 }
 
 static int mt7603_mcu_set_tx_power(struct mt7603_dev *dev)
