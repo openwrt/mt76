@@ -87,6 +87,7 @@ static int
 mt7925_tm_query(struct mt792x_dev *dev, struct mt7925_tm_cmd *req,
 		char *evt_resp)
 {
+	const unsigned int hdr = offsetof(struct uni_cmd_testmode_ctrl, data);
 	struct mt7925_rftest_cmd cmd;
 	struct mt7925_rftest_cmd *pcmd = &cmd;
 	struct uni_cmd_testmode_evt *evt;
@@ -110,12 +111,12 @@ mt7925_tm_query(struct mt792x_dev *dev, struct mt7925_tm_cmd *req,
 
 	evt = (struct uni_cmd_testmode_evt *)skb->data;
 
-	if (skb->len < MT7925_EVT_RSP_LEN + 8) {
+	if (!skb_pull(skb, hdr)) {
 		ret = -EINVAL;
 		goto out;
 	}
 
-	memcpy((char *)evt_resp, (char *)skb->data + 8, MT7925_EVT_RSP_LEN);
+	memcpy(evt_resp, skb->data, min_t(u32, skb->len, MT7925_EVT_RSP_LEN));
 
 out:
 	dev_kfree_skb(skb);
@@ -195,7 +196,7 @@ int mt7925_testmode_dump(struct ieee80211_hw *hw, struct sk_buff *msg,
 
 		data = drv_tb[MT7925_TM_ATTR_QUERY];
 		if (data) {
-			char evt_resp[MT7925_EVT_RSP_LEN];
+			char evt_resp[MT7925_EVT_RSP_LEN] = {};
 
 			err = mt7925_tm_query(phy->dev, nla_data(data),
 					      evt_resp);
