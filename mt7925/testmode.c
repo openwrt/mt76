@@ -88,13 +88,13 @@ mt7925_tm_query(struct mt792x_dev *dev, struct mt7925_tm_cmd *req,
 		char *evt_resp)
 {
 	struct mt7925_rftest_cmd cmd;
-	char *pcmd = (char *)&cmd;
+	struct mt7925_rftest_cmd *pcmd = &cmd;
 	struct uni_cmd_testmode_evt *evt;
 	struct sk_buff *skb = NULL;
 	int ret = 1;
 
 	memset(pcmd, 0, sizeof(*pcmd));
-	memcpy(pcmd + 4, (char *)&req->c, sizeof(struct uni_cmd_testmode_ctrl));
+	memcpy(&pcmd->ctrl, &req->c, sizeof(struct uni_cmd_testmode_ctrl));
 
 	if (*((uint16_t *)req->padding) == MCU_UNI_CMD_TESTMODE_CTRL)
 		ret = mt76_mcu_send_and_get_msg(&dev->mt76, MCU_UNI_QUERY(TESTMODE_CTRL),
