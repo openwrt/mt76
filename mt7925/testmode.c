@@ -91,7 +91,7 @@ mt7925_tm_query(struct mt792x_dev *dev, struct mt7925_tm_cmd *req,
 	struct mt7925_rftest_cmd *pcmd = &cmd;
 	struct uni_cmd_testmode_evt *evt;
 	struct sk_buff *skb = NULL;
-	int ret = 1;
+	int ret;
 
 	memset(pcmd, 0, sizeof(*pcmd));
 	memcpy(&pcmd->ctrl, &req->c, sizeof(struct uni_cmd_testmode_ctrl));
@@ -102,6 +102,8 @@ mt7925_tm_query(struct mt792x_dev *dev, struct mt7925_tm_cmd *req,
 	else if (*((uint16_t *)req->padding) == MCU_UNI_CMD_TESTMODE_RX_STAT)
 		ret = mt76_mcu_send_and_get_msg(&dev->mt76, MCU_UNI_QUERY(TESTMODE_RX_STAT),
 						&cmd, sizeof(cmd), true, &skb);
+	else
+		ret = -EINVAL;
 
 	if (ret)
 		goto out;
