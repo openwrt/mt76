@@ -475,16 +475,17 @@ static int mt7927_dma_init(struct mt792x_dev *dev)
 
 static void mt7928_dma_shdl_lite_init(struct mt792x_dev *dev)
 {
-	u32 addr, idx, grp1_5_quota, grp15_quota;
+	u32 addr, idx, grp0_quota, grp15_quota;
+	/* Driver only uses TX ring 0, map all queues to group 0 */
 	u32 q2group[8] = {
-		0x04000000, /* AC00->G0,..., AC03->G4 */
-		0x04010101, /* AC10->G1,..., AC13->G4 */
-		0x04020202, /* AC20->G2,..., AC23->G4 */
-		0x04030303, /* AC30->G3,..., AC33->G4 */
-		0x00000005, /* ALTX->G5,BMC->G0,BCN->G0 */
-		0x00000005, /* TGID=1 ALTX->G5 */
-		0x00000000, /* NAF/NBCN/FIXFID -> G0 */
-		0x00000005, /* TGID=2 ALTX->G5 */
+		0x00000000, /* All queues -> G0 */
+		0x00000000, /* All queues -> G0 */
+		0x00000000, /* All queues -> G0 */
+		0x00000000, /* All queues -> G0 */
+		0x00000000, /* All queues -> G0 */
+		0x00000000, /* All queues -> G0 */
+		0x00000000, /* All queues -> G0 */
+		0x00000000, /* All queues -> G0 */
 	};
 
 	/* RST */
@@ -507,18 +508,18 @@ static void mt7928_dma_shdl_lite_init(struct mt792x_dev *dev)
 	     idx < ARRAY_SIZE(q2group);
 	     idx++, addr += 4)
 		mt76_wr(dev, addr, q2group[idx]);
-	/* refill, set 0 to enable group 0,1,2,3,4,5 & 15 */
-	mt76_wr(dev, MT_DMASHDL_LITE_GROUP_DISABLE0, 0xffff7fc0);
+	/* refill, set 0 to enable group 0 & 15 */
+	mt76_wr(dev, MT_DMASHDL_LITE_GROUP_DISABLE0, 0xffff7ffe);
 	mt76_wr(dev, MT_DMASHDL_LITE_GROUP_DISABLE1, 0xffffffff);
 	/* max/min quota */
-	grp1_5_quota = FIELD_PREP(MT_DMASHDL_LITE_GROUP_MAX_QUOTA_MASK, 0x3f0) |
-		       FIELD_PREP(MT_DMASHDL_LITE_GROUP_MIN_QUOTA_MASK, 0x10);
+	grp0_quota = FIELD_PREP(MT_DMASHDL_LITE_GROUP_MAX_QUOTA_MASK, 0x700) |
+		     FIELD_PREP(MT_DMASHDL_LITE_GROUP_MIN_QUOTA_MASK, 0x10);
 	grp15_quota = FIELD_PREP(MT_DMASHDL_LITE_GROUP_MAX_QUOTA_MASK, 0x30);
 
 	for (addr = MT_DMASHDL_LITE_GROUP0_QUOTA, idx = 0;
 	     idx < DMASHDL_LITE_GROUP_NUM;
 	     idx++, addr += 4)
-		mt76_wr(dev, addr, (idx <= 5) ? grp1_5_quota :
+		mt76_wr(dev, addr, (idx == 0) ? grp0_quota :
 			((idx == 15) ? grp15_quota : 0));
 }
 
