@@ -47,7 +47,7 @@ static int mt7615_pci_probe(struct pci_dev *pdev,
 
 	map = id->device == 0x7663 ? mt7663e_reg_map : mt7615e_reg_map;
 	ret = mt7615_mmio_probe(&pdev->dev, pcim_iomap_table(pdev)[0],
-				pdev->irq, map);
+				pdev->irq, map, id->device == 0x7663);
 	if (ret)
 		goto error;
 

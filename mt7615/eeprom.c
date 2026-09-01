@@ -6,8 +6,61 @@
  */
 
 #include <linux/of.h>
+#include <linux/mtd/mtd.h>
 #include "mt7615.h"
 #include "eeprom.h"
+
+static int mt7615_check_eeprom(struct mt76_dev *dev);
+
+static int mt7615_read_factory_partition(struct mt7615_dev *dev, u8 **buf,
+					 size_t *len)
+{
+#ifdef CONFIG_MTD
+	struct mtd_info *mtd;
+	u8 *data;
+	size_t retlen;
+	int ret;
+
+	mtd = get_mtd_device_nm("factory");
+	if (IS_ERR(mtd))
+		mtd = get_mtd_device(NULL, 2);
+	if (IS_ERR(mtd))
+		return PTR_ERR(mtd);
+
+	if (mtd->size < 0x8000 + MT7663_EEPROM_SIZE) {
+		put_mtd_device(mtd);
+		return -EINVAL;
+	}
+
+	data = kmalloc(mtd->size, GFP_KERNEL);
+	if (!data) {
+		put_mtd_device(mtd);
+		return -ENOMEM;
+	}
+
+	ret = mtd_read(mtd, 0, mtd->size, &retlen, data);
+	put_mtd_device(mtd);
+
+	if (mtd_is_bitflip(ret))
+		ret = 0;
+	if (ret) {
+		kfree(data);
+		return ret;
+	}
+
+	if (retlen < mtd->size) {
+		kfree(data);
+		return -EINVAL;
+	}
+
+	*buf = data;
+	*len = mtd->size;
+
+	return 0;
+#else
+	return -ENOENT;
+#endif
+}
 
 static int mt7615_efuse_read(struct mt7615_dev *dev, u32 base,
 			     u16 addr, u8 *data)
@@ -73,12 +126,78 @@ static int mt7615_efuse_init(struct mt7615_dev *dev, u32 base)
 
 static int mt7615_eeprom_load(struct mt7615_dev *dev, u32 addr)
 {
+	u8 *factory = NULL;
 	int ret;
 
 	BUILD_BUG_ON(MT7615_EEPROM_FULL_SIZE < MT7663_EEPROM_SIZE);
 
 	ret = mt76_eeprom_init(&dev->mt76, MT7615_EEPROM_FULL_SIZE);
 	if (ret < 0)
+		return ret;
+
+	if (dev->is_mt7663_pci && mt7615_check_eeprom(&dev->mt76)) {
+		static const u32 mt7663_offsets[] = { 0x8000 };
+		size_t factory_len = 0;
+		u8 data[16];
+		int i;
+
+		for (i = 0; i < ARRAY_SIZE(mt7663_offsets); i++) {
+			ret = mt76_get_of_data_from_mtd(&dev->mt76, data,
+						       mt7663_offsets[i], sizeof(data));
+			if (ret == -ENOENT) {
+				if (!factory) {
+					ret = mt7615_read_factory_partition(dev, &factory,
+								   &factory_len);
+					if (ret)
+						goto out;
+				}
+
+				if (factory_len < mt7663_offsets[i] + sizeof(data)) {
+					ret = -EINVAL;
+					goto out;
+				}
+
+				memcpy(data, factory + mt7663_offsets[i], sizeof(data));
+				ret = 0;
+			}
+			if (ret)
+				continue;
+
+			if (get_unaligned_le16(data) != 0x7663 ||
+			    !is_valid_ether_addr(data + MT_EE_MAC_ADDR))
+				continue;
+
+			memset(dev->mt76.eeprom.data, 0, dev->mt76.eeprom.size);
+			ret = mt76_get_of_data_from_mtd(&dev->mt76,
+						       dev->mt76.eeprom.data,
+						       mt7663_offsets[i],
+						       MT7663_EEPROM_SIZE);
+			if (ret == -ENOENT) {
+				if (!factory) {
+					ret = mt7615_read_factory_partition(dev, &factory,
+								   &factory_len);
+					if (ret)
+						goto out;
+				}
+
+				if (factory_len < mt7663_offsets[i] + MT7663_EEPROM_SIZE) {
+					ret = -EINVAL;
+					goto out;
+				}
+
+				memcpy(dev->mt76.eeprom.data, factory + mt7663_offsets[i],
+				       MT7663_EEPROM_SIZE);
+				ret = 0;
+			}
+			if (ret)
+				goto out;
+			break;
+		}
+	}
+
+out:
+	kfree(factory);
+	if (ret)
 		return ret;
 
 	return mt7615_efuse_init(dev, addr);
