@@ -124,6 +124,20 @@ mt7615_eeprom_parse_hw_band_cap(struct mt7615_dev *dev)
 
 	val = FIELD_GET(MT_EE_NIC_WIFI_CONF_BAND_SEL,
 			eeprom[MT_EE_WIFI_CONF]);
+
+	/*
+	 * Some boards wire the chip up for DBDC but ship an EEPROM that still
+	 * describes it as a single dual-band phy. The vendor driver enables
+	 * DBDC unconditionally, so the mismatch goes unnoticed there; here it
+	 * means only one band is usable at a time. Let the device tree correct
+	 * it.
+	 *
+	 * Affected: ipTIME A3004NS-M (MT7615D), which reads 0x0a here, i.e.
+	 * MT_EE_DUAL_BAND. See openwrt/openwrt#4915.
+	 */
+	if (of_property_read_bool(dev_of_node(dev->mt76.dev), "mediatek,dbdc"))
+		val = MT_EE_DBDC;
+
 	switch (val) {
 	case MT_EE_5GHZ:
 		dev->mphy.cap.has_5ghz = true;
