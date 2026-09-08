@@ -2490,9 +2490,7 @@ int mt76_connac_mcu_update_gtk_rekey(struct ieee80211_hw *hw,
 	gtk_tlv->rekey_mode = 2;
 	gtk_tlv->option = 1;
 
-	rcu_read_lock();
-	ieee80211_iter_keys_rcu(hw, vif, mt76_connac_mcu_key_iter, gtk_tlv);
-	rcu_read_unlock();
+	ieee80211_iter_keys(hw, vif, mt76_connac_mcu_key_iter, gtk_tlv);
 
 	memcpy(gtk_tlv->kek, key->kek, NL80211_KEK_LEN);
 	memcpy(gtk_tlv->kck, key->kck, NL80211_KCK_LEN);
