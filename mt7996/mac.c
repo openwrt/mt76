@@ -1097,7 +1097,7 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	 * compatible with 802.11 EAPOL frame, we do the translation by
 	 * software
 	 */
-	if (tx_info->skb->protocol == cpu_to_be16(ETH_P_PAE) && sta->mlo) {
+	if (sta && tx_info->skb->protocol == cpu_to_be16(ETH_P_PAE) && sta->mlo) {
 		struct ieee80211_hdr *hdr = (void *)tx_info->skb->data;
 		struct ieee80211_bss_conf *link_conf;
 		struct ieee80211_link_sta *link_sta;
