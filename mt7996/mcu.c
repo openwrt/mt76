@@ -1260,7 +1260,15 @@ mt7996_mcu_bss_basic_tlv(struct sk_buff *skb,
 		return 0;
 	}
 
-	memcpy(bss->bssid, link_conf->bssid, ETH_ALEN);
+	/* mac80211 sets bss_conf.bssid = zero_addr for mesh interfaces, and the
+	 * HW stamps the programmed BSS BSSID into addr3 of TXed mgmt frames.
+	 * That would send mesh peering frames with addr3 = 00:00:00:00:00:00,
+	 * which peers filtering on BSSID (e.g. ath11k) silently drop.
+	 */
+	if (vif->type == NL80211_IFTYPE_MESH_POINT)
+		memcpy(bss->bssid, link_conf->addr, ETH_ALEN);
+	else
+		memcpy(bss->bssid, link_conf->bssid, ETH_ALEN);
 	bss->bcn_interval = cpu_to_le16(link_conf->beacon_int);
 	bss->dtim_period = link_conf->dtim_period;
 	bss->phymode = mt76_connac_get_phy_mode(phy, vif,
