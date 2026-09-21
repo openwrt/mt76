@@ -3192,6 +3192,26 @@ int mt7915_mcu_apply_tx_dpd(struct mt7915_phy *phy)
 	return 0;
 }
 
+/*
+ * GET_MIB_INFO airtime counters are not monotonic. A bare unsigned
+ * subtract wraps to ~2^64 when one steps backwards, and chan_state
+ * keeps that value because later samples are sane and only add to it.
+ * mt7915_mac_sta_poll() already records a zero delta when a per-STA
+ * counter does not advance, then keeps the new value as the baseline.
+ * Same here. Do not clamp to the ktime since survey_time: that stamp
+ * moves on in mt76_update_survey() even when this command fails, and
+ * GET_MIB_INFO is allowed 2*HZ, so the next good delta can be a real
+ * multi-second step.
+ */
+static u64
+mt7915_mib_delta(u64 cur, u64 prev)
+{
+	if (cur < prev)
+		return 0;
+
+	return cur - prev;
+}
+
 int mt7915_mcu_get_chan_mib_info(struct mt7915_phy *phy, bool chan_switch)
 {
 	struct mt76_channel_state *state = phy->mt76->chan_state;
@@ -3201,7 +3221,7 @@ int mt7915_mcu_get_chan_mib_info(struct mt7915_phy *phy, bool chan_switch)
 	struct sk_buff *skb;
 	static const u32 *offs;
 	int i, ret, len, offs_cc;
-	u64 cc_tx;
+	u64 cc_tx, cc_rx, cc_bss_rx, cc_busy;
 
 	/* strict order */
 	if (is_mt7915(&dev->mt76)) {
@@ -3248,20 +3268,22 @@ int mt7915_mcu_get_chan_mib_info(struct mt7915_phy *phy, bool chan_switch)
 		cc_tx = __res_u64(1);
 	}
 
-	if (chan_switch)
-		goto out;
+	cc_bss_rx = __res_u64(2);
+	cc_rx = cc_bss_rx + __res_u64(3);
+	cc_busy = __res_u64(0) + cc_tx + cc_rx;
 
-	state->cc_tx += cc_tx - state_ts->cc_tx;
-	state->cc_bss_rx += __res_u64(2) - state_ts->cc_bss_rx;
-	state->cc_rx += __res_u64(2) + __res_u64(3) - state_ts->cc_rx;
-	state->cc_busy += __res_u64(0) + cc_tx + __res_u64(2) + __res_u64(3) -
-			  state_ts->cc_busy;
+	if (!chan_switch) {
+		state->cc_tx += mt7915_mib_delta(cc_tx, state_ts->cc_tx);
+		state->cc_bss_rx += mt7915_mib_delta(cc_bss_rx,
+						     state_ts->cc_bss_rx);
+		state->cc_rx += mt7915_mib_delta(cc_rx, state_ts->cc_rx);
+		state->cc_busy += mt7915_mib_delta(cc_busy, state_ts->cc_busy);
+	}
 
-out:
 	state_ts->cc_tx = cc_tx;
-	state_ts->cc_bss_rx = __res_u64(2);
-	state_ts->cc_rx = __res_u64(2) + __res_u64(3);
-	state_ts->cc_busy = __res_u64(0) + cc_tx + __res_u64(2) + __res_u64(3);
+	state_ts->cc_bss_rx = cc_bss_rx;
+	state_ts->cc_rx = cc_rx;
+	state_ts->cc_busy = cc_busy;
 #undef __res_u64
 
 	dev_kfree_skb(skb);
