@@ -918,6 +918,7 @@ static int mt7925_mac_link_sta_add(struct mt76_dev *mdev,
 	struct mt792x_bss_conf *mconf;
 	u8 link_id = link_sta->link_id;
 	bool wcid_published = false;
+	bool is_secondary_link_sta;
 	struct mt792x_sta *msta;
 	struct mt76_wcid *wcid;
 	bool pm_woken = false;
@@ -962,6 +963,7 @@ static int mt7925_mac_link_sta_add(struct mt76_dev *mdev,
 			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
 
 	link_conf = mt792x_vif_to_bss_conf(vif, link_id);
+	is_secondary_link_sta = ieee80211_vif_is_mld(vif) && link_sta != mlink->pri_link;
 
 	/* NAN_DATA (NDI) peers skip association - fill link_sta caps
 	 * from sband and push BSS_INFO with correct phymode + RLM.
@@ -983,33 +985,21 @@ static int mt7925_mac_link_sta_add(struct mt76_dev *mdev,
 		struct mt792x_link_sta *mlink_bc;
 
 		mlink_bc = mt792x_sta_to_link(&mvif->sta, mconf->link_id);
-
-		if (ieee80211_vif_is_mld(vif)) {
-			ret = mt7925_mcu_add_bss_info_sta(&dev->phy, mconf->mt76.ctx,
-							  link_conf, link_sta,
-							  mlink_bc->wcid.idx, mlink->wcid.idx,
-							  link_sta != mlink->pri_link);
-			if (ret)
-				goto out_pm;
-		} else {
-			ret = mt7925_mcu_add_bss_info_sta(&dev->phy, mconf->mt76.ctx,
-							  link_conf, link_sta,
-							  mlink_bc->wcid.idx, mlink->wcid.idx,
-							  false);
-			if (ret)
-				goto out_pm;
-		}
+		ret = mt7925_mcu_add_bss_info_sta(&dev->phy, mconf->mt76.ctx,
+						  link_conf, link_sta,
+						  mlink_bc->wcid.idx, mlink->wcid.idx,
+						  is_secondary_link_sta);
+		if (ret)
+			goto out_pm;
 	}
 
-	if (ieee80211_vif_is_mld(vif) &&
-	    link_sta == mlink->pri_link) {
+	if (!is_secondary_link_sta) {
 		ret = mt7925_mcu_sta_update(dev, link_sta, vif,
 					    mlink, true,
 					    MT76_STA_INFO_STATE_NONE, NULL);
 		if (ret)
 			goto out_pm;
-	} else if (ieee80211_vif_is_mld(vif) &&
-		   link_sta != mlink->pri_link) {
+	} else {
 		struct mt792x_link_sta *pri_mlink;
 		struct mt76_wcid *pri_wcid;
 
@@ -1034,12 +1024,6 @@ static int mt7925_mac_link_sta_add(struct mt76_dev *mdev,
 		ret = mt7925_mcu_sta_update(dev, link_sta, vif,
 					    mlink, true,
 					    MT76_STA_INFO_STATE_ASSOC, mlink);
-		if (ret)
-			goto out_pm;
-	} else {
-		ret = mt7925_mcu_sta_update(dev, link_sta, vif,
-					    mlink, true,
-					    MT76_STA_INFO_STATE_NONE, NULL);
 		if (ret)
 			goto out_pm;
 	}
