@@ -1614,6 +1614,85 @@ mt7996_mac_sta_links_set_keys(struct mt7996_dev *dev,
 	}
 }
 
+static bool
+mt7996_rx_reorder_host(struct mt7996_dev *dev)
+{
+	return !mt7996_has_hwrro(dev) &&
+	       !mtk_wed_device_active(&dev->mt76.mmio.wed) &&
+	       !mt76_npu_device_active(&dev->mt76);
+}
+
+static u16
+mt7996_mac_sta_ba_rx_ssn(struct mt7996_dev *dev, struct mt7996_sta *msta,
+			 unsigned int tid)
+{
+	struct mt76_rx_tid *tid_rx;
+	u16 ssn;
+
+	tid_rx = mt76_dereference(msta->deflink.wcid.aggr[tid], &dev->mt76);
+	if (!tid_rx)
+		return msta->ba_rx[tid].ssn;
+
+	spin_lock_bh(&tid_rx->lock);
+	ssn = tid_rx->head;
+	spin_unlock_bh(&tid_rx->lock);
+
+	return ssn;
+}
+
+static int
+mt7996_mac_sta_links_ba_add(struct mt7996_dev *dev, struct ieee80211_vif *vif,
+			    struct ieee80211_sta *sta, unsigned long links)
+{
+	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	u16 rx_restart = 0;
+	unsigned int tid;
+	int err;
+
+	if (!links)
+		return 0;
+
+	for (tid = 0; tid < IEEE80211_NUM_TIDS; tid++) {
+		struct ieee80211_ampdu_params params = {
+			.sta = sta,
+			.tid = tid,
+		};
+
+		if (msta->ba_tx_mask & BIT(tid)) {
+			params.ssn = msta->ba_tx[tid].ssn;
+			params.buf_size = msta->ba_tx[tid].buf_size;
+			params.amsdu = msta->ba_tx[tid].amsdu;
+			err = mt7996_mcu_add_tx_ba(dev, &params, vif, links,
+						   true);
+			if (err)
+				return err;
+		}
+
+		if (!(msta->ba_rx_mask & BIT(tid)))
+			continue;
+
+		/* without host reordering, the reorder head stays at the
+		 * session start, so have the originator set up a new session
+		 */
+		if (!mt7996_rx_reorder_host(dev)) {
+			rx_restart |= BIT(tid);
+			continue;
+		}
+
+		params.ssn = mt7996_mac_sta_ba_rx_ssn(dev, msta, tid);
+		params.buf_size = msta->ba_rx[tid].buf_size;
+		params.amsdu = msta->ba_rx[tid].amsdu;
+		err = mt7996_mcu_add_rx_ba(dev, &params, vif, links, true);
+		if (err)
+			return err;
+	}
+
+	if (rx_restart)
+		ieee80211_stop_rx_ba_session(vif, rx_restart, sta->addr);
+
+	return 0;
+}
+
 static int
 mt7996_mac_sta_links_sync(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			  struct ieee80211_sta *sta, unsigned long links,
@@ -1672,7 +1751,7 @@ mt7996_mac_sta_links_sync(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			return err;
 	}
 
-	return 0;
+	return mt7996_mac_sta_links_ba_add(dev, vif, sta, new_links);
 }
 
 static void
