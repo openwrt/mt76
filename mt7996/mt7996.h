@@ -311,6 +311,12 @@ struct mt7996_sta_link {
 	struct rcu_head rcu_head;
 };
 
+struct mt7996_sta_ba {
+	u16 ssn;
+	u16 buf_size;
+	bool amsdu;
+};
+
 struct mt7996_sta {
 	struct mt7996_sta_link deflink; /* must be first */
 	struct mt7996_sta_link __rcu *link[IEEE80211_MLD_MAX_NUM_LINKS];
@@ -319,6 +325,11 @@ struct mt7996_sta {
 	u8 conn_state;
 
 	unsigned long wcid_flags;
+
+	u16 ba_tx_mask;
+	u16 ba_rx_mask;
+	struct mt7996_sta_ba ba_tx[IEEE80211_NUM_TIDS];
+	struct mt7996_sta_ba ba_rx[IEEE80211_NUM_TIDS];
 
 	struct mt7996_vif *vif;
 };
@@ -782,10 +793,12 @@ int mt7996_mcu_teardown_mld_sta(struct mt7996_dev *dev,
 void mt7996_mcu_update_sta_rec_bw(void *data, struct ieee80211_sta *sta);
 int mt7996_mcu_add_tx_ba(struct mt7996_dev *dev,
 			 struct ieee80211_ampdu_params *params,
-			 struct ieee80211_vif *vif, bool enable);
+			 struct ieee80211_vif *vif, unsigned long links,
+			 bool enable);
 int mt7996_mcu_add_rx_ba(struct mt7996_dev *dev,
 			 struct ieee80211_ampdu_params *params,
-			 struct ieee80211_vif *vif, bool enable);
+			 struct ieee80211_vif *vif, unsigned long links,
+			 bool enable);
 int mt7996_mcu_update_bss_color(struct mt7996_dev *dev,
 				struct mt76_vif_link *mlink,
 				struct cfg80211_he_bss_color *he_bss_color);

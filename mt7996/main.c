@@ -1472,6 +1472,8 @@ mt7996_mac_sta_add(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	msta->deflink_id = IEEE80211_LINK_UNSPECIFIED;
 	msta->seclink_id = IEEE80211_LINK_UNSPECIFIED;
 	msta->conn_state = CONN_STATE_DISCONNECT;
+	msta->ba_tx_mask = 0;
+	msta->ba_rx_mask = 0;
 	msta->vif = mvif;
 	err = mt7996_mac_sta_add_links(dev, vif, sta, links);
 
@@ -1809,6 +1811,21 @@ static int mt7996_set_rts_threshold(struct ieee80211_hw *hw, int radio_idx,
 	return ret;
 }
 
+static void
+mt7996_sta_ba_update(u16 *mask, struct mt7996_sta_ba *ba,
+		     struct ieee80211_ampdu_params *params, bool enable)
+{
+	if (!enable) {
+		*mask &= ~BIT(params->tid);
+		return;
+	}
+
+	*mask |= BIT(params->tid);
+	ba[params->tid].ssn = params->ssn;
+	ba[params->tid].buf_size = params->buf_size;
+	ba[params->tid].amsdu = params->amsdu;
+}
+
 static int
 mt7996_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		    struct ieee80211_ampdu_params *params)
@@ -1820,6 +1837,7 @@ mt7996_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	u16 tid = params->tid;
 	u16 ssn = params->ssn;
 	struct mt76_txq *mtxq;
+	unsigned long links;
 	int ret = 0;
 
 	if (!txq)
@@ -1829,6 +1847,8 @@ mt7996_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	mutex_lock(&dev->mt76.mutex);
 
+	links = mt7996_mac_sta_links(dev, vif, sta);
+
 	switch (params->action) {
 	case IEEE80211_AMPDU_RX_START:
 		/* Since packets belonging to the same TID can be split over
@@ -1837,22 +1857,30 @@ mt7996_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		 */
 		mt76_rx_aggr_start(&dev->mt76, &msta->deflink.wcid, tid,
 				   ssn, params->buf_size);
-		ret = mt7996_mcu_add_rx_ba(dev, params, vif, true);
+		ret = mt7996_mcu_add_rx_ba(dev, params, vif, links, true);
+		mt7996_sta_ba_update(&msta->ba_rx_mask, msta->ba_rx, params,
+				     !ret);
 		break;
 	case IEEE80211_AMPDU_RX_STOP:
 		mt76_rx_aggr_stop(&dev->mt76, &msta->deflink.wcid, tid);
-		ret = mt7996_mcu_add_rx_ba(dev, params, vif, false);
+		mt7996_sta_ba_update(&msta->ba_rx_mask, msta->ba_rx, params,
+				     false);
+		ret = mt7996_mcu_add_rx_ba(dev, params, vif, links, false);
 		break;
 	case IEEE80211_AMPDU_TX_OPERATIONAL:
 		mtxq->aggr = true;
 		mtxq->send_bar = false;
-		ret = mt7996_mcu_add_tx_ba(dev, params, vif, true);
+		ret = mt7996_mcu_add_tx_ba(dev, params, vif, links, true);
+		mt7996_sta_ba_update(&msta->ba_tx_mask, msta->ba_tx, params,
+				     !ret);
 		break;
 	case IEEE80211_AMPDU_TX_STOP_FLUSH:
 	case IEEE80211_AMPDU_TX_STOP_FLUSH_CONT:
 		mtxq->aggr = false;
 		clear_bit(tid, &msta->deflink.wcid.ampdu_state);
-		ret = mt7996_mcu_add_tx_ba(dev, params, vif, false);
+		mt7996_sta_ba_update(&msta->ba_tx_mask, msta->ba_tx, params,
+				     false);
+		ret = mt7996_mcu_add_tx_ba(dev, params, vif, links, false);
 		break;
 	case IEEE80211_AMPDU_TX_START:
 		set_bit(tid, &msta->deflink.wcid.ampdu_state);
@@ -1861,7 +1889,9 @@ mt7996_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	case IEEE80211_AMPDU_TX_STOP_CONT:
 		mtxq->aggr = false;
 		clear_bit(tid, &msta->deflink.wcid.ampdu_state);
-		ret = mt7996_mcu_add_tx_ba(dev, params, vif, false);
+		mt7996_sta_ba_update(&msta->ba_tx_mask, msta->ba_tx, params,
+				     false);
+		ret = mt7996_mcu_add_tx_ba(dev, params, vif, links, false);
 		ieee80211_stop_tx_ba_cb_irqsafe(vif, sta->addr, tid);
 		break;
 	}
