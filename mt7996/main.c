@@ -277,8 +277,9 @@ mt7996_set_hw_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 }
 
 struct mt7996_key_iter_data {
-    enum set_key_cmd cmd;
-    unsigned int link_id;
+	enum set_key_cmd cmd;
+	unsigned int link_id;
+	struct ieee80211_sta *sta;
 };
 
 static void
@@ -288,13 +289,13 @@ mt7996_key_iter(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 {
 	struct mt7996_key_iter_data *it = data;
 
-	if (sta)
+	if (sta != it->sta)
 		return;
 
 	if (key->link_id >= 0 && key->link_id != it->link_id)
 		return;
 
-	WARN_ON(mt7996_set_hw_key(hw, it->cmd, vif, NULL, it->link_id, key));
+	WARN_ON(mt7996_set_hw_key(hw, it->cmd, vif, sta, it->link_id, key));
 }
 
 int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
@@ -1531,6 +1532,23 @@ mt7996_mac_sta_links_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 }
 
 static void
+mt7996_mac_sta_link_ps_leave(struct mt7996_dev *dev,
+			     struct mt7996_vif_link *link,
+			     struct mt7996_sta_link *msta_link)
+{
+	/* HW cannot derive the BSSID from 4-address non-AMSDU frames,
+	 * so PS exit is missed on links other than the setup link.
+	 * Let the firmware wake those links instead.
+	 */
+	if (!is_mt7996(&dev->mt76) ||
+	    !test_bit(MT_WCID_FLAG_4ADDR, &msta_link->wcid.flags) ||
+	    msta_link->wcid.link_id == msta_link->sta->deflink_id)
+		return;
+
+	mt7996_mcu_ps_leave(dev, link, msta_link);
+}
+
+static void
 mt7996_mac_sta_clear_connected(struct mt7996_dev *dev, struct mt7996_sta *msta)
 {
 	unsigned int link_id;
@@ -1579,6 +1597,113 @@ out:
 }
 
 static void
+mt7996_mac_sta_links_set_keys(struct mt7996_dev *dev,
+			      struct ieee80211_vif *vif,
+			      struct ieee80211_sta *sta, unsigned long links)
+{
+	unsigned int link_id;
+
+	for_each_set_bit(link_id, &links, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct mt7996_key_iter_data it = {
+			.cmd = SET_KEY,
+			.link_id = link_id,
+			.sta = sta,
+		};
+
+		ieee80211_iter_keys(mt76_hw(dev), vif, mt7996_key_iter, &it);
+	}
+}
+
+static int
+mt7996_mac_sta_links_sync(struct mt7996_dev *dev, struct ieee80211_vif *vif,
+			  struct ieee80211_sta *sta, unsigned long links,
+			  unsigned long add)
+{
+	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	unsigned long new_links = 0, updated;
+	unsigned int link_id;
+	int err;
+
+	if (msta->conn_state == CONN_STATE_DISCONNECT)
+		return 0;
+
+	links &= mt7996_mac_sta_links(dev, vif, sta);
+	for_each_set_bit(link_id, &links, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct mt7996_sta_link *msta_link;
+
+		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
+		if (!msta_link->connected)
+			new_links |= BIT(link_id);
+	}
+
+	err = mt7996_mac_sta_links_event(dev, vif, sta, new_links,
+					 MT76_STA_EVENT_ASSOC);
+	if (err)
+		return err;
+
+	mt7996_mac_sta_links_set_keys(dev, vif, sta, links & add);
+
+	updated = new_links;
+	if (msta->conn_state == CONN_STATE_PORT_SECURE) {
+		err = mt7996_mac_sta_links_event(dev, vif, sta, updated,
+						 MT76_STA_EVENT_AUTHORIZE);
+		if (err)
+			return err;
+	}
+
+	for_each_set_bit(link_id, &new_links, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct mt7996_sta_link *msta_link;
+		struct mt7996_vif_link *link;
+
+		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
+		link = mt7996_vif_link(dev, vif, link_id);
+		mt7996_mac_sta_link_ps_leave(dev, link, msta_link);
+	}
+
+	updated = sta->mlo ? links & ~updated : 0;
+	for_each_set_bit(link_id, &updated, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct mt7996_sta_link *msta_link;
+		struct mt7996_vif_link *link;
+
+		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
+		link = mt7996_vif_link(dev, vif, link_id);
+		err = mt7996_mcu_update_mld_sta(dev, vif, sta, link, msta_link);
+		if (err)
+			return err;
+	}
+
+	return 0;
+}
+
+static void
+mt7996_mac_sta_links_reset(struct mt7996_dev *dev, struct ieee80211_vif *vif,
+			   struct ieee80211_sta *sta, unsigned long links)
+{
+	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	unsigned int link_id;
+
+	for_each_set_bit(link_id, &links, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct mt7996_sta_link *msta_link;
+		struct mt7996_vif_link *link;
+		int i;
+
+		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
+		if (!msta_link)
+			continue;
+
+		link = mt7996_vif_link(dev, vif, link_id);
+		if (link) {
+			for (i = 0; i < ARRAY_SIZE(msta_link->twt.flow); i++)
+				mt7996_mac_twt_teardown_flow(dev, link,
+							     msta_link, i);
+		}
+
+		msta_link->wcid.tx_info &= ~MT_WCID_TX_INFO_SET;
+		msta_link->wcid.hw_key_idx = -1;
+	}
+}
+
+static void
 mt7996_mac_sta_links_bss_add(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			     struct ieee80211_sta *sta, unsigned long links)
 {
@@ -1624,7 +1749,17 @@ mt7996_mac_sta_change_links(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	mt7996_mac_sta_remove_links(dev, vif, sta, rem, false);
 	mt7996_mac_sta_links_bss_add(dev, vif, sta, add);
 	ret = mt7996_mac_sta_add_links(dev, vif, sta, add);
+	if (ret)
+		goto out;
 
+	ret = mt7996_mac_sta_links_sync(dev, vif, sta, new_links, add);
+	if (ret) {
+		mt7996_mac_sta_links_reset(dev, vif, sta, add);
+		mt7996_mac_sta_remove_links(dev, vif, sta, add, false);
+		mt7996_mac_sta_links_sync(dev, vif, sta, new_links & ~add, 0);
+	}
+
+out:
 	mutex_unlock(&dev->mt76.mutex);
 
 	return ret;
@@ -2331,14 +2466,7 @@ static void mt7996_sta_set_4addr(struct ieee80211_hw *hw,
 			continue;
 
 		mt7996_mcu_wtbl_update_hdr_trans(dev, vif, link, msta_link);
-
-		/* HW cannot derive the BSSID from 4-address non-AMSDU frames,
-		 * so PS exit is missed on links other than the setup link.
-		 * Let the firmware wake those links instead.
-		 */
-		if (enabled && msta->deflink_id != link_id &&
-		    is_mt7996(&dev->mt76))
-			mt7996_mcu_ps_leave(dev, link, msta_link);
+		mt7996_mac_sta_link_ps_leave(dev, link, msta_link);
 	}
 
 	mutex_unlock(&dev->mt76.mutex);
