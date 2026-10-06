@@ -1471,6 +1471,7 @@ mt7996_mac_sta_add(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 
 	msta->deflink_id = IEEE80211_LINK_UNSPECIFIED;
 	msta->seclink_id = IEEE80211_LINK_UNSPECIFIED;
+	msta->conn_state = CONN_STATE_DISCONNECT;
 	msta->vif = mvif;
 	err = mt7996_mac_sta_add_links(dev, vif, sta, links);
 
@@ -1569,11 +1570,27 @@ mt7996_mac_sta_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	int err;
 
 	mutex_lock(&dev->mt76.mutex);
+
 	err = mt7996_mac_sta_links_event(dev, vif, sta,
 					 mt7996_mac_sta_links(dev, vif, sta),
 					 ev);
-	if (!err && ev == MT76_STA_EVENT_DISASSOC)
+	if (err)
+		goto out;
+
+	switch (ev) {
+	case MT76_STA_EVENT_ASSOC:
+		msta->conn_state = CONN_STATE_CONNECT;
+		break;
+	case MT76_STA_EVENT_AUTHORIZE:
+		msta->conn_state = CONN_STATE_PORT_SECURE;
+		break;
+	case MT76_STA_EVENT_DISASSOC:
+		msta->conn_state = CONN_STATE_DISCONNECT;
 		mt7996_mac_sta_clear_connected(dev, msta);
+		break;
+	}
+
+out:
 	mutex_unlock(&dev->mt76.mutex);
 
 	return err;
@@ -1649,6 +1666,17 @@ mt7996_sta_state(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	if (old_state == IEEE80211_STA_NONE &&
 	    new_state == IEEE80211_STA_NOTEXIST)
 		mt7996_mac_sta_remove(dev, vif, sta);
+
+	if (old_state == IEEE80211_STA_AUTHORIZED &&
+	    new_state == IEEE80211_STA_ASSOC) {
+		struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+
+		mutex_lock(&dev->mt76.mutex);
+		msta->conn_state = CONN_STATE_CONNECT;
+		mutex_unlock(&dev->mt76.mutex);
+
+		return 0;
+	}
 
 	if (old_state == IEEE80211_STA_AUTH &&
 	    new_state == IEEE80211_STA_ASSOC) {
