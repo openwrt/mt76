@@ -2873,7 +2873,7 @@ int mt7996_mcu_set_vow_feature_ctrl(struct mt7996_phy *phy)
 
 static int
 mt7996_mcu_sta_init_vow(struct mt7996_dev *dev, struct mt76_vif_link *mvif,
-			struct mt76_wcid *wcid)
+			struct mt76_wcid *wcid, u16 weight)
 {
 	int ret;
 
@@ -2883,8 +2883,7 @@ mt7996_mcu_sta_init_vow(struct mt7996_dev *dev, struct mt76_vif_link *mvif,
 		return ret;
 
 	return mt7996_mcu_set_vow_drr_ctrl(dev, mvif->band_idx, wcid, mvif,
-					   VOW_DRR_CTRL_STA_ALL,
-					   IEEE80211_DEFAULT_AIRTIME_WEIGHT);
+					   VOW_DRR_CTRL_STA_ALL, weight);
 }
 
 int mt7996_mcu_mld_reconf_stop_link(struct mt7996_dev *dev,
@@ -3025,8 +3024,13 @@ int mt7996_mcu_add_sta(struct mt7996_dev *dev,
 {
 	struct mt76_wcid *wcid = msta_link ? &msta_link->wcid : link->mt76.wcid;
 	struct ieee80211_sta *sta = link_sta ? link_sta->sta : NULL;
+	u16 weight = IEEE80211_DEFAULT_AIRTIME_WEIGHT;
 	struct sk_buff *skb;
 	int ret;
+
+	if (sta)
+		weight = mt7996_sta_airtime_weight((struct mt7996_sta *)
+						   sta->drv_priv);
 
 	skb = __mt76_connac_mcu_alloc_sta_req(&dev->mt76, &link->mt76, wcid,
 					      MT7996_STA_UPDATE_MAX_SIZE);
@@ -3088,7 +3092,7 @@ out:
 	if (ret || conn_state == CONN_STATE_DISCONNECT)
 		return ret;
 
-	mt7996_mcu_sta_init_vow(dev, &link->mt76, wcid);
+	mt7996_mcu_sta_init_vow(dev, &link->mt76, wcid, weight);
 
 	return 0;
 }

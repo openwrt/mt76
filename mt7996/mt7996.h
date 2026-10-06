@@ -325,6 +325,7 @@ struct mt7996_sta {
 	u8 conn_state;
 
 	unsigned long wcid_flags;
+	u16 airtime_weight;
 
 	u16 ba_tx_mask;
 	u16 ba_rx_mask;
@@ -706,6 +707,15 @@ mt7996_vif_conf_link(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 {
 	return (struct mt7996_vif_link *)mt76_vif_conf_link(&dev->mt76, vif,
 							    link_conf);
+}
+
+static inline u16
+mt7996_sta_airtime_weight(struct mt7996_sta *msta)
+{
+	/* mac80211 never passes 0, and drv_priv is zeroed only when
+	 * the station is allocated, so a weight survives a restart
+	 */
+	return msta->airtime_weight ?: IEEE80211_DEFAULT_AIRTIME_WEIGHT;
 }
 
 static inline struct mt7996_sta_link *

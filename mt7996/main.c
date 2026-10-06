@@ -1695,6 +1695,23 @@ mt7996_mac_sta_links_ba_add(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 }
 
 static int
+mt7996_mac_sta_link_resume(struct mt7996_dev *dev, struct ieee80211_vif *vif,
+			   struct mt7996_vif_link *link,
+			   struct mt7996_sta_link *msta_link)
+{
+	int err;
+
+	err = mt7996_mcu_wtbl_update_hdr_trans(dev, vif, link, msta_link);
+	if (err)
+		return err;
+
+	return mt7996_mcu_set_vow_drr_ctrl(dev, link->mt76.band_idx,
+					   &msta_link->wcid, &link->mt76,
+					   VOW_DRR_CTRL_STA_ALL,
+					   mt7996_sta_airtime_weight(msta_link->sta));
+}
+
+static int
 mt7996_mac_sta_links_sync(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			  struct ieee80211_sta *sta, unsigned long links,
 			  unsigned long add)
@@ -1731,8 +1748,8 @@ mt7996_mac_sta_links_sync(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		link = mt7996_vif_link(dev, vif, link_id);
 
 		if (msta->conn_state != CONN_STATE_PORT_SECURE) {
-			err = mt7996_mcu_wtbl_update_hdr_trans(dev, vif, link,
-							       msta_link);
+			err = mt7996_mac_sta_link_resume(dev, vif, link,
+							 msta_link);
 			if (err)
 				return err;
 		}
@@ -2522,6 +2539,7 @@ static void mt7996_sta_set_airtime_weight(struct ieee80211_hw *hw,
 
 	mutex_lock(&dev->mt76.mutex);
 
+	msta->airtime_weight = weight;
 	for_each_sta_active_link(vif, sta, link_sta, link_id) {
 		struct mt7996_sta_link *msta_link;
 		struct mt7996_vif_link *link;
@@ -2531,7 +2549,7 @@ static void mt7996_sta_set_airtime_weight(struct ieee80211_hw *hw,
 			continue;
 
 		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
-		if (!msta_link || !msta_link->wcid.sta)
+		if (!msta_link || !msta_link->connected)
 			continue;
 
 		mt7996_mcu_set_vow_drr_ctrl(dev, link->mt76.band_idx,
