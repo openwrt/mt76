@@ -131,10 +131,8 @@ mt7996_coredump_fw_stack(struct mt7996_dev *dev, struct mt7996_coredump *dump,
 	dump->pc_stack[0] = mt76_rr(dev, MT_CONN_DBG_CTL_PC_LOG);
 
 	/* stop call stack record */
-	if (!exception) {
-		mt76_clear(dev, MT_MCU_WM_EXCP_PC_CTRL, BIT(0));
-		mt76_clear(dev, MT_MCU_WM_EXCP_LR_CTRL, BIT(0));
-	}
+	if (!exception)
+		mt7996_wm_excp_log_set(dev, false);
 
 	oldest = (u32)mt76_get_field(dev, MT_MCU_WM_EXCP_PC_CTRL,
 				     GENMASK(20, 16)) + 2;
@@ -153,10 +151,8 @@ mt7996_coredump_fw_stack(struct mt7996_dev *dev, struct mt7996_coredump *dump,
 	}
 
 	/* start call stack record */
-	if (!exception) {
-		mt76_set(dev, MT_MCU_WM_EXCP_PC_CTRL, BIT(0));
-		mt76_set(dev, MT_MCU_WM_EXCP_LR_CTRL, BIT(0));
-	}
+	if (!exception)
+		mt7996_wm_excp_log_set(dev, true);
 }
 
 static struct mt7996_coredump *mt7996_coredump_build(struct mt7996_dev *dev)

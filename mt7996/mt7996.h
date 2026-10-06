@@ -605,7 +605,9 @@ struct mt7996_dev {
 	u8 fw_debug_wm;
 	u8 fw_debug_wa;
 	u8 fw_debug_bin;
+	u8 fw_debug_level;
 	u16 fw_debug_seq;
+	u32 fw_debug_module;
 
 	struct dentry *debugfs_dir;
 	struct rchan *relay_fwlog;
@@ -668,6 +670,18 @@ mt7996_get_rdd_idx(struct mt7996_phy *phy, bool is_background)
 		return MT_RDD_IDX_BAND2;
 
 	return MT_RDD_IDX_BAND1;
+}
+
+static inline void
+mt7996_wm_excp_log_set(struct mt7996_dev *dev, bool enable)
+{
+	if (enable) {
+		mt76_set(dev, MT_MCU_WM_EXCP_PC_CTRL, MT_MCU_WM_EXCP_CTRL_EN);
+		mt76_set(dev, MT_MCU_WM_EXCP_LR_CTRL, MT_MCU_WM_EXCP_CTRL_EN);
+	} else {
+		mt76_clear(dev, MT_MCU_WM_EXCP_PC_CTRL, MT_MCU_WM_EXCP_CTRL_EN);
+		mt76_clear(dev, MT_MCU_WM_EXCP_LR_CTRL, MT_MCU_WM_EXCP_CTRL_EN);
+	}
 }
 
 static inline struct mt7996_dev *

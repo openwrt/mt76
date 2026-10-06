@@ -151,6 +151,7 @@ enum offs_rev {
 #define MT_PLE(ofs)				(MT_PLE_BASE + (ofs))
 
 #define MT_FL_Q_EMPTY				MT_PLE(0x360)
+#define MT_FL_Q_EMPTY_ALL_AC			BIT(24)
 #define MT_FL_Q0_CTRL				MT_PLE(0x3e0)
 #define MT_FL_Q2_CTRL				MT_PLE(0x3e8)
 #define MT_FL_Q3_CTRL				MT_PLE(0x3ec)
@@ -164,6 +165,16 @@ enum offs_rev {
 #define MT_FL_Q2_CTRL_HEAD_FID			GENMASK(12, 0)
 #define MT_FL_Q3_CTRL_PKT_NUM			GENMASK(12, 0)
 
+#define MT_PLE_PBUF_CTRL			MT_PLE(0x004)
+#define MT_PLE_PG_HIF_WMTXD_GROUP		MT_PLE(0x010)
+#define MT_PLE_PG_HIF_TXCMD_GROUP		MT_PLE(0x014)
+#define MT_PLE_PG_CPU_GROUP			MT_PLE(0x018)
+#define MT_PLE_TXCMD_Q_EMPTY(band)		MT_PLE(0x378 + ((band) << 4))
+#define MT_PLE_NATIVE_TXCMD_Q_EMPTY(band)	MT_PLE(0x37c + ((band) << 4))
+#define MT_PLE_HIF_WMTXD_PG_INFO		MT_PLE(0x3ac)
+#define MT_PLE_HIF_TXCMD_PG_INFO		MT_PLE(0x3b0)
+#define MT_PLE_CPU_PG_INFO			MT_PLE(0x3b4)
+
 #define MT_PLE_FREEPG_CNT			MT_PLE(0x3a0)
 #define MT_PLE_FREEPG_HEAD_TAIL			MT_PLE(0x3a4)
 #define MT_PLE_PG_HIF_GROUP			MT_PLE(0x00c)
@@ -172,6 +183,9 @@ enum offs_rev {
 #define MT_PLE_AC_QEMPTY(ac, n)			MT_PLE(0x600 + 0x100 * (ac) + ((n) << 2))
 #define MT_PLE_AMSDU_PACK_MSDU_CNT(n)		MT_PLE(0x10e0 + ((n) << 2))
 
+#define MT_PBUF_CTRL_PAGE_SIZE			BIT(31)
+#define MT_PBUF_CTRL_OFFSET			GENMASK(26, 17)
+#define MT_PBUF_CTRL_PAGE_NUM			GENMASK(12, 0)
 #define MT_FREEPG_CNT_FFA			GENMASK(28, 16)
 #define MT_FREEPG_CNT_FREE			GENMASK(12, 0)
 #define MT_FREEPG_HEAD_TAIL_TAIL		GENMASK(28, 16)
@@ -185,11 +199,25 @@ enum offs_rev {
 #define MT_PSE_BASE				0x820c8000
 #define MT_PSE(ofs)				(MT_PSE_BASE + (ofs))
 
+#define MT_PSE_PBUF_CTRL			MT_PSE(0x004)
 #define MT_PSE_QUEUE_EMPTY			MT_PSE(0x0b0)
 #define MT_PSE_QUEUE_EMPTY_1			MT_PSE(0x0bc)
+#define MT_PSE_PG_GROUP(n)			MT_PSE(0x110 + ((n) << 2))
+#define MT_PSE_PG_INFO(n)			MT_PSE(0x150 + ((n) << 2))
 #define MT_PSE_FL_Q0_CTRL			MT_PSE(0x1b0)
 #define MT_PSE_FL_Q2_CTRL			MT_PSE(0x1b8)
 #define MT_PSE_FL_Q3_CTRL			MT_PSE(0x1bc)
+#define MT_PSE_FREEPG_CNT			MT_PSE(0x3a0)
+#define MT_PSE_FREEPG_HEAD_TAIL			MT_PSE(0x3a4)
+
+/* DRR */
+#define MT_DRR_BASE				0x820c8800
+#define MT_DRR(ofs)				(MT_DRR_BASE + (ofs))
+
+#define MT_DRR_SBRR				MT_DRR(0x0e0)
+#define MT_DRR_SBRR_TARGET_BAND			GENMASK(1, 0)
+#define MT_DRR_TWT_STA_MAP(n)			MT_DRR(0x100 + ((n) << 2))
+#define MT_DRR_STA_PAUSE(ac, n)			MT_DRR(0x200 + 0x100 * (ac) + ((n) << 2))
 
 /* WF MDP TOP */
 #define MT_MDP_BASE				0x820cc000
@@ -736,8 +764,11 @@ enum offs_rev {
 #define MT_CONN_DBG_CTL_BASE			0x18023000
 #define MT_CONN_DBG_CTL(ofs)			(MT_CONN_DBG_CTL_BASE + (ofs))
 #define MT_CONN_DBG_CTL_OUT_SEL			MT_CONN_DBG_CTL(0x604)
+#define MT_CONN_DBG_CTL_GPR_BUS_OUT_LOG		MT_CONN_DBG_CTL(0x608)
 #define MT_CONN_DBG_CTL_PC_LOG_SEL		MT_CONN_DBG_CTL(0x60c)
 #define MT_CONN_DBG_CTL_PC_LOG			MT_CONN_DBG_CTL(0x610)
+#define MT_CONN_DBG_CTL_GPR_LOG_SEL		MT_CONN_DBG_CTL(0x614)
+#define MT_CONN_DBG_CTL_LOG_IDX			GENMASK(21, 17)
 
 #define MT_LED_GPIO_MUX2			0x70005058 /* GPIO 18 */
 #define MT_LED_GPIO_MUX3			0x7000505C /* GPIO 26 */
@@ -833,6 +864,8 @@ enum offs_rev {
 #define MT_MCU_WM_EXCP_PC_LOG			MT_MCU_WM_EXCP(0x104)
 #define MT_MCU_WM_EXCP_LR_CTRL			MT_MCU_WM_EXCP(0x200)
 #define MT_MCU_WM_EXCP_LR_LOG			MT_MCU_WM_EXCP(0x204)
+#define MT_MCU_WM_EXCP_CTRL_IDX			GENMASK(20, 16)
+#define MT_MCU_WM_EXCP_CTRL_EN			BIT(0)
 
 /* CONN AFE CTL CON */
 #define MT_AFE_CTL_BASE				0x18043000

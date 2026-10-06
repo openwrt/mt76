@@ -421,6 +421,161 @@ mt7996_fw_util_wa_show(struct seq_file *file, void *data)
 
 DEFINE_SHOW_ATTRIBUTE(mt7996_fw_util_wa);
 
+static int
+mt7996_fw_debug_module_set(void *data, u64 val)
+{
+	struct mt7996_dev *dev = data;
+
+	if (val > U32_MAX)
+		return -EINVAL;
+
+	dev->fw_debug_module = val;
+
+	return 0;
+}
+
+static int
+mt7996_fw_debug_module_get(void *data, u64 *val)
+{
+	struct mt7996_dev *dev = data;
+
+	*val = dev->fw_debug_module;
+
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(fops_fw_debug_module, mt7996_fw_debug_module_get,
+			 mt7996_fw_debug_module_set, "%lld\n");
+
+static int
+mt7996_fw_debug_level_set(void *data, u64 val)
+{
+	struct mt7996_dev *dev = data;
+	int ret;
+
+	if (val > U8_MAX)
+		return -EINVAL;
+
+	ret = mt7996_mcu_fw_dbg_ctrl(dev, dev->fw_debug_module, val);
+	if (ret)
+		return ret;
+
+	dev->fw_debug_level = val;
+
+	return 0;
+}
+
+static int
+mt7996_fw_debug_level_get(void *data, u64 *val)
+{
+	struct mt7996_dev *dev = data;
+
+	*val = dev->fw_debug_level;
+
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(fops_fw_debug_level, mt7996_fw_debug_level_get,
+			 mt7996_fw_debug_level_set, "%lld\n");
+
+#define MT7996_FW_LOG_LEN	32
+
+static u32
+mt7996_fw_wm_excp_log_read(struct mt7996_dev *dev, u32 ctrl, u32 log_base,
+			   u32 *log)
+{
+	u32 val = mt76_rr(dev, ctrl);
+	int i;
+
+	for (i = 0; i < MT7996_FW_LOG_LEN; i++)
+		log[i] = mt76_rr(dev, log_base + i * 4);
+
+	return val;
+}
+
+static u32
+mt7996_fw_wm_dbg_log_read(struct mt7996_dev *dev, u32 sel, u32 out, u32 *log)
+{
+	u32 val;
+	int i;
+
+	mt76_wr(dev, sel, MT7996_FW_LOG_LEN);
+	val = mt76_rr(dev, out);
+
+	for (i = 0; i < MT7996_FW_LOG_LEN; i++) {
+		mt76_wr(dev, sel, i);
+		log[i] = mt76_rr(dev, out);
+	}
+
+	return val;
+}
+
+static void
+mt7996_fw_wm_log_show(struct seq_file *s, const char *name, u32 ctrl, u32 idx,
+		      const u32 *log)
+{
+	int i;
+
+	seq_printf(s, "%s log control 0x%08x, latest index %u\n",
+		   name, ctrl, idx);
+	for (i = 0; i < MT7996_FW_LOG_LEN; i++)
+		seq_printf(s, "\t%s log %2d: 0x%08x\n", name, i, log[i]);
+}
+
+static int
+mt7996_fw_wm_info_show(struct seq_file *s, void *data)
+{
+	struct mt7996_dev *dev = dev_get_drvdata(s->private);
+	u32 pc_log[MT7996_FW_LOG_LEN], lr_log[MT7996_FW_LOG_LEN];
+	u32 pc_cur[10], pc_ctrl, lr_ctrl, pc_idx, lr_idx;
+	int i;
+
+	mutex_lock(&dev->dump_mutex);
+
+	mt76_wr(dev, MT_CONN_DBG_CTL_OUT_SEL, 0);
+	mt76_wr(dev, MT_CONN_DBG_CTL_PC_LOG_SEL, 0x3f);
+	for (i = 0; i < ARRAY_SIZE(pc_cur); i++)
+		pc_cur[i] = mt76_rr(dev, MT_CONN_DBG_CTL_PC_LOG);
+
+	if (is_mt7996(&dev->mt76)) {
+		bool running = !mt76_rr(dev, MT_FW_ASSERT_CNT);
+
+		if (running)
+			mt7996_wm_excp_log_set(dev, false);
+		pc_ctrl = mt7996_fw_wm_excp_log_read(dev, MT_MCU_WM_EXCP_PC_CTRL,
+						     MT_MCU_WM_EXCP_PC_LOG,
+						     pc_log);
+		lr_ctrl = mt7996_fw_wm_excp_log_read(dev, MT_MCU_WM_EXCP_LR_CTRL,
+						     MT_MCU_WM_EXCP_LR_LOG,
+						     lr_log);
+		if (running)
+			mt7996_wm_excp_log_set(dev, true);
+		pc_idx = u32_get_bits(pc_ctrl, MT_MCU_WM_EXCP_CTRL_IDX);
+		lr_idx = u32_get_bits(lr_ctrl, MT_MCU_WM_EXCP_CTRL_IDX);
+	} else {
+		pc_ctrl = mt7996_fw_wm_dbg_log_read(dev,
+						    MT_CONN_DBG_CTL_PC_LOG_SEL,
+						    MT_CONN_DBG_CTL_PC_LOG,
+						    pc_log);
+		lr_ctrl = mt7996_fw_wm_dbg_log_read(dev,
+						    MT_CONN_DBG_CTL_GPR_LOG_SEL,
+						    MT_CONN_DBG_CTL_GPR_BUS_OUT_LOG,
+						    lr_log);
+		pc_idx = u32_get_bits(pc_ctrl, MT_CONN_DBG_CTL_LOG_IDX);
+		lr_idx = u32_get_bits(lr_ctrl, MT_CONN_DBG_CTL_LOG_IDX);
+	}
+
+	mutex_unlock(&dev->dump_mutex);
+
+	for (i = 0; i < ARRAY_SIZE(pc_cur); i++)
+		seq_printf(s, "current PC: 0x%08x\n", pc_cur[i]);
+
+	mt7996_fw_wm_log_show(s, "PC", pc_ctrl, pc_idx, pc_log);
+	mt7996_fw_wm_log_show(s, "LR", lr_ctrl, lr_idx, lr_log);
+
+	return 0;
+}
+
 static void
 mt7996_ampdu_stat_read_phy(struct mt7996_phy *phy, struct seq_file *file)
 {
@@ -689,6 +844,20 @@ mt7996_fl_queues_show(struct seq_file *s, struct mt7996_dev *dev, bool pse,
 }
 
 static void
+mt7996_pbuf_show(struct seq_file *s, const char *name, u32 ctrl, bool pse)
+{
+	u32 page_size = pse ? 128 : 64;
+
+	if (ctrl & MT_PBUF_CTRL_PAGE_SIZE)
+		page_size *= 2;
+
+	seq_printf(s, "%s packet buffer control 0x%08x\n", name, ctrl);
+	seq_printf(s, "\tpage size %u bytes, offset %u (unit %u KB), %u pages\n",
+		   page_size, u32_get_bits(ctrl, MT_PBUF_CTRL_OFFSET),
+		   pse ? 64 : 2, u32_get_bits(ctrl, MT_PBUF_CTRL_PAGE_NUM));
+}
+
+static void
 mt7996_freepg_show(struct seq_file *s, u32 cnt, u32 head_tail)
 {
 	seq_printf(s, "\tfree pages 0x%04x, free for all 0x%04x, head/tail 0x%04x/0x%04x\n",
@@ -726,91 +895,204 @@ mt7996_ple_sta_cr(struct mt7996_dev *dev, unsigned int n)
 	return n;
 }
 
-static void
-mt7996_sta_hw_queue_read(void *data, struct ieee80211_sta *sta)
+static unsigned int
+mt7996_drr_twt_cr(struct mt7996_dev *dev, unsigned int n)
 {
-	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
-	struct mt7996_vif *mvif = msta->vif;
-	struct ieee80211_link_sta *link_sta;
-	struct seq_file *s = data;
-	struct ieee80211_vif *vif;
-	unsigned int link_id;
+	/* MT7990 has 18 TWT station registers, one more than it has
+	 * station groups, so no station group uses its extension register
+	 */
+	if (is_mt7990(&dev->mt76))
+		return n;
 
-	vif = container_of((void *)mvif, struct ieee80211_vif, drv_priv);
+	return mt7996_ple_sta_cr(dev, n);
+}
+
+static void
+mt7996_ple_sta_state_show(struct seq_file *s, struct mt7996_dev *dev, u8 ac,
+			  unsigned int cr, u16 wlan_idx)
+{
+	unsigned int twt_cr = mt7996_drr_twt_cr(dev, wlan_idx / 32);
+	u32 bit = BIT(wlan_idx % 32);
+	struct mt76_wcid *wcid;
+	int wmm_idx = -1;
+	u8 band;
 
 	rcu_read_lock();
 
-	for_each_sta_active_link(vif, sta, link_sta, link_id) {
+	wcid = mt76_wcid_ptr(dev, wlan_idx);
+	if (!wcid) {
+		rcu_read_unlock();
+		seq_puts(s, ", no station");
+		return;
+	}
+
+	band = wcid->phy_idx;
+	if (wcid->sta) {
 		struct mt7996_sta_link *msta_link;
 		struct mt76_vif_link *mlink;
-		struct mt7996_phy *phy;
-		unsigned int cr;
-		u16 wlan_idx;
-		u8 ac;
 
-		mlink = rcu_dereference(mvif->mt76.link[link_id]);
-		if (!mlink)
-			continue;
-
-		phy = mt7996_vif_link_phy(container_of(mlink,
-						       struct mt7996_vif_link,
-						       mt76));
-		if (!phy)
-			continue;
-
-		msta_link = mt7996_sta_link(msta, link_id);
-		if (!msta_link)
-			continue;
-
-		wlan_idx = msta_link->wcid.idx;
-		cr = mt7996_ple_sta_cr(phy->dev, wlan_idx / 32);
-		for (ac = 0; ac < IEEE80211_NUM_ACS; ac++) {
-			struct mt7996_hw_queue q = {
-				.pid = MT_QUEUE_PORT_LMAC,
-				.qid = ac,
-			};
-
-			if (mt76_rr(phy->dev, MT_PLE_AC_QEMPTY(ac, cr)) &
-			    BIT(wlan_idx % 32))
-				continue;
-
-			seq_printf(s, "\tSTA %pM wcid %u AC%u%u: ", sta->addr,
-				   wlan_idx, mlink->wmm_idx, ac);
-			mt7996_fl_queue_show(s, phy->dev, false, &q, wlan_idx);
-			seq_puts(s, "\n");
-		}
+		msta_link = container_of(wcid, struct mt7996_sta_link, wcid);
+		mlink = rcu_dereference(msta_link->sta->vif->mt76.link[wcid->link_id]);
+		if (mlink)
+			wmm_idx = mlink->wmm_idx;
 	}
 
 	rcu_read_unlock();
+
+	seq_printf(s, ", band %u", band);
+	if (wmm_idx >= 0)
+		seq_printf(s, ", WMM %d", wmm_idx);
+
+	mt76_wr(dev, MT_DRR_SBRR, u32_encode_bits(band, MT_DRR_SBRR_TARGET_BAND));
+	if (mt76_rr(dev, MT_DRR_STA_PAUSE(ac, cr)) & bit)
+		seq_puts(s, ", paused");
+	if (mt76_rr(dev, MT_DRR_TWT_STA_MAP(twt_cr)) & bit)
+		seq_puts(s, ", TWT paused");
+}
+
+static void
+mt7996_ple_sta_queues_show(struct seq_file *s, struct mt7996_dev *dev)
+{
+	unsigned int n, num = mt7996_ple_sta_cr_num(dev);
+
+	for (n = 0; n < num * IEEE80211_NUM_ACS; n++) {
+		struct mt7996_hw_queue q = {
+			.pid = MT_QUEUE_PORT_LMAC,
+			.qid = n / num,
+		};
+		unsigned int i, cr = mt7996_ple_sta_cr(dev, n % num);
+		unsigned long empty;
+
+		empty = mt76_rr(dev, MT_PLE_AC_QEMPTY(q.qid, cr));
+		for_each_clear_bit(i, &empty, 32) {
+			u16 wlan_idx = (n % num) * 32 + i;
+
+			seq_printf(s, "\tSTA %u AC%u: ", wlan_idx, q.qid);
+			mt7996_fl_queue_show(s, dev, false, &q, wlan_idx);
+			mt7996_ple_sta_state_show(s, dev, q.qid, cr, wlan_idx);
+			seq_puts(s, "\n");
+		}
+	}
+}
+
+static void
+mt7996_ple_txcmd_queues_show(struct seq_file *s, struct mt7996_dev *dev)
+{
+	static const char * const names[] = {
+		"ALTX Q0", "TF Q0", "TWT TSF-TF Q0", "TWT DL Q0", "TWT UL Q0"
+	};
+	u8 band;
+
+	for (band = MT_BAND0; band < __MT_MAX_BAND; band++) {
+		struct mt7996_hw_queue q = { .pid = MT_QUEUE_PORT_LMAC };
+		unsigned long empty;
+		unsigned int i;
+
+		if (!mt7996_band_valid(dev, band))
+			continue;
+
+		empty = mt76_rr(dev, MT_PLE_NATIVE_TXCMD_Q_EMPTY(band));
+		seq_printf(s, "band %u TXCMD queue empty 0x%08x, native 0x%08lx\n",
+			   band, mt76_rr(dev, MT_PLE_TXCMD_Q_EMPTY(band)), empty);
+
+		for_each_clear_bit(i, &empty, 16 + ARRAY_SIZE(names)) {
+			if (i < 16) {
+				q.qid = 0x40 + band * 16 + i;
+				seq_printf(s, "\tAC%u%uQ: ", i / 4, i % 4);
+			} else {
+				q.qid = 0x70 + band * ARRAY_SIZE(names) + i - 16;
+				seq_printf(s, "\t%s: ", names[i - 16]);
+			}
+
+			mt7996_fl_queue_show(s, dev, false, &q, 0);
+			seq_puts(s, "\n");
+		}
+	}
 }
 
 static int
-mt7996_hw_queues_show(struct seq_file *s, void *data)
+mt7996_ple_info_show(struct seq_file *s, void *data)
 {
-	struct mt7996_dev *dev = s->private;
+	static const struct {
+		const char *name;
+		u32 group;
+		u32 info;
+	} groups[] = {
+		{ "HIF", MT_PLE_PG_HIF_GROUP, MT_PLE_HIF_PG_INFO },
+		{ "HIF WM TXD", MT_PLE_PG_HIF_WMTXD_GROUP,
+		  MT_PLE_HIF_WMTXD_PG_INFO },
+		{ "HIF TXCMD", MT_PLE_PG_HIF_TXCMD_GROUP,
+		  MT_PLE_HIF_TXCMD_PG_INFO },
+		{ "CPU", MT_PLE_PG_CPU_GROUP, MT_PLE_CPU_PG_INFO },
+	};
+	struct mt7996_dev *dev = dev_get_drvdata(s->private);
+	u32 empty;
+	int i;
 
-	seq_puts(s, "PLE page info:\n");
+	mutex_lock(&dev->mt76.mutex);
+
+	mt7996_pbuf_show(s, "PLE", mt76_rr(dev, MT_PLE_PBUF_CTRL), false);
 	mt7996_freepg_show(s, mt76_rr(dev, MT_PLE_FREEPG_CNT),
 			   mt76_rr(dev, MT_PLE_FREEPG_HEAD_TAIL));
-	mt7996_pg_group_show(s, "HIF", mt76_rr(dev, MT_PLE_PG_HIF_GROUP),
-			     mt76_rr(dev, MT_PLE_HIF_PG_INFO));
+	for (i = 0; i < ARRAY_SIZE(groups); i++)
+		mt7996_pg_group_show(s, groups[i].name,
+				     mt76_rr(dev, groups[i].group),
+				     mt76_rr(dev, groups[i].info));
 
-	seq_puts(s, "PLE non-empty queue info:\n");
-	mt7996_fl_queues_show(s, dev, false, mt7996_ple_queues,
-			      mt76_rr(dev, MT_FL_Q_EMPTY));
-	ieee80211_iterate_stations_atomic(dev->mphy.hw,
-					  mt7996_sta_hw_queue_read, s);
+	empty = mt76_rr(dev, MT_FL_Q_EMPTY);
+	seq_printf(s, "PLE queue empty 0x%08x\n", empty);
+	mt7996_fl_queues_show(s, dev, false, mt7996_ple_queues, empty);
+	if (!(empty & MT_FL_Q_EMPTY_ALL_AC))
+		mt7996_ple_sta_queues_show(s, dev);
 
-	seq_puts(s, "PSE non-empty queue info:\n");
-	mt7996_fl_queues_show(s, dev, true, mt7996_pse_queues,
-			      mt76_rr(dev, MT_PSE_QUEUE_EMPTY));
-	mt7996_fl_queues_show(s, dev, true, mt7996_pse_queues_1,
-			      mt76_rr(dev, MT_PSE_QUEUE_EMPTY_1));
+	mt7996_ple_txcmd_queues_show(s, dev);
+
+	mutex_unlock(&dev->mt76.mutex);
 
 	return 0;
 }
 
-DEFINE_SHOW_ATTRIBUTE(mt7996_hw_queues);
+static int
+mt7996_pse_info_show(struct seq_file *s, void *data)
+{
+	static const struct {
+		const char *name;
+		u8 idx;
+		bool band2;
+	} groups[] = {
+		{ "HIF0", 0 }, { "HIF1", 1 }, { "HIF2", 12 }, { "CPU", 2 },
+		{ "LMAC0", 5 }, { "LMAC1", 6 }, { "LMAC2", 7 }, { "LMAC3", 8 },
+		{ "PLE", 3 }, { "PLE1", 4 }, { "MDP", 9 }, { "MDP2", 11 },
+		{ "MDP3", 13, true },
+	};
+	struct mt7996_dev *dev = dev_get_drvdata(s->private);
+	u32 empty, empty_1;
+	int i;
+
+	mutex_lock(&dev->mt76.mutex);
+
+	mt7996_pbuf_show(s, "PSE", mt76_rr(dev, MT_PSE_PBUF_CTRL), true);
+	mt7996_freepg_show(s, mt76_rr(dev, MT_PSE_FREEPG_CNT),
+			   mt76_rr(dev, MT_PSE_FREEPG_HEAD_TAIL));
+	for (i = 0; i < ARRAY_SIZE(groups); i++) {
+		if (groups[i].band2 && !mt7996_band_valid(dev, MT_BAND2))
+			continue;
+
+		mt7996_pg_group_show(s, groups[i].name,
+				     mt76_rr(dev, MT_PSE_PG_GROUP(groups[i].idx)),
+				     mt76_rr(dev, MT_PSE_PG_INFO(groups[i].idx)));
+	}
+
+	empty = mt76_rr(dev, MT_PSE_QUEUE_EMPTY);
+	empty_1 = mt76_rr(dev, MT_PSE_QUEUE_EMPTY_1);
+	seq_printf(s, "PSE queue empty 0x%08x 0x%08x\n", empty, empty_1);
+	mt7996_fl_queues_show(s, dev, true, mt7996_pse_queues, empty);
+	mt7996_fl_queues_show(s, dev, true, mt7996_pse_queues_1, empty_1);
+
+	mutex_unlock(&dev->mt76.mutex);
+
+	return 0;
+}
 
 static int
 mt7996_xmit_queues_show(struct seq_file *file, void *data)
@@ -953,8 +1235,6 @@ int mt7996_init_debugfs(struct mt7996_dev *dev)
 
 	dir = mt76_register_debugfs_fops(&dev->mphy, NULL);
 
-	debugfs_create_file("hw-queues", 0400, dir, dev,
-			    &mt7996_hw_queues_fops);
 	debugfs_create_file("xmit-queues", 0400, dir, dev,
 			    &mt7996_xmit_queues_fops);
 	debugfs_create_file("tx_stats", 0400, dir, dev, &mt7996_tx_stats_fops);
@@ -963,6 +1243,16 @@ int mt7996_init_debugfs(struct mt7996_dev *dev)
 	debugfs_create_file("fw_debug_wm", 0600, dir, dev, &fops_fw_debug_wm);
 	debugfs_create_file("fw_debug_wa", 0600, dir, dev, &fops_fw_debug_wa);
 	debugfs_create_file("fw_debug_bin", 0600, dir, dev, &fops_fw_debug_bin);
+	debugfs_create_file("fw_debug_module", 0600, dir, dev,
+			    &fops_fw_debug_module);
+	debugfs_create_file("fw_debug_level", 0600, dir, dev,
+			    &fops_fw_debug_level);
+	debugfs_create_devm_seqfile(dev->mt76.dev, "fw_wm_info", dir,
+				    mt7996_fw_wm_info_show);
+	debugfs_create_devm_seqfile(dev->mt76.dev, "ple_info", dir,
+				    mt7996_ple_info_show);
+	debugfs_create_devm_seqfile(dev->mt76.dev, "pse_info", dir,
+				    mt7996_pse_info_show);
 	/* TODO: wm fw cpu utilization */
 	debugfs_create_file("fw_util_wa", 0400, dir, dev,
 			    &mt7996_fw_util_wa_fops);
@@ -1047,6 +1337,64 @@ bool mt7996_debugfs_rx_log(struct mt7996_dev *dev, const void *data, int len)
 
 #ifdef CONFIG_MAC80211_DEBUGFS
 /** per-station debugfs **/
+
+static void
+mt7996_sta_hw_queue_read(void *data, struct ieee80211_sta *sta)
+{
+	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	struct mt7996_vif *mvif = msta->vif;
+	struct ieee80211_link_sta *link_sta;
+	struct seq_file *s = data;
+	struct ieee80211_vif *vif;
+	unsigned int link_id;
+
+	vif = container_of((void *)mvif, struct ieee80211_vif, drv_priv);
+
+	rcu_read_lock();
+
+	for_each_sta_active_link(vif, sta, link_sta, link_id) {
+		struct mt7996_sta_link *msta_link;
+		struct mt76_vif_link *mlink;
+		struct mt7996_phy *phy;
+		unsigned int cr;
+		u16 wlan_idx;
+		u8 ac;
+
+		mlink = rcu_dereference(mvif->mt76.link[link_id]);
+		if (!mlink)
+			continue;
+
+		phy = mt7996_vif_link_phy(container_of(mlink,
+						       struct mt7996_vif_link,
+						       mt76));
+		if (!phy)
+			continue;
+
+		msta_link = mt7996_sta_link(msta, link_id);
+		if (!msta_link)
+			continue;
+
+		wlan_idx = msta_link->wcid.idx;
+		cr = mt7996_ple_sta_cr(phy->dev, wlan_idx / 32);
+		for (ac = 0; ac < IEEE80211_NUM_ACS; ac++) {
+			struct mt7996_hw_queue q = {
+				.pid = MT_QUEUE_PORT_LMAC,
+				.qid = ac,
+			};
+
+			if (mt76_rr(phy->dev, MT_PLE_AC_QEMPTY(ac, cr)) &
+			    BIT(wlan_idx % 32))
+				continue;
+
+			seq_printf(s, "\tSTA %pM wcid %u AC%u%u: ", sta->addr,
+				   wlan_idx, mlink->wmm_idx, ac);
+			mt7996_fl_queue_show(s, phy->dev, false, &q, wlan_idx);
+			seq_puts(s, "\n");
+		}
+	}
+
+	rcu_read_unlock();
+}
 
 static int
 mt7996_queues_show(struct seq_file *s, void *data)
