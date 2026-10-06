@@ -425,18 +425,11 @@ static void mt7996_vif_link_destroy(struct mt7996_phy *phy,
 	struct mt7996_sta_link *msta_link = &link->msta_link;
 	unsigned int link_id = msta_link->wcid.link_id;
 	struct mt76_vif_link *mlink = &link->mt76;
-	struct mt7996_key_iter_data it = {
-		.cmd = SET_KEY,
-		.link_id = link_id,
-	};
 	struct mt7996_dev *dev = phy->dev;
 	int idx = msta_link->wcid.idx;
 
 	if (!link_conf)
 		link_conf = &vif->bss_conf;
-
-	if (!mlink->wcid->offchannel)
-		ieee80211_iter_keys(phy->mt76->hw, vif, mt7996_key_iter, &it);
 
 	mt7996_mcu_add_sta(dev, link_conf, NULL, link, NULL,
 			   CONN_STATE_DISCONNECT, false);
