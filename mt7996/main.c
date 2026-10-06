@@ -1439,26 +1439,6 @@ error_unlink:
 }
 
 static int
-mt7996_mac_sta_change_links(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-			    struct ieee80211_sta *sta, u16 old_links,
-			    u16 new_links)
-{
-	struct mt7996_dev *dev = mt7996_hw_dev(hw);
-	unsigned long add = new_links & ~old_links;
-	unsigned long rem = old_links & ~new_links;
-	int ret;
-
-	mutex_lock(&dev->mt76.mutex);
-
-	mt7996_mac_sta_remove_links(dev, vif, sta, rem, false);
-	ret = mt7996_mac_sta_add_links(dev, vif, sta, add);
-
-	mutex_unlock(&dev->mt76.mutex);
-
-	return ret;
-}
-
-static int
 mt7996_mac_sta_add(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		   struct ieee80211_sta *sta)
 {
@@ -1596,6 +1576,58 @@ out:
 	mutex_unlock(&dev->mt76.mutex);
 
 	return err;
+}
+
+static void
+mt7996_mac_sta_links_bss_add(struct mt7996_dev *dev, struct ieee80211_vif *vif,
+			     struct ieee80211_sta *sta, unsigned long links)
+{
+	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	unsigned int link_id;
+
+	if (vif->type != NL80211_IFTYPE_STATION ||
+	    msta->conn_state == CONN_STATE_DISCONNECT)
+		return;
+
+	for_each_set_bit(link_id, &links, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct ieee80211_bss_conf *link_conf;
+		struct mt7996_vif_link *link;
+		struct mt7996_phy *phy;
+
+		link_conf = link_conf_dereference_protected(vif, link_id);
+		if (!link_conf || !link_conf->bssid ||
+		    is_zero_ether_addr(link_conf->bssid))
+			continue;
+
+		link = mt7996_vif_link(dev, vif, link_id);
+		if (!link)
+			continue;
+
+		phy = mt7996_vif_link_phy(link);
+		if (phy)
+			mt7996_vif_link_bss_add(phy, vif, link_conf, link, true);
+	}
+}
+
+static int
+mt7996_mac_sta_change_links(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+			    struct ieee80211_sta *sta, u16 old_links,
+			    u16 new_links)
+{
+	struct mt7996_dev *dev = mt7996_hw_dev(hw);
+	unsigned long add = new_links & ~old_links;
+	unsigned long rem = old_links & ~new_links;
+	int ret;
+
+	mutex_lock(&dev->mt76.mutex);
+
+	mt7996_mac_sta_remove_links(dev, vif, sta, rem, false);
+	mt7996_mac_sta_links_bss_add(dev, vif, sta, add);
+	ret = mt7996_mac_sta_add_links(dev, vif, sta, add);
+
+	mutex_unlock(&dev->mt76.mutex);
+
+	return ret;
 }
 
 static void
