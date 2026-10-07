@@ -188,7 +188,7 @@ mt7921_mac_fill_rx(struct mt792x_dev *dev, struct sk_buff *skb)
 	u16 seq_ctrl = 0;
 	__le16 fc = 0;
 	u8 mode = 0;
-	int i, idx;
+	int idx;
 
 	memset(status, 0, sizeof(*status));
 
@@ -368,15 +368,6 @@ mt7921_mac_fill_rx(struct mt792x_dev *dev, struct sk_buff *skb)
 		status->chain_signal[1] = to_rssi(MT_PRXV_RCPI1, v1);
 		status->chain_signal[2] = to_rssi(MT_PRXV_RCPI2, v1);
 		status->chain_signal[3] = to_rssi(MT_PRXV_RCPI3, v1);
-		status->signal = -128;
-		for (i = 0; i < hweight8(mphy->antenna_mask); i++) {
-			if (!(status->chains & BIT(i)) ||
-			    status->chain_signal[i] >= 0)
-				continue;
-
-			status->signal = max(status->signal,
-					     status->chain_signal[i]);
-		}
 	}
 
 	amsdu_info = FIELD_GET(MT_RXD4_NORMAL_PAYLOAD_FORMAT, rxd4);

@@ -775,7 +775,6 @@ struct mt76_rx_status {
 	u8 amsdu:1, first_amsdu:1, last_amsdu:1;
 	u8 rate_idx;
 	u8 nss:5, band:3;
-	s8 signal;
 	u8 chains;
 	s8 chain_signal[IEEE80211_MAX_CHAINS];
 };
