@@ -915,7 +915,7 @@ void mt7996_mac_write_txwi(struct mt7996_dev *dev, __le32 *txwi,
 	mvif = vif ? (struct mt7996_vif *)vif->drv_priv : NULL;
 	if (mvif) {
 		if (wcid->offchannel)
-			mlink = rcu_dereference(mvif->mt76.offchannel_link);
+			mlink = mt7996_offchannel_link(wcid);
 		if (!mlink && link_id != IEEE80211_LINK_UNSPECIFIED)
 			mlink = rcu_dereference(mvif->mt76.link[link_id]);
 	}
@@ -1196,7 +1196,7 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 
 		if (mvif) {
 			if (wcid->offchannel)
-				mlink = rcu_dereference(mvif->mt76.offchannel_link);
+				mlink = mt7996_offchannel_link(wcid);
 			if (!mlink)
 				mlink = rcu_dereference(mvif->mt76.link[wcid->link_id]);
 
