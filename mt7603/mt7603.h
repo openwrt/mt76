@@ -118,7 +118,6 @@ struct mt7603_dev {
 
 	u32 ampdu_ref;
 	u32 rx_ampdu_ts;
-	u8 rssi_offset[3];
 
 	u8 slottime;
 	s16 coverage_class;

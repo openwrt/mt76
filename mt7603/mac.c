@@ -643,7 +643,7 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 	}
 	if (rxd0 & MT_RXD0_NORMAL_GROUP_3) {
 		u32 rxdg0 = le32_to_cpu(rxd[0]);
-		u32 rxdg3 = le32_to_cpu(rxd[3]);
+		u32 rxdg2 = le32_to_cpu(rxd[2]);
 		bool cck = false;
 
 		i = FIELD_GET(MT_RXV1_TX_RATE, rxdg0);
@@ -675,10 +675,8 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 		status->rate_idx = i;
 
 		status->chains = dev->mphy.antenna_mask;
-		status->chain_signal[0] = FIELD_GET(MT_RXV4_IB_RSSI0, rxdg3) +
-					  dev->rssi_offset[0];
-		status->chain_signal[1] = FIELD_GET(MT_RXV4_IB_RSSI1, rxdg3) +
-					  dev->rssi_offset[1];
+		status->chain_signal[0] = ((s16)FIELD_GET(MT_RXV3_RCPI0, rxdg2) - 220) / 2;
+		status->chain_signal[1] = ((s16)FIELD_GET(MT_RXV3_RCPI1, rxdg2) - 220) / 2;
 
 		if (FIELD_GET(MT_RXV1_FRAME_MODE, rxdg0) == 1)
 			status->bw = RATE_INFO_BW_40;
