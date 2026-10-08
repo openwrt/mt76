@@ -2156,7 +2156,8 @@ int mt7615_mcu_set_chan_info(struct mt7615_phy *phy, int cmd)
 	};
 
 	if (cmd == MCU_EXT_CMD(SET_RX_PATH) ||
-	    phy->mt76->hw->conf.flags & IEEE80211_CONF_MONITOR)
+	    (phy->mt76->hw->conf.flags & IEEE80211_CONF_MONITOR &&
+	     !phy->mt76->offchannel))
 		req.switch_reason = CH_SWITCH_NORMAL;
 	else if (phy->mt76->offchannel)
 		req.switch_reason = CH_SWITCH_SCAN_BYPASS_DPD;
