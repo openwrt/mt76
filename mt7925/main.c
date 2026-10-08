@@ -1235,6 +1235,9 @@ static void mt7925_mac_link_sta_assoc(struct mt76_dev *mdev,
 	if (vif->type == NL80211_IFTYPE_STATION && !link_sta->sta->tdls) {
 		struct mt792x_bss_conf *mconf;
 
+		/* release the JOIN roc before reporting the bss as connected */
+		mt7925_roc_abort_sync(dev);
+
 		mconf = mt792x_link_conf_to_mconf(link_conf);
 		mt7925_mcu_add_bss_info(&dev->phy, mconf->mt76.ctx,
 					link_conf, link_sta, true);
