@@ -46,6 +46,7 @@ struct mt76x02_calibration {
 	s8 agc_lowest_gain;
 	s8 low_gain;
 
+	s8 temp_phy;
 	s8 temp_vco;
 	s8 temp;
 
