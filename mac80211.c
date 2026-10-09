@@ -198,6 +198,7 @@ static int mt76_led_init(struct mt76_phy *phy)
 	struct mt76_dev *dev = phy->dev;
 	struct ieee80211_hw *hw = phy->hw;
 	struct device_node *np = dev->dev->of_node;
+	struct led_init_data init_data;
 
 	if (!phy->leds.cdev.brightness_set && !phy->leds.cdev.blink_set)
 		return 0;
@@ -210,6 +211,11 @@ static int mt76_led_init(struct mt76_phy *phy)
 				"led registration was explicitly disabled by dts\n");
 			return 0;
 		}
+
+		init_data.fwnode = &np->fwnode;
+		init_data.default_label = NULL;
+		init_data.devicename = NULL;
+		init_data.devname_mandatory = false;
 
 		if (phy == &dev->phy) {
 			int led_pin;
@@ -237,7 +243,7 @@ static int mt76_led_init(struct mt76_phy *phy)
 	dev_info(dev->dev,
 		"registering led '%s'\n", phy->leds.name);
 
-	return led_classdev_register(dev->dev, &phy->leds.cdev);
+	return led_classdev_register_ext(dev->dev, &phy->leds.cdev, np ? &init_data : NULL);
 }
 
 static void mt76_led_cleanup(struct mt76_phy *phy)
