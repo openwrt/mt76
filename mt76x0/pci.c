@@ -90,6 +90,7 @@ static const struct ieee80211_ops mt76x0e_ops = {
 	.get_antenna = mt76_get_antenna,
 	.reconfig_complete = mt76x02_reconfig_complete,
 	.set_sar_specs = mt76x0_set_sar_specs,
+	.can_aggregate_in_amsdu = mt76x02_can_aggregate_in_amsdu,
 };
 
 static int mt76x0e_init_hardware(struct mt76x02_dev *dev, bool resume)
