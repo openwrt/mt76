@@ -247,6 +247,48 @@ static int mt7921_chip_reset(void *data, u64 val)
 
 DEFINE_DEBUGFS_ATTRIBUTE(fops_reset, NULL, mt7921_chip_reset, "%lld\n");
 
+static int mt7921_bt_reset(void *data, u64 val)
+{
+	struct mt792x_dev *dev = data;
+	int ret = 0;
+
+	if (val != 1)
+		return -EINVAL;
+
+	if (!mt76_is_mmio(&dev->mt76))
+		return -EOPNOTSUPP;
+
+	mt792x_mutex_acquire(dev);
+	if (mt76_rr(dev, MT_HW_CHIPID) != 0x7961) {
+		ret = -EOPNOTSUPP;
+		goto out;
+	}
+
+	/* Match the MT7961 sequence in btmtk_usb_subsys_reset(). PCIe can
+	 * still reach these registers when Bluetooth's USB interface is wedged.
+	 * A USB port reprobe may be needed afterwards to enumerate it again.
+	 */
+	mt76_wr(dev, MT7921_BT_EP_RST_OPT, 0x00010001);
+	mt76_rr(dev, MT7921_BT_WDT_STATUS);
+	mt76_wr(dev, MT7921_BT_SUBSYS_RST, 1);
+	mt76_wr(dev, MT7921_BT_UDMA_INT_STA, 0xff);
+	mt76_rr(dev, MT7921_BT_UDMA_INT_STA);
+	mt76_wr(dev, MT7921_BT_UDMA_INT_STA1, 0xff);
+	mt76_rr(dev, MT7921_BT_UDMA_INT_STA1);
+	msleep(20);
+	mt76_wr(dev, MT7921_BT_SUBSYS_RST, 0);
+	mt76_rr(dev, MT7921_BT_SUBSYS_RST);
+
+	if (!mt76_poll_msec(dev, MT7921_BT_MISC,
+			    MT7921_BT_RST_DONE, MT7921_BT_RST_DONE, 1000))
+		ret = -ETIMEDOUT;
+out:
+	mt792x_mutex_release(dev);
+	return ret;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(fops_bt_reset, NULL, mt7921_bt_reset, "%lld\n");
+
 static int
 mt7921s_sched_quota_read(struct seq_file *s, void *data)
 {
@@ -284,6 +326,8 @@ int mt7921_init_debugfs(struct mt792x_dev *dev)
 	debugfs_create_file("idle-timeout", 0600, dir, dev,
 			    &fops_pm_idle_timeout);
 	debugfs_create_file("chip_reset", 0600, dir, dev, &fops_reset);
+	if (mt76_is_mmio(&dev->mt76))
+		debugfs_create_file("bt_reset", 0200, dir, dev, &fops_bt_reset);
 	debugfs_create_devm_seqfile(dev->mt76.dev, "runtime_pm_stats", dir,
 				    mt792x_pm_stats);
 	debugfs_create_file("deep-sleep", 0600, dir, dev, &fops_ds);
