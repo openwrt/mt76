@@ -44,6 +44,9 @@ mt76_napi_threaded_get(void *data, u64 *val)
 {
 	struct mt76_dev *dev = data;
 
+	if (!dev->napi_dev)
+		return -EOPNOTSUPP;
+
 	*val = dev->napi_dev->threaded;
 	return 0;
 }
