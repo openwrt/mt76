@@ -426,6 +426,10 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	link->mld_idx = mld_idx;
 	link->bmc_sta_added = false;
 	link->csa_bcn_uploaded = false;
+	link->bpcc = 0;
+	link->crit_update_id = 0;
+	link->crit_update_pending = false;
+	link->crit_update_ambiguous = false;
 	eth_zero_addr(link->bmc_bssid);
 	mlink->omac_idx = idx;
 	mlink->band_idx = band_idx;

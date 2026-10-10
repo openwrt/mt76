@@ -1015,6 +1015,84 @@ mt7996_mcu_rx_ps_sync(struct mt7996_dev *dev, struct sk_buff *skb)
 	}
 }
 
+struct mt7996_crit_update_data {
+	struct mt7996_dev *dev;
+	u8 bss_idx;
+};
+
+/* The event does not name the template, so it belongs to the last template
+ * that the firmware accepted. An event while the firmware takes a template of
+ * a new critical update can belong to either.
+ */
+static void
+mt7996_mcu_link_crit_update_done(struct mt7996_dev *dev,
+				 struct ieee80211_vif *vif,
+				 struct mt7996_vif_link *link,
+				 unsigned int link_id)
+{
+	bool pending;
+	u32 id;
+
+	spin_lock_bh(&dev->mt76.lock);
+	pending = link->crit_update_pending;
+	if (pending)
+		link->crit_update_ambiguous = true;
+	id = link->crit_update_id;
+	spin_unlock_bh(&dev->mt76.lock);
+
+	if (!pending)
+		ieee80211_crit_update_done(vif, link_id, id);
+}
+
+static void
+mt7996_mcu_crit_update_done(void *priv, u8 *mac, struct ieee80211_vif *vif)
+{
+	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+	unsigned long valid_links = vif->valid_links ?: BIT(0);
+	struct mt7996_crit_update_data *data = priv;
+	unsigned int link_id;
+
+	if (vif->type != NL80211_IFTYPE_AP)
+		return;
+
+	for_each_set_bit(link_id, &valid_links, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct mt76_vif_link *mlink =
+			rcu_dereference(mvif->mt76.link[link_id]);
+		struct mt7996_vif_link *link;
+
+		if (!mlink || mlink->idx != data->bss_idx)
+			continue;
+
+		link = container_of(mlink, struct mt7996_vif_link, mt76);
+		mt7996_mcu_link_crit_update_done(data->dev, vif, link, link_id);
+		return;
+	}
+}
+
+static void
+mt7996_mcu_rx_bss_event(struct mt7996_dev *dev, struct sk_buff *skb)
+{
+	struct mt7996_mcu_bss_event *event = (void *)skb->data;
+	struct tlv *tlv = (struct tlv *)event->buf;
+	struct mt7996_crit_update_data data = {
+		.dev = dev,
+	};
+
+	if (skb->len < sizeof(*event) + sizeof(*tlv))
+		return;
+
+	switch (le16_to_cpu(tlv->tag)) {
+	case UNI_EVENT_BSS_BCN_CRIT_UPDATE:
+		data.bss_idx = event->bss_idx;
+		ieee80211_iterate_active_interfaces_atomic(mt76_hw(dev),
+				IEEE80211_IFACE_ITER_RESUME_ALL,
+				mt7996_mcu_crit_update_done, &data);
+		break;
+	default:
+		break;
+	}
+}
+
 static void
 mt7996_mcu_uni_rx_unsolicited_event(struct mt7996_dev *dev, struct sk_buff *skb)
 {
@@ -1038,6 +1116,9 @@ mt7996_mcu_uni_rx_unsolicited_event(struct mt7996_dev *dev, struct sk_buff *skb)
 		break;
 	case MCU_UNI_EVENT_PS_SYNC:
 		mt7996_mcu_rx_ps_sync(dev, skb);
+		break;
+	case MCU_UNI_EVENT_BSS_INFO:
+		mt7996_mcu_rx_bss_event(dev, skb);
 		break;
 	default:
 		break;
@@ -3623,6 +3704,93 @@ mt7996_mcu_beacon_mbss(struct sk_buff *rskb, struct sk_buff *skb,
 	}
 }
 
+static int
+mt7996_mcu_beacon_bpcc(struct sk_buff *skb, u16 tail_offset)
+{
+	const struct element *elem;
+
+	for_each_element_extid(elem, WLAN_EID_EXT_EHT_MULTI_LINK,
+			       skb->data + tail_offset,
+			       skb->len - tail_offset) {
+		if (!ieee80211_mle_type_ok(elem->data + 1,
+					   IEEE80211_ML_CONTROL_TYPE_BASIC,
+					   elem->datalen - 1))
+			continue;
+
+		return ieee80211_mle_get_bss_param_ch_cnt(elem->data + 1);
+	}
+
+	return -1;
+}
+
+static bool
+mt7996_mcu_beacon_crit_update(struct sk_buff *rskb, struct sk_buff *skb,
+			      struct ieee80211_vif *vif,
+			      struct mt7996_vif_link *link,
+			      struct ieee80211_mutable_offsets *offs, int *bpcc)
+{
+	struct ieee80211_mgmt *mgmt = (struct ieee80211_mgmt *)skb->data;
+	struct bss_bcn_crit_update_tlv *crit;
+	bool bpcc_changed;
+	struct tlv *tlv;
+
+	if (!ieee80211_vif_is_mld(vif))
+		return false;
+
+	/* a critical update compares with the last template that the
+	 * firmware accepted
+	 */
+	*bpcc = mt7996_mcu_beacon_bpcc(skb, offs->tim_offset);
+	bpcc_changed = *bpcc >= 0 && *bpcc != link->bpcc;
+	if (!(mgmt->u.beacon.capab_info &
+	      cpu_to_le16(WLAN_CAPABILITY_CRITICAL_UPDATE)))
+		return false;
+
+	tlv = mt7996_mcu_add_uni_tlv(rskb, UNI_BSS_INFO_BCN_CRIT_UPDATE,
+				     sizeof(*crit));
+	crit = (struct bss_bcn_crit_update_tlv *)tlv;
+	crit->bss_bitmap = cpu_to_le32(BIT(0));
+	/* the Beacon frame of the link whose parameters changed goes out
+	 * before those of its partner links
+	 */
+	if (!bpcc_changed)
+		crit->bypass_seq_bitmap = cpu_to_le32(BIT(0));
+	crit->tim_ie_pos[0] = cpu_to_le16(offs->tim_offset);
+	crit->cap_info_ie_pos[0] =
+		cpu_to_le16(offsetof(struct ieee80211_mgmt,
+				     u.beacon.capab_info));
+	crit->require_event = true;
+
+	return true;
+}
+
+static int
+mt7996_mcu_beacon_send(struct mt7996_dev *dev, struct mt7996_vif_link *link,
+		       struct sk_buff *rskb, bool crit_update,
+		       u32 crit_update_id, bool *ambiguous)
+{
+	bool pending;
+	int ret;
+
+	spin_lock_bh(&dev->mt76.lock);
+	pending = crit_update && crit_update_id != link->crit_update_id;
+	link->crit_update_pending = pending;
+	spin_unlock_bh(&dev->mt76.lock);
+
+	ret = mt76_mcu_skb_send_msg(&dev->mt76, rskb,
+				    MCU_WMWA_UNI_CMD(BSS_INFO_UPDATE), true);
+
+	spin_lock_bh(&dev->mt76.lock);
+	if (pending && !ret)
+		link->crit_update_id = crit_update_id;
+	*ambiguous = pending && !ret && link->crit_update_ambiguous;
+	link->crit_update_pending = false;
+	link->crit_update_ambiguous = false;
+	spin_unlock_bh(&dev->mt76.lock);
+
+	return ret;
+}
+
 static void
 mt7996_mcu_beacon_cont(struct mt7996_dev *dev,
 		       struct ieee80211_bss_conf *link_conf,
@@ -3670,7 +3838,9 @@ int mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct sk_buff *skb, *rskb;
 	struct tlv *tlv;
 	struct bss_bcn_content_tlv *bcn;
+	bool crit_update = false, ambiguous;
 	int len, extra_len = 0, ret;
+	int bpcc = -1;
 
 	if (link_conf->nontransmitted)
 		return 0;
@@ -3721,13 +3891,23 @@ int mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	if (link_conf->bssid_indicator)
 		mt7996_mcu_beacon_mbss(rskb, skb, bcn, &offs);
 	mt7996_mcu_beacon_cntdwn(rskb, skb, &offs, link_conf->csa_active);
+	crit_update = mt7996_mcu_beacon_crit_update(rskb, skb, vif, link, &offs,
+						    &bpcc);
 out:
 	dev_kfree_skb(skb);
-	ret = mt76_mcu_skb_send_msg(&dev->mt76, rskb,
-				    MCU_WMWA_UNI_CMD(BSS_INFO_UPDATE), true);
+	ret = mt7996_mcu_beacon_send(dev, link, rskb, crit_update,
+				     crit_update ? offs.crit_update_id : 0,
+				     &ambiguous);
 	link->csa_bcn_uploaded = !ret && enabled && link_conf->csa_active;
+	if (!ret && !ambiguous && bpcc >= 0)
+		link->bpcc = bpcc;
+	if (ret || !ambiguous)
+		return ret;
 
-	return ret;
+	/* the template again starts the critical update in the firmware, whose
+	 * next event then belongs to it
+	 */
+	return mt7996_mcu_add_beacon(hw, vif, link_conf, enabled);
 }
 
 int mt7996_mcu_beacon_inband_discov(struct mt7996_dev *dev,

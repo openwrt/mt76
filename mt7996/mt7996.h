@@ -347,6 +347,14 @@ struct mt7996_vif_link {
 	u8 bmc_bssid[ETH_ALEN];
 	bool bmc_sta_added;
 	bool csa_bcn_uploaded;
+	u8 bpcc;
+
+	/* critical update of the last template that the firmware accepted,
+	 * under mt76_dev.lock
+	 */
+	u32 crit_update_id;
+	bool crit_update_pending;
+	bool crit_update_ambiguous;
 };
 
 struct mt7996_vif_link_info {
