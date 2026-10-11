@@ -1350,6 +1350,8 @@ void mt7996_set_stream_vht_txbf_caps(struct mt7996_phy *phy)
 
 	if (is_mt7992(phy->mt76->dev))
 		*cap |= FIELD_PREP(IEEE80211_VHT_CAP_BEAMFORMEE_STS_MASK, 4);
+	else if (is_mt7990(phy->mt76->dev))
+		*cap |= FIELD_PREP(IEEE80211_VHT_CAP_BEAMFORMEE_STS_MASK, 1);
 	else
 		*cap |= FIELD_PREP(IEEE80211_VHT_CAP_BEAMFORMEE_STS_MASK, 3);
 
