@@ -377,12 +377,13 @@ static void mt76x02_key_sync(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			     struct ieee80211_key_conf *key, void *data)
 {
 	struct mt76x02_dev *dev = hw->priv;
+	struct mt76x02_vif *mvif = (struct mt76x02_vif *)vif->drv_priv;
 	struct mt76_wcid *wcid;
 
-	if (!sta)
-		return;
-
-	wcid = (struct mt76_wcid *)sta->drv_priv;
+	if (sta)
+		wcid = (struct mt76_wcid *)sta->drv_priv;
+	else
+		wcid = &mvif->group_wcid;
 
 	if (wcid->hw_key_idx != key->keyidx || wcid->sw_iv)
 		return;
