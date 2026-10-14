@@ -71,11 +71,14 @@ void mt7925_tx_token_put(struct mt792x_dev *dev)
 int mt7925e_mac_reset(struct mt792x_dev *dev)
 {
 	const struct mt792x_irq_map *irq_map = dev->irq_map;
+	struct mt76_phy *mphy = &dev->mt76.phy;
 	int i, err;
 
-	err = mt792xe_mcu_drv_pmctrl(dev);
+	err = __mt792xe_mcu_drv_pmctrl(dev);
 	if (err)
 		return err;
+
+	clear_bit(MT76_STATE_PM, &mphy->state);
 
 	mt76_connac_free_pending_tx_skbs(&dev->pm, NULL);
 
