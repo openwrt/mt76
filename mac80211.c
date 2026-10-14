@@ -1610,11 +1610,14 @@ mt76_sta_add(struct mt76_phy *phy, struct ieee80211_vif *vif,
 	struct mt76_wcid *wcid = (struct mt76_wcid *)sta->drv_priv;
 	struct mt76_dev *dev = phy->dev;
 	struct mt76_wcid *published;
+	bool registered;
 	int ret;
 	int i;
 
 	mutex_lock(&dev->mutex);
 
+	/* drv_priv of a new station is zeroed, so only a replay has it set */
+	registered = wcid->sta;
 	ret = dev->drv->sta_add(dev, vif, sta);
 	if (ret)
 		goto out;
@@ -1640,7 +1643,8 @@ mt76_sta_add(struct mt76_phy *phy, struct ieee80211_vif *vif,
 		wcid->phy_idx = phy->band_idx;
 	}
 
-	phy->num_sta++;
+	if (!registered)
+		phy->num_sta++;
 
 out:
 	mutex_unlock(&dev->mutex);
