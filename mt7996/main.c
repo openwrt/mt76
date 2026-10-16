@@ -3199,6 +3199,38 @@ mt7996_flow_offload_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 }
 
 static int
+mt7996_flow_offload_idle(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+			 struct ieee80211_sta *sta,
+			 const struct cfg80211_flow_key *key, u32 fields)
+{
+	struct mt7996_flow_match m = {
+		.key = key,
+		.fields = fields,
+	};
+	struct mt7996_dev *dev = mt7996_hw_dev(hw);
+	struct mtk_wed_device *rx_wed = &dev->mt76.mmio.wed;
+	struct mtk_wed_device *wed;
+	int idle, rx_idle;
+	u16 wcid_idx;
+
+	wed = mt7996_sta_flow_wed(dev, sta, &wcid_idx);
+	if (!wed)
+		return -ENOENT;
+
+	idle = mtk_wed_device_flow_idle(wed, wcid_idx, mt7996_flow_match, &m);
+	if (wed == rx_wed || !mtk_wed_device_active(rx_wed))
+		return idle;
+
+	/* uplink entries belong to the RX WED */
+	rx_idle = mtk_wed_device_flow_idle(rx_wed, wcid_idx, mt7996_flow_match,
+					   &m);
+	if (idle < 0 || (rx_idle >= 0 && rx_idle < idle))
+		return rx_idle;
+
+	return idle;
+}
+
+static int
 mt7996_net_fill_forward_path(struct ieee80211_hw *hw,
 			     struct ieee80211_vif *vif,
 			     struct ieee80211_sta *sta,
@@ -3434,6 +3466,7 @@ const struct ieee80211_ops mt7996_ops = {
 	.set_radar_background = mt7996_set_radar_background,
 	.net_fill_forward_path = mt7996_net_fill_forward_path,
 	.flow_offload_flush = mt7996_flow_offload_flush,
+	.flow_offload_idle = mt7996_flow_offload_idle,
 #if defined(CONFIG_NET_MEDIATEK_SOC_WED) || defined(CONFIG_MT7996_NPU)
 	.net_setup_tc = mt7996_net_setup_tc,
 #endif
