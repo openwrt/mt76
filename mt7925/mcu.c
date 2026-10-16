@@ -4115,7 +4115,9 @@ int mt7925_mcu_set_rate_txpower(struct mt76_phy *phy)
 
 		tx_power = dev->phy.txpower_set ? dev->phy.txpower :
 						  mdev->hw->conf.power_level;
-		if (!tx_power)
+		/* An explicitly supplied zero-dBm BSS limit is valid; fall back
+		 * to the channel maximum only when no BSS power was provided. */
+		if (!tx_power && !dev->phy.txpower_set)
 			tx_power = phy->chandef.chan->max_power;
 
 		tx_power = mt76_get_power_bound(phy, tx_power);
