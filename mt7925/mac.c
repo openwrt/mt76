@@ -1552,6 +1552,15 @@ void mt7925_mac_reset_work(struct work_struct *work)
 			.aborted = true,
 		};
 
+		/* Drop retained scan state through the same path as a normal
+		 * abort: mac80211 releases the request on completion, so a
+		 * later suspend must not reuse the stale scan_vif or report
+		 * completion a second time. */
+		cancel_delayed_work_sync(&dev->phy.scan_retry_work);
+		dev->phy.scan_req = NULL;
+		dev->phy.scan_vif = NULL;
+		dev->phy.scan_zero_complete_retries = 0;
+
 		ieee80211_scan_completed(dev->mphy.hw, &info);
 	}
 
