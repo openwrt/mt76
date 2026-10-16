@@ -330,6 +330,15 @@ void mt7925_mcu_set_suspend_iter(void *priv, u8 *mac,
 	for (i = 0; i < wowlan->n_patterns; i++)
 		mt7925_mcu_set_wow_pattern(phy->dev, vif, i, suspend,
 					   &wowlan->patterns[i]);
+	/*
+	 * An unassociated STA has no link to sleep from or wake to, so
+	 * skip the WoW ctrl for it on both suspend and resume, unless a
+	 * Net Detect schedule is configured (ND needs WoW to keep
+	 * scanning while disconnected).
+	 */
+	if (vif->type == NL80211_IFTYPE_STATION &&
+	    !vif->cfg.assoc && !wowlan->nd_config)
+		return;
 	mt7925_connac_mcu_set_wow_ctrl(phy, vif, suspend, wowlan);
 }
 
