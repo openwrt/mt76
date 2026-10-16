@@ -389,10 +389,16 @@ mt7996_wed_check_ppe(struct mt7996_dev *dev, struct mt76_queue *q,
 		     struct mt7996_sta *msta, struct sk_buff *skb,
 		     u32 info)
 {
+	struct mt7996_sta_link *msta_link;
 	struct ieee80211_vif *vif;
 	struct wireless_dev *wdev;
 
 	if (!msta || !msta->vif)
+		return;
+
+	/* the flow offload ops use the default link */
+	msta_link = mt7996_sta_link(msta, msta->deflink_id);
+	if (!msta_link)
 		return;
 
 	if (!mt76_queue_is_wed_rx(q))
@@ -408,7 +414,8 @@ mt7996_wed_check_ppe(struct mt7996_dev *dev, struct mt76_queue *q,
 
 	mtk_wed_device_ppe_check(&dev->mt76.mmio.wed, skb,
 				 FIELD_GET(MT_DMA_PPE_CPU_REASON, info),
-				 FIELD_GET(MT_DMA_PPE_ENTRY, info));
+				 FIELD_GET(MT_DMA_PPE_ENTRY, info),
+				 msta_link->wcid.idx);
 }
 
 static int

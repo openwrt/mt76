@@ -256,7 +256,8 @@ mt7915_wed_check_ppe(struct mt7915_dev *dev, struct mt76_queue *q,
 
 	mtk_wed_device_ppe_check(&dev->mt76.mmio.wed, skb,
 				 FIELD_GET(MT_DMA_PPE_CPU_REASON, info),
-				 FIELD_GET(MT_DMA_PPE_ENTRY, info));
+				 FIELD_GET(MT_DMA_PPE_ENTRY, info),
+				 msta->wcid.idx);
 }
 
 static int
