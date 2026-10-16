@@ -1262,6 +1262,9 @@ int mt76_wed_net_setup_tc(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			  void *type_data);
 #ifdef CONFIG_NET_MEDIATEK_SOC_WED
 u32 mt76_wed_init_rx_buf(struct mtk_wed_device *wed, int size);
+int mt76_wed_flow_prio(struct mtk_wed_device *wed, u16 idx,
+		       const struct cfg80211_flow_info *info, int dscp,
+		       u8 *prio);
 int mt76_wed_offload_enable(struct mtk_wed_device *wed);
 int mt76_wed_dma_setup(struct mt76_dev *dev, struct mt76_queue *q, bool reset);
 #else

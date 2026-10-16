@@ -83,6 +83,24 @@ unmap:
 }
 EXPORT_SYMBOL_GPL(mt76_wed_init_rx_buf);
 
+/* Called from the PPE receive path under RCU, must not sleep */
+int mt76_wed_flow_prio(struct mtk_wed_device *wed, u16 idx,
+		       const struct cfg80211_flow_info *info, int dscp,
+		       u8 *prio)
+{
+	struct mt76_dev *dev = mt76_wed_to_dev(wed);
+	struct ieee80211_sta *sta;
+	struct mt76_wcid *wcid;
+
+	wcid = __mt76_wcid_ptr(dev, idx);
+	sta = wcid_to_sta(wcid);
+	if (!sta)
+		return 0;
+
+	return ieee80211_sta_flow_prio(sta, info, dscp, prio);
+}
+EXPORT_SYMBOL_GPL(mt76_wed_flow_prio);
+
 int mt76_wed_offload_enable(struct mtk_wed_device *wed)
 {
 	struct mt76_dev *dev = mt76_wed_to_dev(wed);

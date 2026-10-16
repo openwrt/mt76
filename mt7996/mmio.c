@@ -613,6 +613,7 @@ int mt7996_mmio_wed_init(struct mt7996_dev *dev, void *pdev_ptr,
 	wed->wlan.release_rx_buf = mt76_wed_release_rx_buf;
 	wed->wlan.offload_enable = mt76_wed_offload_enable;
 	wed->wlan.offload_disable = mt76_wed_offload_disable;
+	wed->wlan.flow_prio = mt76_wed_flow_prio;
 	if (!hif2) {
 		wed->wlan.reset = mt7996_mmio_wed_reset;
 		wed->wlan.reset_complete = mt76_wed_reset_complete;
