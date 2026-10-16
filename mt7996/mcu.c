@@ -2930,6 +2930,45 @@ int mt7996_mcu_set_vow_feature_ctrl(struct mt7996_phy *phy)
 				 sizeof(req), true);
 }
 
+int mt7996_mcu_set_scs(struct mt7996_dev *dev, u16 wlan_idx,
+		       const struct cfg80211_scs_desc *desc, bool del)
+{
+#define MURU_QOS_FLAG_UPDATE	20
+#define MURU_QOS_FLAG_DELETE	21
+	struct {
+		u8 __rsv1[4];
+
+		__le16 tag;
+		__le16 len;
+		__le32 qos_flag;
+		__le16 wlan_idx;
+		u8 __rsv2[12];
+		u8 dir;
+		u8 __rsv3[4];
+		u8 scs_id;
+		u8 qos_ie[44];
+	} __packed req = {
+		.tag = cpu_to_le16(UNI_CMD_MURU_SET_QOS_CFG),
+		.len = cpu_to_le16(sizeof(req) - 4),
+		.wlan_idx = cpu_to_le16(wlan_idx),
+		.scs_id = desc->id,
+	};
+
+	if (del) {
+		req.qos_flag = cpu_to_le32(MURU_QOS_FLAG_DELETE);
+	} else {
+		if (desc->qos_char_len > sizeof(req.qos_ie))
+			return -EINVAL;
+
+		req.qos_flag = cpu_to_le32(MURU_QOS_FLAG_UPDATE);
+		req.dir = ieee80211_qos_char_direction(desc->qos_char);
+		memcpy(req.qos_ie, desc->qos_char, desc->qos_char_len);
+	}
+
+	return mt76_mcu_send_msg(&dev->mt76, MCU_WMWA_UNI_CMD(MURU), &req,
+				 sizeof(req), true);
+}
+
 static int
 mt7996_mcu_sta_init_vow(struct mt7996_dev *dev, struct mt76_vif_link *mvif,
 			struct mt76_wcid *wcid, u16 weight)

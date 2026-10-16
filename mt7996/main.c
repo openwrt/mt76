@@ -2697,6 +2697,69 @@ static void mt7996_sta_set_4addr(struct ieee80211_hw *hw,
 	mutex_unlock(&dev->mt76.mutex);
 }
 
+/* SCS descriptors belong to the MLD, firmware streams to a link */
+static int mt7996_sta_scs_program(struct mt7996_dev *dev,
+				  struct ieee80211_vif *vif,
+				  struct ieee80211_sta *sta,
+				  const struct cfg80211_scs_desc *desc,
+				  bool del)
+{
+	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	struct ieee80211_link_sta *link_sta;
+	unsigned int link_id;
+	bool any = false;
+	int ret = 0;
+
+	for_each_sta_active_link(vif, sta, link_sta, link_id) {
+		struct mt7996_sta_link *msta_link;
+
+		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
+		if (!msta_link || !msta_link->wcid.sta)
+			continue;
+
+		any = true;
+		if (mt7996_mcu_set_scs(dev, msta_link->wcid.idx, desc, del))
+			ret = -EIO;
+	}
+
+	return any ? ret : -EIO;
+}
+
+static int mt7996_sta_set_scs(struct ieee80211_hw *hw,
+			      struct ieee80211_vif *vif,
+			      struct ieee80211_sta *sta,
+			      struct cfg80211_scs_desc * const *desc,
+			      struct cfg80211_scs_result *res, u8 n_desc)
+{
+	struct mt7996_dev *dev = mt7996_hw_dev(hw);
+	u8 i;
+
+	mutex_lock(&dev->mt76.mutex);
+
+	for (i = 0; i < n_desc; i++) {
+		const struct cfg80211_scs_desc *d = desc[i];
+		bool del = d->req_type == NL80211_SCS_REQ_REMOVE ||
+			   !d->qos_char;
+
+		/* The firmware only supports uplink streams */
+		if (!del && ieee80211_qos_char_direction(d->qos_char) !=
+			    IEEE80211_QOS_CHAR_DIR_UPLINK) {
+			res[i].status = WLAN_STATUS_REQUEST_DECLINED;
+			continue;
+		}
+
+		if (!mt7996_sta_scs_program(dev, vif, sta, d, del) || del)
+			continue;
+
+		mt7996_sta_scs_program(dev, vif, sta, d, true);
+		res[i].status = WLAN_STATUS_REQUEST_DECLINED;
+	}
+
+	mutex_unlock(&dev->mt76.mutex);
+
+	return 0;
+}
+
 static void mt7996_sta_set_decap_offload(struct ieee80211_hw *hw,
 					 struct ieee80211_vif *vif,
 					 struct ieee80211_sta *sta,
@@ -3266,6 +3329,7 @@ const struct ieee80211_ops mt7996_ops = {
 	.set_coverage_class = mt7996_set_coverage_class,
 	.sta_statistics = mt7996_sta_statistics,
 	.sta_set_4addr = mt7996_sta_set_4addr,
+	.sta_set_scs = mt7996_sta_set_scs,
 	.sta_set_decap_offload = mt7996_sta_set_decap_offload,
 	.sta_set_airtime_weight = mt7996_sta_set_airtime_weight,
 	.add_twt_setup = mt7996_mac_add_twt_setup,
