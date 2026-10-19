@@ -417,6 +417,42 @@ int mt7996_mcu_wa_cmd(struct mt7996_dev *dev, int cmd, u32 a1, u32 a2, u32 a3)
 				 sizeof(req), false);
 }
 
+int mt7996_mcu_set_qos_map(struct mt7996_dev *dev, struct mt76_vif_link *mlink)
+{
+	struct {
+		u8 _rsv[4];
+
+		__le16 tag;
+		__le16 len;
+
+		struct {
+			u8 bss_idx;
+			u8 enable;
+			u8 _rsv[2];
+			u8 up[64];
+		} __packed data;
+	} __packed req = {
+		.tag = cpu_to_le16(UNI_CMD_SDO_SET_QOS_MAP),
+		.len = cpu_to_le16(sizeof(req) - 4),
+		.data = {
+			.bss_idx = mlink->idx,
+			.enable = true,
+		},
+	};
+	int i;
+
+	/* SDO takes the TID of an 802.3 frame from this table */
+	for (i = 0; i < ARRAY_SIZE(req.data.up); i++)
+		req.data.up[i] = cfg80211_dscp_to_up(i, NULL);
+
+	if (mt7996_has_wa(dev))
+		return mt76_mcu_send_msg(&dev->mt76, MCU_WA_EXT_CMD(SET_QOS_MAP),
+					 &req.data, sizeof(req.data), false);
+
+	return mt76_mcu_send_msg(&dev->mt76, MCU_WA_UNI_CMD(SDO), &req,
+				 sizeof(req), false);
+}
+
 struct mt7996_mcu_countdown_data {
 	struct mt76_phy *mphy;
 	u8 omac_idx;

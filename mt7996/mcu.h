@@ -1155,6 +1155,7 @@ enum {
 enum {
 	UNI_CMD_SDO_SET = 1,
 	UNI_CMD_SDO_QUERY,
+	UNI_CMD_SDO_SET_QOS_MAP = 4,
 	UNI_CMD_SDO_CP_MODE = 6,
 };
 

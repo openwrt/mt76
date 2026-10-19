@@ -465,6 +465,7 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	mt7996_init_bitrate_mask(vif, link);
 
 	mt7996_mcu_add_bss_info(phy, vif, link_conf, mlink, msta_link, true);
+	mt7996_mcu_set_qos_map(dev, mlink);
 	/* defer the first STA_REC of BMC entry to BSS_CHANGED_BSSID for STA
 	 * interface, since firmware only records BSSID when the entry is new
 	 */
