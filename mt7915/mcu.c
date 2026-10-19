@@ -3257,6 +3257,10 @@ int mt7915_mcu_get_chan_mib_info(struct mt7915_phy *phy, bool chan_switch)
 					req, len * sizeof(req[0]), true, &skb);
 	if (ret)
 		return ret;
+	if (skb->len < offs_cc + len * sizeof(*res)) {
+		dev_kfree_skb(skb);
+		return -EINVAL;
+	}
 
 	res = (struct mt7915_mcu_mib *)(skb->data + offs_cc);
 
