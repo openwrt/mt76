@@ -1050,6 +1050,7 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	bool is_8023 = info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP;
 	__le32 *ptr = (__le32 *)txwi_ptr;
 	u8 *txwi = (u8 *)txwi_ptr;
+	bool host_txd;
 	u8 link_id;
 
 	if (unlikely(tx_info->skb->len <= ETH_HLEN))
@@ -1134,10 +1135,15 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 
 	wcid = mt7996_get_tx_wcid(wcid);
 
+	/* mt76_tx_status_skb_add() clears info->control.flags */
+	host_txd = !is_8023 ||
+		   (info->control.flags & IEEE80211_TX_CTRL_STREAM_CLASSIFIED);
+
 	pid = mt76_tx_status_skb_add(mdev, wcid, tx_info->skb);
 	memset(txwi_ptr, 0, MT_TXD_SIZE);
 	/* Transmit non qos data by 802.11 header and need to fill txd by host*/
-	if (!is_8023 || pid >= MT_PACKET_ID_FIRST)
+	host_txd |= pid >= MT_PACKET_ID_FIRST;
+	if (host_txd)
 		mt7996_mac_write_txwi(dev, txwi_ptr, tx_info->skb, wcid, key,
 				      pid, qid, 0, link_id);
 
@@ -1189,7 +1195,7 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 
 		txp->fw.flags = cpu_to_le16(MT_CT_INFO_FROM_HOST);
 
-		if (!is_8023 || pid >= MT_PACKET_ID_FIRST)
+		if (host_txd)
 			txp->fw.flags |= cpu_to_le16(MT_CT_INFO_APPLY_TXD);
 
 		if (!key)
