@@ -26,6 +26,8 @@ mt7603_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 		dev->mcu_hang = MT7603_WATCHDOG_TIMEOUT;
 		return -ETIMEDOUT;
 	}
+	if (skb->len < sizeof(*rxd))
+		return -EINVAL;
 
 	rxd = (struct mt7603_mcu_rxd *)skb->data;
 	if (seq != rxd->seq)
