@@ -4321,7 +4321,7 @@ int mt7915_mcu_wed_wa_tx_stats(struct mt7915_dev *dev, u16 wlan_idx)
 	} __packed *res;
 	struct mt76_wcid *wcid;
 	struct sk_buff *skb;
-	int ret, len;
+	int ret, len, offset;
 	u16 ret_wcid;
 
 	if (is_mt7915(&dev->mt76)) {
@@ -4338,8 +4338,13 @@ int mt7915_mcu_wed_wa_tx_stats(struct mt7915_dev *dev, u16 wlan_idx)
 	if (ret)
 		return ret;
 
-	if (!is_mt7915(&dev->mt76))
-		skb_pull(skb, 4);
+	offset = is_mt7915(&dev->mt76) ? 0 : 4;
+	if (skb->len < offset + sizeof(*res)) {
+		dev_kfree_skb(skb);
+		return -EINVAL;
+	}
+
+	skb_pull(skb, offset);
 
 	res = (struct mt7915_mcu_wa_tx_stat *)skb->data;
 
