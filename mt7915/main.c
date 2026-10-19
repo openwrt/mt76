@@ -215,8 +215,7 @@ static int mt7915_add_interface(struct ieee80211_hw *hw,
 
 	mt76_testmode_reset(phy->mt76, true);
 
-	if (vif->type == NL80211_IFTYPE_MONITOR &&
-	    is_zero_ether_addr(vif->addr))
+	if (vif->type == NL80211_IFTYPE_MONITOR)
 		phy->monitor_vif = vif;
 
 	mvif->mt76.idx = __ffs64(~dev->mt76.vif_mask);
