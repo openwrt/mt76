@@ -2327,6 +2327,10 @@ int mt7925_get_txpwr_info(struct mt792x_dev *dev, u8 band_idx, struct mt7925_txp
 					&req, sizeof(req), true, &skb);
 	if (ret)
 		return ret;
+	if (skb->len < sizeof(*event)) {
+		dev_kfree_skb(skb);
+		return -EINVAL;
+	}
 
 	event = (struct mt7925_txpwr_event *)skb->data;
 	memcpy(txpwr, &event->txpwr, sizeof(event->txpwr));
