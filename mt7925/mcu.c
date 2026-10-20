@@ -1042,6 +1042,10 @@ int mt7925_mcu_get_temperature(struct mt792x_phy *phy)
 					&req, sizeof(req), true, &skb);
 	if (ret)
 		return ret;
+	if (skb->len < 4 + sizeof(struct tlv) + sizeof(*evt)) {
+		dev_kfree_skb(skb);
+		return -EINVAL;
+	}
 
 	skb_pull(skb, 4 + sizeof(struct tlv));
 	evt = (struct mt7925_thermal_evt *)skb->data;
