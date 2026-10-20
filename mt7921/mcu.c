@@ -27,6 +27,13 @@ int mt7921_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 
 		return -ETIMEDOUT;
 	}
+	if ((cmd == MCU_CMD(PATCH_SEM_CONTROL) ||
+	     cmd == MCU_CMD(PATCH_FINISH_REQ)) &&
+	    skb->len < sizeof(*rxd) - 4 + sizeof(u8))
+		return -EINVAL;
+	if (cmd != MCU_CMD(PATCH_SEM_CONTROL) &&
+	    cmd != MCU_CMD(PATCH_FINISH_REQ) && skb->len < sizeof(*rxd))
+		return -EINVAL;
 
 	rxd = (struct mt76_connac2_mcu_rxd *)skb->data;
 	if (seq != rxd->seq)
@@ -37,6 +44,9 @@ int mt7921_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 		skb_pull(skb, sizeof(*rxd) - 4);
 		ret = *skb->data;
 	} else if (cmd == MCU_EXT_CMD(THERMAL_CTRL)) {
+		if (skb->len < sizeof(*rxd) + 4 + sizeof(__le32))
+			return -EINVAL;
+
 		skb_pull(skb, sizeof(*rxd) + 4);
 		ret = le32_to_cpu(*(__le32 *)skb->data);
 	} else if (cmd == MCU_UNI_CMD(DEV_INFO_UPDATE) ||
@@ -47,6 +57,9 @@ int mt7921_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 		   cmd == MCU_UNI_CMD(SUSPEND)) {
 		struct mt76_connac_mcu_uni_event *event;
 
+		if (skb->len < sizeof(*rxd) + sizeof(*event))
+			return -EINVAL;
+
 		skb_pull(skb, sizeof(*rxd));
 		event = (struct mt76_connac_mcu_uni_event *)skb->data;
 		ret = le32_to_cpu(event->status);
@@ -56,11 +69,17 @@ int mt7921_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 	} else if (cmd == MCU_CE_QUERY(REG_READ)) {
 		struct mt76_connac_mcu_reg_event *event;
 
+		if (skb->len < sizeof(*rxd) + sizeof(*event))
+			return -EINVAL;
+
 		skb_pull(skb, sizeof(*rxd));
 		event = (struct mt76_connac_mcu_reg_event *)skb->data;
 		ret = (int)le32_to_cpu(event->val);
 	} else if (cmd == MCU_EXT_CMD(WF_RF_PIN_CTRL)) {
 		struct mt7921_wf_rf_pin_ctrl_event *event;
+
+		if (skb->len < sizeof(*rxd) + sizeof(*event))
+			return -EINVAL;
 
 		skb_pull(skb, sizeof(*rxd));
 		event = (struct mt7921_wf_rf_pin_ctrl_event *)skb->data;
@@ -352,7 +371,8 @@ void mt7921_mcu_rx_event(struct mt792x_dev *dev, struct sk_buff *skb)
 {
 	struct mt76_connac2_mcu_rxd *rxd;
 
-	if (skb_linearize(skb)) {
+	if (skb_linearize(skb) ||
+	    skb->len < offsetofend(struct mt76_connac2_mcu_rxd, ext_eid)) {
 		dev_kfree_skb(skb);
 		return;
 	}
