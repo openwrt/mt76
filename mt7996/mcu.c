@@ -238,6 +238,11 @@ mt7996_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 
 		return -ETIMEDOUT;
 	}
+	if (cmd == MCU_CMD(PATCH_SEM_CONTROL) &&
+	    skb->len < offsetofend(struct mt7996_mcu_rxd, ext_eid))
+		return -EINVAL;
+	if (cmd != MCU_CMD(PATCH_SEM_CONTROL) && skb->len < sizeof(*rxd))
+		return -EINVAL;
 
 	rxd = (struct mt7996_mcu_rxd *)skb->data;
 	if (seq != rxd->seq)
@@ -248,6 +253,9 @@ mt7996_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 		ret = *skb->data;
 	} else if ((rxd->option & MCU_UNI_CMD_EVENT) &&
 		    rxd->eid == MCU_UNI_EVENT_RESULT) {
+		if (skb->len < sizeof(*rxd) + sizeof(*event))
+			return -EINVAL;
+
 		skb_pull(skb, sizeof(*rxd));
 		event = (struct mt7996_mcu_uni_event *)skb->data;
 		ret = le32_to_cpu(event->status);
@@ -986,6 +994,11 @@ mt7996_mcu_uni_rx_unsolicited_event(struct mt7996_dev *dev, struct sk_buff *skb)
 void mt7996_mcu_rx_event(struct mt7996_dev *dev, struct sk_buff *skb)
 {
 	struct mt7996_mcu_rxd *rxd = (struct mt7996_mcu_rxd *)skb->data;
+
+	if (skb->len < offsetofend(struct mt7996_mcu_rxd, ext_eid)) {
+		dev_kfree_skb(skb);
+		return;
+	}
 
 	if (rxd->option & MCU_UNI_CMD_UNSOLICITED_EVENT) {
 		mt7996_mcu_uni_rx_unsolicited_event(dev, skb);
