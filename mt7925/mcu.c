@@ -4184,6 +4184,10 @@ int mt7925_mcu_wf_rf_pin_ctrl(struct mt792x_phy *phy)
 					&req, sizeof(req), true, &skb);
 	if (ret)
 		return ret;
+	if (skb->len < sizeof(struct tlv) + sizeof(*status)) {
+		dev_kfree_skb(skb);
+		return -EINVAL;
+	}
 
 	skb_pull(skb, sizeof(struct tlv));
 	status = (struct mt7925_radio_status_event *)skb->data;
