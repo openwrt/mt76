@@ -4394,6 +4394,10 @@ int mt7915_mcu_rf_regval(struct mt7915_dev *dev, u32 regidx, u32 *val, bool set)
 					&req, sizeof(req), true, &skb);
 	if (ret)
 		return ret;
+	if (skb->len < 8 + sizeof(__le32)) {
+		dev_kfree_skb(skb);
+		return -EINVAL;
+	}
 
 	*val = le32_to_cpu(*(__le32 *)(skb->data + 8));
 	dev_kfree_skb(skb);
