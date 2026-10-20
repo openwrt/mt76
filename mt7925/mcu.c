@@ -32,6 +32,17 @@ int mt7925_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 
 		return -ETIMEDOUT;
 	}
+	if ((cmd == MCU_CMD(PATCH_SEM_CONTROL) ||
+	     cmd == MCU_CMD(PATCH_FINISH_REQ) ||
+	     cmd == MCU_CMD(CB_PATCH_SEM_CONTROL) ||
+	     cmd == MCU_CMD(CB_PATCH_FINISH_REQ)) &&
+	    skb->len < sizeof(*rxd) - 4 + sizeof(u8))
+		return -EINVAL;
+	if (cmd != MCU_CMD(PATCH_SEM_CONTROL) &&
+	    cmd != MCU_CMD(PATCH_FINISH_REQ) &&
+	    cmd != MCU_CMD(CB_PATCH_SEM_CONTROL) &&
+	    cmd != MCU_CMD(CB_PATCH_FINISH_REQ) && skb->len < sizeof(*rxd))
+		return -EINVAL;
 
 	rxd = (struct mt7925_mcu_rxd *)skb->data;
 	if (seq != rxd->seq) {
@@ -59,6 +70,9 @@ int mt7925_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 		   cmd == MCU_UNI_CMD(SUSPEND) ||
 		   cmd == MCU_UNI_CMD(NAN)) {
 		struct mt7925_mcu_uni_event *event;
+
+		if (skb->len < sizeof(*rxd) + sizeof(*event))
+			return -EINVAL;
 
 		skb_pull(skb, sizeof(*rxd));
 		event = (struct mt7925_mcu_uni_event *)skb->data;
@@ -719,6 +733,11 @@ void mt7925_mcu_rx_event(struct mt792x_dev *dev, struct sk_buff *skb)
 
 	if (skb_linearize(skb))
 		return;
+
+	if (skb->len < offsetofend(struct mt7925_mcu_rxd, ext_eid)) {
+		dev_kfree_skb(skb);
+		return;
+	}
 
 	if (rxd->option & MCU_UNI_CMD_UNSOLICITED_EVENT) {
 		mt7925_mcu_uni_rx_unsolicited_event(dev, skb);
