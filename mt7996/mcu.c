@@ -4769,6 +4769,10 @@ int mt7996_mcu_get_efuse_free_block(struct mt7996_dev *dev, u8 *block_num)
 					sizeof(req), true, &skb);
 	if (ret)
 		return ret;
+	if (skb->len < 8 + sizeof(*block_num)) {
+		dev_kfree_skb(skb);
+		return -EINVAL;
+	}
 
 	*block_num = *(u8 *)(skb->data + 8);
 	dev_kfree_skb(skb);
