@@ -113,7 +113,7 @@ int mt7925_mcu_regval(struct mt792x_dev *dev, u32 regidx, u32 *val, bool set)
 		};
 	} __packed * res, req;
 	struct sk_buff *skb;
-	int ret;
+	int len, ret;
 
 	if (u32_get_bits(regidx, MT_RF_REG_HDR) == RF_REG_PREFIX) {
 		req.rf_reg.tag = cpu_to_le16(UNI_CMD_ACCESS_RF_REG_BASIC);
@@ -137,6 +137,17 @@ int mt7925_mcu_regval(struct mt792x_dev *dev, u32 regidx, u32 *val, bool set)
 					&req, sizeof(req), true, &skb);
 	if (ret)
 		return ret;
+
+	len = sizeof(res->__rsv);
+	if (u32_get_bits(regidx, MT_RF_REG_HDR) == RF_REG_PREFIX)
+		len += sizeof(res->rf_reg);
+	else
+		len += sizeof(res->reg);
+
+	if (skb->len < len) {
+		dev_kfree_skb(skb);
+		return -EINVAL;
+	}
 
 	res = (void *)skb->data;
 	if (u32_get_bits(regidx, MT_RF_REG_HDR) == RF_REG_PREFIX)
