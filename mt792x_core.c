@@ -863,51 +863,82 @@ mt792x_get_offload_capability(struct device *dev, const char *fw_wm)
 {
 	const struct mt76_connac2_fw_trailer *hdr;
 	struct mt792x_realease_info *rel_info;
+	const u8 *data, *end, *fw_end;
 	const struct firmware *fw;
-	int ret, i, offset = 0;
-	const u8 *data, *end;
 	u8 offload_caps = 0;
+	size_t offset = 0;
+	int ret, i;
 
 	ret = request_firmware(&fw, fw_wm, dev);
 	if (ret)
 		return ret;
 
-	if (!fw || !fw->data || fw->size < sizeof(*hdr)) {
-		dev_err(dev, "Invalid firmware\n");
-		goto out;
-	}
+	if (!fw || !fw->data || fw->size < sizeof(*hdr))
+		goto invalid;
 
 	data = fw->data;
 	hdr = (const void *)(fw->data + fw->size - sizeof(*hdr));
+	if (hdr->n_region > (fw->size - sizeof(*hdr)) /
+			    sizeof(struct mt76_connac2_fw_region))
+		goto invalid;
+
+	fw_end = (const u8 *)hdr -
+		 hdr->n_region * sizeof(struct mt76_connac2_fw_region);
 
 	for (i = 0; i < hdr->n_region; i++) {
 		const struct mt76_connac2_fw_region *region;
+		u32 region_len;
 
 		region = (const void *)((const u8 *)hdr -
 					(hdr->n_region - i) * sizeof(*region));
-		offset += le32_to_cpu(region->len);
+		region_len = le32_to_cpu(region->len);
+		if (region_len > fw_end - fw->data - offset)
+			goto invalid;
+
+		offset += region_len;
 	}
+
+	if (fw_end - fw->data - offset < 16 + sizeof(*rel_info))
+		goto invalid;
 
 	data += offset + 16;
 	rel_info = (struct mt792x_realease_info *)data;
 	data += sizeof(*rel_info);
+	if (le16_to_cpu(rel_info->len) > fw_end - data)
+		goto invalid;
+
 	end = data + le16_to_cpu(rel_info->len);
 
 	while (data < end) {
+		u16 len;
+
+		if (end - data < sizeof(*rel_info))
+			goto invalid;
+
 		rel_info = (struct mt792x_realease_info *)data;
 		data += sizeof(*rel_info);
+		len = le16_to_cpu(rel_info->len);
+		if (len > end - data || rel_info->pad_len > end - data - len)
+			goto invalid;
 
 		if (rel_info->tag == MT792x_FW_TAG_FEATURE) {
 			struct mt792x_fw_features *features;
+
+			if (len < sizeof(*features))
+				goto invalid;
 
 			features = (struct mt792x_fw_features *)data;
 			offload_caps = features->data;
 			break;
 		}
 
-		data += le16_to_cpu(rel_info->len) + rel_info->pad_len;
+		data += len + rel_info->pad_len;
 	}
 
+	goto out;
+
+invalid:
+	dev_err(dev, "Invalid firmware\n");
 out:
 	release_firmware(fw);
 
