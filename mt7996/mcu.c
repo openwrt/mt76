@@ -4955,6 +4955,10 @@ int mt7996_mcu_get_temperature(struct mt7996_phy *phy)
 					&req, sizeof(req), true, &skb);
 	if (ret)
 		return ret;
+	if (skb->len < sizeof(*res)) {
+		dev_kfree_skb(skb);
+		return -EINVAL;
+	}
 
 	res = (void *)skb->data;
 	temp = le32_to_cpu(res->temperature);
