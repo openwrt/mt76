@@ -1169,8 +1169,12 @@ int mt7921_get_txpwr_info(struct mt792x_dev *dev, struct mt7921_txpwr *txpwr)
 	if (ret)
 		return ret;
 
+	if (skb->len < sizeof(*event)) {
+		dev_kfree_skb(skb);
+		return -EINVAL;
+	}
+
 	event = (struct mt7921_txpwr_event *)skb->data;
-	WARN_ON(skb->len != le16_to_cpu(event->len));
 	memcpy(txpwr, &event->txpwr, sizeof(event->txpwr));
 
 	dev_kfree_skb(skb);
