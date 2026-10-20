@@ -98,6 +98,10 @@ mt7921_tm_query(struct mt792x_dev *dev, struct mt7921_tm_cmd *req,
 					&cmd, sizeof(cmd), true, &skb);
 	if (ret)
 		goto out;
+	if (skb->len < sizeof(*evt)) {
+		ret = -EINVAL;
+		goto out;
+	}
 
 	evt = (struct mt7921_rftest_evt *)skb->data;
 	evt_resp->param0 = le32_to_cpu(evt->param0);
