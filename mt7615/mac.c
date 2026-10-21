@@ -1590,12 +1590,30 @@ static void mt7615_mac_tx_free(struct mt7615_dev *dev, void *data, int len)
 	mt76_worker_schedule(&dev->mt76.tx_worker);
 }
 
+static bool
+mt7615_mac_rx_shifted_event(struct mt7615_dev *dev, __le32 *rxd, int len)
+{
+	/* mt7622 rom can report the first mcu event on the data ring,
+	 * with an extra dword in front of it
+	 */
+	if (!is_mt7622(&dev->mt76) ||
+	    test_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state))
+		return false;
+
+	return len >= 8 && !rxd[0] &&
+	       le32_get_bits(rxd[1], MT_RXD0_PKT_TYPE) == PKT_TYPE_RX_EVENT &&
+	       le32_get_bits(rxd[1], MT_RXD0_LENGTH) == len - 4;
+}
+
 bool mt7615_rx_check(struct mt76_dev *mdev, void *data, int len)
 {
 	struct mt7615_dev *dev = container_of(mdev, struct mt7615_dev, mt76);
 	__le32 *rxd = (__le32 *)data;
 	__le32 *end = (__le32 *)&rxd[len / 4];
 	enum rx_pkt_type type;
+
+	if (mt7615_mac_rx_shifted_event(dev, rxd, len))
+		return true;
 
 	type = le32_get_bits(rxd[0], MT_RXD0_PKT_TYPE);
 
@@ -1623,6 +1641,11 @@ void mt7615_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 	__le32 *end = (__le32 *)&skb->data[skb->len];
 	enum rx_pkt_type type;
 	u16 flag;
+
+	if (mt7615_mac_rx_shifted_event(dev, rxd, skb->len)) {
+		skb_pull(skb, 4);
+		rxd = (__le32 *)skb->data;
+	}
 
 	type = le32_get_bits(rxd[0], MT_RXD0_PKT_TYPE);
 	flag = le32_get_bits(rxd[0], MT_RXD0_PKT_FLAG);
