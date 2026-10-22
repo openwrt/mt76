@@ -325,6 +325,7 @@ struct mt7996_sta {
 	u8 conn_state;
 	u16 peer_mld_links;
 	u16 fw_mld_idx;
+	u16 tx_released_links;
 
 	unsigned long wcid_flags;
 	u16 airtime_weight;
@@ -374,6 +375,23 @@ struct mt7996_vif {
 	u64 attlm_cookie;
 	u64 attlm_tbtt_boottime;
 	u64 attlm_end_boottime;
+
+	/* AP Removal Timer that the firmware counts, under mt76_dev.lock:
+	 * the removed links, and the links whose template with the
+	 * Reconfiguration element the firmware holds, and the expired links
+	 * whose TX mt7996_mcu_mld_reconf_work() stops, and the links whose TX
+	 * it stopped, until they go; the removal TBTT of the removed links,
+	 * with the links whose TX stop is still due
+	 */
+	u16 reconf_links;
+	u16 reconf_bcn_links;
+	u16 reconf_stop_links;
+	u16 reconf_done_links;
+	u16 reconf_tbtt_links;
+	u16 reconf_timer_links;
+	u64 reconf_tbtt_boottime;
+	struct hrtimer reconf_timer;
+	struct mt7996_dev *reconf_dev;
 };
 
 /* crash-dump */
@@ -520,6 +538,7 @@ struct mt7996_dev {
 	struct work_struct rc_work;
 	struct work_struct dump_work;
 	struct work_struct reset_work;
+	struct work_struct reconf_work;
 	wait_queue_head_t reset_wait;
 	struct {
 		u32 state;
@@ -853,6 +872,11 @@ int mt7996_mcu_update_bss_color(struct mt7996_dev *dev,
 				struct cfg80211_he_bss_color *he_bss_color);
 int mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			  struct ieee80211_bss_conf *link_conf, bool enabled);
+void mt7996_mcu_beacon_reconf_stop(struct mt7996_dev *dev,
+				   struct ieee80211_vif *vif,
+				   unsigned int link_id, bool removed);
+void mt7996_mcu_beacon_reconf_reset(struct mt7996_dev *dev,
+				    struct ieee80211_vif *vif);
 int mt7996_mcu_beacon_inband_discov(struct mt7996_dev *dev,
 				    struct ieee80211_bss_conf *link_conf,
 				    struct mt7996_vif_link *link, u32 changed);
@@ -928,6 +952,8 @@ int mt7996_mcu_set_dup_wtbl(struct mt7996_dev *dev);
 int mt7996_mcu_mld_reconf_stop_link(struct mt7996_dev *dev,
 				    struct ieee80211_vif *vif,
 				    u16 removed_links);
+void mt7996_mcu_mld_reconf_work(struct work_struct *work);
+enum hrtimer_restart mt7996_mcu_mld_reconf_tbtt(struct hrtimer *timer);
 int mt7996_mcu_mld_link_oper(struct mt7996_dev *dev,
 			     struct ieee80211_bss_conf *link_conf,
 			     struct mt7996_vif_link *link, bool add);
@@ -1031,6 +1057,8 @@ void mt7996_mac_sta_remove_link(struct mt7996_dev *dev,
 				unsigned int link_id, bool flush);
 u16 mt7996_mac_sta_links(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			 struct ieee80211_sta *sta);
+void mt7996_sta_tx_links_release(struct mt7996_dev *dev,
+				 struct ieee80211_sta *sta, u16 links);
 u8 mt7996_sta_seclink_get(struct mt7996_dev *dev, struct mt7996_sta *msta);
 void mt7996_mac_add_twt_setup(struct ieee80211_hw *hw,
 			      struct ieee80211_sta *sta,

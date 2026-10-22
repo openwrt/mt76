@@ -102,9 +102,18 @@ struct mt7996_mcu_mld_attlm_timeout_event {
 	u8 __rsv[2];
 } __packed;
 
+struct mt7996_mcu_mld_reconf_event {
+	__le16 tag;
+	__le16 len;
+	__le16 link_bitmap;
+	u8 bss_idx[3];
+	u8 __rsv[3];
+} __packed;
+
 enum {
 	UNI_EVENT_MLD_ATTLM_RES_RSP = 0x02,
 	UNI_EVENT_MLD_ATTLM_TIMEOUT = 0x03,
+	UNI_EVENT_MLD_RECONF_AP_REM_TIMER = 0x04,
 };
 
 enum {
@@ -572,6 +581,20 @@ struct bss_bcn_crit_update_tlv {
 	u8 rsv[3];
 } __packed;
 
+struct bss_bcn_ml_reconf_offset {
+	__le16 ap_removal_timer_offs;
+	u8 bss_idx;
+	u8 __rsv;
+} __packed;
+
+struct bss_bcn_ml_reconf_tlv {
+	__le16 tag;
+	__le16 len;
+	u8 reconf_count;
+	u8 __rsv[3];
+	struct bss_bcn_ml_reconf_offset offset[];
+} __packed;
+
 #define MAX_ATTLM_NUM	1
 
 struct bss_bcn_attlm_offset_tlv {
@@ -850,6 +873,16 @@ struct mld_reconf_stop_link {
 	u8 bss_idx[16];
 } __packed;
 
+struct mld_reconf_timer {
+	__le16 tag;
+	__le16 len;
+	__le16 link_bitmap;
+	/* seconds to the expiry, by band */
+	__le16 to_sec[__MT_MAX_BAND];
+	u8 bss_idx[__MT_MAX_BAND];
+	u8 __rsv;
+} __packed;
+
 struct mld_attlm_req {
 	__le16 tag;
 	__le16 len;
@@ -1117,6 +1150,9 @@ enum {
 					 sizeof(struct bss_bcn_cntdwn_tlv) * 2 +	\
 					 sizeof(struct bss_bcn_mbss_tlv) +	\
 					 sizeof(struct bss_bcn_crit_update_tlv) + \
+					 sizeof(struct bss_bcn_ml_reconf_tlv) +	\
+					 sizeof(struct bss_bcn_ml_reconf_offset) * \
+					 __MT_MAX_BAND +			\
 					 sizeof(struct bss_bcn_attlm_offset_tlv))
 #define MT7996_MAX_BSS_OFFLOAD_SIZE	2048
 #define MT7996_MAX_BEACON_SIZE		(MT7996_MAX_BSS_OFFLOAD_SIZE - \

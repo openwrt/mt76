@@ -534,6 +534,10 @@ mt7996_init_wiphy(struct ieee80211_hw *hw, struct mtk_wed_device *wed)
 	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_MSCS);
 	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_BEACON_CRIT_UPDATE);
 	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_AP_ADV_TTLM);
+	wiphy_ext_feature_set(wiphy,
+			      NL80211_EXT_FEATURE_AP_REMOVAL_TIMER_OFFLOAD);
+	wiphy_ext_feature_set(wiphy,
+			      NL80211_EXT_FEATURE_AP_REMOVAL_TIMER_OFFLOAD_LIMITS);
 
 	if (mt7996_eeprom_has_background_radar(dev) &&
 	    (!mdev->dev->of_node ||
@@ -1782,6 +1786,7 @@ int mt7996_register_device(struct mt7996_dev *dev)
 	init_waitqueue_head(&dev->reset_wait);
 	INIT_WORK(&dev->reset_work, mt7996_mac_reset_work);
 	INIT_WORK(&dev->dump_work, mt7996_mac_dump_work);
+	INIT_WORK(&dev->reconf_work, mt7996_mcu_mld_reconf_work);
 	mutex_init(&dev->dump_mutex);
 	dev->vow_atf_en = true;
 
@@ -1852,6 +1857,7 @@ void mt7996_unregister_device(struct mt7996_dev *dev)
 			napi_disable(&dev->mt76.napi[i]);
 	}
 	mt7996_mcu_exit(dev);
+	cancel_work_sync(&dev->reconf_work);
 	mt7996_tx_token_put(dev);
 	mt7996_dma_cleanup(dev);
 	if (mt7996_has_hwrro(dev) &&

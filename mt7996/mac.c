@@ -2529,9 +2529,13 @@ static void
 mt7996_mac_reset_vif_iter(void *data, u8 *mac, struct ieee80211_vif *vif)
 {
 	struct mt76_vif_link *mlink = (struct mt76_vif_link *)vif->drv_priv;
+	struct mt7996_vif *priv = (struct mt7996_vif *)vif->drv_priv;
 	struct mt76_vif_data *mvif = mlink->mvif;
 	struct mt7996_dev *dev = data;
 	int i;
+
+	/* a restart that fails calls no remove_interface for the interface */
+	hrtimer_cancel(&priv->reconf_timer);
 
 	rcu_read_lock();
 	for (i = 0; i < ARRAY_SIZE(mvif->link); i++) {

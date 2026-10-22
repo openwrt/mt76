@@ -560,6 +560,10 @@ void mt7996_vif_link_remove(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	if (mlink->wcid->offchannel) {
 		mt7996_vif_link_destroy(phy, link, vif, link_conf);
 	} else {
+		if (vif->type == NL80211_IFTYPE_AP)
+			mt7996_mcu_beacon_reconf_stop(phy->dev, vif, link_id,
+						      true);
+
 		if (vif->type == NL80211_IFTYPE_AP && ieee80211_vif_is_mld(vif)) {
 			mt7996_mcu_mld_reconf_stop_link(phy->dev, vif,
 							BIT(link_id));
@@ -701,6 +705,15 @@ static int mt7996_add_interface(struct ieee80211_hw *hw,
 	vif->offload_flags |= IEEE80211_OFFLOAD_ENCAP_4ADDR;
 	mvif->mt76.deflink_id = IEEE80211_LINK_UNSPECIFIED;
 
+	/* a hardware restart adds the interface again without a remove */
+	if (mvif->reconf_dev) {
+		mt7996_mcu_beacon_reconf_reset(dev, vif);
+	} else {
+		mvif->reconf_dev = dev;
+		hrtimer_setup(&mvif->reconf_timer, mt7996_mcu_mld_reconf_tbtt,
+			      CLOCK_BOOTTIME, HRTIMER_MODE_ABS_SOFT);
+	}
+
 out:
 	mutex_unlock(&dev->mt76.mutex);
 	if (err) {
@@ -741,6 +754,8 @@ static void mt7996_remove_interface(struct ieee80211_hw *hw,
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
 	struct mt7996_radio_data rdata = {};
 	int i;
+
+	hrtimer_cancel(&mvif->reconf_timer);
 
 	mutex_lock(&dev->mt76.mutex);
 	mt7996_vif_links_destroy(dev, vif, mvif->mt76.valid_links, NULL);
@@ -1306,29 +1321,55 @@ mt7996_sta_deflink_busy(struct mt7996_dev *dev, struct mt7996_sta *msta)
 	return false;
 }
 
+static u8
+mt7996_sta_valid_link_get(struct mt7996_dev *dev, struct mt7996_sta *msta,
+			  u16 skip_links)
+{
+	struct mt7996_sta_link *msta_link;
+	unsigned int link_id;
+
+	for (link_id = 0; link_id < ARRAY_SIZE(msta->link); link_id++) {
+		if (skip_links & BIT(link_id))
+			continue;
+
+		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
+		if (msta_link && msta_link->wcid.link_valid)
+			return link_id;
+	}
+
+	return IEEE80211_LINK_UNSPECIFIED;
+}
+
 static void
 mt7996_sta_deflink_release(struct mt7996_dev *dev, struct ieee80211_sta *sta,
 			   unsigned int link_id)
 {
 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
 	struct mt7996_sta_link *msta_seclink;
+	u8 seclink_id = msta->seclink_id;
 
 	if (msta->deflink_id != link_id)
 		return;
 
-	if (msta->seclink_id == link_id)
-		msta->seclink_id = mt7996_sta_seclink_get(dev, msta);
-
 	msta->deflink_id = IEEE80211_LINK_UNSPECIFIED;
-	if (msta->seclink_id == link_id)
-		return;
+
+	/* the TX stop of a link removal leaves the secondary link equal to
+	 * the default link while other links are still valid
+	 */
+	if (seclink_id == link_id) {
+		seclink_id = mt7996_sta_valid_link_get(dev, msta, BIT(link_id) |
+						       msta->tx_released_links);
+		if (seclink_id == IEEE80211_LINK_UNSPECIFIED)
+			seclink_id = mt7996_sta_valid_link_get(dev, msta,
+							       BIT(link_id));
+		if (seclink_id == IEEE80211_LINK_UNSPECIFIED)
+			return;
+	}
 
 	/* switch to the secondary link */
-	msta_seclink = mt76_dereference(msta->link[msta->seclink_id],
-					&dev->mt76);
+	msta_seclink = mt76_dereference(msta->link[seclink_id], &dev->mt76);
 	if (msta_seclink)
-		mt7996_sta_deflink_set(sta, msta->seclink_id,
-				       msta_seclink->wcid.idx);
+		mt7996_sta_deflink_set(sta, seclink_id, msta_seclink->wcid.idx);
 }
 
 u8 mt7996_sta_seclink_get(struct mt7996_dev *dev, struct mt7996_sta *msta)
@@ -1341,19 +1382,60 @@ u8 mt7996_sta_seclink_get(struct mt7996_dev *dev, struct mt7996_sta *msta)
 
 	msta_link = mt7996_sta_link_protected(dev, msta, msta->seclink_id);
 	if (msta->seclink_id != msta->deflink_id && msta_link &&
-	    msta_link->wcid.link_valid)
+	    msta_link->wcid.link_valid &&
+	    !(msta->tx_released_links & BIT(msta->seclink_id)))
 		return msta->seclink_id;
 
-	for (link_id = 0; link_id < ARRAY_SIZE(msta->link); link_id++) {
-		if (link_id == msta->deflink_id)
-			continue;
+	link_id = mt7996_sta_valid_link_get(dev, msta,
+					    BIT(msta->deflink_id) |
+					    msta->tx_released_links);
+	if (link_id == IEEE80211_LINK_UNSPECIFIED)
+		return msta->deflink_id;
 
-		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
-		if (msta_link && msta_link->wcid.link_valid)
-			return link_id;
+	return link_id;
+}
+
+/* A non-AP MLD drops a removed link at its removal TBTT (IEEE 802.11be-2024
+ * 35.3.6.3), so the TX of the station leaves that link before it. A station
+ * without another link keeps its TX link.
+ *
+ * The firmware keeps the primary and secondary link of its last MLD setup,
+ * which only a joining link sends, and the MLD_ID of a TXD must name one of
+ * them (see mt7996_get_tx_wcid()), so the TX stays on the surviving one.
+ */
+void mt7996_sta_tx_links_release(struct mt7996_dev *dev,
+				 struct ieee80211_sta *sta, u16 links)
+{
+	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	u8 link_id;
+	u16 pair;
+
+	lockdep_assert_held(&dev->mt76.mutex);
+
+	if (!sta->mlo)
+		return;
+
+	msta->tx_released_links |= links & sta->valid_links;
+
+	pair = BIT(msta->deflink_id) | BIT(msta->seclink_id);
+	if (!(pair & links))
+		return;
+
+	if (pair & ~links) {
+		if (links & BIT(msta->deflink_id))
+			mt7996_sta_deflink_release(dev, sta, msta->deflink_id);
+		msta->seclink_id = msta->deflink_id;
+		return;
 	}
 
-	return msta->deflink_id;
+	link_id = mt7996_sta_seclink_get(dev, msta);
+	if (link_id >= IEEE80211_MLD_MAX_NUM_LINKS || (links & BIT(link_id)))
+		return;
+
+	msta->seclink_id = link_id;
+	if (links & BIT(msta->deflink_id))
+		mt7996_sta_deflink_release(dev, sta, msta->deflink_id);
+	msta->seclink_id = mt7996_sta_seclink_get(dev, msta);
 }
 
 static int
@@ -1448,6 +1530,7 @@ void mt7996_mac_sta_remove_link(struct mt7996_dev *dev,
 		if (msta->seclink_id == link_id)
 			msta->seclink_id = msta->deflink_id;
 	}
+	msta->tx_released_links &= ~BIT(link_id);
 
 	if (flush) {
 		struct mt7996_phy *phy =
@@ -1587,6 +1670,7 @@ mt7996_mac_sta_add(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	msta->seclink_id = IEEE80211_LINK_UNSPECIFIED;
 	msta->conn_state = CONN_STATE_DISCONNECT;
 	msta->peer_mld_links = 0;
+	msta->tx_released_links = 0;
 	msta->ba_tx_mask = 0;
 	msta->ba_rx_mask = 0;
 	msta->vif = mvif;
@@ -3458,6 +3542,9 @@ mt7996_reconfig_complete(struct ieee80211_hw *hw,
 	mt7996_for_each_phy(dev, phy)
 		ieee80211_queue_delayed_work(hw, &phy->mt76->mac_work,
 					     MT7996_WATCHDOG_TIME);
+
+	if (reconfig_type == IEEE80211_RECONFIG_TYPE_RESTART)
+		queue_work(system_highpri_wq, &dev->reconf_work);
 }
 
 static int
