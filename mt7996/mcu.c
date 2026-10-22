@@ -4090,6 +4090,11 @@ mt7996_mcu_beacon_send(struct mt7996_dev *dev, struct mt7996_vif_link *link,
 
 	ret = mt76_mcu_skb_send_msg(&dev->mt76, rskb,
 				    MCU_WMWA_UNI_CMD(BSS_INFO_UPDATE), true);
+	if (ret)
+		dev_warn_ratelimited(dev->mt76.dev,
+				     "beacon upload of link %u (bss_idx %u) failed: %d\n",
+				     link->msta_link.wcid.link_id,
+				     link->mt76.idx, ret);
 
 	spin_lock_bh(&dev->mt76.lock);
 	if (pending && !ret)
