@@ -24,20 +24,20 @@ int mt7996_run(struct mt7996_phy *phy)
 
 	ret = mt7996_mcu_set_chan_info(phy, UNI_CHANNEL_RX_PATH);
 	if (ret)
-		return ret;
+		goto disable_radio;
 
 	ret = mt7996_mcu_set_thermal_throttling(phy, MT7996_THERMAL_THROTTLE_MAX);
 	if (ret)
-		return ret;
+		goto disable_radio;
 
 	ret = mt7996_mcu_set_thermal_protect(phy, true);
 	if (ret)
-		return ret;
+		goto disable_radio;
 
 	ret = mt7996_mcu_set_tx_power_ctrl(phy, UNI_TXPOWER_SKU_POWER_LIMIT_CTRL,
 					   true);
 	if (ret)
-		return ret;
+		goto disable_radio;
 
 	set_bit(MT76_STATE_RUNNING, &phy->mt76->state);
 
@@ -50,6 +50,11 @@ int mt7996_run(struct mt7996_phy *phy)
 	}
 
 	return 0;
+
+disable_radio:
+	mt7996_mcu_set_radio_en(phy, false);
+
+	return ret;
 }
 
 static int mt7996_start(struct ieee80211_hw *hw)
@@ -563,6 +568,8 @@ static int mt7996_add_interface(struct ieee80211_hw *hw,
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
 	struct wireless_dev *wdev = ieee80211_vif_to_wdev(vif);
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
+	unsigned long monitor_changed = 0;
+	unsigned long started = 0;
 	int i, err = 0;
 
 	mutex_lock(&dev->mt76.mutex);
@@ -577,10 +584,14 @@ static int mt7996_add_interface(struct ieee80211_hw *hw,
 			err = mt7996_run(phy);
 			if (err)
 				goto out;
+			set_bit(i, &started);
 		}
 
-		if (vif->type == NL80211_IFTYPE_MONITOR)
+		if (vif->type == NL80211_IFTYPE_MONITOR) {
+			if (phy->rxfilter & MT_WF_RFCR_DROP_OTHER_UC)
+				set_bit(i, &monitor_changed);
 			mt7996_set_monitor(phy, true);
+		}
 	}
 
 	mt76_vif_init(vif, &mvif->mt76);
@@ -590,6 +601,18 @@ static int mt7996_add_interface(struct ieee80211_hw *hw,
 
 out:
 	mutex_unlock(&dev->mt76.mutex);
+	if (err) {
+		for_each_set_bit(i, &monitor_changed, MT7996_MAX_RADIOS) {
+			struct mt7996_phy *phy = dev->radio_phy[i];
+
+			mutex_lock(&dev->mt76.mutex);
+			mt7996_set_monitor(phy, false);
+			mutex_unlock(&dev->mt76.mutex);
+		}
+
+		for_each_set_bit(i, &started, MT7996_MAX_RADIOS)
+			mt7996_stop_phy(dev->radio_phy[i]);
+	}
 
 	return err;
 }
