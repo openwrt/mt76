@@ -3308,6 +3308,33 @@ static u32 mt76_connac2_get_data_mode(struct mt76_dev *dev, u32 info)
 	return mode;
 }
 
+int mt76_connac2_patch_check(const struct firmware *fw)
+{
+	const struct mt76_connac2_patch_hdr *hdr;
+	const struct mt76_connac2_patch_sec *sec;
+	u32 i, n_region;
+
+	if (!fw || !fw->data || fw->size < sizeof(*hdr))
+		return -EINVAL;
+
+	hdr = (const void *)fw->data;
+	n_region = be32_to_cpu(hdr->desc.n_region);
+	if (n_region > (fw->size - sizeof(*hdr)) / sizeof(*sec))
+		return -EINVAL;
+
+	sec = (const void *)(fw->data + sizeof(*hdr));
+	for (i = 0; i < n_region; i++) {
+		u32 offs = be32_to_cpu(sec[i].offs);
+		u32 len = be32_to_cpu(sec[i].info.len);
+
+		if (offs > fw->size || len > fw->size - offs)
+			return -EINVAL;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt76_connac2_patch_check);
+
 int mt76_connac2_load_patch(struct mt76_dev *dev, const char *fw_name)
 {
 	int i, ret, sem, max_len = mt76_is_sdio(dev) ? 2048 : 4096;
@@ -3329,7 +3356,7 @@ int mt76_connac2_load_patch(struct mt76_dev *dev, const char *fw_name)
 	if (ret)
 		goto out;
 
-	if (!fw || !fw->data || fw->size < sizeof(*hdr)) {
+	if (mt76_connac2_patch_check(fw)) {
 		dev_err(dev->dev, "Invalid firmware\n");
 		ret = -EINVAL;
 		goto out;

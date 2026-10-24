@@ -2155,6 +2155,7 @@ int mt76_connac2_fw_check(const struct firmware *fw, size_t *data_len);
 int mt76_connac2_load_ram(struct mt76_dev *dev, const char *fw_wm,
 			  const char *fw_wa);
 int mt76_connac3_load_phy_ram(struct mt76_dev *dev, const char *fw_name);
+int mt76_connac2_patch_check(const struct firmware *fw);
 int mt76_connac2_load_patch(struct mt76_dev *dev, const char *fw_name);
 int mt76_connac3_load_cb_patch(struct mt76_dev *dev, const char *fw_name);
 int mt76_connac2_mcu_fill_message(struct mt76_dev *mdev, struct sk_buff *skb,
