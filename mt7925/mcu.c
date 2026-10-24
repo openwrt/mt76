@@ -740,16 +740,15 @@ mt7925_mcu_uni_rx_unsolicited_event(struct mt792x_dev *dev,
 
 void mt7925_mcu_rx_event(struct mt792x_dev *dev, struct sk_buff *skb)
 {
-	struct mt7925_mcu_rxd *rxd = (struct mt7925_mcu_rxd *)skb->data;
+	struct mt7925_mcu_rxd *rxd;
 
-	if (skb_linearize(skb))
-		return;
-
-	if (skb->len < offsetofend(struct mt7925_mcu_rxd, ext_eid)) {
+	if (skb_linearize(skb) ||
+	    skb->len < offsetofend(struct mt7925_mcu_rxd, ext_eid)) {
 		dev_kfree_skb(skb);
 		return;
 	}
 
+	rxd = (struct mt7925_mcu_rxd *)skb->data;
 	if (rxd->option & MCU_UNI_CMD_UNSOLICITED_EVENT) {
 		mt7925_mcu_uni_rx_unsolicited_event(dev, skb);
 		return;
