@@ -544,6 +544,9 @@ mt7996_mcu_rx_radar_detected(struct mt7996_dev *dev, struct sk_buff *skb)
 	struct mt76_phy *mphy = &dev->mt76.phy;
 	struct mt7996_mcu_rdd_report *r;
 
+	if (skb->len < offsetofend(struct mt7996_mcu_rdd_report, rdd_idx))
+		return;
+
 	r = (struct mt7996_mcu_rdd_report *)skb->data;
 
 	switch (r->rdd_idx) {
@@ -763,6 +766,10 @@ mt7996_mcu_rx_thermal_notify(struct mt7996_dev *dev, struct sk_buff *skb)
 	struct mt7996_mcu_thermal_notify *n;
 	struct mt7996_phy *phy;
 
+	if (skb->len < offsetofend(struct mt7996_mcu_thermal_notify,
+				   duty_percent))
+		return;
+
 	n = (struct mt7996_mcu_thermal_notify *)skb->data;
 
 	if (le16_to_cpu(n->tag) != THERMAL_NOTIFY_TAG)
@@ -819,7 +826,7 @@ mt7996_mcu_wed_rro_event(struct mt7996_dev *dev, struct sk_buff *skb)
 {
 	struct mt7996_mcu_wed_rro_event *event = (void *)skb->data;
 
-	if (!mt7996_has_hwrro(dev))
+	if (!mt7996_has_hwrro(dev) || skb->len < sizeof(*event))
 		return;
 
 	skb_pull(skb, sizeof(struct mt7996_mcu_rxd) + 4);
