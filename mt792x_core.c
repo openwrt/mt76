@@ -866,37 +866,20 @@ mt792x_get_offload_capability(struct device *dev, const char *fw_wm)
 	const u8 *data, *end, *fw_end;
 	const struct firmware *fw;
 	u8 offload_caps = 0;
-	size_t offset = 0;
-	int ret, i;
+	size_t offset;
+	int ret;
 
 	ret = request_firmware(&fw, fw_wm, dev);
 	if (ret)
 		return ret;
 
-	if (!fw || !fw->data || fw->size < sizeof(*hdr))
+	if (mt76_connac2_fw_check(fw, &offset))
 		goto invalid;
 
 	data = fw->data;
 	hdr = (const void *)(fw->data + fw->size - sizeof(*hdr));
-	if (hdr->n_region > (fw->size - sizeof(*hdr)) /
-			    sizeof(struct mt76_connac2_fw_region))
-		goto invalid;
-
 	fw_end = (const u8 *)hdr -
 		 hdr->n_region * sizeof(struct mt76_connac2_fw_region);
-
-	for (i = 0; i < hdr->n_region; i++) {
-		const struct mt76_connac2_fw_region *region;
-		u32 region_len;
-
-		region = (const void *)((const u8 *)hdr -
-					(hdr->n_region - i) * sizeof(*region));
-		region_len = le32_to_cpu(region->len);
-		if (region_len > fw_end - fw->data - offset)
-			goto invalid;
-
-		offset += region_len;
-	}
 
 	if (fw_end - fw->data - offset < 16 + sizeof(*rel_info))
 		goto invalid;

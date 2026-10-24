@@ -442,7 +442,7 @@ static int mt7921_load_clc(struct mt792x_dev *dev, const char *fw_name)
 	struct mt76_dev *mdev = &dev->mt76;
 	struct mt792x_phy *phy = &dev->phy;
 	const struct firmware *fw;
-	size_t clc_len, fw_data_len, len, offset = 0;
+	size_t clc_len, len, offset = 0;
 	int ret, i;
 	u8 *clc_base = NULL, hw_encap = 0;
 
@@ -462,32 +462,17 @@ static int mt7921_load_clc(struct mt792x_dev *dev, const char *fw_name)
 	if (ret)
 		return ret;
 
-	if (!fw || !fw->data || fw->size < sizeof(*hdr)) {
+	if (mt76_connac2_fw_check(fw, NULL)) {
 		dev_err(mdev->dev, "Invalid firmware\n");
 		ret = -EINVAL;
 		goto out;
 	}
 
 	hdr = (const void *)(fw->data + fw->size - sizeof(*hdr));
-	if (hdr->n_region > (fw->size - sizeof(*hdr)) / sizeof(*region)) {
-		dev_err(mdev->dev, "Invalid firmware region table\n");
-		ret = -EINVAL;
-		goto out;
-	}
-	fw_data_len = fw->size - sizeof(*hdr) -
-		      hdr->n_region * sizeof(*region);
-
 	for (i = 0; i < hdr->n_region; i++) {
 		region = (const void *)((const u8 *)hdr -
 					(hdr->n_region - i) * sizeof(*region));
 		len = le32_to_cpu(region->len);
-
-		/* check if we have valid buffer size */
-		if (len > fw_data_len - offset) {
-			dev_err(mdev->dev, "Invalid firmware region\n");
-			ret = -EINVAL;
-			goto out;
-		}
 
 		if ((region->feature_set & FW_FEATURE_NON_DL) &&
 		    region->type == FW_TYPE_CLC) {
