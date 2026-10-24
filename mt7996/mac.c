@@ -1144,7 +1144,8 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 
 	/* mt76_tx_status_skb_add() clears info->control.flags */
 	host_txd = !is_8023 ||
-		   (info->control.flags & IEEE80211_TX_CTRL_STREAM_CLASSIFIED);
+		   (info->control.flags & (IEEE80211_TX_CTRL_STREAM_CLASSIFIED |
+					   IEEE80211_TX_CTRL_EXPLICIT_UP));
 
 	pid = mt76_tx_status_skb_add(mdev, wcid, tx_info->skb);
 	memset(txwi_ptr, 0, MT_TXD_SIZE);
