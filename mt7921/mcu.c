@@ -1441,6 +1441,12 @@ int __mt7921_mcu_set_clc(struct mt792x_dev *dev, u8 *alpha2,
 		if (ret_skb) {
 			struct mt7921_clc_info_tlv *info;
 
+			if (ret_skb->len < 4 + offsetofend(struct mt7921_clc_info_tlv,
+							   chan_conf)) {
+				dev_kfree_skb(ret_skb);
+				return -EINVAL;
+			}
+
 			info = (struct mt7921_clc_info_tlv *)(ret_skb->data + 4);
 			dev->phy.clc_chan_conf = info->chan_conf;
 			dev_kfree_skb(ret_skb);
