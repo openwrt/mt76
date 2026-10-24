@@ -3655,7 +3655,7 @@ static int mt7996_load_patch(struct mt7996_dev *dev)
 	if (ret)
 		goto out;
 
-	if (!fw || !fw->data || fw->size < sizeof(*hdr)) {
+	if (mt76_connac2_patch_check(fw)) {
 		dev_err(dev->mt76.dev, "Invalid firmware\n");
 		ret = -EINVAL;
 		goto out;
