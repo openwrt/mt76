@@ -3045,6 +3045,39 @@ s8 mt76_connac_get_rate_power_limit(struct mt76_phy *phy,
 }
 EXPORT_SYMBOL_GPL(mt76_connac_get_rate_power_limit);
 
+int mt76_connac2_fw_check(const struct firmware *fw, size_t *data_len)
+{
+	const struct mt76_connac2_fw_region *region;
+	const struct mt76_connac2_fw_trailer *hdr;
+	size_t avail, len = 0;
+	int i;
+
+	if (!fw || !fw->data || fw->size < sizeof(*hdr))
+		return -EINVAL;
+
+	hdr = (const void *)(fw->data + fw->size - sizeof(*hdr));
+	avail = fw->size - sizeof(*hdr);
+	if (hdr->n_region > avail / sizeof(*region))
+		return -EINVAL;
+
+	avail -= hdr->n_region * sizeof(*region);
+	region = (const void *)(fw->data + avail);
+	for (i = 0; i < hdr->n_region; i++) {
+		u32 region_len = le32_to_cpu(region[i].len);
+
+		if (region_len > avail - len)
+			return -EINVAL;
+
+		len += region_len;
+	}
+
+	if (data_len)
+		*data_len = len;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt76_connac2_fw_check);
+
 static int
 mt76_connac_mcu_send_ram_firmware(struct mt76_dev *dev,
 				  const struct mt76_connac2_fw_trailer *hdr,
@@ -3158,7 +3191,7 @@ int mt76_connac2_load_ram(struct mt76_dev *dev, const char *fw_wm,
 	if (ret)
 		return ret;
 
-	if (!fw || !fw->data || fw->size < sizeof(*hdr)) {
+	if (mt76_connac2_fw_check(fw, NULL)) {
 		dev_err(dev->dev, "Invalid firmware\n");
 		ret = -EINVAL;
 		goto out;
@@ -3187,7 +3220,7 @@ int mt76_connac2_load_ram(struct mt76_dev *dev, const char *fw_wm,
 	if (ret)
 		return ret;
 
-	if (!fw || !fw->data || fw->size < sizeof(*hdr)) {
+	if (mt76_connac2_fw_check(fw, NULL)) {
 		dev_err(dev->dev, "Invalid firmware\n");
 		ret = -EINVAL;
 		goto out;
@@ -3224,7 +3257,7 @@ int mt76_connac3_load_phy_ram(struct mt76_dev *dev, const char *fw_name)
 	if (ret)
 		return ret;
 
-	if (!fw || !fw->data || fw->size < sizeof(*hdr)) {
+	if (mt76_connac2_fw_check(fw, NULL)) {
 		dev_err(dev->dev, "Invalid PHY firmware\n");
 		ret = -EINVAL;
 		goto out;
