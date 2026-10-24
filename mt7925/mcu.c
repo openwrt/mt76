@@ -911,9 +911,10 @@ static int mt7925_load_clc(struct mt792x_dev *dev, const char *fw_name)
 	const struct mt7925_clc *clc;
 	struct mt76_dev *mdev = &dev->mt76;
 	struct mt792x_phy *phy = &dev->phy;
+	size_t clc_len, len, offset = 0;
 	const struct firmware *fw;
 	u8 *clc_base = NULL, hw_encap = 0;
-	int ret, i, len, offset = 0;
+	int ret, i;
 
 	dev->phy.clc_chan_conf = 0xff;
 	dev->regd_user = false;
@@ -931,7 +932,7 @@ static int mt7925_load_clc(struct mt792x_dev *dev, const char *fw_name)
 	if (ret)
 		return ret;
 
-	if (!fw || !fw->data || fw->size < sizeof(*hdr)) {
+	if (mt76_connac2_fw_check(fw, NULL)) {
 		dev_err(mdev->dev, "Invalid firmware\n");
 		ret = -EINVAL;
 		goto out;
@@ -942,13 +943,6 @@ static int mt7925_load_clc(struct mt792x_dev *dev, const char *fw_name)
 		region = (const void *)((const u8 *)hdr -
 					(hdr->n_region - i) * sizeof(*region));
 		len = le32_to_cpu(region->len);
-
-		/* check if we have valid buffer size */
-		if (offset + len > fw->size) {
-			dev_err(mdev->dev, "Invalid firmware region\n");
-			ret = -EINVAL;
-			goto out;
-		}
 
 		if ((region->feature_set & FW_FEATURE_NON_DL) &&
 		    region->type == FW_TYPE_CLC) {
@@ -961,8 +955,20 @@ static int mt7925_load_clc(struct mt792x_dev *dev, const char *fw_name)
 	if (!clc_base)
 		goto out;
 
-	for (offset = 0; offset < len; offset += le32_to_cpu(clc->len)) {
+	for (offset = 0; offset < len; offset += clc_len) {
+		if (len - offset < sizeof(*clc)) {
+			dev_err(mdev->dev, "Invalid CLC record\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
 		clc = (const struct mt7925_clc *)(clc_base + offset);
+		clc_len = le32_to_cpu(clc->len);
+		if (clc_len < sizeof(*clc) || clc_len > len - offset) {
+			dev_err(mdev->dev, "Invalid CLC record\n");
+			ret = -EINVAL;
+			goto out;
+		}
 
 		if (clc->idx >= ARRAY_SIZE(phy->clc))
 			break;
@@ -978,7 +984,7 @@ static int mt7925_load_clc(struct mt792x_dev *dev, const char *fw_name)
 			continue;
 
 		phy->clc[clc->idx] = devm_kmemdup(mdev->dev, clc,
-						  le32_to_cpu(clc->len),
+						  clc_len,
 						  GFP_KERNEL);
 
 		if (!phy->clc[clc->idx]) {
