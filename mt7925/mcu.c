@@ -1058,7 +1058,7 @@ int mt7925_mcu_get_temperature(struct mt792x_phy *phy)
 }
 
 static void
-mt7925_mcu_parse_phy_cap(struct mt792x_dev *dev, char *data)
+mt7925_mcu_parse_phy_cap(struct mt792x_dev *dev, char *data, int len)
 {
 	struct mt76_phy *mphy = &dev->mt76.phy;
 	struct mt76_dev *mdev = mphy->dev;
@@ -1082,6 +1082,9 @@ mt7925_mcu_parse_phy_cap(struct mt792x_dev *dev, char *data)
 		WF0_5G
 	};
 
+	if (len < offsetofend(struct mt7925_mcu_phy_cap, hw_path))
+		return;
+
 	cap = (struct mt7925_mcu_phy_cap *)data;
 
 	mdev->phy.antenna_mask = BIT(cap->nss) - 1;
@@ -1091,13 +1094,16 @@ mt7925_mcu_parse_phy_cap(struct mt792x_dev *dev, char *data)
 }
 
 static void
-mt7925_mcu_parse_eml_cap(struct mt792x_dev *dev, char *data)
+mt7925_mcu_parse_eml_cap(struct mt792x_dev *dev, char *data, int len)
 {
 	struct mt7925_mcu_eml_cap {
 		u8 rsv[4];
 		__le16 eml_cap;
 		u8 rsv2[6];
 	} __packed * cap;
+
+	if (len < offsetofend(struct mt7925_mcu_eml_cap, eml_cap))
+		return;
 
 	cap = (struct mt7925_mcu_eml_cap *)data;
 
@@ -1139,30 +1145,35 @@ mt7925_mcu_get_nic_capability(struct mt792x_dev *dev)
 
 	for (i = 0; i < le16_to_cpu(hdr->n_element); i++) {
 		struct tlv *tlv = (struct tlv *)skb->data;
-		int len;
+		int len, data_len;
 
 		if (skb->len < sizeof(*tlv))
 			break;
 
 		len = le16_to_cpu(tlv->len);
-		if (skb->len < len)
+		if (len < sizeof(*tlv) || skb->len < len)
 			break;
 
+		data_len = len - sizeof(*tlv);
 		switch (le16_to_cpu(tlv->tag)) {
 		case MT_NIC_CAP_6G:
-			mphy->cap.has_6ghz = !!tlv->data[0];
+			if (data_len)
+				mphy->cap.has_6ghz = !!tlv->data[0];
 			break;
 		case MT_NIC_CAP_MAC_ADDR:
-			memcpy(mphy->macaddr, (void *)tlv->data, ETH_ALEN);
+			if (data_len >= ETH_ALEN)
+				memcpy(mphy->macaddr, (void *)tlv->data, ETH_ALEN);
 			break;
 		case MT_NIC_CAP_PHY:
-			mt7925_mcu_parse_phy_cap(dev, tlv->data);
+			mt7925_mcu_parse_phy_cap(dev, tlv->data, data_len);
 			break;
 		case MT_NIC_CAP_CHIP_CAP:
-			dev->phy.chip_cap = le64_to_cpu(*(__le64 *)tlv->data);
+			if (data_len >= sizeof(__le64))
+				dev->phy.chip_cap =
+					le64_to_cpu(*(__le64 *)tlv->data);
 			break;
 		case MT_NIC_CAP_EML_CAP:
-			mt7925_mcu_parse_eml_cap(dev, tlv->data);
+			mt7925_mcu_parse_eml_cap(dev, tlv->data, data_len);
 			break;
 		default:
 			break;
