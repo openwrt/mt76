@@ -91,6 +91,8 @@ static const struct wiphy_iftype_ext_capab iftypes_ext_capa[] = {
 		.extended_capabilities_len = sizeof(if_types_ext_capa_ap),
 		.eml_capabilities = IEEE80211_EML_CAP_EMLSR_SUPP,
 		.mld_capa_and_ops =
+			FIELD_PREP_CONST(IEEE80211_MLD_CAP_OP_TID_TO_LINK_MAP_NEG_SUPP,
+					 IEEE80211_MLD_CAP_OP_TID_TO_LINK_MAP_NEG_SUPP_SAME) |
 			FIELD_PREP_CONST(IEEE80211_MLD_CAP_OP_MAX_SIMUL_LINKS,
 					 MT7996_MAX_RADIOS - 1),
 	}, {
@@ -534,6 +536,7 @@ mt7996_init_wiphy(struct ieee80211_hw *hw, struct mtk_wed_device *wed)
 	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_MSCS);
 	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_BEACON_CRIT_UPDATE);
 	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_AP_ADV_TTLM);
+	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_AP_NEG_TTLM);
 	wiphy_ext_feature_set(wiphy,
 			      NL80211_EXT_FEATURE_AP_REMOVAL_TIMER_OFFLOAD);
 	wiphy_ext_feature_set(wiphy,
