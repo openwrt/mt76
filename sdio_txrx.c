@@ -9,6 +9,7 @@
 #include <linux/kernel.h>
 #include <linux/iopoll.h>
 #include <linux/module.h>
+#include <linux/unaligned.h>
 
 #include <linux/mmc/host.h>
 #include <linux/mmc/sdio_ids.h>
@@ -87,7 +88,7 @@ mt76s_rx_run_queue(struct mt76_dev *dev, enum mt76_rxq_id qid,
 {
 	struct mt76_queue *q = &dev->q_rx[qid];
 	struct mt76_sdio *sdio = &dev->sdio;
-	int len = 0, err, i;
+	int len = 0, data_len, err, i;
 	struct page *page;
 	u8 *buf, *end;
 
@@ -96,6 +97,10 @@ mt76s_rx_run_queue(struct mt76_dev *dev, enum mt76_rxq_id qid,
 
 	if (!len)
 		return 0;
+
+	data_len = len;
+	if (sdio->rx_enhance)
+		len += 4 + sdio->intr_size;
 
 	if (len > sdio->func->cur_blksize)
 		len = roundup(len, sdio->func->cur_blksize);
@@ -117,7 +122,13 @@ mt76s_rx_run_queue(struct mt76_dev *dev, enum mt76_rxq_id qid,
 		return err;
 	}
 
-	end = buf + len;
+	/* The next interrupt status follows the frames and a zero pad */
+	if (sdio->rx_enhance && !get_unaligned((u32 *)(buf + data_len))) {
+		memcpy(sdio->intr_next, buf + data_len + 4, sdio->intr_size);
+		sdio->intr_pending = true;
+	}
+
+	end = buf + data_len;
 	i = 0;
 
 	while (i < intr->rx.num[qid] && buf < end) {
@@ -348,7 +359,7 @@ void mt76s_txrx_worker(struct mt76_sdio *sdio)
 			else
 				wake_up(&sdio->wait);
 		}
-	} while (nframes > 0);
+	} while (nframes > 0 || sdio->intr_pending);
 
 	/* enable interrupt */
 	sdio_claim_host(sdio->func);

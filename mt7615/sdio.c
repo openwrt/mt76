@@ -56,12 +56,19 @@ static int mt7663s_parse_intr(struct mt76_dev *dev, struct mt76s_intr *intr)
 	struct mt7663s_intr *irq_data = sdio->intr_data;
 	int i, err;
 
-	sdio_claim_host(sdio->func);
-	err = sdio_readsb(sdio->func, irq_data, MCR_WHISR, sizeof(*irq_data));
-	sdio_release_host(sdio->func);
+	if (sdio->intr_pending) {
+		/* appended to the last RX read (RX enhance mode) */
+		memcpy(irq_data, sdio->intr_next, sizeof(*irq_data));
+		sdio->intr_pending = false;
+	} else {
+		sdio_claim_host(sdio->func);
+		err = sdio_readsb(sdio->func, irq_data, MCR_WHISR,
+				  sizeof(*irq_data));
+		sdio_release_host(sdio->func);
 
-	if (err)
-		return err;
+		if (err)
+			return err;
+	}
 
 	intr->isr = irq_data->isr;
 	intr->rec_mb = irq_data->rec_mb;
@@ -123,6 +130,15 @@ static int mt7663s_probe(struct sdio_func *func,
 	ret = mt76s_init(mdev, func, &mt7663s_ops);
 	if (ret < 0)
 		goto error;
+
+	mdev->sdio.intr_size = sizeof(struct mt7663s_intr);
+	mdev->sdio.intr_next = devm_kmalloc(mdev->dev, mdev->sdio.intr_size,
+					    GFP_KERNEL);
+	if (!mdev->sdio.intr_next) {
+		ret = -ENOMEM;
+		goto error;
+	}
+	mdev->sdio.rx_enhance = true;
 
 	ret = mt76s_hw_init(mdev, func, MT76_CONNAC_SDIO);
 	if (ret)
