@@ -200,6 +200,12 @@ mt7615_check_offload_capability(struct mt7615_dev *dev)
 				   WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL |
 				   NL80211_FEATURE_P2P_GO_CTWIN |
 				   NL80211_FEATURE_P2P_GO_OPPPS;
+		/*
+		 * On SDIO the firmware ends a hw scan with a random source
+		 * address at once, with no results.
+		 */
+		if (mt76_is_sdio(&dev->mt76))
+			wiphy->features &= ~NL80211_FEATURE_SCAN_RANDOM_MAC_ADDR;
 	} else {
 		dev->ops->hw_scan = NULL;
 		dev->ops->cancel_hw_scan = NULL;
