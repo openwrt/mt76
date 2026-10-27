@@ -241,7 +241,7 @@ mt7925_deep_sleep_set(void *data, u64 val)
 	if (pm->ds_enable_user == enable)
 		goto out;
 
-	monitor = !!(dev->mphy.hw->conf.flags & IEEE80211_CONF_MONITOR);
+	monitor = mt792x_monitor_active(dev);
 	pm->ds_enable_user = enable;
 	pm->ds_enable = enable && !monitor;
 	mt7925_mcu_set_deep_sleep(dev, pm->ds_enable);

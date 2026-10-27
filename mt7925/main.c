@@ -486,6 +486,50 @@ out:
 	return ret;
 }
 
+static void
+mt7925_vif_set_beacon_filter(struct mt792x_dev *dev, struct ieee80211_vif *vif,
+			     bool enable)
+{
+	struct ieee80211_hw *hw = mt76_hw(dev);
+
+	if (mt7925_mcu_set_beacon_filter(dev, vif, enable) < 0)
+		return;
+
+	if (enable) {
+		vif->driver_flags |= IEEE80211_VIF_BEACON_FILTER;
+		ieee80211_hw_set(hw, CONNECTION_MONITOR);
+	} else {
+		vif->driver_flags &= ~IEEE80211_VIF_BEACON_FILTER;
+		__clear_bit(IEEE80211_HW_CONNECTION_MONITOR, hw->flags);
+	}
+}
+
+static void
+mt7925_sniffer_interface_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
+{
+	struct mt792x_dev *dev = priv;
+	struct mt76_connac_pm *pm = &dev->pm;
+	bool monitor = mt792x_monitor_active(dev);
+
+	mt7925_mcu_set_sniffer(dev, vif, monitor);
+	pm->enable = pm->enable_user && !monitor;
+	pm->ds_enable = pm->ds_enable_user && !monitor;
+
+	mt7925_mcu_set_deep_sleep(dev, pm->ds_enable);
+
+	if (monitor) {
+		mt7925_mcu_set_beacon_filter(dev, vif, false);
+		return;
+	}
+
+	/* The firmware expects the filter only after the association. The
+	 * driver flag stays set where no runtime PM write turned it off.
+	 */
+	if (vif->cfg.assoc &&
+	    (pm->enable || (vif->driver_flags & IEEE80211_VIF_BEACON_FILTER)))
+		mt7925_vif_set_beacon_filter(dev, vif, true);
+}
+
 static int
 mt7925_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
@@ -513,6 +557,15 @@ mt7925_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 		goto out;
 	}
 
+	if (vif->type == NL80211_IFTYPE_MONITOR) {
+		dev->monitor_vifs++;
+		mt7925_sniffer_interface_iter(dev, NULL, vif);
+		mt7925_mcu_config_sniffer(mvif, NULL);
+		ieee80211_iterate_active_interfaces_mtx(hw,
+							IEEE80211_IFACE_ITER_NORMAL,
+							mt7925_sniffer_interface_iter, dev);
+	}
+
 	vif->driver_flags |= IEEE80211_VIF_BEACON_FILTER;
 	if (phy->chip_cap & MT792x_CHIP_CAP_RSSI_NOTIFY_EVT_EN)
 		vif->driver_flags |= IEEE80211_VIF_SUPPORTS_CQM_RSSI;
@@ -527,6 +580,31 @@ out:
 	mt792x_mutex_release(dev);
 
 	return ret;
+}
+
+static void
+mt7925_monitor_rearm_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
+{
+	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
+	struct mt792x_dev *dev = priv;
+
+	if (vif->type != NL80211_IFTYPE_MONITOR)
+		return;
+
+	mt7925_mcu_set_sniffer(dev, vif, true);
+	mt7925_mcu_config_sniffer(mvif, mvif->bss_conf.mt76.ctx);
+}
+
+/* A scan takes the radio off the monitor's channel and the sniffer does
+ * not come back by itself, so set it up again when a scan ends, after a
+ * chip reset or when another interface goes down. Called with the device
+ * mutex held.
+ */
+void mt7925_monitor_rearm(struct mt792x_dev *dev)
+{
+	ieee80211_iterate_active_interfaces(mt76_hw(dev),
+					    IEEE80211_IFACE_ITER_NORMAL,
+					    mt7925_monitor_rearm_iter, dev);
 }
 
 static void
@@ -548,6 +626,15 @@ mt7925_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	mconf = mt792x_link_conf_to_mconf(&vif->bss_conf);
 	mt792x_mac_link_bss_remove(dev, mconf, &mvif->sta.deflink);
 	mt7925_p2p_bmc_remove(dev, mconf);
+
+	if (vif->type != NL80211_IFTYPE_MONITOR) {
+		mt7925_monitor_rearm(dev);
+	} else if (!--dev->monitor_vifs) {
+		mt7925_sniffer_interface_iter(dev, NULL, vif);
+		ieee80211_iterate_active_interfaces_mtx(hw,
+							IEEE80211_IFACE_ITER_NORMAL,
+							mt7925_sniffer_interface_iter, dev);
+	}
 
 	mt792x_mutex_release(dev);
 }
@@ -932,61 +1019,17 @@ static int mt7925_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 }
 
 static void
-mt7925_vif_set_beacon_filter(struct mt792x_dev *dev, struct ieee80211_vif *vif,
-			     bool enable)
-{
-	struct ieee80211_hw *hw = mt76_hw(dev);
-
-	if (mt7925_mcu_set_beacon_filter(dev, vif, enable) < 0)
-		return;
-
-	if (enable) {
-		vif->driver_flags |= IEEE80211_VIF_BEACON_FILTER;
-		ieee80211_hw_set(hw, CONNECTION_MONITOR);
-	} else {
-		vif->driver_flags &= ~IEEE80211_VIF_BEACON_FILTER;
-		__clear_bit(IEEE80211_HW_CONNECTION_MONITOR, hw->flags);
-	}
-}
-
-static void
 mt7925_pm_interface_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 {
 	struct mt792x_dev *dev = priv;
-	struct ieee80211_hw *hw = mt76_hw(dev);
 	bool pm_enable;
 
 	mt792x_mutex_acquire(dev);
 
-	pm_enable = dev->pm.enable_user &&
-		    !(hw->conf.flags & IEEE80211_CONF_MONITOR);
+	pm_enable = dev->pm.enable_user && !mt792x_monitor_active(dev);
 	mt7925_vif_set_beacon_filter(dev, vif, pm_enable);
 
 	mt792x_mutex_release(dev);
-}
-
-static void
-mt7925_sniffer_interface_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
-{
-	struct mt792x_dev *dev = priv;
-	struct ieee80211_hw *hw = mt76_hw(dev);
-	struct mt76_connac_pm *pm = &dev->pm;
-	bool monitor = !!(hw->conf.flags & IEEE80211_CONF_MONITOR);
-
-	mt7925_mcu_set_sniffer(dev, vif, monitor);
-	pm->enable = pm->enable_user && !monitor;
-	pm->ds_enable = pm->ds_enable_user && !monitor;
-
-	mt7925_mcu_set_deep_sleep(dev, pm->ds_enable);
-
-	if (monitor) {
-		mt7925_mcu_set_beacon_filter(dev, vif, false);
-		return;
-	}
-
-	if (vif->cfg.assoc &&
-	    (pm->enable || (vif->driver_flags & IEEE80211_VIF_BEACON_FILTER)))
-		mt7925_vif_set_beacon_filter(dev, vif, true);
 }
 
 void mt7925_set_runtime_pm(struct mt792x_dev *dev)
@@ -996,7 +1039,7 @@ void mt7925_set_runtime_pm(struct mt792x_dev *dev)
 	bool monitor;
 
 	mutex_lock(&dev->mt76.mutex);
-	monitor = !!(hw->conf.flags & IEEE80211_CONF_MONITOR);
+	monitor = mt792x_monitor_active(dev);
 	pm->enable = pm->enable_user && !monitor;
 	mutex_unlock(&dev->mt76.mutex);
 
@@ -1005,7 +1048,7 @@ void mt7925_set_runtime_pm(struct mt792x_dev *dev)
 					    mt7925_pm_interface_iter, dev);
 
 	mt792x_mutex_acquire(dev);
-	monitor = !!(hw->conf.flags & IEEE80211_CONF_MONITOR);
+	monitor = mt792x_monitor_active(dev);
 	pm->ds_enable = pm->ds_enable_user && !monitor;
 	mt7925_mcu_set_deep_sleep(dev, pm->ds_enable);
 	mt792x_mutex_release(dev);
@@ -1879,6 +1922,9 @@ void mt7925_scan_work(struct work_struct *work)
 						.aborted = false,
 					};
 					ieee80211_scan_completed(phy->mt76->hw, &info);
+					mt792x_mutex_acquire(dev);
+					mt7925_monitor_rearm(dev);
+					mt792x_mutex_release(dev);
 				}
 				break;
 			case UNI_EVENT_SCAN_DONE_CHNLINFO:
@@ -1925,6 +1971,7 @@ mt7925_cancel_hw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 	mt792x_mutex_acquire(dev);
 	mt7925_mcu_cancel_hw_scan(mphy, vif);
+	mt7925_monitor_rearm(dev);
 	mt792x_mutex_release(dev);
 }
 

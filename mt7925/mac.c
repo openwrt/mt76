@@ -1660,6 +1660,7 @@ void mt7925_mac_reset_vif_work(struct wiphy *wiphy, struct wiphy_work *work)
 	ieee80211_iterate_active_interfaces_mtx(mt76_hw(dev),
 						IEEE80211_IFACE_ITER_RESUME_ALL,
 						mt7925_vif_connect_iter, NULL);
+	mt7925_monitor_rearm(dev);
 	mt792x_mutex_release(dev);
 
 	mt7925_regd_change(&dev->phy, "00");
