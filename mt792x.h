@@ -573,13 +573,9 @@ mt792x_get_status_freq_info(struct mt76_rx_status *status, u8 chfreq)
 	status->freq = ieee80211_channel_to_frequency(chfreq, status->band);
 }
 
-/* A monitor that reaches the driver as its own vif does not set
- * IEEE80211_CONF_MONITOR, so count those too.
- */
 static inline bool mt792x_monitor_active(struct mt792x_dev *dev)
 {
-	return (mt76_hw(dev)->conf.flags & IEEE80211_CONF_MONITOR) ||
-	       dev->monitor_vifs;
+	return dev->monitor_vifs;
 }
 
 static inline bool mt792x_dma_need_reinit(struct mt792x_dev *dev)

@@ -1061,19 +1061,9 @@ static int mt7925_config(struct ieee80211_hw *hw, int radio_idx, u32 changed)
 
 	mt792x_mutex_acquire(dev);
 
-	if (changed & IEEE80211_CONF_CHANGE_POWER) {
+	if (changed & IEEE80211_CONF_CHANGE_POWER)
 		ret = mt7925_set_tx_sar_pwr(hw, NULL);
-		if (ret)
-			goto out;
-	}
 
-	if (changed & IEEE80211_CONF_CHANGE_MONITOR) {
-		ieee80211_iterate_active_interfaces_mtx(hw,
-							IEEE80211_IFACE_ITER_RESUME_ALL,
-							mt7925_sniffer_interface_iter, dev);
-	}
-
-out:
 	mt792x_mutex_release(dev);
 
 	return ret;
