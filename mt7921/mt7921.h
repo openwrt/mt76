@@ -320,6 +320,7 @@ int mt7921s_mcu_drv_pmctrl(struct mt792x_dev *dev);
 int mt7921s_mcu_fw_pmctrl(struct mt792x_dev *dev);
 void mt7921_mac_add_txs(struct mt792x_dev *dev, void *data);
 void mt7921_set_runtime_pm(struct mt792x_dev *dev);
+void mt7921_monitor_rearm(struct mt792x_dev *dev);
 void mt7921_mcu_set_suspend_iter(void *priv, u8 *mac,
 				 struct ieee80211_vif *vif);
 void mt7921_set_ipv6_ns_work(struct work_struct *work);

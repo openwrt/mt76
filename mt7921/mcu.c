@@ -977,8 +977,7 @@ int mt7921_mcu_set_chan_info(struct mt792x_phy *phy, int cmd)
 		req.channel_band = chandef->chan->band;
 
 	if (cmd == MCU_EXT_CMD(SET_RX_PATH) ||
-	    (dev->mt76.hw->conf.flags & IEEE80211_CONF_MONITOR &&
-	     !phy->mt76->offchannel))
+	    (mt792x_monitor_active(dev) && !phy->mt76->offchannel))
 		req.switch_reason = CH_SWITCH_NORMAL;
 	else if (phy->mt76->offchannel)
 		req.switch_reason = CH_SWITCH_SCAN_BYPASS_DPD;
@@ -1246,7 +1245,8 @@ int mt7921_mcu_set_sniffer(struct mt792x_dev *dev, struct ieee80211_vif *vif,
 int mt7921_mcu_config_sniffer(struct mt792x_vif *vif,
 			      struct ieee80211_chanctx_conf *ctx)
 {
-	struct cfg80211_chan_def *chandef = &ctx->def;
+	struct mt76_phy *mphy = vif->phy->mt76;
+	struct cfg80211_chan_def *chandef = ctx ? &ctx->def : &mphy->chandef;
 	int freq1 = chandef->center_freq1, freq2 = chandef->center_freq2;
 	static const u8 ch_band[] = {
 		[NL80211_BAND_2GHZ] = 1,

@@ -297,6 +297,23 @@ static void mt7921_stop(struct ieee80211_hw *hw, bool suspend)
 	mt792x_stop(hw, false);
 }
 
+static void
+mt7921_sniffer_interface_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
+{
+	struct mt792x_dev *dev = priv;
+	struct mt76_connac_pm *pm = &dev->pm;
+	bool monitor = mt792x_monitor_active(dev);
+
+	mt7921_mcu_set_sniffer(dev, vif, monitor);
+	pm->enable = pm->enable_user && !monitor;
+	pm->ds_enable = pm->ds_enable_user && !monitor;
+
+	mt76_connac_mcu_set_deep_sleep(&dev->mt76, pm->ds_enable);
+
+	if (monitor)
+		mt7921_mcu_set_beacon_filter(dev, vif, false);
+}
+
 static int
 mt7921_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
@@ -349,6 +366,15 @@ mt7921_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 		mtxq->wcid = idx;
 	}
 
+	if (vif->type == NL80211_IFTYPE_MONITOR) {
+		dev->monitor_vifs++;
+		mt7921_sniffer_interface_iter(dev, NULL, vif);
+		mt7921_mcu_config_sniffer(mvif, NULL);
+		ieee80211_iterate_active_interfaces_mtx(hw,
+							IEEE80211_IFACE_ITER_NORMAL,
+							mt7921_sniffer_interface_iter, dev);
+	}
+
 	vif->driver_flags |= IEEE80211_VIF_BEACON_FILTER;
 	if (phy->chip_cap & MT792x_CHIP_CAP_RSSI_NOTIFY_EVT_EN)
 		vif->driver_flags |= IEEE80211_VIF_SUPPORTS_CQM_RSSI;
@@ -359,6 +385,50 @@ out:
 	mt792x_mutex_release(dev);
 
 	return ret;
+}
+
+static void
+mt7921_monitor_rearm_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
+{
+	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
+	struct mt792x_dev *dev = priv;
+
+	if (vif->type != NL80211_IFTYPE_MONITOR)
+		return;
+
+	mt7921_mcu_set_sniffer(dev, vif, true);
+	mt7921_mcu_config_sniffer(mvif, mvif->bss_conf.mt76.ctx);
+}
+
+/* A scan takes the radio off the monitor's channel and the sniffer does
+ * not come back by itself, so set it up again when a scan ends, after a
+ * chip reset or when another interface goes down. Called with the device
+ * mutex held.
+ */
+void mt7921_monitor_rearm(struct mt792x_dev *dev)
+{
+	ieee80211_iterate_active_interfaces(mt76_hw(dev),
+					    IEEE80211_IFACE_ITER_NORMAL,
+					    mt7921_monitor_rearm_iter, dev);
+}
+
+static void
+mt7921_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
+{
+	struct mt792x_dev *dev = mt792x_hw_dev(hw);
+
+	mt792x_remove_interface(hw, vif);
+
+	mt792x_mutex_acquire(dev);
+	if (vif->type != NL80211_IFTYPE_MONITOR) {
+		mt7921_monitor_rearm(dev);
+	} else if (!--dev->monitor_vifs) {
+		mt7921_sniffer_interface_iter(dev, NULL, vif);
+		ieee80211_iterate_active_interfaces_mtx(hw,
+							IEEE80211_IFACE_ITER_NORMAL,
+							mt7921_sniffer_interface_iter, dev);
+	}
+	mt792x_mutex_release(dev);
 }
 
 static void mt7921_roc_iter(void *priv, u8 *mac,
@@ -601,29 +671,11 @@ mt7921_pm_interface_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 	}
 }
 
-static void
-mt7921_sniffer_interface_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
-{
-	struct mt792x_dev *dev = priv;
-	struct ieee80211_hw *hw = mt76_hw(dev);
-	struct mt76_connac_pm *pm = &dev->pm;
-	bool monitor = !!(hw->conf.flags & IEEE80211_CONF_MONITOR);
-
-	mt7921_mcu_set_sniffer(dev, vif, monitor);
-	pm->enable = pm->enable_user && !monitor;
-	pm->ds_enable = pm->ds_enable_user && !monitor;
-
-	mt76_connac_mcu_set_deep_sleep(&dev->mt76, pm->ds_enable);
-
-	if (monitor)
-		mt7921_mcu_set_beacon_filter(dev, vif, false);
-}
-
 void mt7921_set_runtime_pm(struct mt792x_dev *dev)
 {
 	struct ieee80211_hw *hw = mt76_hw(dev);
 	struct mt76_connac_pm *pm = &dev->pm;
-	bool monitor = !!(hw->conf.flags & IEEE80211_CONF_MONITOR);
+	bool monitor = mt792x_monitor_active(dev);
 
 	pm->enable = pm->enable_user && !monitor;
 	ieee80211_iterate_active_interfaces(hw,
@@ -1053,6 +1105,9 @@ void mt7921_scan_work(struct work_struct *work)
 			};
 
 			ieee80211_scan_completed(phy->mt76->hw, &info);
+			mt792x_mutex_acquire(phy->dev);
+			mt7921_monitor_rearm(phy->dev);
+			mt792x_mutex_release(phy->dev);
 		}
 		dev_kfree_skb(skb);
 	}
@@ -1081,6 +1136,7 @@ mt7921_cancel_hw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 	mt792x_mutex_acquire(dev);
 	mt76_connac_mcu_cancel_hw_scan(mphy, vif);
+	mt7921_monitor_rearm(dev);
 	mt792x_mutex_release(dev);
 }
 
@@ -1598,7 +1654,7 @@ const struct ieee80211_ops mt7921_ops = {
 	.start = mt7921_start,
 	.stop = mt7921_stop,
 	.add_interface = mt7921_add_interface,
-	.remove_interface = mt792x_remove_interface,
+	.remove_interface = mt7921_remove_interface,
 	.config = mt7921_config,
 	.conf_tx = mt792x_conf_tx,
 	.configure_filter = mt7921_configure_filter,
