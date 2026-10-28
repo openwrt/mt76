@@ -690,6 +690,10 @@ int mt7996_set_channel(struct mt76_phy *mphy)
 	if (mphy->offchannel)
 		mt7996_mac_update_beacons(phy);
 
+	ret = mt7996_mcu_set_punct(phy);
+	if (ret)
+		goto out;
+
 	ret = mt7996_mcu_set_chan_info(phy, UNI_CHANNEL_SWITCH);
 	if (ret)
 		goto out;

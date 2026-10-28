@@ -4463,6 +4463,38 @@ int mt7996_mcu_set_chan_info(struct mt7996_phy *phy, u16 tag)
 				 &req, sizeof(req), true);
 }
 
+int mt7996_mcu_set_punct(struct mt7996_phy *phy)
+{
+	struct cfg80211_chan_def *chandef = &phy->mt76->chandef;
+	struct mt7996_dev *dev = phy->dev;
+	struct {
+		u8 __rsv[4];
+
+		__le16 tag;
+		__le16 len;
+		u8 mgmt_mode;
+		u8 band_idx;
+		u8 force_bitmap_ctrl;
+		u8 auto_mode;
+		__le16 bitmap;
+		u8 csa_enable;
+		u8 __rsv2;
+	} __packed req = {
+		.tag = cpu_to_le16(UNI_CMD_PP_EN_CTRL),
+		.len = cpu_to_le16(sizeof(req) - 4),
+		.mgmt_mode = 1,
+		.band_idx = phy->mt76->band_idx,
+		.force_bitmap_ctrl = 2,
+		.bitmap = cpu_to_le16(chandef->punctured),
+	};
+
+	if (chandef->chan->band == NL80211_BAND_2GHZ)
+		return 0;
+
+	return mt76_mcu_send_msg(&dev->mt76, MCU_WM_UNI_CMD(PP),
+				 &req, sizeof(req), false);
+}
+
 static int
 mt7996_mcu_get_cal_free_data(struct mt7996_dev *dev)
 {
