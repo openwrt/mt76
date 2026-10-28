@@ -176,7 +176,7 @@ static void mt7663s_remove(struct sdio_func *func)
 	if (!test_and_clear_bit(MT76_STATE_INITIALIZED, &dev->mphy.state))
 		return;
 
-	ieee80211_unregister_hw(dev->mt76.hw);
+	mt76_unregister_device(&dev->mt76);
 	mt76s_deinit(&dev->mt76);
 	mt76_free_device(&dev->mt76);
 }

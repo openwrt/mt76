@@ -212,7 +212,7 @@ static void mt7663u_disconnect(struct usb_interface *usb_intf)
 	if (!test_bit(MT76_STATE_INITIALIZED, &dev->mphy.state))
 		return;
 
-	ieee80211_unregister_hw(dev->mt76.hw);
+	mt76_unregister_device(&dev->mt76);
 	mt7663u_cleanup(dev);
 
 	usb_set_intfdata(usb_intf, NULL);

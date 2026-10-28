@@ -620,7 +620,10 @@ mt76_rx_amsdu_detach_wcid(struct mt76_phy *phy, enum mt76_rxq_id q,
 {
 	struct sk_buff *skb = phy->rx_amsdu[q].head;
 
-	if (!skb || ((struct mt76_rx_status *)skb->cb)->wcid != wcid)
+	if (!skb)
+		return NULL;
+
+	if (wcid && ((struct mt76_rx_status *)skb->cb)->wcid != wcid)
 		return NULL;
 
 	return mt76_rx_amsdu_detach(phy, q);
@@ -662,6 +665,7 @@ void mt76_unregister_phy(struct mt76_phy *phy)
 		mt76_led_cleanup(phy);
 	mt76_tx_status_check(dev, true);
 	ieee80211_unregister_hw(phy->hw);
+	mt76_rx_amsdu_flush_phy(phy, NULL);
 	dev->phys[phy->band_idx] = NULL;
 }
 EXPORT_SYMBOL_GPL(mt76_unregister_phy);
@@ -868,6 +872,7 @@ void mt76_unregister_device(struct mt76_dev *dev)
 	mt76_tx_status_check(dev, true);
 	mt76_wcid_cleanup(dev, &dev->global_wcid);
 	ieee80211_unregister_hw(hw);
+	mt76_rx_amsdu_flush(dev, NULL);
 }
 EXPORT_SYMBOL_GPL(mt76_unregister_device);
 
