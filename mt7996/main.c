@@ -583,6 +583,13 @@ static int mt7996_add_interface(struct ieee80211_hw *hw,
 			mt7996_set_monitor(phy, true);
 	}
 
+	/* The hardware A-MSDU de-aggregation expects the Mesh Control to be
+	 * excluded from the subframe length, which e.g. ath11k includes.
+	 * Leave the de-aggregation to mac80211, which handles both formats.
+	 */
+	if (vif->type == NL80211_IFTYPE_MESH_POINT)
+		mt76_clear(dev, MT_MDP_DCR0, MT_MDP_DCR0_DAMSDU_EN);
+
 	mt76_vif_init(vif, &mvif->mt76);
 
 	vif->offload_flags |= IEEE80211_OFFLOAD_ENCAP_4ADDR;
@@ -597,6 +604,7 @@ out:
 struct mt7996_radio_data {
 	u32 active_mask;
 	u32 monitor_mask;
+	bool mesh;
 };
 
 static void mt7996_remove_iter(void *data, u8 *mac, struct ieee80211_vif *vif)
@@ -607,6 +615,8 @@ static void mt7996_remove_iter(void *data, u8 *mac, struct ieee80211_vif *vif)
 	rdata->active_mask |= wdev->radio_mask;
 	if (vif->type == NL80211_IFTYPE_MONITOR)
 		rdata->monitor_mask |= wdev->radio_mask;
+	if (vif->type == NL80211_IFTYPE_MESH_POINT)
+		rdata->mesh = true;
 }
 
 static void mt7996_remove_interface(struct ieee80211_hw *hw,
@@ -653,6 +663,9 @@ static void mt7996_remove_interface(struct ieee80211_hw *hw,
 		if (!(rdata.active_mask & BIT(i)))
 			mt7996_stop_phy(phy);
 	}
+
+	if (vif->type == NL80211_IFTYPE_MESH_POINT && !rdata.mesh)
+		mt76_set(dev, MT_MDP_DCR0, MT_MDP_DCR0_DAMSDU_EN);
 }
 
 int mt7996_set_channel(struct mt76_phy *mphy)
