@@ -88,6 +88,9 @@ void mt76_change_chanctx(struct ieee80211_hw *hw,
 			 IEEE80211_CHANCTX_CHANGE_RADAR)))
 		return;
 
+	if (mt76_phy_scanning(phy))
+		mt76_abort_scan(dev);
+
 	if (phy->roc_vif)
 		mt76_abort_roc(phy);
 
