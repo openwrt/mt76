@@ -1582,6 +1582,13 @@ int mt76_rx_aggr_start(struct mt76_dev *dev, struct mt76_wcid *wcid, u8 tid,
 		       u16 ssn, u16 size);
 void mt76_rx_aggr_stop(struct mt76_dev *dev, struct mt76_wcid *wcid, u8 tid);
 
+static inline void
+mt76_wcid_key_link_setup(struct mt76_wcid *wcid,
+			 struct ieee80211_key_conf *key)
+{
+	wcid->rx_check_pn = key && key->cipher == WLAN_CIPHER_SUITE_CCMP;
+}
+
 void mt76_wcid_key_setup(struct mt76_dev *dev, struct mt76_wcid *wcid,
 			 struct ieee80211_key_conf *key);
 

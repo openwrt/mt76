@@ -707,8 +707,11 @@ static int mt7925_set_link_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	else
 		goto out;
 
-	mt76_wcid_key_setup(&dev->mt76, wcid,
-			    cmd == SET_KEY ? key : NULL);
+	if (sta)
+		mt76_wcid_key_link_setup(wcid, cmd == SET_KEY ? key : NULL);
+	else
+		mt76_wcid_key_setup(&dev->mt76, wcid,
+				    cmd == SET_KEY ? key : NULL);
 
 	err = mt7925_mcu_add_key(&dev->mt76, vif, &mlink->bip,
 				 key, MCU_UNI_CMD(STA_REC_UPDATE),
@@ -748,6 +751,12 @@ static int mt7925_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 		return -EOPNOTSUPP;
 
 	mt792x_mutex_acquire(dev);
+
+	/* the links of a station share one RX PN state, seeded before the
+	 * key reaches any of them
+	 */
+	if (sta && cmd == SET_KEY)
+		mt76_wcid_key_setup(&dev->mt76, &msta->deflink.wcid, key);
 
 	if (ieee80211_vif_is_mld(vif)) {
 		unsigned int link_id;

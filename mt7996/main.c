@@ -268,7 +268,7 @@ mt7996_set_hw_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	if (cmd != SET_KEY && !is_bigtk)
 		return 0;
 
-	mt76_wcid_key_setup(&dev->mt76, &msta_link->wcid, key);
+	mt76_wcid_key_link_setup(&msta_link->wcid, key);
 
 	err = mt7996_mcu_add_key(&dev->mt76, link, key,
 				 MCU_WMWA_UNI_CMD(STA_REC_UPDATE),
@@ -836,6 +836,15 @@ static int mt7996_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 		links = vif->valid_links;
 	else
 		links = BIT(0);
+
+	/* the links of a station share one RX PN state, seeded before the
+	 * key reaches any of them
+	 */
+	if (sta && cmd == SET_KEY) {
+		struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+
+		mt76_wcid_key_setup(&dev->mt76, &msta->deflink.wcid, key);
+	}
 
 	for_each_set_bit(link_id, &links, IEEE80211_MLD_MAX_NUM_LINKS) {
 		err = mt7996_set_hw_key(hw, cmd, vif, sta, link_id, key);

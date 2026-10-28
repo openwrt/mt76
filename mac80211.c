@@ -1209,15 +1209,9 @@ void mt76_wcid_key_setup(struct mt76_dev *dev, struct mt76_wcid *wcid,
 	struct ieee80211_key_seq seq;
 	int i;
 
-	wcid->rx_check_pn = false;
-
-	if (!key)
+	mt76_wcid_key_link_setup(wcid, key);
+	if (!wcid->rx_check_pn)
 		return;
-
-	if (key->cipher != WLAN_CIPHER_SUITE_CCMP)
-		return;
-
-	wcid->rx_check_pn = true;
 
 	/* data frame */
 	for (i = 0; i < IEEE80211_NUM_TIDS; i++) {
@@ -1324,6 +1318,7 @@ mt76_check_ccmp_pn(struct sk_buff *skb)
 	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
 	struct mt76_wcid *wcid = status->wcid;
 	struct ieee80211_hdr *hdr;
+	struct mt76_wcid *pn_wcid;
 	int security_idx;
 	int ret;
 
@@ -1335,6 +1330,9 @@ mt76_check_ccmp_pn(struct sk_buff *skb)
 
 	if (!wcid || !wcid->rx_check_pn)
 		return;
+
+	/* the links of an MLD peer share one PN space per key */
+	pn_wcid = mt76_wcid_primary(wcid);
 
 	security_idx = status->qos_ctl & IEEE80211_QOS_CTL_TID_MASK;
 	if (status->flag & RX_FLAG_8023)
@@ -1363,14 +1361,14 @@ mt76_check_ccmp_pn(struct sk_buff *skb)
 
 skip_hdr_check:
 	BUILD_BUG_ON(sizeof(status->iv) != sizeof(wcid->rx_key_pn[0]));
-	ret = memcmp(status->iv, wcid->rx_key_pn[security_idx],
+	ret = memcmp(status->iv, pn_wcid->rx_key_pn[security_idx],
 		     sizeof(status->iv));
 	if (ret <= 0) {
 		status->flag |= RX_FLAG_ONLY_MONITOR;
 		return;
 	}
 
-	memcpy(wcid->rx_key_pn[security_idx], status->iv, sizeof(status->iv));
+	memcpy(pn_wcid->rx_key_pn[security_idx], status->iv, sizeof(status->iv));
 
 	if (status->flag & RX_FLAG_IV_STRIPPED)
 		status->flag |= RX_FLAG_PN_VALIDATED;
