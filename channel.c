@@ -85,7 +85,8 @@ void mt76_change_chanctx(struct ieee80211_hw *hw,
 	struct mt76_dev *dev = phy->dev;
 
 	if (!(changed & (IEEE80211_CHANCTX_CHANGE_WIDTH |
-			 IEEE80211_CHANCTX_CHANGE_RADAR)))
+			 IEEE80211_CHANCTX_CHANGE_RADAR |
+			 IEEE80211_CHANCTX_CHANGE_PUNCTURING)))
 		return;
 
 	if (mt76_phy_scanning(phy))
