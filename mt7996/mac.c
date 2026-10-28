@@ -1062,6 +1062,9 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 		u8 tid = tx_info->skb->priority & IEEE80211_QOS_CTL_TID_MASK;
 
 		link_id = (tid % 2) ? msta->seclink_id : msta->deflink_id;
+	} else if (is_8023) {
+		/* mac80211 does not set the MLO link of an 802.3 frame */
+		link_id = IEEE80211_LINK_UNSPECIFIED;
 	} else {
 		link_id = u32_get_bits(info->control.flags,
 				       IEEE80211_TX_CTRL_MLO_LINK);
