@@ -2105,7 +2105,8 @@ static void mt7996_tx(struct ieee80211_hw *hw,
 	if (link_id == IEEE80211_LINK_UNSPECIFIED)
 		link_id = deflink_id;
 
-	if (vif && ieee80211_vif_is_mld(vif)) {
+	if (vif && ieee80211_vif_is_mld(vif) &&
+	    !(info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP)) {
 		struct ieee80211_bss_conf *link_conf;
 
 		if (msta) {
