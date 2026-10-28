@@ -730,7 +730,8 @@ struct sta_rec_mld_setup {
 	__le16 seconed_id;
 	__le16 setup_wcid;
 	u8 link_num;
-	u8 info;
+#define EXTRA_INFO_MLD_SKIP	BIT(2)
+	u8 extra_info;
 	u8 __rsv[2];
 	u8 link_info[];
 } __packed;
@@ -771,6 +772,62 @@ struct mld_reconf_stop_link {
 enum {
 	UNI_CMD_MLD_RECONF_AP_REM_TIMER = 0x03,
 	UNI_CMD_MLD_RECONF_STOP_LINK = 0x04,
+};
+
+struct peer_mld_req_hdr {
+	u8 ver;
+	u8 peer_mld_addr[ETH_ALEN];
+	u8 rsv;
+	__le16 fw_mld_idx;
+	__le16 flag;
+	u8 buf[];
+} __packed;
+
+struct peer_mld_link_info {
+	__le16 fw_link_id;
+	u8 link_id;
+	u8 bss_idx;
+	__le16 wlan_idx;
+	u8 band_idx;
+	u8 rsv;
+} __packed;
+
+struct peer_mld_info {
+	__le16 tag;
+	__le16 len;
+	u8 ver;
+	u8 link_num;
+	u8 rsv[2];
+	__le16 primary_id;
+	__le16 second_id;
+	__le16 setup_wcid;
+	u8 rsv2[2];
+	struct peer_mld_link_info link_info[];
+} __packed;
+
+struct peer_mld_cap_entry {
+	__le32 type;
+	__le32 val;
+} __packed;
+
+struct peer_mld_cap {
+	__le16 tag;
+	__le16 len;
+	u8 ver;
+	u8 rsv;
+	__le16 bitmap;
+	u8 rsv2[8];
+	struct peer_mld_cap_entry entry[];
+} __packed;
+
+enum {
+	UNI_CMD_PEER_MLD_INFO = 0x01,
+	UNI_CMD_PEER_MLD_CAP = 0x02,
+};
+
+enum {
+	UNI_CMD_PEER_MLD_CAP_TYPE_AMSDU_MAX_LEN = 0x01,
+	UNI_CMD_PEER_MLD_CAP_TYPE_AMSDU_MAX_CNT = 0x02,
 };
 
 struct hdr_trans_en {

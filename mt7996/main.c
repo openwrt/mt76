@@ -1530,6 +1530,7 @@ mt7996_mac_sta_add(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	msta->deflink_id = IEEE80211_LINK_UNSPECIFIED;
 	msta->seclink_id = IEEE80211_LINK_UNSPECIFIED;
 	msta->conn_state = CONN_STATE_DISCONNECT;
+	msta->peer_mld_links = 0;
 	msta->ba_tx_mask = 0;
 	msta->ba_rx_mask = 0;
 	msta->vif = mvif;
@@ -1648,6 +1649,12 @@ mt7996_mac_sta_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 
 	mutex_lock(&dev->mt76.mutex);
 
+	if (ev == MT76_STA_EVENT_ASSOC && sta->mlo) {
+		err = mt7996_mcu_set_peer_mld(dev, vif, sta);
+		if (err)
+			goto out;
+	}
+
 	err = mt7996_mac_sta_links_event(dev, vif, sta,
 					 mt7996_mac_sta_links(dev, vif, sta),
 					 ev);
@@ -1663,6 +1670,7 @@ mt7996_mac_sta_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		break;
 	case MT76_STA_EVENT_DISASSOC:
 		msta->conn_state = CONN_STATE_DISCONNECT;
+		msta->peer_mld_links = 0;
 		mt7996_mac_sta_clear_connected(dev, msta);
 		break;
 	}
