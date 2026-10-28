@@ -349,6 +349,7 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 		return -ENOSPC;
 
 	link->mld_idx = mld_idx;
+	link->csa_bcn_uploaded = false;
 	eth_zero_addr(link->bmc_bssid);
 	mlink->omac_idx = idx;
 	mlink->band_idx = band_idx;
@@ -703,7 +704,7 @@ int mt7996_set_channel(struct mt76_phy *mphy)
 
 	mt7996_mac_reset_counters(phy);
 	phy->noise = 0;
-	if (!mphy->offchannel)
+	if (!mphy->offchannel && phy->offchan_bcn_stopped)
 		mt7996_mac_update_beacons(phy);
 
 out:
@@ -995,6 +996,30 @@ mt7996_vif_cfg_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 }
 
 static void
+mt7996_link_beacon_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+			  struct ieee80211_bss_conf *link_conf,
+			  struct mt7996_vif_link *link, struct mt7996_phy *phy)
+{
+	if (!link_conf->enable_beacon || !link_conf->csa_active) {
+		mt7996_mcu_add_beacon(hw, vif, link_conf,
+				      link_conf->enable_beacon);
+		return;
+	}
+
+	/* each upload of the CSA beacon restarts the firmware countdown */
+	if (link->csa_bcn_uploaded)
+		return;
+
+	/* Reset beacon when channel switch triggered during CAC to let
+	 * FW correctly perform CSA countdown
+	 */
+	if (!cfg80211_reg_can_beacon(hw->wiphy, &phy->mt76->chandef, vif->type))
+		mt7996_mcu_add_beacon(hw, vif, link_conf, false);
+
+	mt7996_mcu_add_beacon(hw, vif, link_conf, true);
+}
+
+static void
 mt7996_link_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			 struct ieee80211_bss_conf *info, u64 changed)
 {
@@ -1066,7 +1091,7 @@ mt7996_link_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		link->mt76.beacon_rates_idx =
 			mt7996_get_rates_table(phy, info, true, false);
 
-		mt7996_mcu_add_beacon(hw, vif, info, info->enable_beacon);
+		mt7996_link_beacon_update(hw, vif, info, link, phy);
 	}
 
 	if (changed & (BSS_CHANGED_UNSOL_BCAST_PROBE_RESP |
@@ -1083,44 +1108,6 @@ mt7996_link_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	}
 
 out:
-	mutex_unlock(&dev->mt76.mutex);
-}
-
-static void
-mt7996_channel_switch_beacon(struct ieee80211_hw *hw,
-			     struct ieee80211_vif *vif,
-			     struct cfg80211_chan_def *chandef)
-{
-	struct mt7996_dev *dev = mt7996_hw_dev(hw);
-	struct mt7996_phy *phy = mt7996_band_phy(dev, chandef->chan->band);
-	struct ieee80211_bss_conf *link_conf;
-	unsigned int link_id;
-
-	mutex_lock(&dev->mt76.mutex);
-
-	for_each_vif_active_link(vif, link_conf, link_id) {
-		struct mt7996_vif_link *link;
-		struct mt7996_phy *link_phy;
-
-		link = mt7996_vif_link(dev, vif, link_id);
-		if (!link)
-			continue;
-
-		link_phy = mt7996_vif_link_phy(link);
-		if (link_phy != phy)
-			continue;
-
-		/* Reset beacon when channel switch triggered during CAC to let
-		 * FW correctly perform CSA countdown
-		 */
-		if (!cfg80211_reg_can_beacon(hw->wiphy, &phy->mt76->chandef,
-					     vif->type))
-			mt7996_mcu_add_beacon(hw, vif, link_conf, false);
-
-		mt7996_mcu_add_beacon(hw, vif, link_conf, true);
-		break;
-	}
-
 	mutex_unlock(&dev->mt76.mutex);
 }
 
@@ -3141,7 +3128,6 @@ const struct ieee80211_ops mt7996_ops = {
 	.cancel_remain_on_channel = mt76_cancel_remain_on_channel,
 	.release_buffered_frames = mt76_release_buffered_frames,
 	.get_txpower = mt7996_get_txpower,
-	.channel_switch_beacon = mt7996_channel_switch_beacon,
 	.post_channel_switch = mt7996_post_channel_switch,
 	.get_stats = mt7996_get_stats,
 	.get_et_sset_count = mt7996_get_et_sset_count,

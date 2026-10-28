@@ -3462,13 +3462,17 @@ int mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct sk_buff *skb, *rskb;
 	struct tlv *tlv;
 	struct bss_bcn_content_tlv *bcn;
-	int len, extra_len = 0;
+	int len, extra_len = 0, ret;
 
 	if (link_conf->nontransmitted)
 		return 0;
 
 	if (!mlink)
 		return -EINVAL;
+
+	/* a later CSA needs a new template, also after a failed upload */
+	if (!link_conf->csa_active)
+		link->csa_bcn_uploaded = false;
 
 	if (mphy && mphy->offchannel)
 		enabled = false;
@@ -3511,8 +3515,11 @@ int mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	mt7996_mcu_beacon_cntdwn(rskb, skb, &offs, link_conf->csa_active);
 out:
 	dev_kfree_skb(skb);
-	return mt76_mcu_skb_send_msg(&dev->mt76, rskb,
-				     MCU_WMWA_UNI_CMD(BSS_INFO_UPDATE), true);
+	ret = mt76_mcu_skb_send_msg(&dev->mt76, rskb,
+				    MCU_WMWA_UNI_CMD(BSS_INFO_UPDATE), true);
+	link->csa_bcn_uploaded = !ret && enabled && link_conf->csa_active;
+
+	return ret;
 }
 
 int mt7996_mcu_beacon_inband_discov(struct mt7996_dev *dev,

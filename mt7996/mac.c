@@ -2256,6 +2256,7 @@ void mt7996_mac_update_beacons(struct mt7996_phy *phy)
 	ieee80211_iterate_active_interfaces(phy->mt76->hw,
 					    IEEE80211_IFACE_ITER_RESUME_ALL,
 					    mt7996_update_vif_beacon, phy);
+	phy->offchan_bcn_stopped = phy->mt76->offchannel;
 }
 
 static void
