@@ -3043,6 +3043,26 @@ mt7996_net_setup_tc(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 }
 #endif
 
+static void
+mt7996_vif_link_roc_abort(struct mt7996_dev *dev, struct ieee80211_vif *vif)
+{
+	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+	struct mt76_phy *phy = mvif->mt76.roc_phy;
+	struct mt76_vif_link *mlink;
+	bool abort;
+
+	if (!phy)
+		return;
+
+	mutex_lock(&dev->mt76.mutex);
+	mlink = phy->roc_link;
+	abort = phy->roc_vif == vif && mlink && !mlink->offchannel;
+	mutex_unlock(&dev->mt76.mutex);
+
+	if (abort)
+		mt76_abort_roc(phy);
+}
+
 static int
 mt7996_change_vif_links(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			u16 old_links, u16 new_links,
@@ -3050,7 +3070,14 @@ mt7996_change_vif_links(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 {
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+	bool sta_links_destroy;
 	int ret = 0;
+
+	sta_links_destroy = !vif->valid_links &&
+			    vif->type == NL80211_IFTYPE_STATION;
+	/* a ROC can hold a station link that is destroyed below */
+	if (sta_links_destroy)
+		mt7996_vif_link_roc_abort(dev, vif);
 
 	mutex_lock(&dev->mt76.mutex);
 
@@ -3077,6 +3104,13 @@ mt7996_change_vif_links(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	if (new_links)
 		goto out;
+
+	/* the firmware supports no MLD link removal for a station link, so
+	 * remove its BSS before the group and remap index can be reused
+	 */
+	if (sta_links_destroy)
+		mt7996_vif_links_destroy(dev, vif, mvif->mt76.valid_links,
+					 old);
 
 	dev->mld_idx_mask &= ~BIT_ULL(mvif->mld_group_idx);
 	dev->mld_remap_idx_mask &= ~BIT_ULL(mvif->mld_remap_idx);
