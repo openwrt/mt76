@@ -111,6 +111,11 @@ static int mt7921_mcu_read_eeprom(struct mt792x_dev *dev, u32 offset, u8 *val)
 	}
 
 	res = (struct mt7921_mcu_eeprom_info *)skb->data;
+	if (!le32_to_cpu(res->valid)) {
+		dev_kfree_skb(skb);
+		return -ENODATA;
+	}
+
 	*val = res->data[offset % MT7921_EEPROM_BLOCK_SIZE];
 	dev_kfree_skb(skb);
 
@@ -453,7 +458,7 @@ static int mt7921_load_clc(struct mt792x_dev *dev, const char *fw_name)
 
 	if (mt76_is_mmio(&dev->mt76)) {
 		ret = mt7921_mcu_read_eeprom(dev, MT_EE_HW_TYPE, &hw_encap);
-		if (ret)
+		if (ret && ret != -ENODATA)
 			return ret;
 		hw_encap = u8_get_bits(hw_encap, MT_EE_HW_TYPE_ENCAP);
 	}
