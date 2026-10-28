@@ -1259,6 +1259,10 @@ static int mt7615_load_patch(struct mt7615_dev *dev, u32 addr, const char *name)
 		goto release_fw;
 	case PATCH_NOT_DL_SEM_SUCCESS:
 		break;
+	case -ETIMEDOUT:
+		/* rom might have granted the semaphore anyway */
+		mt76_connac_mcu_patch_sem_ctrl(&dev->mt76, false);
+		fallthrough;
 	default:
 		dev_err(dev->mt76.dev, "Failed to get patch semaphore\n");
 		ret = -EAGAIN;
