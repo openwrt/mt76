@@ -40,6 +40,11 @@ int mt76_npu_fill_rx_queue(struct mt76_dev *dev, struct mt76_queue *q)
 		nframes++;
 	}
 
+	/* Hand the slots back to the NPU only once they have a new buffer,
+	 * up to the one kept free in front of the tail.
+	 */
+	Q_WRITE(q, dma_idx, (q->head + 1) % q->ndesc);
+
 	return nframes;
 }
 
@@ -69,16 +74,21 @@ static struct sk_buff *mt76_npu_dequeue(struct mt76_dev *dev,
 
 	nframes = FIELD_GET(NPU_RX_DMA_PKT_COUNT_MASK, desc[index].info);
 	nframes = max_t(int, nframes, 1);
+	if (nframes > q->queued)
+		return NULL;
+
+	/* Only take the frame once all of its slots are complete */
+	for (i = 0; i < nframes; i++) {
+		int idx = (index + i) % q->ndesc;
+
+		if (!FIELD_GET(NPU_RX_DMA_DESC_DONE_MASK, desc[idx].ctrl))
+			return NULL;
+	}
 
 	for (i = 0; i < nframes; i++) {
 		struct mt76_queue_entry *e = &q->entry[index];
 		int len = FIELD_GET(NPU_RX_DMA_DESC_CUR_LEN_MASK,
 				    desc[index].ctrl);
-
-		if (!FIELD_GET(NPU_RX_DMA_DESC_DONE_MASK, desc[index].ctrl)) {
-			dev_kfree_skb(skb);
-			return NULL;
-		}
 
 		dma_sync_single_for_cpu(dev->dma_dev, e->dma_addr[0],
 					e->dma_len[0],
@@ -108,7 +118,6 @@ static struct sk_buff *mt76_npu_dequeue(struct mt76_dev *dev,
 	}
 	q->tail = index;
 	q->queued -= i;
-	Q_WRITE(q, dma_idx, q->tail);
 
 	return skb;
 }
