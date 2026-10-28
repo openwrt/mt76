@@ -154,7 +154,7 @@ static int mt7915_eeprom_load(struct mt7915_dev *dev)
 		block_num = DIV_ROUND_UP(eeprom_size, eeprom_blk_size);
 		for (i = 0; i < block_num; i++) {
 			ret = mt7915_mcu_get_eeprom(dev, i * eeprom_blk_size, NULL);
-			if (ret < 0)
+			if (ret < 0 && ret != -ENODATA)
 				return ret;
 		}
 	}
