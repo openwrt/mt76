@@ -2186,6 +2186,22 @@ mt76_vif_link_ctx_set(struct mt76_vif_link *mlink,
 	smp_store_release(&mlink->ctx, conf);
 }
 
+static inline void
+mt76_vif_link_beacon_mon_start(struct mt76_vif_link *mlink, u16 beacon_int)
+{
+	u16 interval = msecs_to_jiffies(ieee80211_tu_to_usec(beacon_int) / 1000);
+
+	WRITE_ONCE(mlink->beacon_mon_last, jiffies);
+	/* pairs with smp_load_acquire() in mt76_beacon_mon_iter() */
+	smp_store_release(&mlink->beacon_mon_interval, interval);
+}
+
+static inline void
+mt76_vif_link_beacon_mon_stop(struct mt76_vif_link *mlink)
+{
+	WRITE_ONCE(mlink->beacon_mon_interval, 0);
+}
+
 static inline struct mt76_phy *
 mt76_vif_link_phy(struct mt76_vif_link *mlink)
 {

@@ -492,12 +492,9 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	if (vif->type == NL80211_IFTYPE_STATION) {
 		vif->driver_flags |= IEEE80211_VIF_BEACON_FILTER;
 
-		if (vif->cfg.assoc && link_conf->beacon_int) {
-			mlink->beacon_mon_interval =
-				msecs_to_jiffies(ieee80211_tu_to_usec(
-					link_conf->beacon_int) / 1000);
-			WRITE_ONCE(mlink->beacon_mon_last, jiffies);
-		}
+		if (vif->cfg.assoc && link_conf->beacon_int)
+			mt76_vif_link_beacon_mon_start(mlink,
+						       link_conf->beacon_int);
 	}
 
 	return 0;
@@ -1026,12 +1023,9 @@ mt7996_vif_cfg_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			if (!link)
 				continue;
 
-			if (vif->type == NL80211_IFTYPE_STATION) {
-				link->mt76.beacon_mon_interval =
-					msecs_to_jiffies(ieee80211_tu_to_usec(
-						link_conf->beacon_int) / 1000);
-				WRITE_ONCE(link->mt76.beacon_mon_last, jiffies);
-			}
+			if (vif->type == NL80211_IFTYPE_STATION)
+				mt76_vif_link_beacon_mon_start(&link->mt76,
+							       link_conf->beacon_int);
 
 			phy = mt7996_vif_link_phy(link);
 			if (!phy)
@@ -1052,7 +1046,7 @@ mt7996_vif_cfg_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 			link = mt7996_vif_link(dev, vif, link_id);
 			if (link)
-				link->mt76.beacon_mon_interval = 0;
+				mt76_vif_link_beacon_mon_stop(&link->mt76);
 		}
 	}
 
