@@ -876,16 +876,11 @@ struct mt76_phy *mt76_vif_phy(struct ieee80211_hw *hw,
 			      struct ieee80211_vif *vif)
 {
 	struct mt76_vif_link *mlink = (struct mt76_vif_link *)vif->drv_priv;
-	struct mt76_chanctx *ctx;
 
 	if (!hw->wiphy->n_radio)
 		return hw->priv;
 
-	if (!mlink->ctx)
-		return NULL;
-
-	ctx = (struct mt76_chanctx *)mlink->ctx->drv_priv;
-	return ctx->phy;
+	return mt76_vif_link_phy(mlink);
 }
 EXPORT_SYMBOL_GPL(mt76_vif_phy);
 

@@ -2175,15 +2175,26 @@ mt76_vif_conf_link(struct mt76_dev *dev, struct ieee80211_vif *vif,
 	return mt76_dereference(mvif->link[link_conf->link_id], dev);
 }
 
+static inline void
+mt76_vif_link_ctx_set(struct mt76_vif_link *mlink,
+		      struct ieee80211_chanctx_conf *conf)
+{
+	/* pairs with smp_load_acquire() in mt76_vif_link_phy() */
+	smp_store_release(&mlink->ctx, conf);
+}
+
 static inline struct mt76_phy *
 mt76_vif_link_phy(struct mt76_vif_link *mlink)
 {
+	struct ieee80211_chanctx_conf *conf;
 	struct mt76_chanctx *ctx;
 
-	if (!mlink->ctx)
+	/* pairs with smp_store_release() in mt76_vif_link_ctx_set() */
+	conf = smp_load_acquire(&mlink->ctx);
+	if (!conf)
 		return NULL;
 
-	ctx = (struct mt76_chanctx *)mlink->ctx->drv_priv;
+	ctx = (struct mt76_chanctx *)conf->drv_priv;
 
 	return ctx->phy;
 }

@@ -137,7 +137,7 @@ int mt76_assign_vif_chanctx(struct ieee80211_hw *hw,
 		mlink_alloc = true;
 	}
 
-	mlink->ctx = conf;
+	mt76_vif_link_ctx_set(mlink, conf);
 	ret = dev->drv->vif_link_add(phy, vif, link_conf, mlink);
 	if (ret) {
 		if (mlink_alloc)
@@ -179,7 +179,7 @@ void mt76_unassign_vif_chanctx(struct ieee80211_hw *hw,
 		goto out;
 
 	dev->drv->vif_link_remove(phy, vif, link_conf, mlink);
-	mlink->ctx = NULL;
+	mt76_vif_link_ctx_set(mlink, NULL);
 out:
 	mutex_unlock(&dev->mutex);
 }
@@ -257,7 +257,7 @@ int mt76_switch_vif_chanctx(struct ieee80211_hw *hw,
 				goto out;
 		}
 
-		mlink->ctx = v->new_ctx;
+		mt76_vif_link_ctx_set(mlink, v->new_ctx);
 		if (mlink->beacon_mon_interval)
 			WRITE_ONCE(mlink->beacon_mon_last, jiffies);
 	}
