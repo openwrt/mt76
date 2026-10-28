@@ -2179,6 +2179,9 @@ static inline void
 mt76_vif_link_ctx_set(struct mt76_vif_link *mlink,
 		      struct ieee80211_chanctx_conf *conf)
 {
+	if (conf && mlink->beacon_mon_interval)
+		WRITE_ONCE(mlink->beacon_mon_last, jiffies);
+
 	/* pairs with smp_load_acquire() in mt76_vif_link_phy() */
 	smp_store_release(&mlink->ctx, conf);
 }

@@ -258,8 +258,6 @@ int mt76_switch_vif_chanctx(struct ieee80211_hw *hw,
 		}
 
 		mt76_vif_link_ctx_set(mlink, v->new_ctx);
-		if (mlink->beacon_mon_interval)
-			WRITE_ONCE(mlink->beacon_mon_last, jiffies);
 	}
 
 out:
