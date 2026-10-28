@@ -922,9 +922,11 @@ struct mt76_phy {
 	u8 mac_work_count;
 
 	struct {
+		spinlock_t lock;
 		struct sk_buff *head;
 		struct sk_buff **tail;
 		u16 seqno;
+		u16 wcid_idx;
 	} rx_amsdu[__MT_RXQ_MAX];
 
 	struct mt76_freq_range_power *frp;

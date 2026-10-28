@@ -428,9 +428,12 @@ mt76_phy_init(struct mt76_phy *phy, struct ieee80211_hw *hw)
 {
 	struct mt76_dev *dev = phy->dev;
 	struct wiphy *wiphy = hw->wiphy;
+	int i;
 
 	INIT_LIST_HEAD(&phy->tx_list);
 	spin_lock_init(&phy->tx_lock);
+	for (i = 0; i < ARRAY_SIZE(phy->rx_amsdu); i++)
+		spin_lock_init(&phy->rx_amsdu[i].lock);
 	INIT_DELAYED_WORK(&phy->roc_work, mt76_roc_complete_work);
 	INIT_DELAYED_WORK(&phy->scan_work, mt76_scan_work);
 
@@ -599,6 +602,54 @@ int mt76_register_phy(struct mt76_phy *phy, bool vht,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mt76_register_phy);
+
+static struct sk_buff *
+mt76_rx_amsdu_detach(struct mt76_phy *phy, enum mt76_rxq_id q)
+{
+	struct sk_buff *skb = phy->rx_amsdu[q].head;
+
+	phy->rx_amsdu[q].head = NULL;
+	phy->rx_amsdu[q].tail = NULL;
+
+	return skb;
+}
+
+static struct sk_buff *
+mt76_rx_amsdu_detach_wcid(struct mt76_phy *phy, enum mt76_rxq_id q,
+			  struct mt76_wcid *wcid)
+{
+	struct sk_buff *skb = phy->rx_amsdu[q].head;
+
+	if (!skb || ((struct mt76_rx_status *)skb->cb)->wcid != wcid)
+		return NULL;
+
+	return mt76_rx_amsdu_detach(phy, q);
+}
+
+static void
+mt76_rx_amsdu_flush_phy(struct mt76_phy *phy, struct mt76_wcid *wcid)
+{
+	int q;
+
+	for (q = 0; q < ARRAY_SIZE(phy->rx_amsdu); q++) {
+		struct sk_buff *skb;
+
+		spin_lock_bh(&phy->rx_amsdu[q].lock);
+		skb = mt76_rx_amsdu_detach_wcid(phy, q, wcid);
+		spin_unlock_bh(&phy->rx_amsdu[q].lock);
+
+		dev_kfree_skb(skb);
+	}
+}
+
+static void mt76_rx_amsdu_flush(struct mt76_dev *dev, struct mt76_wcid *wcid)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(dev->phys); i++)
+		if (dev->phys[i])
+			mt76_rx_amsdu_flush_phy(dev->phys[i], wcid);
+}
 
 void mt76_unregister_phy(struct mt76_phy *phy)
 {
@@ -886,13 +937,20 @@ EXPORT_SYMBOL_GPL(mt76_vif_phy);
 
 static void mt76_rx_release_amsdu(struct mt76_phy *phy, enum mt76_rxq_id q)
 {
-	struct sk_buff *skb = phy->rx_amsdu[q].head;
+	struct sk_buff *skb = mt76_rx_amsdu_detach(phy, q);
 	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
 	struct mt76_dev *dev = phy->dev;
 	struct mt76_queue *rxq = &dev->q_rx[q];
 
-	phy->rx_amsdu[q].head = NULL;
-	phy->rx_amsdu[q].tail = NULL;
+	/* status->wcid was looked up in an earlier RCU section. It can only be
+	 * used if the wcid is still published, which keeps it alive until the
+	 * end of the current RCU section.
+	 */
+	if (status->amsdu && status->wcid &&
+	    __mt76_wcid_ptr(dev, phy->rx_amsdu[q].wcid_idx) != status->wcid) {
+		dev_kfree_skb(skb);
+		return;
+	}
 
 	/*
 	 * Validate if the amsdu has a proper first subframe.
@@ -932,15 +990,19 @@ static void mt76_rx_release_burst(struct mt76_phy *phy, enum mt76_rxq_id q,
 				  struct sk_buff *skb)
 {
 	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
+	struct sk_buff *head = phy->rx_amsdu[q].head;
 
-	if (phy->rx_amsdu[q].head &&
+	if (head &&
 	    (!status->amsdu || status->first_amsdu ||
-	     status->seqno != phy->rx_amsdu[q].seqno))
+	     status->seqno != phy->rx_amsdu[q].seqno ||
+	     status->wcid != ((struct mt76_rx_status *)head->cb)->wcid))
 		mt76_rx_release_amsdu(phy, q);
 
 	if (!phy->rx_amsdu[q].head) {
 		phy->rx_amsdu[q].tail = &skb_shinfo(skb)->frag_list;
 		phy->rx_amsdu[q].seqno = status->seqno;
+		if (status->wcid)
+			phy->rx_amsdu[q].wcid_idx = status->wcid->idx;
 		phy->rx_amsdu[q].head = skb;
 	} else {
 		*phy->rx_amsdu[q].tail = skb;
@@ -969,7 +1031,9 @@ void mt76_rx(struct mt76_dev *dev, enum mt76_rxq_id q, struct sk_buff *skb)
 	}
 #endif
 
+	spin_lock(&phy->rx_amsdu[q].lock);
 	mt76_rx_release_burst(phy, q, skb);
+	spin_unlock(&phy->rx_amsdu[q].lock);
 }
 EXPORT_SYMBOL_GPL(mt76_rx);
 
@@ -1753,6 +1817,8 @@ void mt76_wcid_cleanup(struct mt76_dev *dev, struct mt76_wcid *wcid)
 	struct ieee80211_hw *hw;
 	struct sk_buff_head list;
 	struct sk_buff *skb;
+
+	mt76_rx_amsdu_flush(dev, wcid);
 
 	mt76_tx_status_lock(dev, &list);
 	mt76_tx_status_skb_get(dev, wcid, -1, &list);
