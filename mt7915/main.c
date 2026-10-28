@@ -741,18 +741,6 @@ mt7915_stop_ap(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 }
 
 static void
-mt7915_channel_switch_beacon(struct ieee80211_hw *hw,
-			     struct ieee80211_vif *vif,
-			     struct cfg80211_chan_def *chandef)
-{
-	struct mt7915_dev *dev = mt7915_hw_dev(hw);
-
-	mutex_lock(&dev->mt76.mutex);
-	mt7915_mcu_add_beacon(hw, vif, true, BSS_CHANGED_BEACON);
-	mutex_unlock(&dev->mt76.mutex);
-}
-
-static void
 mt7915_sta_vow_set_airtime_weight(struct mt7915_dev *dev,
 				  struct mt7915_sta *msta, u16 weight)
 {
@@ -1880,7 +1868,6 @@ const struct ieee80211_ops mt7915_ops = {
 	.release_buffered_frames = mt76_release_buffered_frames,
 	.get_txpower = mt76_get_txpower,
 	.set_sar_specs = mt7915_set_sar_specs,
-	.channel_switch_beacon = mt7915_channel_switch_beacon,
 	.get_stats = mt7915_get_stats,
 	.get_et_sset_count = mt7915_get_et_sset_count,
 	.get_et_stats = mt7915_get_et_stats,
