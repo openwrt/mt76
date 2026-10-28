@@ -328,7 +328,7 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 		if (ret)
 			return ret;
 
-		if (vif->type == NL80211_IFTYPE_AP)
+		if (vif->type == NL80211_IFTYPE_AP && ieee80211_vif_is_mld(vif))
 			return mt7996_mcu_mld_link_oper(dev, link_conf, link,
 							true);
 
@@ -514,7 +514,7 @@ void mt7996_vif_link_remove(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	if (mlink->wcid->offchannel) {
 		mt7996_vif_link_destroy(phy, link, vif, link_conf);
 	} else {
-		if (vif->type == NL80211_IFTYPE_AP) {
+		if (vif->type == NL80211_IFTYPE_AP && ieee80211_vif_is_mld(vif)) {
 			mt7996_mcu_mld_reconf_stop_link(phy->dev, vif,
 							BIT(link_id));
 			mt7996_mcu_mld_link_oper(phy->dev, link_conf, link,
