@@ -1172,7 +1172,7 @@ mt7996_mcu_bss_mld_tlv(struct sk_buff *skb,
 	mld->own_mld_id = link->mld_idx;
 	mld->link_id = link_conf->link_id;
 
-	if (ieee80211_vif_is_mld(vif)) {
+	if (ieee80211_vif_is_mld(vif) && !link->mt76.offchannel) {
 		mld->group_mld_id = mvif->mld_group_idx;
 		mld->remap_idx = mvif->mld_remap_idx;
 		memcpy(mld->mac_addr, vif->addr, ETH_ALEN);
