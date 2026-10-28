@@ -72,18 +72,25 @@ static struct sk_buff *mt76_npu_dequeue(struct mt76_dev *dev,
 	int i, nframes, index = q->tail;
 	struct sk_buff *skb = NULL;
 
+	if (!q->queued ||
+	    !FIELD_GET(NPU_RX_DMA_DESC_DONE_MASK, desc[index].ctrl))
+		return NULL;
+
+	/* The slot count is only valid once the first slot is complete */
+	dma_rmb();
 	nframes = FIELD_GET(NPU_RX_DMA_PKT_COUNT_MASK, desc[index].info);
 	nframes = max_t(int, nframes, 1);
 	if (nframes > q->queued)
 		return NULL;
 
 	/* Only take the frame once all of its slots are complete */
-	for (i = 0; i < nframes; i++) {
+	for (i = 1; i < nframes; i++) {
 		int idx = (index + i) % q->ndesc;
 
 		if (!FIELD_GET(NPU_RX_DMA_DESC_DONE_MASK, desc[idx].ctrl))
 			return NULL;
 	}
+	dma_rmb();
 
 	for (i = 0; i < nframes; i++) {
 		struct mt76_queue_entry *e = &q->entry[index];
