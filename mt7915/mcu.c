@@ -738,8 +738,16 @@ int mt7915_mcu_add_bss_info(struct mt7915_phy *phy,
 	mt76_connac_mcu_bss_basic_tlv(skb, vif, NULL, phy->mt76,
 				      mvif->sta.wcid.idx, enable);
 
-	if (vif->type == NL80211_IFTYPE_MONITOR)
+	if (vif->type == NL80211_IFTYPE_MONITOR) {
+		/* a monitor vif created with the nl80211 active flag is a
+		 * real driver vif; without the RF channel TLV its bss
+		 * record in the firmware never learns the channel, so
+		 * locally transmitted frames are never looped back to it
+		 */
+		if (enable && phy->mt76->chandef.chan)
+			mt7915_mcu_bss_rfch_tlv(skb, vif, phy);
 		goto out;
+	}
 
 	if (enable) {
 		mt7915_mcu_bss_rfch_tlv(skb, vif, phy);
