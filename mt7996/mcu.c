@@ -4598,6 +4598,39 @@ mt7996_mcu_beacon_reconf_start(struct mt7996_dev *dev,
 	return links;
 }
 
+/* The firmware defers a template that reaches it from up to about 9 ms
+ * before to a few ms after a TBTT of its BSS and runs it again by itself
+ * later. The second run of a critical update template can set the
+ * Critical Update flag again at a later DTIM Beacon frame.
+ */
+#define MT7996_BCN_DEFER_LEAD_US	9000
+#define MT7996_BCN_DEFER_TAIL_US	4000
+
+static u64
+mt7996_mcu_beacon_tbtt_wait(struct mt7996_dev *dev,
+			    struct mt7996_vif_link *link, u32 bi_us,
+			    u32 lead_us)
+{
+	u64 tsf = __mt7996_get_tsf(mt76_hw(dev), link);
+	u64 intervals = tsf;
+	u32 phase, wait_us;
+
+	if (!bi_us)
+		return tsf;
+
+	phase = do_div(intervals, bi_us);
+	if (phase >= bi_us - lead_us)
+		wait_us = bi_us - phase + MT7996_BCN_DEFER_TAIL_US;
+	else if (phase < MT7996_BCN_DEFER_TAIL_US)
+		wait_us = MT7996_BCN_DEFER_TAIL_US - phase;
+	else
+		return tsf;
+
+	usleep_range(wait_us, wait_us + 200);
+
+	return __mt7996_get_tsf(mt76_hw(dev), link);
+}
+
 /* The firmware takes a template at the first TBTT after it has handled the
  * upload, which can take more than half a beacon interval, so the template
  * that starts a removal goes up just after a TBTT of the removed link and
@@ -4611,8 +4644,7 @@ mt7996_mcu_beacon_reconf_align(struct mt7996_dev *dev,
 	unsigned int link_id = ffs(links) - 1;
 	struct ieee80211_bss_conf *link_conf;
 	struct mt7996_vif_link *link;
-	u32 bi_us, wait_us;
-	u64 tsf;
+	u32 bi_us;
 
 	link_conf = link_conf_dereference_protected(vif, link_id);
 	link = mt7996_vif_link(dev, vif, link_id);
@@ -4620,11 +4652,8 @@ mt7996_mcu_beacon_reconf_align(struct mt7996_dev *dev,
 		return 0;
 
 	bi_us = link_conf->beacon_int * 1024;
-	tsf = __mt7996_get_tsf(mt76_hw(dev), link);
-	wait_us = bi_us - do_div(tsf, bi_us) + 2000;
-	usleep_range(wait_us, wait_us + 200);
 
-	return __mt7996_get_tsf(mt76_hw(dev), link);
+	return mt7996_mcu_beacon_tbtt_wait(dev, link, bi_us, bi_us);
 }
 
 /* stops the TX of the removed links just before their removal TBTT */
@@ -4933,6 +4962,8 @@ __mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		started = mt7996_mcu_beacon_reconf_start(dev, vif, &reconf);
 	if (started)
 		upload_tsf = mt7996_mcu_beacon_reconf_align(dev, vif, started);
+	mt7996_mcu_beacon_tbtt_wait(dev, link, link_conf->beacon_int * 1024,
+				    MT7996_BCN_DEFER_LEAD_US);
 out:
 	dev_kfree_skb(skb);
 	/* the templates of the partner links must reach the firmware before
