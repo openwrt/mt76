@@ -2626,7 +2626,7 @@ mt7925_mcu_uni_add_beacon_offload(struct mt792x_dev *dev,
 		return -EINVAL;
 	}
 
-	if (skb->len > 512) {
+	if (skb->len > sizeof(req.beacon_tlv.pkt)) {
 		dev_err(dev->mt76.dev, "beacon size limit exceed\n");
 		dev_kfree_skb(skb);
 		return -EINVAL;
