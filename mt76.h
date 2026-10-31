@@ -1483,6 +1483,12 @@ static inline void *mt76_skb_get_hdr(struct sk_buff *skb)
 
 	mstat = *((struct mt76_rx_status *)skb->cb);
 
+	/* EHT radiotap TLVs are pushed in front of the 802.11 header and
+	 * mac_header is left pointing at the header itself.
+	 */
+	if (mstat.flag & RX_FLAG_RADIOTAP_TLV_AT_END)
+		return skb_mac_header(skb);
+
 	if (mstat.flag & RX_FLAG_RADIOTAP_HE)
 		data += sizeof(struct ieee80211_radiotap_he);
 	if (mstat.flag & RX_FLAG_RADIOTAP_HE_MU)
