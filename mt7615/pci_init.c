@@ -125,5 +125,7 @@ void mt7615_unregister_device(struct mt7615_dev *dev)
 	mt7615_dma_cleanup(dev);
 	tasklet_disable(&dev->mt76.irq_tasklet);
 
+	cancel_delayed_work_sync(&dev->coredump.work);
+	skb_queue_purge(&dev->coredump.msg_list);
 	mt76_free_device(&dev->mt76);
 }
