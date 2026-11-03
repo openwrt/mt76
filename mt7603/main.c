@@ -172,9 +172,6 @@ int mt7603_set_channel(struct mt76_phy *mphy)
 	mt7603_mac_set_timing(dev);
 	mt7603_mac_start(dev);
 
-	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mphy.mac_work,
-				     msecs_to_jiffies(MT7603_WATCHDOG_TIME));
-
 	/* reset channel stats */
 	mt76_clear(dev, MT_MIB_CTL, MT_MIB_CTL_READ_CLR_DIS);
 	mt76_set(dev, MT_MIB_CTL,
@@ -191,9 +188,8 @@ out:
 		mt7603_beacon_set_timer(dev, -1, dev->mt76.beacon_int);
 
 	tasklet_enable(&dev->mt76.pre_tbtt_tasklet);
-
-	if (failed)
-		mt7603_mac_work(&dev->mphy.mac_work.work);
+	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mphy.mac_work,
+				     failed ? 0 : msecs_to_jiffies(MT7603_WATCHDOG_TIME));
 
 	return ret;
 }
