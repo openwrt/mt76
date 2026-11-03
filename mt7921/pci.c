@@ -44,27 +44,46 @@ static int mt7921e_init_reset(struct mt792x_dev *dev)
 static void mt7921e_unregister_device(struct mt792x_dev *dev)
 {
 	int i;
-	struct mt76_connac_pm *pm = &dev->pm;
+	struct pci_dev *pdev = to_pci_dev(dev->mt76.dev);
 	struct ieee80211_hw *hw = mt76_hw(dev);
 
 	if (dev->phy.chip_cap & MT792x_CHIP_CAP_WF_RF_PIN_CTRL_EVT_EN)
 		wiphy_rfkill_stop_polling(hw->wiphy);
 
-	cancel_work_sync(&dev->init_work);
-	mt76_unregister_device(&dev->mt76);
-	mt76_for_each_q_rx(&dev->mt76, i)
+	mt7921_unregister_device(dev);
+
+	/*
+	 * Mask device interrupts before MT76_REMOVED makes the handler return
+	 * IRQ_NONE. Drain the IRQ and tasklet before tearing down the queues.
+	 */
+	mt76_wr(dev, dev->irq_map->host_irq_enable, 0);
+	mt76_wr(dev, dev->pcie_reg->imask, 0);
+	mt76_rr(dev, dev->pcie_reg->imask);
+	set_bit(MT76_REMOVED, &dev->mphy.state);
+	synchronize_irq(pdev->irq);
+	tasklet_disable(&dev->mt76.irq_tasklet);
+
+	mt76_for_each_q_rx(&dev->mt76, i) {
 		napi_disable(&dev->mt76.napi[i]);
-	cancel_delayed_work_sync(&pm->ps_work);
-	cancel_work_sync(&pm->wake_work);
-	cancel_work_sync(&dev->reset_work);
+		netif_napi_del(&dev->mt76.napi[i]);
+	}
+	skb_queue_purge(&dev->phy.scan_event_list);
+	cancel_delayed_work_sync(&dev->coredump.work);
+	skb_queue_purge(&dev->coredump.msg_list);
 
 	mt76_connac2_tx_token_put(&dev->mt76);
-	__mt792x_mcu_drv_pmctrl(dev);
 	mt792x_dma_cleanup(dev);
+
+	/*
+	 * TX NAPI is now disabled too; drain a tasklet queued by its last poll.
+	 * MT76_REMOVED makes that tasklet return without touching freed queues.
+	 */
+	tasklet_enable(&dev->mt76.irq_tasklet);
+	tasklet_kill(&dev->mt76.irq_tasklet);
+	mt76_wr(dev, dev->irq_map->host_irq_enable, 0);
+
 	mt792x_wfsys_reset(dev);
 	skb_queue_purge(&dev->mt76.mcu.res_q);
-
-	tasklet_disable(&dev->mt76.irq_tasklet);
 }
 
 static u32 __mt7921_reg_addr(struct mt792x_dev *dev, u32 addr)
@@ -460,7 +479,6 @@ static void mt7921_pci_remove(struct pci_dev *pdev)
 		device_init_wakeup(dev->mt76.dev, false);
 
 	mt7921e_unregister_device(dev);
-	set_bit(MT76_REMOVED, &mdev->phy.state);
 	devm_free_irq(&pdev->dev, pdev->irq, dev);
 	mt76_free_device(&dev->mt76);
 	pci_free_irq_vectors(pdev);

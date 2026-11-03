@@ -31,6 +31,9 @@ void mt792x_irq_tasklet(unsigned long data)
 	const struct mt792x_irq_map *irq_map = dev->irq_map;
 	u32 intr, mask = 0;
 
+	if (test_bit(MT76_REMOVED, &dev->mphy.state))
+		return;
+
 	mt76_wr(dev, irq_map->host_irq_enable, 0);
 
 	intr = mt76_rr(dev, MT_WFDMA0_HOST_INT_STA);
