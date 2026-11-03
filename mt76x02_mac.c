@@ -897,9 +897,11 @@ int mt76x02_mac_process_rx(struct mt76x02_dev *dev, struct sk_buff *skb,
 	status->freq = dev->mphy.chandef.chan->center_freq;
 	status->band = dev->mphy.chandef.chan->band;
 
-	hdr = (struct ieee80211_hdr *)skb->data;
-	status->qos_ctl = *ieee80211_get_qos_ctl(hdr);
 	status->seqno = FIELD_GET(MT_RXWI_SN, tid_sn);
+
+	hdr = (struct ieee80211_hdr *)skb->data;
+	if (ieee80211_is_data_qos(hdr->frame_control))
+		status->qos_ctl = *ieee80211_get_qos_ctl(hdr);
 
 	return mt76x02_mac_process_rate(dev, status, rate);
 }
