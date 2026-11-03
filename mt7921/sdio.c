@@ -32,7 +32,9 @@ static void mt7921s_txrx_worker(struct mt76_worker *w)
 	struct mt792x_dev *dev = container_of(mdev, struct mt792x_dev, mt76);
 
 	if (!mt76_connac_pm_ref(&dev->mphy, &dev->pm)) {
-		queue_work(mdev->wq, &dev->pm.wake_work);
+		/* The bus worker can run until mt76s_deinit(). */
+		if (!test_bit(MT76_REMOVED, &dev->mphy.state))
+			queue_work(mdev->wq, &dev->pm.wake_work);
 		return;
 	}
 
@@ -42,16 +44,17 @@ static void mt7921s_txrx_worker(struct mt76_worker *w)
 
 static void mt7921s_unregister_device(struct mt792x_dev *dev)
 {
-	struct mt76_connac_pm *pm = &dev->pm;
-
-	cancel_work_sync(&dev->init_work);
-	mt76_unregister_device(&dev->mt76);
-	cancel_delayed_work_sync(&pm->ps_work);
-	cancel_work_sync(&pm->wake_work);
+	mt7921_unregister_device(dev);
+	set_bit(MT76_REMOVED, &dev->mphy.state);
 
 	mt76s_deinit(&dev->mt76);
 	mt7921s_wfsys_reset(dev);
 	skb_queue_purge(&dev->mt76.mcu.res_q);
+
+	/* Event producers and scan_work are stopped before purging queues. */
+	skb_queue_purge(&dev->phy.scan_event_list);
+	cancel_delayed_work_sync(&dev->coredump.work);
+	skb_queue_purge(&dev->coredump.msg_list);
 
 	mt76_free_device(&dev->mt76);
 }
