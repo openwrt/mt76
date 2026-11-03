@@ -305,7 +305,7 @@ mt7921_mcu_rssi_monitor_iter(void *priv, u8 *mac,
 	else
 		nl_event = NL80211_CQM_RSSI_THRESHOLD_EVENT_LOW;
 
-	ieee80211_cqm_rssi_notify(vif, nl_event, rssi, GFP_KERNEL);
+	ieee80211_cqm_rssi_notify(vif, nl_event, rssi, GFP_ATOMIC);
 }
 
 static void
@@ -326,6 +326,12 @@ mt7921_mcu_rx_unsolicited_event(struct mt792x_dev *dev, struct sk_buff *skb)
 {
 	struct mt76_connac2_mcu_rxd *rxd;
 
+	/* Serialize event side effects with mt7921_unregister_device(). */
+	spin_lock_bh(&dev->mcu_event_lock);
+	if (dev->mcu_events_stopped ||
+	    test_bit(MT76_REMOVED, &dev->mphy.state))
+		goto free_skb;
+
 	rxd = (struct mt76_connac2_mcu_rxd *)skb->data;
 	switch (rxd->eid) {
 	case MCU_EVENT_BSS_BEACON_LOSS:
@@ -334,7 +340,7 @@ mt7921_mcu_rx_unsolicited_event(struct mt792x_dev *dev, struct sk_buff *skb)
 	case MCU_EVENT_SCHED_SCAN_DONE:
 	case MCU_EVENT_SCAN_DONE:
 		mt7921_mcu_scan_event(dev, skb);
-		return;
+		goto out;
 	case MCU_EVENT_DBG_MSG:
 		mt7921_mcu_debug_msg_event(dev, skb);
 		break;
@@ -342,7 +348,7 @@ mt7921_mcu_rx_unsolicited_event(struct mt792x_dev *dev, struct sk_buff *skb)
 		dev->fw_assert = true;
 		mt76_connac_mcu_coredump_event(&dev->mt76, skb,
 					       &dev->coredump);
-		return;
+		goto out;
 	case MCU_EVENT_LP_INFO:
 		mt7921_mcu_low_power_event(dev, skb);
 		break;
@@ -355,7 +361,10 @@ mt7921_mcu_rx_unsolicited_event(struct mt792x_dev *dev, struct sk_buff *skb)
 	default:
 		break;
 	}
+free_skb:
 	dev_kfree_skb(skb);
+out:
+	spin_unlock_bh(&dev->mcu_event_lock);
 }
 
 static void
@@ -363,6 +372,11 @@ mt7921_mcu_uni_rx_unsolicited_event(struct mt792x_dev *dev,
 				    struct sk_buff *skb)
 {
 	struct mt76_connac2_mcu_rxd *rxd;
+
+	spin_lock_bh(&dev->mcu_event_lock);
+	if (dev->mcu_events_stopped ||
+	    test_bit(MT76_REMOVED, &dev->mphy.state))
+		goto out;
 
 	rxd = (struct mt76_connac2_mcu_rxd *)skb->data;
 
@@ -373,6 +387,8 @@ mt7921_mcu_uni_rx_unsolicited_event(struct mt792x_dev *dev,
 	default:
 		break;
 	}
+out:
+	spin_unlock_bh(&dev->mcu_event_lock);
 	dev_kfree_skb(skb);
 }
 

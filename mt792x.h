@@ -327,6 +327,9 @@ struct mt792x_dev {
 
 	struct mt76_connac_pm pm;
 	struct mt76_connac_coredump coredump;
+	/* MT7921 unsolicited event dispatch versus unregister. */
+	spinlock_t mcu_event_lock;
+	bool mcu_events_stopped;
 	const struct mt792x_hif_ops *hif_ops;
 	const struct mt792x_irq_map *irq_map;
 	const struct mt792x_pcie_reg *pcie_reg;

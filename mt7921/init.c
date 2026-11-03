@@ -167,6 +167,36 @@ static void mt7921_init_work(struct work_struct *work)
 	mt76_connac_mcu_set_deep_sleep(&dev->mt76, dev->pm.ds_enable);
 }
 
+void mt7921_unregister_device(struct mt792x_dev *dev)
+{
+	struct mt76_connac_pm *pm = &dev->pm;
+
+	cancel_work_sync(&dev->init_work);
+
+	/* Wait for accepted events and reject new unsolicited events. */
+	spin_lock_bh(&dev->mcu_event_lock);
+	dev->mcu_events_stopped = true;
+	spin_unlock_bh(&dev->mcu_event_lock);
+
+	/* Keep the bus and PM wake path available while running work drains. */
+	disable_work_sync(&dev->reset_work);
+	disable_delayed_work_sync(&dev->mphy.mac_work);
+	cancel_delayed_work_sync(&dev->phy.scan_work);
+	timer_shutdown_sync(&dev->phy.roc_timer);
+	cancel_work_sync(&dev->phy.roc_work);
+
+	/* Stop PM producers before mac80211 tears down its queues. */
+	disable_delayed_work_sync(&pm->ps_work);
+	disable_work_sync(&pm->wake_work);
+
+	/* Teardown commands need the wake request that disabling dropped. */
+	mt792x_pm_wake_work(&pm->wake_work);
+	pm->suspended = true;
+
+	mt76_unregister_device(&dev->mt76);
+}
+EXPORT_SYMBOL_GPL(mt7921_unregister_device);
+
 int mt7921_register_device(struct mt792x_dev *dev)
 {
 	struct ieee80211_hw *hw = mt76_hw(dev);
@@ -177,6 +207,7 @@ int mt7921_register_device(struct mt792x_dev *dev)
 	dev->mt76.phy.priv = &dev->phy;
 	dev->mt76.tx_worker.fn = mt792x_tx_worker;
 
+	spin_lock_init(&dev->mcu_event_lock);
 	INIT_DELAYED_WORK(&dev->pm.ps_work, mt792x_pm_power_save_work);
 	INIT_WORK(&dev->pm.wake_work, mt792x_pm_wake_work);
 	spin_lock_init(&dev->pm.wake.lock);
