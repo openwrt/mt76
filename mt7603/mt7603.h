@@ -155,6 +155,7 @@ struct mt7603_dev {
 
 	u32 reset_test;
 
+	u8 failed_pse_reset_attempts;
 	unsigned int reset_cause[__RESET_CAUSE_MAX];
 };
 
