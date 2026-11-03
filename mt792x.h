@@ -393,6 +393,8 @@ struct mt792x_dev {
 
 	u8 fw_debug;
 	u8 fw_features;
+	/* LED state last written to the GPIO, -1 if unknown */
+	s8 led_state;
 
 	struct mt76_connac_pm pm;
 	struct mt76_connac_coredump coredump;
