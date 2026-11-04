@@ -364,8 +364,10 @@ static void mt7925u_disconnect(struct usb_interface *usb_intf)
 	/* mt792xu_disconnect() ends in mt76_free_device(), so the work has to
 	 * go before it rather than after mt76_unregister_device() as on PCI.
 	 */
-	if (dev)
+	if (dev) {
 		cancel_work_sync(&dev->nan_deferred_work);
+		cancel_delayed_work_sync(&dev->phy.scan_retry_work);
+	}
 
 	mt792xu_disconnect(usb_intf);
 }
