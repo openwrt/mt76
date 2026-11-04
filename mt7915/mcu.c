@@ -165,7 +165,8 @@ mt7915_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 		dev_err(mdev->dev, "Message %08x (seq %d) timeout\n",
 			cmd, seq);
 
-		if (!test_and_set_bit(MT76_MCU_RESET, &dev->mphy.state)) {
+		if (dev->recovery.hw_init_done
+		&& !test_and_set_bit(MT76_MCU_RESET, &dev->mphy.state)) {
 			dev->recovery.restart = true;
 			wake_up(&dev->mt76.mcu.wait);
 			queue_work(dev->mt76.wq, &dev->reset_work);
