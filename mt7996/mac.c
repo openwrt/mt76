@@ -1065,11 +1065,7 @@ mt7996_tx_is_link_null(struct ieee80211_vif *vif, struct ieee80211_sta *sta,
 	if (!vif || vif->type != NL80211_IFTYPE_STATION || !sta || !sta->mlo)
 		return false;
 
-	if (!ieee80211_is_any_nullfunc(hdr->frame_control))
-		return false;
-
-	return u32_get_bits(info->control.flags, IEEE80211_TX_CTRL_MLO_LINK) !=
-	       IEEE80211_LINK_UNSPECIFIED;
+	return ieee80211_is_any_nullfunc(hdr->frame_control);
 }
 
 int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
@@ -1099,7 +1095,7 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	if (!wcid)
 		wcid = &dev->mt76.global_wcid;
 
-	/* the header of this frame holds the addresses of the link it names */
+	/* the header of this frame holds the addresses of one link */
 	link_null = mt7996_tx_is_link_null(vif, sta, tx_info->skb);
 
 	if ((is_8023 || ieee80211_is_data_qos(hdr->frame_control)) && sta && sta->mlo &&
