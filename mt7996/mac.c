@@ -1050,6 +1050,26 @@ mt7996_tx_use_mgmt(struct mt7996_dev *dev, struct sk_buff *skb)
 	return false;
 }
 
+static bool
+mt7996_tx_is_link_null(struct ieee80211_vif *vif, struct ieee80211_sta *sta,
+		       struct sk_buff *skb)
+{
+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+
+	if (info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP)
+		return false;
+
+	if (!vif || vif->type != NL80211_IFTYPE_STATION || !sta || !sta->mlo)
+		return false;
+
+	if (!ieee80211_is_any_nullfunc(hdr->frame_control))
+		return false;
+
+	return u32_get_bits(info->control.flags, IEEE80211_TX_CTRL_MLO_LINK) !=
+	       IEEE80211_LINK_UNSPECIFIED;
+}
+
 int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  enum mt76_txq_id qid, struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta,
@@ -1068,7 +1088,7 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	bool is_8023 = info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP;
 	__le32 *ptr = (__le32 *)txwi_ptr;
 	u8 *txwi = (u8 *)txwi_ptr;
-	bool host_txd;
+	bool host_txd, link_null;
 	u8 link_id;
 
 	if (unlikely(tx_info->skb->len <= ETH_HLEN))
@@ -1077,7 +1097,11 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	if (!wcid)
 		wcid = &dev->mt76.global_wcid;
 
+	/* the header of this frame holds the addresses of the link it names */
+	link_null = mt7996_tx_is_link_null(vif, sta, tx_info->skb);
+
 	if ((is_8023 || ieee80211_is_data_qos(hdr->frame_control)) && sta && sta->mlo &&
+	    !link_null &&
 	    likely(tx_info->skb->protocol != cpu_to_be16(ETH_P_PAE))) {
 		u8 tid = tx_info->skb->priority & IEEE80211_QOS_CTL_TID_MASK;
 
@@ -1165,6 +1189,9 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	if (host_txd)
 		mt7996_mac_write_txwi(dev, txwi_ptr, tx_info->skb, wcid, key,
 				      pid, qid, 0, link_id);
+
+	if (link_null)
+		ptr[5] |= cpu_to_le32(MT_TXD5_FL);
 
 	/* MT7996 and MT7992 require driver to provide the MAC TXP for AddBA
 	 * req
