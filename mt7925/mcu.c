@@ -238,6 +238,8 @@ mt7925_connac_mcu_set_wow_ctrl(struct mt76_phy *phy, struct ieee80211_vif *vif,
 		req.wow_ctrl_tlv.trigger |= (UNI_WOW_DETECT_TYPE_DISCONNECT |
 					     UNI_WOW_DETECT_TYPE_BCN_LOST);
 	if (wowlan->nd_config) {
+		ies.common_ies = wowlan->nd_config->ie;
+		ies.common_ie_len = wowlan->nd_config->ie_len;
 		mt7925_mcu_sched_scan_req(phy, vif, wowlan->nd_config, &ies);
 		req.wow_ctrl_tlv.trigger |= UNI_WOW_DETECT_TYPE_SCH_SCAN_HIT;
 		mt7925_mcu_sched_scan_enable(phy, vif, suspend);
@@ -3337,56 +3339,97 @@ int mt7925_mcu_set_dbdc(struct mt76_phy *phy, bool enable)
 }
 EXPORT_SYMBOL_GPL(mt7925_mcu_set_dbdc);
 
+static u32
+mt7925_mcu_scan_ie_tlv_len(struct mt76_dev *mdev, u32 ies_len)
+{
+	u32 len = sizeof(struct scan_ie_tlv) + ies_len;
+
+	if (is_mt7928(mdev))
+		len = ALIGN(len, 4);
+
+	return len;
+}
+
+static u32
+mt7925_mcu_scan_ies_len(struct mt76_dev *mdev,
+			struct ieee80211_scan_ies *scan_ies)
+{
+	enum nl80211_band i;
+	u32 len = 0;
+
+	if (scan_ies->common_ie_len)
+		len += mt7925_mcu_scan_ie_tlv_len(mdev, scan_ies->common_ie_len);
+
+	for (i = 0; i <= NL80211_BAND_6GHZ; i++) {
+		if (i == NL80211_BAND_60GHZ || !scan_ies->len[i])
+			continue;
+
+		len += mt7925_mcu_scan_ie_tlv_len(mdev, scan_ies->len[i]);
+	}
+
+	return len;
+}
+
+static void
+mt7925_mcu_add_scan_ie_tlv(struct mt76_dev *mdev, struct sk_buff *skb,
+			   u8 band, const u8 *ies, u32 ies_len)
+{
+	u32 alloc_len = mt7925_mcu_scan_ie_tlv_len(mdev, ies_len);
+	struct scan_ie_tlv *ie;
+	struct tlv *tlv;
+
+	if (alloc_len > skb_tailroom(skb))
+		return;
+
+	tlv = mt76_connac_mcu_add_tlv(skb, UNI_SCAN_IE, alloc_len);
+	ie = (struct scan_ie_tlv *)tlv;
+
+	memcpy(ie->ies, ies, ies_len);
+	ie->ies_len = cpu_to_le16(ies_len);
+	ie->band = band;
+}
+
 static void
 mt7925_mcu_build_scan_ie_tlv(struct mt76_dev *mdev,
 			     struct sk_buff *skb,
 			     struct ieee80211_scan_ies *scan_ies)
 {
-	u32 max_len = sizeof(struct scan_ie_tlv) + MT76_CONNAC_SCAN_IE_LEN;
-	u32 ies_len, alloc_len;
-	struct scan_ie_tlv *ie;
 	enum nl80211_band i;
-	struct tlv *tlv;
-	const u8 *ies;
+
+	/* The firmware appends a TLV without a band to the probe requests
+	 * of every band.
+	 */
+	if (scan_ies->common_ie_len)
+		mt7925_mcu_add_scan_ie_tlv(mdev, skb, 0, scan_ies->common_ies,
+					   scan_ies->common_ie_len);
 
 	for (i = 0; i <= NL80211_BAND_6GHZ; i++) {
+		u8 band;
+
 		if (i == NL80211_BAND_60GHZ)
 			continue;
 
-		ies = scan_ies->ies[i];
-		ies_len = scan_ies->len[i];
-
-		if (!ies || !ies_len)
+		if (!scan_ies->ies[i] || !scan_ies->len[i])
 			continue;
 
-		if (is_mt7928(mdev))
-			alloc_len = ALIGN(sizeof(*ie) + ies_len, 4);
-		else
-			alloc_len = sizeof(*ie) + ies_len;
-
-		if (alloc_len > max_len)
-			return;
-
-		tlv = mt76_connac_mcu_add_tlv(skb, UNI_SCAN_IE,
-					      alloc_len);
-		ie = (struct scan_ie_tlv *)tlv;
-
-		memcpy(ie->ies, ies, ies_len);
-		ie->ies_len = cpu_to_le16(ies_len);
+		/* The firmware keeps the length of a per-band set in a byte */
+		if (scan_ies->len[i] > U8_MAX)
+			continue;
 
 		switch (i) {
 		case NL80211_BAND_2GHZ:
-			ie->band = 1;
+			band = 1;
 			break;
 		case NL80211_BAND_6GHZ:
-			ie->band = 3;
+			band = 3;
 			break;
 		default:
-			ie->band = 2;
+			band = 2;
 			break;
 		}
 
-		max_len -= alloc_len;
+		mt7925_mcu_add_scan_ie_tlv(mdev, skb, band, scan_ies->ies[i],
+					   scan_ies->len[i]);
 	}
 }
 
@@ -3405,7 +3448,6 @@ int mt7925_mcu_hw_scan(struct mt76_phy *phy, struct ieee80211_vif *vif,
 	struct scan_ssid_tlv *ssid;
 	struct scan_bssid_tlv *bssid;
 	struct scan_chan_info_tlv *chan_info;
-	struct scan_ie_tlv *ie;
 	struct scan_misc_tlv *misc;
 	struct tlv *tlv;
 	int max_len;
@@ -3415,8 +3457,8 @@ int mt7925_mcu_hw_scan(struct mt76_phy *phy, struct ieee80211_vif *vif,
 
 	max_len = sizeof(*hdr) + sizeof(*req) + sizeof(*ssid) +
 		  sizeof(*bssid) * MT7925_RNR_SCAN_MAX_BSSIDS +
-		  sizeof(*chan_info) + sizeof(*misc) + sizeof(*ie) +
-		  MT76_CONNAC_SCAN_IE_LEN;
+		  sizeof(*chan_info) + sizeof(*misc) +
+		  mt7925_mcu_scan_ies_len(mdev, &scan_req->ies);
 
 	skb = mt76_mcu_msg_alloc(mdev, NULL, max_len);
 	if (!skb)
@@ -3536,15 +3578,14 @@ int mt7925_mcu_sched_scan_req(struct mt76_phy *phy,
 	struct scan_sched_req *req;
 	struct scan_ssid_tlv *ssid;
 	struct scan_chan_info_tlv *chan_info;
-	struct scan_ie_tlv *ie;
 	struct scan_sched_ssid_match_sets *match;
 	struct sk_buff *skb;
 	struct tlv *tlv;
 	int i, max_len;
 
 	max_len = sizeof(*hdr) + sizeof(*req) + sizeof(*ssid) +
-		  sizeof(*chan_info) + sizeof(*ie) +
-		  sizeof(*match);
+		  sizeof(*chan_info) + sizeof(*match) +
+		  mt7925_mcu_scan_ies_len(mdev, ies);
 
 	skb = mt76_mcu_msg_alloc(mdev, NULL, max_len);
 	if (!skb)

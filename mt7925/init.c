@@ -301,6 +301,8 @@ int mt7925_register_device(struct mt792x_dev *dev)
 	if (ret)
 		return ret;
 
+	hw->wiphy->max_sched_scan_ie_len = MT76_CONNAC_SCAN_IE_LEN;
+
 	hw->wiphy->reg_notifier = mt7925_regd_notifier;
 	dev->mphy.sband_2g.sband.ht_cap.cap |=
 			IEEE80211_HT_CAP_LDPC_CODING |
