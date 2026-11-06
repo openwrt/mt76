@@ -5,6 +5,7 @@
 #include <linux/etherdevice.h>
 #include <linux/timekeeping.h>
 #include "mt7925.h"
+#include "p2p.h"
 #include "../dma.h"
 #include "regd.h"
 #include "mac.h"
@@ -1459,6 +1460,15 @@ void mt7925_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 	case PKT_TYPE_NORMAL_MCU:
 	case PKT_TYPE_NORMAL:
 		if (!mt7925_mac_fill_rx(dev, skb)) {
+			struct mt76_rx_status *status =
+				(struct mt76_rx_status *)skb->cb;
+
+			if (!(status->flag & RX_FLAG_8023) &&
+			    mt7925_p2p_rx_drop_chan_mismatch(dev, skb)) {
+				dev_kfree_skb(skb);
+				return;
+			}
+
 			mt76_rx(&dev->mt76, q, skb);
 			return;
 		}
