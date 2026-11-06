@@ -1823,6 +1823,10 @@ int mt76_connac_mcu_hw_scan(struct mt76_phy *phy, struct ieee80211_vif *vif,
 	if (test_bit(MT76_HW_SCANNING, &phy->state))
 		return -EBUSY;
 
+	/* max_scan_ie_len does not cover the per-band IEs of all bands */
+	if (sreq->ie_len > sizeof(req->ies))
+		return -EINVAL;
+
 	skb = mt76_mcu_msg_alloc(mdev, NULL, sizeof(*req));
 	if (!skb)
 		return -ENOMEM;
