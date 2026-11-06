@@ -843,6 +843,7 @@ struct mt76_vif_link {
 	u8 basic_rates_idx;
 	u8 mcast_rates_idx;
 	u8 beacon_rates_idx;
+	u8 bmc_wcid; /* 0: bmc shares the vif wcid */
 	bool offchannel;
 	unsigned long beacon_mon_last;
 	u16 beacon_mon_interval;

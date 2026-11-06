@@ -3232,7 +3232,9 @@ int mt7925_mcu_add_bss_info(struct mt792x_phy *phy,
 	}
 
 	return mt7925_mcu_add_bss_info_sta(phy, ctx, link_conf, link_sta,
-					   mlink_bc->wcid.idx, mlink->wcid.idx, enable);
+					   mconf->bmc_valid ? mconf->bmc.wcid.idx :
+							      mlink_bc->wcid.idx,
+					   mlink->wcid.idx, enable);
 }
 
 int mt7925_mcu_set_dbdc(struct mt76_phy *phy, bool enable)

@@ -8,6 +8,7 @@
 #include <linux/ctype.h>
 #include <net/ipv6.h>
 #include "mt7925.h"
+#include "p2p.h"
 #include "regd.h"
 #include "mcu.h"
 #include "mac.h"
@@ -421,6 +422,12 @@ static int mt7925_mac_link_bss_add(struct mt792x_dev *dev,
 	else
 		mconf->mt76.basic_rates_idx = MT792x_BASIC_RATES_TBL;
 
+	if (vif->p2p || vif->type == NL80211_IFTYPE_P2P_DEVICE) {
+		ret = mt7925_p2p_bmc_add(dev, mconf);
+		if (ret)
+			goto out;
+	}
+
 	dev->mt76.vif_mask |= BIT_ULL(mconf->mt76.idx);
 	mvif->phy->omac_mask |= BIT_ULL(mconf->mt76.omac_idx);
 
@@ -439,8 +446,10 @@ static int mt7925_mac_link_bss_add(struct mt792x_dev *dev,
 
 	ret = mt76_connac_mcu_uni_add_dev(&dev->mphy, link_conf, &mconf->mt76,
 					  &mlink->wcid, true);
-	if (ret)
+	if (ret) {
+		mt7925_p2p_bmc_remove(dev, mconf);
 		goto out;
+	}
 
 	if (vif->txq) {
 		mtxq = (struct mt76_txq *)vif->txq->drv_priv;
@@ -500,6 +509,7 @@ mt7925_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 	mconf = mt792x_link_conf_to_mconf(&vif->bss_conf);
 	mt792x_mac_link_bss_remove(dev, mconf, &mvif->sta.deflink);
+	mt7925_p2p_bmc_remove(dev, mconf);
 
 	mt792x_mutex_release(dev);
 }
@@ -716,6 +726,24 @@ static int mt7925_set_link_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	err = mt7925_mcu_add_key(&dev->mt76, vif, &mlink->bip,
 				 key, MCU_UNI_CMD(STA_REC_UPDATE),
 				 &mlink->wcid, cmd, msta);
+
+	/* The BMC index can go to a station later, so always remove the key */
+	if (!sta && mconf->bmc_valid && (!err || cmd == DISABLE_KEY)) {
+		int bmc_err;
+
+		bmc_err = mt7925_mcu_add_key(&dev->mt76, vif, &mconf->bmc.bip,
+					     key, MCU_UNI_CMD(STA_REC_UPDATE),
+					     &mconf->bmc.wcid, cmd, msta);
+		if (bmc_err && cmd == SET_KEY) {
+			mt7925_mcu_add_key(&dev->mt76, vif, &mlink->bip, key,
+					   MCU_UNI_CMD(STA_REC_UPDATE),
+					   &mlink->wcid, DISABLE_KEY, msta);
+			*wcid_keyidx = -1;
+			mt76_wcid_key_setup(&dev->mt76, wcid, NULL);
+		}
+
+		err = err ?: bmc_err;
+	}
 
 	if (err)
 		goto out;
@@ -996,7 +1024,8 @@ static int mt7925_mac_link_sta_add(struct mt76_dev *mdev,
 		mlink_bc = mt792x_sta_to_link(&mvif->sta, mconf->link_id);
 		ret = mt7925_mcu_add_bss_info_sta(&dev->phy, mconf->mt76.ctx,
 						  link_conf, link_sta,
-						  mlink_bc->wcid.idx, mlink->wcid.idx,
+						  mconf->mt76.bmc_wcid ?: mlink_bc->wcid.idx,
+						  mlink->wcid.idx,
 						  is_secondary_link_sta);
 		if (ret)
 			goto out_pm;
@@ -2264,6 +2293,7 @@ mt7925_change_vif_links(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 		if (mconf != &mvif->bss_conf) {
 			mt792x_mac_link_bss_remove(dev, mconf, mlink);
+			mt7925_p2p_bmc_remove(dev, mconf);
 			devm_kfree(dev->mt76.dev, mconf);
 			devm_kfree(dev->mt76.dev, mlink);
 		}
@@ -2344,8 +2374,10 @@ free:
 		rcu_assign_pointer(mvif->link_conf[link_id], NULL);
 		rcu_assign_pointer(mvif->sta.link[link_id], NULL);
 
-		if (mconfs[link_id] != &mvif->bss_conf)
+		if (mconfs[link_id] != &mvif->bss_conf) {
+			mt7925_p2p_bmc_remove(dev, mconfs[link_id]);
 			devm_kfree(dev->mt76.dev, mconfs[link_id]);
+		}
 		if (mlinks[link_id] != &mvif->sta.deflink)
 			devm_kfree(dev->mt76.dev, mlinks[link_id]);
 	}

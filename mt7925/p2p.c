@@ -264,3 +264,60 @@ mt7925_p2p_rx_drop_chan_mismatch(struct mt792x_dev *dev, struct sk_buff *skb)
 
 	return false;
 }
+
+/* The firmware sets up the BMC entry from bmc_tx_wlan_idx in BSS_INFO_BASIC */
+int mt7925_p2p_bmc_add(struct mt792x_dev *dev,
+		       struct mt792x_bss_conf *mconf)
+{
+	struct mt792x_link_sta *mbmc = &mconf->bmc;
+	int idx;
+
+	if (mconf->bmc_valid) {
+		mbmc->wcid.link_id = mconf->link_id;
+		return 0;
+	}
+
+	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT792x_WTBL_STA - 1);
+	if (idx < 0)
+		return -ENOSPC;
+
+	memset(mbmc, 0, sizeof(*mbmc));
+	INIT_LIST_HEAD(&mbmc->wcid.poll_list);
+	mbmc->wcid.idx = idx;
+	mbmc->wcid.phy_idx = 0;
+	mbmc->wcid.hw_key_idx = -1;
+	mbmc->wcid.hw_key_idx2 = -1;
+	mbmc->wcid.tx_info |= MT_WCID_TX_INFO_SET;
+	mbmc->wcid.link_id = mconf->link_id;
+	mt76_wcid_init(&mbmc->wcid, 0);
+
+	rcu_assign_pointer(dev->mt76.wcid[idx], &mbmc->wcid);
+	mt7925_mac_wtbl_update(dev, idx, MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
+	mconf->mt76.bmc_wcid = idx;
+	mconf->bmc_valid = true;
+
+	return 0;
+}
+
+void mt7925_p2p_bmc_remove(struct mt792x_dev *dev,
+			   struct mt792x_bss_conf *mconf)
+{
+	struct mt76_wcid *wcid = &mconf->bmc.wcid;
+
+	if (!mconf->bmc_valid)
+		return;
+
+	mconf->bmc_valid = false;
+	mconf->mt76.bmc_wcid = 0;
+
+	mt76_connac_free_pending_tx_skbs(&dev->pm, wcid);
+	rcu_assign_pointer(dev->mt76.wcid[wcid->idx], NULL);
+
+	spin_lock_bh(&dev->mt76.sta_poll_lock);
+	if (!list_empty(&wcid->poll_list))
+		list_del_init(&wcid->poll_list);
+	spin_unlock_bh(&dev->mt76.sta_poll_lock);
+
+	mt76_wcid_cleanup(&dev->mt76, wcid);
+	mt76_wcid_mask_clear(dev->mt76.wcid_mask, wcid->idx);
+}

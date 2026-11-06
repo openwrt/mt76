@@ -1240,7 +1240,8 @@ int mt76_connac_mcu_uni_add_dev(struct mt76_phy *phy,
 			.band_idx = mvif->band_idx,
 			.wmm_idx = mvif->wmm_idx,
 			.active = enable,
-			.bmc_tx_wlan_idx = cpu_to_le16(wcid->idx),
+			.bmc_tx_wlan_idx = cpu_to_le16(mvif->bmc_wcid ?:
+						       wcid->idx),
 			.sta_idx = cpu_to_le16(wcid->idx),
 			.conn_state = 1,
 			.link_idx = mvif->link_idx,
@@ -1690,7 +1691,7 @@ int mt76_connac_mcu_uni_add_bss(struct mt76_phy *phy,
 	}
 
 	memcpy(basic_req.basic.bssid, vif->bss_conf.bssid, ETH_ALEN);
-	basic_req.basic.bmc_tx_wlan_idx = cpu_to_le16(wcid->idx);
+	basic_req.basic.bmc_tx_wlan_idx = cpu_to_le16(mvif->bmc_wcid ?: wcid->idx);
 	basic_req.basic.sta_idx = cpu_to_le16(wcid->idx);
 	basic_req.basic.conn_state = !enable;
 

@@ -163,6 +163,10 @@ struct mt792x_bss_conf {
 	struct ewma_rssi rssi;
 	struct ieee80211_tx_queue_params queue_params[IEEE80211_NUM_ACS];
 	unsigned int link_id;
+
+	/* For group-addressed frames that are sent outside a TXQ */
+	struct mt792x_link_sta bmc;
+	bool bmc_valid;
 };
 
 struct mt792x_nan_conf {

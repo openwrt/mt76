@@ -32,9 +32,15 @@ static inline bool mt7925_is_p2p_go_probe_resp(struct sk_buff *skb)
 
 	return ieee80211_is_probe_resp(mgmt->frame_control);
 }
+
 bool mt7925_p2p_rx_drop_chan_mismatch(struct mt792x_dev *dev,
 				      struct sk_buff *skb);
 void mt7925_p2p_txwi_override(struct mt76_dev *dev, __le32 *txwi,
 			      struct sk_buff *skb);
+
+int mt7925_p2p_bmc_add(struct mt792x_dev *dev,
+		       struct mt792x_bss_conf *mconf);
+void mt7925_p2p_bmc_remove(struct mt792x_dev *dev,
+			   struct mt792x_bss_conf *mconf);
 
 #endif /* __MT7925_P2P_H */

@@ -4,6 +4,7 @@
 #include <linux/module.h>
 #include <linux/firmware.h>
 #include <linux/slab.h>
+#include <linux/etherdevice.h>
 
 #include "mt792x.h"
 #include "dma.h"
@@ -188,10 +189,20 @@ void mt792x_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
 	}
 
 	if (vif && !control->sta) {
+		struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+		struct mt792x_bss_conf *mconf;
+		const u8 *da = hdr->addr1;
 		struct mt792x_vif *mvif;
 
 		mvif = (struct mt792x_vif *)vif->drv_priv;
+		mconf = &mvif->bss_conf;
 		wcid = &mvif->sta.deflink.wcid;
+
+		if (info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP)
+			da = skb->data;
+
+		if (mconf->bmc_valid && is_multicast_ether_addr(da))
+			wcid = &mconf->bmc.wcid;
 	}
 
 	if (vif && control->sta && ieee80211_vif_is_mld(vif) &&
