@@ -155,7 +155,13 @@ void mt76_write_mac_initvals(struct mt76x02_dev *dev)
 		{ MT_EFUSE_CTRL,		0x0000d000 },
 		{ MT_PAUSE_ENABLE_CONTROL1,	0x0000000a },
 		{ MT_FCE_WLAN_FLOW_CONTROL1,	0x60401c18 },
-		{ MT_WPDMA_DELAY_INT_CFG,	0x94ff0000 },
+		/*
+		 * Leave the PDMA TX delay interrupt disabled, as mt7603 and
+		 * mt7615 do: MT_INT_TXDELAYINT is never added to irqmask, so
+		 * enabling it only produces an interrupt nobody dispatches --
+		 * which wedges a level-triggered INTx line for good.
+		 */
+		{ MT_WPDMA_DELAY_INT_CFG,	0x00000000 },
 		{ MT_TX_SW_CFG3,		0x00000004 },
 		{ MT_HT_FBK_TO_LEGACY,		0x00001818 },
 		{ MT_VHT_HT_FBK_CFG1,		0xedcba980 },

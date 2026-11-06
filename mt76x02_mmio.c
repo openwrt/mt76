@@ -261,8 +261,13 @@ irqreturn_t mt76x02_irq_handler(int irq, void *dev_instance)
 	u32 intr, mask;
 
 	intr = mt76_rr(dev, MT_INT_SOURCE_CSR);
-	intr &= dev->mt76.mmio.irqmask;
 	mt76_wr(dev, MT_INT_SOURCE_CSR, intr);
+	/*
+	 * Ack the raw pending set before masking: a source the driver never
+	 * enables (e.g. MT_INT_TXDELAYINT) would otherwise never be cleared,
+	 * which on a level-triggered INTx line wedges the interrupt forever.
+	 */
+	intr &= dev->mt76.mmio.irqmask;
 
 	if (!test_bit(MT76_STATE_INITIALIZED, &dev->mphy.state))
 		return IRQ_NONE;
