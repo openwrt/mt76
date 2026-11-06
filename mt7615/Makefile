@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
-ccflags-y += -DCONFIG_MT76_LEDS
 obj-$(CONFIG_MT7615_COMMON) += mt7615-common.o
 obj-$(CONFIG_MT7615E) += mt7615e.o
 obj-$(CONFIG_MT7663_USB_SDIO_COMMON) += mt7663-usb-sdio-common.o
