@@ -178,6 +178,17 @@ void mt792x_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
 	u8 link_id;
 	int qid;
 
+	if (!(info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP) && skb->len >= 2) {
+		struct ieee80211_mgmt *mgmt = (struct ieee80211_mgmt *)skb->data;
+
+		if (vif && ieee80211_vif_type_p2p(vif) == NL80211_IFTYPE_P2P_GO &&
+		    ieee80211_is_probe_resp(mgmt->frame_control) &&
+		    mt792x_vif_is_absent(vif)) {
+			ieee80211_free_txskb(hw, skb);
+			return;
+		}
+	}
+
 	if (control->sta) {
 		struct mt792x_link_sta *mlink;
 		struct mt792x_sta *sta;

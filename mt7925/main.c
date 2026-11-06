@@ -401,6 +401,8 @@ static int mt7925_mac_link_bss_add(struct mt792x_dev *dev,
 			       0 : mconf->mt76.idx;
 	mconf->mt76.band_idx = 0xff;
 
+	mconf->absent = false;
+
 	if (is_mt7927(&dev->mt76)) {
 		struct ieee80211_channel *chan;
 
@@ -2107,6 +2109,8 @@ mt7925_stop_ap(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	int err;
 
 	mt792x_mutex_acquire(dev);
+
+	mt792x_link_conf_to_mconf(link_conf)->absent = false;
 
 	err = mt7925_mcu_set_bss_pm(dev, link_conf, false);
 	if (err)

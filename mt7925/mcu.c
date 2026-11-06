@@ -743,6 +743,9 @@ mt7925_mcu_uni_rx_unsolicited_event(struct mt792x_dev *dev,
 	case MCU_UNI_EVENT_SAP:
 		mt7925_p2p_mcu_sap_event(dev, skb);
 		break;
+	case MCU_UNI_EVENT_BSS_IS_ABSENCE:
+		mt7925_p2p_mcu_bss_is_absence_event(dev, skb);
+		break;
 	case MCU_UNI_EVENT_RSSI_MONITOR:
 		mt7925_mcu_rssi_monitor_event(dev, skb);
 		break;

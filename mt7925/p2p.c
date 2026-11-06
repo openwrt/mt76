@@ -456,3 +456,79 @@ void mt7925_p2p_mcu_sap_event(struct mt792x_dev *dev, struct sk_buff *skb)
 		tlv_len -= len;
 	}
 }
+
+struct mt7925_bss_absence_data {
+	u8 bss_idx;
+	u8 is_absent;
+};
+
+static void
+mt7925_mcu_bss_absence_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
+{
+	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
+	struct mt7925_bss_absence_data *data = priv;
+	struct mt792x_bss_conf *mconf = NULL;
+	unsigned long valid_links;
+	unsigned int link_id;
+
+	if (ieee80211_vif_is_mld(vif)) {
+		valid_links = mvif->valid_links;
+		for_each_set_bit(link_id, &valid_links,
+				 IEEE80211_MLD_MAX_NUM_LINKS) {
+			struct mt792x_bss_conf *link_mconf;
+
+			link_mconf = rcu_dereference(mvif->link_conf[link_id]);
+			if (link_mconf && link_mconf->mt76.idx == data->bss_idx) {
+				mconf = link_mconf;
+				break;
+			}
+		}
+	} else if (mvif->bss_conf.mt76.idx == data->bss_idx) {
+		mconf = &mvif->bss_conf;
+	}
+
+	if (mconf)
+		mconf->absent = !!data->is_absent;
+}
+
+void mt7925_p2p_mcu_bss_is_absence_event(struct mt792x_dev *dev, struct sk_buff *skb)
+{
+	struct mt7925_uni_bss_is_absence_event *event;
+	struct mt7925_bss_absence_data data;
+	u32 tlv_len;
+	u8 *tlv;
+
+	skb_pull(skb, sizeof(struct mt7925_mcu_rxd));
+	if (skb->len < sizeof(*event))
+		return;
+
+	event = (struct mt7925_uni_bss_is_absence_event *)skb->data;
+	tlv = event->tlv;
+	tlv_len = skb->len - sizeof(*event);
+
+	while (tlv_len >= sizeof(struct tlv)) {
+		struct tlv *hdr = (struct tlv *)tlv;
+		u16 tag = le16_to_cpu(hdr->tag);
+		u16 len = le16_to_cpu(hdr->len);
+
+		if (len < sizeof(*hdr) || len > tlv_len)
+			break;
+
+		if (tag == MT7925_BSS_IS_ABSENCE_TAG_INFO &&
+		    len >= sizeof(struct mt7925_bss_absence_info_tlv)) {
+			struct mt7925_bss_absence_info_tlv *info =
+				(struct mt7925_bss_absence_info_tlv *)tlv;
+
+			data.bss_idx = event->bss_idx;
+			data.is_absent = info->is_absent;
+
+			ieee80211_iterate_active_interfaces_atomic(dev->mt76.phy.hw,
+								   IEEE80211_IFACE_ITER_RESUME_ALL,
+								   mt7925_mcu_bss_absence_iter,
+								   &data);
+		}
+
+		tlv += len;
+		tlv_len -= len;
+	}
+}

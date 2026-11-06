@@ -1504,6 +1504,7 @@ mt7925_vif_connect_iter(void *priv, u8 *mac,
 			continue;
 
 		mconf = mt792x_vif_to_link(mvif, i);
+		mconf->absent = false;
 
 		mt76_connac_mcu_uni_add_dev(&dev->mphy, bss_conf, &mconf->mt76,
 					    &mvif->sta.deflink.wcid, true);

@@ -164,6 +164,8 @@ struct mt792x_bss_conf {
 	struct ieee80211_tx_queue_params queue_params[IEEE80211_NUM_ACS];
 	unsigned int link_id;
 
+	bool absent;
+
 	/* For group-addressed frames that are sent outside a TXQ */
 	struct mt792x_link_sta bmc;
 	bool bmc_valid;
@@ -410,6 +412,16 @@ mt792x_link_conf_to_mconf(struct ieee80211_bss_conf *link_conf)
 	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
 
 	return mt792x_vif_to_link(mvif, link_conf->link_id);
+}
+
+static inline bool mt792x_vif_is_absent(struct ieee80211_vif *vif)
+{
+	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
+
+	if (ieee80211_vif_is_mld(vif))
+		return false;
+
+	return mvif->bss_conf.absent;
 }
 
 static inline struct ieee80211_bss_conf *

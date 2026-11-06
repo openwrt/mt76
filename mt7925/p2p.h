@@ -46,6 +46,23 @@ struct mt7925_uni_sap_event {
 	u8 pad[4];
 	u8 tlv[];
 } __packed;
+
+#define MT7925_BSS_IS_ABSENCE_TAG_INFO		0
+
+struct mt7925_bss_absence_info_tlv {
+	__le16 tag;
+	__le16 len;
+	u8 is_absent;
+	u8 free_quota;
+	u8 pad[2];
+} __packed;
+
+struct mt7925_uni_bss_is_absence_event {
+	u8 bss_idx;
+	u8 pad[3];
+	u8 tlv[];
+} __packed;
+
 bool mt7925_p2p_rx_drop_chan_mismatch(struct mt792x_dev *dev,
 				      struct sk_buff *skb);
 void mt7925_p2p_txwi_override(struct mt76_dev *dev, __le32 *txwi,
@@ -59,5 +76,7 @@ bool mt7925_p2p_chanctx_bss_programmed(struct ieee80211_vif *vif,
 				       struct ieee80211_bss_conf *link_conf);
 
 void mt7925_p2p_mcu_sap_event(struct mt792x_dev *dev, struct sk_buff *skb);
+void mt7925_p2p_mcu_bss_is_absence_event(struct mt792x_dev *dev,
+					 struct sk_buff *skb);
 
 #endif /* __MT7925_P2P_H */
