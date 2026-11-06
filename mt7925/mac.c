@@ -865,6 +865,8 @@ mt7925_mac_write_txwi(struct mt76_dev *dev, __le32 *txwi,
 
 		txwi[3] |= cpu_to_le32(MT_TXD3_BA_DISABLE);
 	}
+
+	mt7925_p2p_txwi_override(dev, txwi, skb);
 }
 EXPORT_SYMBOL_GPL(mt7925_mac_write_txwi);
 
