@@ -2048,11 +2048,35 @@ mt7925_start_ap(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 {
 	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
 	struct mt792x_dev *dev = mt792x_hw_dev(hw);
+	struct mt792x_bss_conf *mconf;
+	bool roc_taken = false;
+	u32 hold_time;
 	int err;
 
 	mt792x_mutex_acquire(dev);
 
-	err = mt7925_mcu_add_bss_info(&dev->phy, mvif->bss_conf.mt76.ctx,
+	mconf = mt792x_link_conf_to_mconf(link_conf);
+
+	/* Unlike JOIN, GO_START_BSS allows CNM to create a new channel context */
+	if (mconf->mt76.ctx) {
+		hold_time = vif->p2p ? MT7925_P2P_CHNL_HOLD_TIME_MS :
+				       MT7925_SAP_CHNL_HOLD_TIME_MS;
+
+		err = mt7925_set_roc(mvif->phy, mconf, mconf->mt76.ctx->def.chan,
+				     hold_time, MT7925_ROC_REQ_GO_START_BSS);
+
+		if (err < 0 && err != -EBUSY && err != -ETIMEDOUT)
+			err = mt7925_set_roc(mvif->phy, mconf,
+					     mconf->mt76.ctx->def.chan,
+					     hold_time, MT7925_ROC_REQ_JOIN);
+
+		if (!err)
+			roc_taken = true;
+		else if (!is_mt7927(&dev->mt76))
+			mconf->mt76.band_idx = 0xff;
+	}
+
+	err = mt7925_mcu_add_bss_info(&dev->phy, mconf->mt76.ctx,
 				      link_conf, NULL, true);
 	if (err)
 		goto out;
@@ -2066,6 +2090,10 @@ mt7925_start_ap(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 				    MT76_STA_INFO_STATE_NONE, NULL);
 out:
 	mt792x_mutex_release(dev);
+
+	/* The FW asserts if the host never aborts a granted request */
+	if (roc_taken)
+		mt7925_abort_roc(mvif->phy, mconf);
 
 	return err;
 }
@@ -2154,8 +2182,10 @@ mt7925_change_chanctx(struct ieee80211_hw *hw,
 			struct ieee80211_bss_conf *link_conf;
 
 			link_conf = mt792x_vif_to_bss_conf(vif, mconf->link_id);
-			mt7925_mcu_set_chctx(mvif->phy->mt76, &mconf->mt76,
-					     link_conf, ctx);
+
+			if (mt7925_p2p_chanctx_bss_programmed(vif, link_conf))
+				mt7925_mcu_set_chctx(mvif->phy->mt76, &mconf->mt76,
+						     link_conf, ctx);
 
 			if (changed & IEEE80211_CHANCTX_CHANGE_PUNCTURING)
 				mt7925_mcu_set_eht_pp(mvif->phy->mt76, &mconf->mt76,
@@ -2178,6 +2208,9 @@ static void mt7925_mgd_prepare_tx(struct ieee80211_hw *hw,
 
 	if (info->was_assoc)
 		return;
+
+	if (!info->duration && vif->p2p)
+		duration = MT7925_P2P_GC_JOIN_CH_REQ_INTERVAL_MS;
 
 	mt792x_mutex_acquire(dev);
 	mt7925_set_roc(mvif->phy, &mvif->bss_conf,

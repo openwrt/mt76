@@ -42,5 +42,7 @@ int mt7925_p2p_bmc_add(struct mt792x_dev *dev,
 		       struct mt792x_bss_conf *mconf);
 void mt7925_p2p_bmc_remove(struct mt792x_dev *dev,
 			   struct mt792x_bss_conf *mconf);
+bool mt7925_p2p_chanctx_bss_programmed(struct ieee80211_vif *vif,
+				       struct ieee80211_bss_conf *link_conf);
 
 #endif /* __MT7925_P2P_H */

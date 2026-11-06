@@ -414,7 +414,8 @@ static void mt7925_mcu_roc_handle_grant(struct mt792x_dev *dev,
 
 	if (grant->reqtype == MT7925_ROC_REQ_ROC)
 		ieee80211_ready_on_channel(hw);
-	else if (grant->reqtype == MT7925_ROC_REQ_JOIN)
+	else if (grant->reqtype == MT7925_ROC_REQ_JOIN ||
+		 grant->reqtype == MT7925_ROC_REQ_GO_START_BSS)
 		ieee80211_iterate_active_interfaces_atomic(hw,
 						IEEE80211_IFACE_ITER_RESUME_ALL,
 						mt7925_mcu_roc_iter, grant);
@@ -1599,17 +1600,8 @@ int mt7925_mcu_set_mlo_roc(struct mt792x_phy *phy, struct mt792x_bss_conf *mconf
 				 &req, sizeof(req), true);
 }
 
-/* Resolve the full chandef behind a bare ieee80211_channel.
- *
- * The CNM channel-privilege request carries bw / center_chan / center_chan2 /
- * sco, and for a BSS-bound request they must match the BSS's own channel.
- * mt7925 only has a bare channel at this point, but for a BSS-bound
- * request (JOIN) the BSS's own chanctx already describes exactly that
- * channel, so use it.
- *
- * Everything else - an off-channel dwell (ROC / OFFCHNL_TX), or a request for a
- * channel that is not the one this BSS is parked on - keeps the previous 20 MHz
- * NOHT description, which is what a listen dwell actually uses anyway.
+/* CNM uses bw / center_chan to pick the band and to decide whether a request
+ * can share an SCC, so a request on the channel of its BSS must match the BSS.
  */
 static void
 mt7925_mcu_roc_chandef(struct mt792x_bss_conf *mconf,
@@ -1617,7 +1609,7 @@ mt7925_mcu_roc_chandef(struct mt792x_bss_conf *mconf,
 		       enum mt7925_roc_req type,
 		       struct cfg80211_chan_def *chandef)
 {
-	if (type == MT7925_ROC_REQ_JOIN &&
+	if ((type == MT7925_ROC_REQ_JOIN || type == MT7925_ROC_REQ_GO_START_BSS) &&
 	    mconf->mt76.ctx && mconf->mt76.ctx->def.chan == chan) {
 		*chandef = mconf->mt76.ctx->def;
 		return;

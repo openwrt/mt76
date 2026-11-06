@@ -321,3 +321,22 @@ void mt7925_p2p_bmc_remove(struct mt792x_dev *dev,
 	mt76_wcid_cleanup(&dev->mt76, wcid);
 	mt76_wcid_mask_clear(dev->mt76.wcid_mask, wcid->idx);
 }
+
+/* Before the grant, an RLM-only update makes CNM guess the band. Both roles send
+ * a full BASIC+RLM update after the grant.
+ */
+bool mt7925_p2p_chanctx_bss_programmed(struct ieee80211_vif *vif,
+				       struct ieee80211_bss_conf *link_conf)
+{
+	if (!vif->p2p || !link_conf)
+		return true;
+
+	switch (vif->type) {
+	case NL80211_IFTYPE_AP:
+		return link_conf->enable_beacon;
+	case NL80211_IFTYPE_STATION:
+		return vif->cfg.assoc;
+	default:
+		return true;
+	}
+}
