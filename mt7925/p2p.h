@@ -33,6 +33,19 @@ static inline bool mt7925_is_p2p_go_probe_resp(struct sk_buff *skb)
 	return ieee80211_is_probe_resp(mgmt->frame_control);
 }
 
+#define MT7925_SAP_TAG_AGING_TIMEOUT		0
+
+struct mt7925_sap_aging_timeout_tlv {
+	__le16 tag;
+	__le16 len;
+	__le16 wlan_idx;
+	u8 pad[2];
+} __packed;
+
+struct mt7925_uni_sap_event {
+	u8 pad[4];
+	u8 tlv[];
+} __packed;
 bool mt7925_p2p_rx_drop_chan_mismatch(struct mt792x_dev *dev,
 				      struct sk_buff *skb);
 void mt7925_p2p_txwi_override(struct mt76_dev *dev, __le32 *txwi,
@@ -44,5 +57,7 @@ void mt7925_p2p_bmc_remove(struct mt792x_dev *dev,
 			   struct mt792x_bss_conf *mconf);
 bool mt7925_p2p_chanctx_bss_programmed(struct ieee80211_vif *vif,
 				       struct ieee80211_bss_conf *link_conf);
+
+void mt7925_p2p_mcu_sap_event(struct mt792x_dev *dev, struct sk_buff *skb);
 
 #endif /* __MT7925_P2P_H */

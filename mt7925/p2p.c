@@ -340,3 +340,119 @@ bool mt7925_p2p_chanctx_bss_programmed(struct ieee80211_vif *vif,
 		return true;
 	}
 }
+
+/* Userspace looks up the station by the address of a received frame, which is
+ * the MLD address on an MLO link.
+ */
+static void
+mt7925_mcu_sap_aging_timeout(struct mt792x_dev *dev, u16 wlan_idx)
+{
+	struct {
+		struct ieee80211_hdr_3addr hdr;
+		__le16 reason_code;
+	} deauth = {
+		.hdr.frame_control = cpu_to_le16(IEEE80211_FTYPE_MGMT |
+						 IEEE80211_STYPE_DEAUTH),
+		.reason_code = cpu_to_le16(WLAN_REASON_DISASSOC_DUE_TO_INACTIVITY),
+	};
+	struct ieee80211_chanctx_conf *ctx;
+	struct mt792x_bss_conf *mconf;
+	struct mt792x_link_sta *mlink;
+	struct ieee80211_vif *vif;
+	struct ieee80211_sta *sta;
+	struct mt792x_vif *mvif;
+	struct mt792x_sta *msta;
+	struct mt76_wcid *wcid;
+	struct wireless_dev *wdev;
+	int freq = 0;
+	u8 link_id;
+
+	rcu_read_lock();
+
+	wcid = mt76_wcid_ptr(dev, wlan_idx);
+	if (!wcid || !wcid->sta)
+		goto unlock;
+
+	mlink = container_of(wcid, struct mt792x_link_sta, wcid);
+	msta = mlink->sta;
+	if (!msta || !msta->vif)
+		goto unlock;
+
+	vif = container_of((void *)msta->vif, struct ieee80211_vif, drv_priv);
+	if (vif->type != NL80211_IFTYPE_AP)
+		goto unlock;
+
+	mvif = (struct mt792x_vif *)vif->drv_priv;
+	sta = container_of((void *)msta, struct ieee80211_sta, drv_priv);
+	link_id = wcid->link_id;
+
+	ether_addr_copy(deauth.hdr.addr1, vif->addr);
+	ether_addr_copy(deauth.hdr.addr2, sta->addr);
+	ether_addr_copy(deauth.hdr.addr3, vif->addr);
+
+	mconf = &mvif->bss_conf;
+
+	if (ieee80211_vif_is_mld(vif) && link_id < IEEE80211_LINK_UNSPECIFIED) {
+		struct mt792x_bss_conf *link_mconf;
+
+		link_mconf = rcu_dereference(mvif->link_conf[link_id]);
+		if (link_mconf)
+			mconf = link_mconf;
+	}
+
+	ctx = mconf->mt76.ctx;
+	if (ctx && ctx->def.chan)
+		freq = ctx->def.chan->center_freq;
+	else if (dev->mphy.chandef.chan)
+		freq = dev->mphy.chandef.chan->center_freq;
+
+	rcu_read_unlock();
+
+	wdev = ieee80211_vif_to_wdev(vif);
+	if (!wdev)
+		return;
+
+	cfg80211_rx_mgmt_khz(wdev, MHZ_TO_KHZ(freq), 0, (const u8 *)&deauth,
+			     sizeof(deauth), 0);
+
+	return;
+
+unlock:
+	rcu_read_unlock();
+}
+
+void mt7925_p2p_mcu_sap_event(struct mt792x_dev *dev, struct sk_buff *skb)
+{
+	struct mt7925_uni_sap_event *event;
+	u32 tlv_len;
+	u8 *tlv;
+
+	skb_pull(skb, sizeof(struct mt7925_mcu_rxd));
+	if (skb->len < sizeof(*event))
+		return;
+
+	event = (struct mt7925_uni_sap_event *)skb->data;
+	tlv = event->tlv;
+	tlv_len = skb->len - sizeof(*event);
+
+	while (tlv_len >= sizeof(struct tlv)) {
+		struct tlv *hdr = (struct tlv *)tlv;
+		u16 tag = le16_to_cpu(hdr->tag);
+		u16 len = le16_to_cpu(hdr->len);
+
+		if (len < sizeof(*hdr) || len > tlv_len)
+			break;
+
+		if (tag == MT7925_SAP_TAG_AGING_TIMEOUT &&
+		    len >= sizeof(struct mt7925_sap_aging_timeout_tlv)) {
+			struct mt7925_sap_aging_timeout_tlv *aging =
+				(struct mt7925_sap_aging_timeout_tlv *)tlv;
+
+			mt7925_mcu_sap_aging_timeout(dev,
+						     le16_to_cpu(aging->wlan_idx));
+		}
+
+		tlv += len;
+		tlv_len -= len;
+	}
+}
