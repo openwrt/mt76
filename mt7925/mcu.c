@@ -402,6 +402,16 @@ static void mt7925_mcu_roc_handle_grant(struct mt792x_dev *dev,
 	/* should never happen */
 	WARN_ON_ONCE((le16_to_cpu(grant->tag) != UNI_EVENT_ROC_GRANT));
 
+	duration = le32_to_cpu(grant->max_interval);
+
+	if (grant->tokenid != dev->phy.roc_token_id ||
+	    !test_bit(MT76_STATE_ROC, &dev->phy.mt76->state))
+		return;
+
+	/* timer_pending() signals the grant to mt7925_set_roc() and the TX path */
+	mod_timer(&dev->phy.roc_timer,
+		  jiffies + msecs_to_jiffies(duration));
+
 	if (grant->reqtype == MT7925_ROC_REQ_ROC)
 		ieee80211_ready_on_channel(hw);
 	else if (grant->reqtype == MT7925_ROC_REQ_JOIN)
@@ -410,9 +420,6 @@ static void mt7925_mcu_roc_handle_grant(struct mt792x_dev *dev,
 						mt7925_mcu_roc_iter, grant);
 	dev->phy.roc_grant = true;
 	wake_up(&dev->phy.roc_wait);
-	duration = le32_to_cpu(grant->max_interval);
-	mod_timer(&dev->phy.roc_timer,
-		  jiffies + msecs_to_jiffies(duration));
 }
 
 static void

@@ -244,6 +244,7 @@ struct mt792x_phy {
 	wait_queue_head_t roc_wait;
 	u8 roc_token_id;
 	bool roc_grant;
+	bool roc_notify; /* mac80211 expects the expiry of this ROC */
 };
 
 struct mt792x_irq_map {
