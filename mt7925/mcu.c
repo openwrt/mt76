@@ -1599,11 +1599,57 @@ int mt7925_mcu_set_mlo_roc(struct mt792x_phy *phy, struct mt792x_bss_conf *mconf
 				 &req, sizeof(req), true);
 }
 
+/* Resolve the full chandef behind a bare ieee80211_channel.
+ *
+ * The CNM channel-privilege request carries bw / center_chan / center_chan2 /
+ * sco, and for a BSS-bound request they must match the BSS's own channel.
+ * mt7925 only has a bare channel at this point, but for a BSS-bound
+ * request (JOIN) the BSS's own chanctx already describes exactly that
+ * channel, so use it.
+ *
+ * Everything else - an off-channel dwell (ROC / OFFCHNL_TX), or a request for a
+ * channel that is not the one this BSS is parked on - keeps the previous 20 MHz
+ * NOHT description, which is what a listen dwell actually uses anyway.
+ */
+static void
+mt7925_mcu_roc_chandef(struct mt792x_bss_conf *mconf,
+		       struct ieee80211_channel *chan,
+		       enum mt7925_roc_req type,
+		       struct cfg80211_chan_def *chandef)
+{
+	if (type == MT7925_ROC_REQ_JOIN &&
+	    mconf->mt76.ctx && mconf->mt76.ctx->def.chan == chan) {
+		*chandef = mconf->mt76.ctx->def;
+		return;
+	}
+
+	cfg80211_chandef_create(chandef, chan, NL80211_CHAN_NO_HT);
+}
+
+static u8 mt7925_chandef_to_cw(const struct cfg80211_chan_def *chandef)
+{
+	static const u8 width_to_cw[] = {
+		[NL80211_CHAN_WIDTH_20_NOHT] = MT7925_CW_20_40MHZ,
+		[NL80211_CHAN_WIDTH_20] = MT7925_CW_20_40MHZ,
+		[NL80211_CHAN_WIDTH_40] = MT7925_CW_20_40MHZ,
+		[NL80211_CHAN_WIDTH_80] = MT7925_CW_80MHZ,
+		[NL80211_CHAN_WIDTH_160] = MT7925_CW_160MHZ,
+		[NL80211_CHAN_WIDTH_80P80] = MT7925_CW_80P80MHZ,
+		[NL80211_CHAN_WIDTH_5] = MT7925_CW_5MHZ,
+		[NL80211_CHAN_WIDTH_10] = MT7925_CW_10MHZ,
+		[NL80211_CHAN_WIDTH_320] = MT7925_CW_320MHZ,
+	};
+
+	if (chandef->width >= ARRAY_SIZE(width_to_cw))
+		return 0;
+
+	return width_to_cw[chandef->width];
+}
+
 int mt7925_mcu_set_roc(struct mt792x_phy *phy, struct mt792x_bss_conf *mconf,
 		       struct ieee80211_channel *chan, int duration,
 		       enum mt7925_roc_req type, u8 token_id)
 {
-	int center_ch = ieee80211_frequency_to_channel(chan->center_freq);
 	struct mt792x_dev *dev = phy->dev;
 	struct {
 		struct {
@@ -1619,18 +1665,36 @@ int mt7925_mcu_set_roc(struct mt792x_phy *phy, struct mt792x_bss_conf *mconf,
 			.maxinterval = cpu_to_le32(duration),
 			.bss_idx = mconf->mt76.idx,
 			.control_channel = chan->hw_value,
-			.bw = CMD_CBW_20MHZ,
-			.bw_from_ap = CMD_CBW_20MHZ,
-			.center_chan = center_ch,
-			.center_chan_from_ap = center_ch,
 			.dbdcband = 0xff, /* auto */
 		},
 	};
+	struct cfg80211_chan_def chandef;
+	int center_ch, pri40_freq;
+	u8 bw;
 
-	if (chan->hw_value < center_ch)
-		req.roc.sco = 1; /* SCA */
-	else if (chan->hw_value > center_ch)
-		req.roc.sco = 3; /* SCB */
+	mt7925_mcu_roc_chandef(mconf, chan, type, &chandef);
+	center_ch = ieee80211_frequency_to_channel(chandef.center_freq1);
+	bw = mt7925_chandef_to_cw(&chandef);
+
+	req.roc.bw = bw;
+	req.roc.bw_from_ap = bw;
+	req.roc.center_chan = center_ch;
+	req.roc.center_chan_from_ap = center_ch;
+
+	if (chandef.center_freq2) {
+		u8 center_ch2 = ieee80211_frequency_to_channel(chandef.center_freq2);
+
+		req.roc.center_chan2 = center_ch2;
+		req.roc.center_chan2_from_ap = center_ch2;
+	}
+
+	/* 1 = SCA, 3 = SCB */
+	if (nl80211_chan_width_to_mhz(chandef.width) >= 40) {
+		pri40_freq = cfg80211_chandef_primary(&chandef,
+						      NL80211_CHAN_WIDTH_40, NULL);
+		if (pri40_freq > 0)
+			req.roc.sco = chan->center_freq < pri40_freq ? 1 : 3;
+	}
 
 	switch (chan->band) {
 	case NL80211_BAND_6GHZ:
