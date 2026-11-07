@@ -2253,6 +2253,7 @@ void mt76_vif_cleanup(struct mt76_dev *dev, struct ieee80211_vif *vif)
 	phy = READ_ONCE(mvif->roc_phy);
 	if (phy && phy->roc_vif == vif)
 		mt76_abort_roc(phy);
+	WARN_ON_ONCE(mt76_vif_roc_phy(dev, vif));
 }
 EXPORT_SYMBOL_GPL(mt76_vif_cleanup);
 

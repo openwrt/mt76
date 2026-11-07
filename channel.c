@@ -377,7 +377,7 @@ bool mt76_phy_csa_active(struct mt76_phy *phy)
 	return data.active;
 }
 
-static struct mt76_phy *
+struct mt76_phy *
 mt76_vif_roc_phy(struct mt76_dev *dev, struct ieee80211_vif *vif)
 {
 	int i;
@@ -463,7 +463,7 @@ int mt76_remain_on_channel(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		goto out;
 	}
 
-	if (phy->roc_vif || mt76_vif_roc_phy(dev, vif) ||
+	if (phy->roc_vif || WARN_ON_ONCE(mt76_vif_roc_phy(dev, vif)) ||
 	    mt76_phy_scanning(phy) || mt76_phy_csa_active(phy)) {
 		ret = -EBUSY;
 		goto restart_mac_work;
