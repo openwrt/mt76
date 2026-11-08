@@ -1036,15 +1036,16 @@ static void mt76x0_phy_temp_sensor(struct mt76x02_dev *dev)
 
 	val = mt76_rr(dev, MT_BBP(CORE, 35));
 	val = (35 * (val - dev->cal.rx.temp_offset)) / 10 + 25;
+	dev->cal.temp = val;
 
 	if (abs(val - dev->cal.temp_vco) > 20) {
 		mt76x02_mcu_calibrate(dev, MCU_CAL_VCO,
 				      dev->mphy.chandef.chan->hw_value);
 		dev->cal.temp_vco = val;
 	}
-	if (abs(val - dev->cal.temp) > 30) {
+	if (abs(val - dev->cal.temp_phy) > 30) {
 		mt76x0_phy_calibrate(dev, false);
-		dev->cal.temp = val;
+		dev->cal.temp_phy = val;
 	}
 
 done:

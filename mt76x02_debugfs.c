@@ -139,7 +139,11 @@ void mt76x02_init_debugfs(struct mt76x02_dev *dev)
 
 	debugfs_create_devm_seqfile(dev->mt76.dev, "xmit-queues", dir,
 				    mt76_queues_read);
+
+	debugfs_create_u8("phy_cal_temperature", 0400, dir, &dev->cal.temp_phy);
+	debugfs_create_u8("vco_cal_temperature", 0400, dir, &dev->cal.temp_vco);
 	debugfs_create_u8("temperature", 0400, dir, &dev->cal.temp);
+
 	debugfs_create_bool("tpc", 0600, dir, &dev->enable_tpc);
 
 	debugfs_create_file("edcca", 0600, dir, dev, &fops_edcca);
