@@ -1490,8 +1490,6 @@ mt7996_mac_sta_init_link(struct mt7996_dev *dev,
 
 	rcu_assign_pointer(msta->link[link_id], msta_link);
 
-	memset(msta_link->airtime_ac, 0, sizeof(msta_link->airtime_ac));
-
 	rcu_assign_pointer(dev->mt76.wcid[idx], &msta_link->wcid);
 	mt76_wcid_init(&msta_link->wcid, phy->mt76->band_idx);
 

@@ -20,6 +20,7 @@
 					 mt7996_max_interface_num(dev))
 
 #define MT7996_WATCHDOG_TIME		(HZ / 10)
+#define MT7996_AIRTIME_MISSED_MAX	4
 #define MT7996_RESET_TIMEOUT		(30 * HZ)
 
 #define MT7996_TX_RING_SIZE		2048
@@ -294,7 +295,6 @@ struct mt7996_sta_link {
 	bool connected;
 
 	struct list_head rc_list;
-	u32 airtime_ac[8];
 
 	int ack_signal;
 	struct ewma_avg_signal avg_ack_signal;
@@ -329,6 +329,10 @@ struct mt7996_sta {
 
 	unsigned long wcid_flags;
 	u16 airtime_weight;
+
+	u32 airtime_seq;
+	u64 airtime_tx[IEEE80211_NUM_ACS];
+	u64 airtime_rx[IEEE80211_NUM_ACS];
 
 	u16 ba_tx_mask;
 	u16 ba_rx_mask;
@@ -551,6 +555,11 @@ struct mt7996_dev {
 		bool restart:1;
 	} recovery;
 
+	struct {
+		atomic_t missed;
+		u32 seq;
+	} airtime;
+
 	/* protects coredump data */
 	struct mutex dump_mutex;
 #ifdef CONFIG_DEV_COREDUMP
@@ -770,6 +779,18 @@ mt7996_sta_airtime_weight(struct mt7996_sta *msta)
 	 * the station is allocated, so a weight survives a restart
 	 */
 	return msta->airtime_weight ?: IEEE80211_DEFAULT_AIRTIME_WEIGHT;
+}
+
+static inline u8 mt7996_ac_to_tid(u8 ac)
+{
+	static const u8 ac_to_tid[] = {
+		[IEEE80211_AC_BE] = 0,
+		[IEEE80211_AC_BK] = 1,
+		[IEEE80211_AC_VI] = 4,
+		[IEEE80211_AC_VO] = 6
+	};
+
+	return ac_to_tid[ac];
 }
 
 static inline struct mt76_vif_link *

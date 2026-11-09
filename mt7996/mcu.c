@@ -721,6 +721,84 @@ mt7996_mcu_update_tx_gi(struct rate_info *rate, struct all_sta_trx_rate *mcu_rat
 	return 0;
 }
 
+static struct ieee80211_sta *
+mt7996_mcu_airtime_sta(struct mt7996_dev *dev,
+		       struct mt7996_mcu_all_sta_info_event *res, u16 i)
+{
+	u16 wlan_idx = le16_to_cpu(res->airtime[i].wlan_idx);
+
+	return wcid_to_sta(mt76_wcid_ptr(dev, wlan_idx));
+}
+
+static u32 mt7996_mcu_airtime_us(u64 val)
+{
+	/* the firmware counts in units of 1.024 us */
+	return min_t(u64, div_u64(val * 1024, 1000), U32_MAX);
+}
+
+/* mac80211 drops the estimate of completed frames at each call, so the
+ * links of a station are summed into one call per AC
+ */
+static void
+mt7996_mcu_rx_airtime(struct mt7996_dev *dev,
+		      struct mt7996_mcu_all_sta_info_event *res, u16 sta_num)
+{
+	struct ieee80211_sta *sta;
+	struct mt7996_sta *msta;
+	u32 seq;
+	u16 i;
+	u8 ac;
+
+	atomic_set(&dev->airtime.missed, 0);
+
+	if (!++dev->airtime.seq)
+		dev->airtime.seq = 1;
+	seq = dev->airtime.seq;
+
+	rcu_read_lock();
+
+	for (i = 0; i < sta_num; i++) {
+		sta = mt7996_mcu_airtime_sta(dev, res, i);
+		if (!sta)
+			continue;
+
+		msta = (struct mt7996_sta *)sta->drv_priv;
+		if (msta->airtime_seq != seq) {
+			msta->airtime_seq = seq;
+			memset(msta->airtime_tx, 0, sizeof(msta->airtime_tx));
+			memset(msta->airtime_rx, 0, sizeof(msta->airtime_rx));
+		}
+
+		for (ac = 0; ac < IEEE80211_NUM_ACS; ac++) {
+			u8 q = mt76_connac_lmac_mapping(ac);
+
+			msta->airtime_tx[ac] += le32_to_cpu(res->airtime[i].tx[q]);
+			msta->airtime_rx[ac] += le32_to_cpu(res->airtime[i].rx[q]);
+		}
+	}
+
+	for (i = 0; i < sta_num; i++) {
+		sta = mt7996_mcu_airtime_sta(dev, res, i);
+		if (!sta)
+			continue;
+
+		msta = (struct mt7996_sta *)sta->drv_priv;
+		if (msta->airtime_seq != seq)
+			continue;
+
+		msta->airtime_seq = 0;
+		for (ac = 0; ac < IEEE80211_NUM_ACS; ac++) {
+			u32 tx = mt7996_mcu_airtime_us(msta->airtime_tx[ac]);
+			u32 rx = mt7996_mcu_airtime_us(msta->airtime_rx[ac]);
+
+			ieee80211_sta_register_airtime(sta, mt7996_ac_to_tid(ac),
+						       tx, rx);
+		}
+	}
+
+	rcu_read_unlock();
+}
+
 static void
 mt7996_mcu_rx_all_sta_info_event(struct mt7996_dev *dev, struct sk_buff *skb)
 {
@@ -749,12 +827,20 @@ mt7996_mcu_rx_all_sta_info_event(struct mt7996_dev *dev, struct sk_buff *skb)
 	case UNI_ALL_STA_TXRX_MSDU_COUNT:
 		elem_size = sizeof(res->msdu_cnt[0]);
 		break;
+	case UNI_ALL_STA_TXRX_AIR_TIME:
+		elem_size = sizeof(res->airtime[0]);
+		break;
 	default:
 		return;
 	}
 
 	if (sta_num > (skb->len - sizeof(*res)) / elem_size)
 		sta_num = (skb->len - sizeof(*res)) / elem_size;
+
+	if (le16_to_cpu(res->tag) == UNI_ALL_STA_TXRX_AIR_TIME) {
+		mt7996_mcu_rx_airtime(dev, res, sta_num);
+		return;
+	}
 
 	for (i = 0; i < sta_num; i++) {
 		u8 ac;
