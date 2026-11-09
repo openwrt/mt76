@@ -11,8 +11,6 @@
 #include "mac.h"
 #include "mcu.h"
 
-#define to_rssi(field, rcpi)	((FIELD_GET(field, rcpi) - 220) / 2)
-
 static struct mt76_wcid *mt7996_rx_get_wcid(struct mt7996_dev *dev,
 					    u16 idx, u8 band_idx)
 {
@@ -81,65 +79,39 @@ u32 mt7996_mac_wtbl_lmac_addr(struct mt7996_dev *dev, u16 wcid, u8 dw)
 
 static void mt7996_mac_sta_poll(struct mt7996_dev *dev)
 {
+	u16 sta_list[MT7996_PER_STA_INFO_MAX_NUM];
 	struct mt7996_sta_link *msta_link;
-	struct mt76_vif_link *mlink;
-	struct mt7996_sta *msta;
 	LIST_HEAD(sta_poll_list);
-	struct mt76_wcid *wcid;
+	int n;
 
 	spin_lock_bh(&dev->mt76.sta_poll_lock);
 	list_splice_init(&dev->mt76.sta_poll_list, &sta_poll_list);
 	spin_unlock_bh(&dev->mt76.sta_poll_lock);
 
-	rcu_read_lock();
-
 	while (true) {
-		u32 addr, val;
-		u16 idx;
-		s8 rssi[4];
-
 		spin_lock_bh(&dev->mt76.sta_poll_lock);
-		if (list_empty(&sta_poll_list)) {
-			spin_unlock_bh(&dev->mt76.sta_poll_lock);
-			break;
+		for (n = 0; n < ARRAY_SIZE(sta_list); n++) {
+			if (list_empty(&sta_poll_list))
+				break;
+
+			msta_link = list_first_entry(&sta_poll_list,
+						     struct mt7996_sta_link,
+						     wcid.poll_list);
+			list_del_init(&msta_link->wcid.poll_list);
+			sta_list[n] = msta_link->wcid.idx;
 		}
-		msta_link = list_first_entry(&sta_poll_list,
-					     struct mt7996_sta_link,
-					     wcid.poll_list);
-		msta = msta_link->sta;
-		wcid = &msta_link->wcid;
-		list_del_init(&wcid->poll_list);
 		spin_unlock_bh(&dev->mt76.sta_poll_lock);
 
-		idx = wcid->idx;
+		if (!n)
+			break;
 
-		/* get signal strength of resp frames (CTS/BA/ACK) */
-		addr = mt7996_mac_wtbl_lmac_addr(dev, idx, 34);
-		val = mt76_rr(dev, addr);
-
-		if (!wcid->sta)
-			continue;
-
-		rssi[0] = to_rssi(GENMASK(7, 0), val);
-		rssi[1] = to_rssi(GENMASK(15, 8), val);
-		rssi[2] = to_rssi(GENMASK(23, 16), val);
-		rssi[3] = to_rssi(GENMASK(31, 24), val);
-
-		mlink = rcu_dereference(msta->vif->mt76.link[wcid->link_id]);
-		if (mlink) {
-			struct mt76_phy *mphy = mt76_vif_link_phy(mlink);
-
-			if (mphy)
-				msta_link->ack_signal =
-					mt76_rx_signal(mphy->antenna_mask,
-						       rssi);
-		}
-
-		ewma_avg_signal_add(&msta_link->avg_ack_signal,
-				    -msta_link->ack_signal);
+		if (mt7996_mcu_get_per_sta_rssi(dev, sta_list, n))
+			break;
 	}
 
-	rcu_read_unlock();
+	spin_lock_bh(&dev->mt76.sta_poll_lock);
+	list_splice(&sta_poll_list, &dev->mt76.sta_poll_list);
+	spin_unlock_bh(&dev->mt76.sta_poll_lock);
 }
 
 /* The HW does not translate the mac header to 802.3 for mesh point */
@@ -1466,8 +1438,6 @@ next:
 					 &free_list);
 		}
 	}
-
-	mt7996_mac_sta_poll(dev);
 
 	if (wake)
 		mt76_set_tx_blocked(&dev->mt76, false);
@@ -3140,8 +3110,10 @@ void mt7996_mac_work(struct work_struct *work)
 		mt7996_mac_update_stats(phy);
 
 		mt7996_mcu_get_all_sta_info(phy, UNI_ALL_STA_TXRX_RATE);
-		if (mt7996_mac_work_first_band(phy))
+		if (mt7996_mac_work_first_band(phy)) {
 			mt7996_mac_airtime_request(phy);
+			mt7996_mac_sta_poll(phy->dev);
+		}
 		if (mtk_wed_device_active(&phy->dev->mt76.mmio.wed)) {
 			mt7996_mcu_get_all_sta_info(phy, UNI_ALL_STA_TXRX_ADM_STAT);
 			mt7996_mcu_get_all_sta_info(phy, UNI_ALL_STA_TXRX_MSDU_COUNT);

@@ -7442,6 +7442,93 @@ int mt7996_mcu_get_all_sta_info(struct mt7996_phy *phy, u16 tag)
 				 &req, sizeof(req), false);
 }
 
+static void
+mt7996_mcu_sta_ack_signal(struct mt7996_dev *dev, u16 wlan_idx, u8 *rcpi)
+{
+	struct mt7996_sta_link *msta_link;
+	struct mt76_vif_link *mlink;
+	struct mt76_wcid *wcid;
+	s8 rssi[4];
+	int i;
+
+	wcid = mt76_wcid_ptr(dev, wlan_idx);
+	if (!wcid || !wcid->sta)
+		return;
+
+	for (i = 0; i < ARRAY_SIZE(rssi); i++)
+		rssi[i] = to_rssi(MT_PRXV_RCPI0, rcpi[i]);
+
+	msta_link = container_of(wcid, struct mt7996_sta_link, wcid);
+	mlink = rcu_dereference(msta_link->sta->vif->mt76.link[wcid->link_id]);
+	if (mlink) {
+		struct mt76_phy *mphy = mt76_vif_link_phy(mlink);
+
+		if (mphy)
+			msta_link->ack_signal =
+				mt76_rx_signal(mphy->antenna_mask, rssi);
+	}
+
+	ewma_avg_signal_add(&msta_link->avg_ack_signal,
+			    -msta_link->ack_signal);
+}
+
+int mt7996_mcu_get_per_sta_rssi(struct mt7996_dev *dev, u16 *sta_list,
+				u16 sta_num)
+{
+	struct mt7996_mcu_per_sta_info_event *res;
+	struct {
+		u8 __rsv1;
+		u8 unsolicit;
+		u8 __rsv2[2];
+
+		__le16 tag;
+		__le16 len;
+		__le16 sta_num;
+		u8 __rsv3[2];
+		__le16 sta_list[MT7996_PER_STA_INFO_MAX_NUM];
+	} __packed req = {
+		.tag = cpu_to_le16(UNI_PER_STA_RSSI),
+		.len = cpu_to_le16(sizeof(req) - 4),
+		.sta_num = cpu_to_le16(sta_num),
+	};
+	struct sk_buff *skb;
+	u16 i, n;
+	int ret;
+
+	if (sta_num > ARRAY_SIZE(req.sta_list))
+		return -EINVAL;
+
+	for (i = 0; i < sta_num; i++)
+		req.sta_list[i] = cpu_to_le16(sta_list[i]);
+
+	ret = mt76_mcu_send_and_get_msg(&dev->mt76,
+					MCU_WM_UNI_CMD(PER_STA_INFO),
+					&req, sizeof(req), true, &skb);
+	if (ret)
+		return ret;
+
+	res = (struct mt7996_mcu_per_sta_info_event *)skb->data;
+	if (skb->len < sizeof(*res) ||
+	    le16_to_cpu(res->tag) != UNI_PER_STA_RSSI) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	n = min_t(u16, sta_num,
+		  (skb->len - sizeof(*res)) / sizeof(res->rssi[0]));
+
+	rcu_read_lock();
+	for (i = 0; i < n; i++)
+		mt7996_mcu_sta_ack_signal(dev,
+					  le16_to_cpu(res->rssi[i].wlan_idx),
+					  res->rssi[i].rcpi);
+	rcu_read_unlock();
+
+out:
+	dev_kfree_skb(skb);
+	return ret;
+}
+
 int mt7996_mcu_wed_rro_reset_sessions(struct mt7996_dev *dev, u16 id)
 {
 	struct {

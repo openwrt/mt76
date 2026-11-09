@@ -272,6 +272,24 @@ struct mt7996_mcu_mib {
 	__le64 data;
 } __packed;
 
+#define MT7996_PER_STA_INFO_MAX_NUM	90
+
+struct mt7996_mcu_per_sta_info_event {
+	u8 __rsv[4];
+
+	__le16 tag;
+	__le16 len;
+
+	union {
+		DECLARE_FLEX_ARRAY(struct {
+			__le16 wlan_idx;
+			u8 rcpi_wf4;
+			u8 __rsv;
+			u8 rcpi[4];
+		} __packed, rssi);
+	} __packed;
+} __packed;
+
 struct all_sta_trx_rate {
 	__le16 wlan_idx;
 	u8 __rsv1[2];

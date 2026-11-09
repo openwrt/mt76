@@ -23,6 +23,8 @@
 #define MT7996_AIRTIME_MISSED_MAX	4
 #define MT7996_RESET_TIMEOUT		(30 * HZ)
 
+#define to_rssi(field, rcpi)		((FIELD_GET(field, rcpi) - 220) / 2)
+
 #define MT7996_TX_RING_SIZE		2048
 #define MT7996_TX_MCU_RING_SIZE		256
 #define MT7996_TX_FWDL_RING_SIZE	128
@@ -987,6 +989,8 @@ int mt7996_mcu_trigger_assert(struct mt7996_dev *dev);
 void mt7996_mcu_rx_event(struct mt7996_dev *dev, struct sk_buff *skb);
 void mt7996_mcu_exit(struct mt7996_dev *dev);
 int mt7996_mcu_get_all_sta_info(struct mt7996_phy *phy, u16 tag);
+int mt7996_mcu_get_per_sta_rssi(struct mt7996_dev *dev, u16 *sta_list,
+				u16 sta_num);
 int mt7996_mcu_wed_rro_reset_sessions(struct mt7996_dev *dev, u16 id);
 int mt7996_mcu_set_sniffer_mode(struct mt7996_phy *phy, bool enabled);
 int mt7996_mcu_set_dup_wtbl(struct mt7996_dev *dev);
