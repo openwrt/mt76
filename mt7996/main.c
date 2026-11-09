@@ -2634,6 +2634,19 @@ mt7996_set_antenna(struct ieee80211_hw *hw, int radio_idx,
 	return 0;
 }
 
+static bool mt7996_wcid_txrate_get(struct mt76_wcid *wcid,
+				   struct rate_info *txrate)
+{
+	struct rate_info rate = wcid->rate;
+
+	if (!rate.legacy && !rate.flags)
+		return false;
+
+	*txrate = rate;
+
+	return true;
+}
+
 static void mt7996_sta_statistics(struct ieee80211_hw *hw,
 				  struct ieee80211_vif *vif,
 				  struct ieee80211_sta *sta,
@@ -2642,7 +2655,6 @@ static void mt7996_sta_statistics(struct ieee80211_hw *hw,
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
 	struct mt7996_sta_link *msta_link;
-	struct rate_info *txrate;
 
 	rcu_read_lock();
 
@@ -2650,22 +2662,8 @@ static void mt7996_sta_statistics(struct ieee80211_hw *hw,
 	if (!msta_link)
 		goto out;
 
-	txrate = &msta_link->wcid.rate;
-	if (txrate->legacy || txrate->flags) {
-		if (txrate->legacy) {
-			sinfo->txrate.legacy = txrate->legacy;
-		} else {
-			sinfo->txrate.mcs = txrate->mcs;
-			sinfo->txrate.nss = txrate->nss;
-			sinfo->txrate.bw = txrate->bw;
-			sinfo->txrate.he_gi = txrate->he_gi;
-			sinfo->txrate.he_dcm = txrate->he_dcm;
-			sinfo->txrate.he_ru_alloc = txrate->he_ru_alloc;
-			sinfo->txrate.eht_gi = txrate->eht_gi;
-		}
-		sinfo->txrate.flags = txrate->flags;
+	if (mt7996_wcid_txrate_get(&msta_link->wcid, &sinfo->txrate))
 		sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_BITRATE);
-	}
 
 	sinfo->tx_failed = msta_link->wcid.stats.tx_failed;
 	sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_FAILED);
@@ -2695,6 +2693,24 @@ static void mt7996_sta_statistics(struct ieee80211_hw *hw,
 	}
 
 out:
+	rcu_read_unlock();
+}
+
+static void mt7996_link_sta_statistics(struct ieee80211_hw *hw,
+				       struct ieee80211_vif *vif,
+				       struct ieee80211_link_sta *link_sta,
+				       struct link_station_info *link_sinfo)
+{
+	struct mt7996_sta *msta = (struct mt7996_sta *)link_sta->sta->drv_priv;
+	struct mt7996_sta_link *msta_link;
+
+	rcu_read_lock();
+
+	msta_link = mt7996_sta_link(msta, link_sta->link_id);
+	if (msta_link &&
+	    mt7996_wcid_txrate_get(&msta_link->wcid, &link_sinfo->txrate))
+		link_sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_BITRATE);
+
 	rcu_read_unlock();
 }
 
@@ -3648,6 +3664,7 @@ const struct ieee80211_ops mt7996_ops = {
 	.set_bitrate_mask = mt7996_set_bitrate_mask,
 	.set_coverage_class = mt7996_set_coverage_class,
 	.sta_statistics = mt7996_sta_statistics,
+	.link_sta_statistics = mt7996_link_sta_statistics,
 	.sta_set_4addr = mt7996_sta_set_4addr,
 	.sta_set_scs = mt7996_sta_set_scs,
 	.sta_set_decap_offload = mt7996_sta_set_decap_offload,

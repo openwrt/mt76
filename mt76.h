@@ -346,6 +346,7 @@ enum mt76_phy_type {
 	MT_PHY_TYPE_EHT_TRIG,
 	MT_PHY_TYPE_EHT_MU,
 	__MT_PHY_TYPE_MAX,
+	MT_PHY_TYPE_UNKNOWN = 0xff,
 };
 
 struct mt76_sta_stats {

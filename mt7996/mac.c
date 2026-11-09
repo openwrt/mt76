@@ -1455,15 +1455,11 @@ mt7996_mac_add_txs_skb(struct mt7996_dev *dev, struct mt76_wcid *wcid,
 		       int pid, __le32 *txs_data)
 {
 	struct mt76_sta_stats *stats = &wcid->stats;
-	struct ieee80211_supported_band *sband;
 	struct mt76_dev *mdev = &dev->mt76;
-	struct mt76_phy *mphy;
 	struct ieee80211_tx_info *info;
 	struct sk_buff_head list;
-	struct rate_info rate = {};
 	struct sk_buff *skb = NULL;
-	bool cck = false;
-	u32 txrate, txs, mode, stbc;
+	u32 txrate, txs, mode, stbc, mcs, nss;
 
 	txs = le32_to_cpu(txs_data[0]);
 
@@ -1497,72 +1493,44 @@ mt7996_mac_add_txs_skb(struct mt7996_dev *dev, struct mt76_wcid *wcid,
 
 	txrate = FIELD_GET(MT_TXS0_TX_RATE, txs);
 
-	rate.mcs = FIELD_GET(MT_TX_RATE_IDX, txrate);
-	rate.nss = FIELD_GET(MT_TX_RATE_NSS, txrate) + 1;
+	mcs = FIELD_GET(MT_TX_RATE_IDX, txrate);
+	nss = FIELD_GET(MT_TX_RATE_NSS, txrate) + 1;
 	stbc = le32_get_bits(txs_data[3], MT_TXS3_RATE_STBC);
 
-	if (stbc && rate.nss > 1)
-		rate.nss >>= 1;
+	if (stbc && nss > 1)
+		nss >>= 1;
 
-	if (rate.nss - 1 < ARRAY_SIZE(stats->tx_nss))
-		stats->tx_nss[rate.nss - 1]++;
-	if (rate.mcs < ARRAY_SIZE(stats->tx_mcs))
-		stats->tx_mcs[rate.mcs]++;
+	if (nss - 1 < ARRAY_SIZE(stats->tx_nss))
+		stats->tx_nss[nss - 1]++;
+	if (mcs < ARRAY_SIZE(stats->tx_mcs))
+		stats->tx_mcs[mcs]++;
 
 	mode = FIELD_GET(MT_TX_RATE_MODE, txrate);
 	switch (mode) {
 	case MT_PHY_TYPE_CCK:
-		cck = true;
-		fallthrough;
 	case MT_PHY_TYPE_OFDM:
-		mphy = mt76_dev_phy(mdev, wcid->phy_idx);
-
-		if (mphy->chandef.chan->band == NL80211_BAND_5GHZ)
-			sband = &mphy->sband_5g.sband;
-		else if (mphy->chandef.chan->band == NL80211_BAND_6GHZ)
-			sband = &mphy->sband_6g.sband;
-		else
-			sband = &mphy->sband_2g.sband;
-
-		rate.mcs = mt76_get_rate(mphy->dev, sband, rate.mcs, cck);
-		rate.legacy = sband->bitrates[rate.mcs].bitrate;
 		break;
 	case MT_PHY_TYPE_HT:
 	case MT_PHY_TYPE_HT_GF:
-		if (rate.mcs > 31)
+		if (mcs > 31)
 			goto out;
-
-		rate.flags = RATE_INFO_FLAGS_MCS;
-		if (wcid->rate.flags & RATE_INFO_FLAGS_SHORT_GI)
-			rate.flags |= RATE_INFO_FLAGS_SHORT_GI;
 		break;
 	case MT_PHY_TYPE_VHT:
-		if (rate.mcs > 9)
+		if (mcs > 9)
 			goto out;
-
-		rate.flags = RATE_INFO_FLAGS_VHT_MCS;
-		if (wcid->rate.flags & RATE_INFO_FLAGS_SHORT_GI)
-			rate.flags |= RATE_INFO_FLAGS_SHORT_GI;
 		break;
 	case MT_PHY_TYPE_HE_SU:
 	case MT_PHY_TYPE_HE_EXT_SU:
 	case MT_PHY_TYPE_HE_TB:
 	case MT_PHY_TYPE_HE_MU:
-		if (rate.mcs > 11)
+		if (mcs > 11)
 			goto out;
-
-		rate.he_gi = wcid->rate.he_gi;
-		rate.he_dcm = FIELD_GET(MT_TX_RATE_DCM, txrate);
-		rate.flags = RATE_INFO_FLAGS_HE_MCS;
 		break;
 	case MT_PHY_TYPE_EHT_SU:
 	case MT_PHY_TYPE_EHT_TRIG:
 	case MT_PHY_TYPE_EHT_MU:
-		if (rate.mcs > 13)
+		if (mcs > 13)
 			goto out;
-
-		rate.eht_gi = wcid->rate.eht_gi;
-		rate.flags = RATE_INFO_FLAGS_EHT_MCS;
 		break;
 	default:
 		goto out;
@@ -1572,27 +1540,21 @@ mt7996_mac_add_txs_skb(struct mt7996_dev *dev, struct mt76_wcid *wcid,
 
 	switch (FIELD_GET(MT_TXS0_BW, txs)) {
 	case IEEE80211_STA_RX_BW_320:
-		rate.bw = RATE_INFO_BW_320;
 		stats->tx_bw[4]++;
 		break;
 	case IEEE80211_STA_RX_BW_160:
-		rate.bw = RATE_INFO_BW_160;
 		stats->tx_bw[3]++;
 		break;
 	case IEEE80211_STA_RX_BW_80:
-		rate.bw = RATE_INFO_BW_80;
 		stats->tx_bw[2]++;
 		break;
 	case IEEE80211_STA_RX_BW_40:
-		rate.bw = RATE_INFO_BW_40;
 		stats->tx_bw[1]++;
 		break;
 	default:
-		rate.bw = RATE_INFO_BW_20;
 		stats->tx_bw[0]++;
 		break;
 	}
-	wcid->rate = rate;
 
 out:
 	if (skb)

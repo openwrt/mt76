@@ -685,40 +685,149 @@ out:
 }
 
 static int
-mt7996_mcu_update_tx_gi(struct rate_info *rate, struct all_sta_trx_rate *mcu_rate)
+mt7996_mcu_tx_rate_parse(struct rate_info *rate,
+			 const struct ieee80211_supported_band *sband,
+			 const struct all_sta_trx_rate *mcu_rate)
 {
+	u8 mcs = mcu_rate->tx_mcs, nss = mcu_rate->tx_nss;
+	bool is_2g = sband->band == NL80211_BAND_2GHZ;
+	struct rate_info tmp = {};
+
+	if (mcu_rate->tx_stbc && nss > 1)
+		nss /= 2;
+
 	switch (mcu_rate->tx_mode) {
+	case MT_PHY_TYPE_UNKNOWN:
+		return 0;
 	case MT_PHY_TYPE_CCK:
+		/* the firmware reports a wlan_idx without a rate as all zero */
+		if (!is_2g)
+			return 0;
+
+		/* the short preamble bit does not change the rate */
+		mcs &= ~BIT(2);
+		if (mcs > 3)
+			return -EINVAL;
+
+		tmp.legacy = sband->bitrates[mcs].bitrate;
+		break;
 	case MT_PHY_TYPE_OFDM:
+		/* the OFDM rates follow the four CCK rates on 2.4 GHz */
+		if (is_2g)
+			mcs += 4;
+		if (mcs >= sband->n_bitrates)
+			return -EINVAL;
+
+		tmp.legacy = sband->bitrates[mcs].bitrate;
 		break;
 	case MT_PHY_TYPE_HT:
 	case MT_PHY_TYPE_HT_GF:
-	case MT_PHY_TYPE_VHT:
+		if (nss < 1)
+			return -EINVAL;
+
+		tmp.mcs = mcs + ((nss - 1) << 3);
+		if (tmp.mcs > 31)
+			return -EINVAL;
+
+		tmp.flags = RATE_INFO_FLAGS_MCS;
 		if (mcu_rate->tx_gi)
-			rate->flags |= RATE_INFO_FLAGS_SHORT_GI;
-		else
-			rate->flags &= ~RATE_INFO_FLAGS_SHORT_GI;
+			tmp.flags |= RATE_INFO_FLAGS_SHORT_GI;
+		break;
+	case MT_PHY_TYPE_VHT:
+		if (mcs > 9 || nss < 1 || nss > 8)
+			return -EINVAL;
+
+		tmp.mcs = mcs;
+		tmp.nss = nss;
+		tmp.flags = RATE_INFO_FLAGS_VHT_MCS;
+		if (mcu_rate->tx_gi)
+			tmp.flags |= RATE_INFO_FLAGS_SHORT_GI;
 		break;
 	case MT_PHY_TYPE_HE_SU:
 	case MT_PHY_TYPE_HE_EXT_SU:
 	case MT_PHY_TYPE_HE_TB:
 	case MT_PHY_TYPE_HE_MU:
-		if (mcu_rate->tx_gi > NL80211_RATE_INFO_HE_GI_3_2)
+		tmp.mcs = mcs & GENMASK(3, 0);
+		if (tmp.mcs > 13 || nss < 1 || nss > 8 ||
+		    mcu_rate->tx_gi > NL80211_RATE_INFO_HE_GI_3_2)
 			return -EINVAL;
-		rate->he_gi = mcu_rate->tx_gi;
+
+		tmp.nss = nss;
+		tmp.flags = RATE_INFO_FLAGS_HE_MCS;
+		tmp.he_gi = mcu_rate->tx_gi;
+		tmp.he_dcm = !!(mcs & MT_PRXV_TX_DCM);
 		break;
 	case MT_PHY_TYPE_EHT_SU:
 	case MT_PHY_TYPE_EHT_TRIG:
 	case MT_PHY_TYPE_EHT_MU:
-		if (mcu_rate->tx_gi > NL80211_RATE_INFO_EHT_GI_3_2)
+		tmp.mcs = mcs & GENMASK(3, 0);
+		if (nss < 1 || nss > 8 ||
+		    mcu_rate->tx_gi > NL80211_RATE_INFO_EHT_GI_3_2)
 			return -EINVAL;
-		rate->eht_gi = mcu_rate->tx_gi;
+
+		/* cfg80211 takes EHT-MCS 14 on a wide channel alone */
+		if (tmp.mcs == 14 && mcu_rate->tx_bw < IEEE80211_STA_RX_BW_80)
+			return 0;
+
+		tmp.nss = nss;
+		tmp.flags = RATE_INFO_FLAGS_EHT_MCS;
+		tmp.eht_gi = mcu_rate->tx_gi;
 		break;
 	default:
 		return -EINVAL;
 	}
 
+	switch (mcu_rate->tx_bw) {
+	case IEEE80211_STA_RX_BW_20:
+		tmp.bw = RATE_INFO_BW_20;
+		break;
+	case IEEE80211_STA_RX_BW_40:
+		tmp.bw = RATE_INFO_BW_40;
+		break;
+	case IEEE80211_STA_RX_BW_80:
+		tmp.bw = RATE_INFO_BW_80;
+		break;
+	case IEEE80211_STA_RX_BW_160:
+		tmp.bw = RATE_INFO_BW_160;
+		break;
+	case IEEE80211_STA_RX_BW_320:
+		tmp.bw = RATE_INFO_BW_320;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (mcu_rate->tx_mode == MT_PHY_TYPE_HE_EXT_SU &&
+	    (mcs & MT_PRXV_TX_ER_SU_106T)) {
+		tmp.bw = RATE_INFO_BW_HE_RU;
+		tmp.he_ru_alloc = NL80211_RATE_INFO_HE_RU_ALLOC_106;
+	}
+
+	*rate = tmp;
+
 	return 0;
+}
+
+static void
+mt7996_mcu_update_tx_rate(struct mt7996_dev *dev, struct mt76_wcid *wcid,
+			  const struct all_sta_trx_rate *mcu_rate)
+{
+	struct mt76_phy *mphy = mt76_dev_phy(&dev->mt76, wcid->phy_idx);
+	struct ieee80211_supported_band *sband;
+
+	/* nothing reads the rate of a wcid without a station */
+	if (!wcid->sta || !mphy->chandef.chan)
+		return;
+
+	if (mphy->chandef.chan->band == NL80211_BAND_5GHZ)
+		sband = &mphy->sband_5g.sband;
+	else if (mphy->chandef.chan->band == NL80211_BAND_6GHZ)
+		sband = &mphy->sband_6g.sband;
+	else
+		sband = &mphy->sband_2g.sband;
+
+	if (mt7996_mcu_tx_rate_parse(&wcid->rate, sband, mcu_rate))
+		dev_err(dev->mt76.dev, "Failed to update TX rate\n");
 }
 
 static struct ieee80211_sta *
@@ -855,8 +964,7 @@ mt7996_mcu_rx_all_sta_info_event(struct mt7996_dev *dev, struct sk_buff *skb)
 			if (!wcid)
 				break;
 
-			if (mt7996_mcu_update_tx_gi(&wcid->rate, &res->rate[i]))
-				dev_err(dev->mt76.dev, "Failed to update TX GI\n");
+			mt7996_mcu_update_tx_rate(dev, wcid, &res->rate[i]);
 			break;
 		case UNI_ALL_STA_TXRX_ADM_STAT:
 			wlan_idx = le16_to_cpu(res->adm_stat[i].wlan_idx);
