@@ -845,6 +845,33 @@ static u32 mt7996_mcu_airtime_us(u64 val)
 	return min_t(u64, div_u64(val * 1024, 1000), U32_MAX);
 }
 
+/* converted per AC like the station sum, so that the links of a station do
+ * not add up to more than it registered, unless a value reaches U32_MAX
+ */
+static void
+mt7996_mcu_airtime_link_add(struct mt7996_dev *dev,
+			    struct mt7996_mcu_all_sta_info_event *res, u16 i)
+{
+	u16 wlan_idx = le16_to_cpu(res->airtime[i].wlan_idx);
+	struct mt7996_sta_link *msta_link;
+	struct mt76_wcid *wcid;
+	u8 ac;
+
+	wcid = mt76_wcid_ptr(dev, wlan_idx);
+	if (!wcid_to_sta(wcid))
+		return;
+
+	msta_link = container_of(wcid, struct mt7996_sta_link, wcid);
+	for (ac = 0; ac < IEEE80211_NUM_ACS; ac++) {
+		u8 q = mt76_connac_lmac_mapping(ac);
+
+		msta_link->airtime_tx +=
+			mt7996_mcu_airtime_us(le32_to_cpu(res->airtime[i].tx[q]));
+		msta_link->airtime_rx +=
+			mt7996_mcu_airtime_us(le32_to_cpu(res->airtime[i].rx[q]));
+	}
+}
+
 /* mac80211 drops the estimate of completed frames at each call, so the
  * links of a station are summed into one call per AC
  */
@@ -904,6 +931,9 @@ mt7996_mcu_rx_airtime(struct mt7996_dev *dev,
 						       tx, rx);
 		}
 	}
+
+	for (i = 0; i < sta_num; i++)
+		mt7996_mcu_airtime_link_add(dev, res, i);
 
 	rcu_read_unlock();
 }

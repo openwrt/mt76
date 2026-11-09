@@ -301,6 +301,9 @@ struct mt7996_sta_link {
 	int ack_signal;
 	struct ewma_avg_signal avg_ack_signal;
 
+	u64 airtime_tx;
+	u64 airtime_rx;
+
 	unsigned long changed;
 
 	struct mt76_connac_sta_key_conf bip;

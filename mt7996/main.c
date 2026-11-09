@@ -2707,10 +2707,18 @@ static void mt7996_link_sta_statistics(struct ieee80211_hw *hw,
 	rcu_read_lock();
 
 	msta_link = mt7996_sta_link(msta, link_sta->link_id);
-	if (msta_link &&
-	    mt7996_wcid_txrate_get(&msta_link->wcid, &link_sinfo->txrate))
+	if (!msta_link)
+		goto out;
+
+	if (mt7996_wcid_txrate_get(&msta_link->wcid, &link_sinfo->txrate))
 		link_sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_BITRATE);
 
+	link_sinfo->tx_duration = msta_link->airtime_tx;
+	link_sinfo->rx_duration = msta_link->airtime_rx;
+	link_sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_DURATION) |
+			      BIT_ULL(NL80211_STA_INFO_RX_DURATION);
+
+out:
 	rcu_read_unlock();
 }
 
