@@ -4117,7 +4117,8 @@ mt7925_mcu_rate_txpower_band(struct mt76_phy *phy,
 		112, 114, 116, 118, 120, 122, 124,
 		126, 128, 132, 134, 136, 138, 140,
 		142, 144, 149, 151, 153, 155, 157,
-		159, 161, 165, 167
+		159, 161, 163, 165, 167, 169, 173,
+		175, 177
 	};
 	static const u8 chan_list_6ghz[] = {
 		  1,   3,   5,   7,   9,  11,  13,
@@ -4176,7 +4177,7 @@ mt7925_mcu_rate_txpower_band(struct mt76_phy *phy,
 		int j, msg_len, num_ch;
 		struct sk_buff *skb;
 
-		num_ch = i == batch_size - 1 ? n_chan % batch_len : batch_len;
+		num_ch = min(batch_len, n_chan - idx);
 		msg_len = sizeof(*tx_power_tlv) + num_ch * sku_len;
 		skb = mt76_mcu_msg_alloc(dev, NULL, msg_len);
 		if (!skb) {
