@@ -1153,13 +1153,6 @@ int mt792x_load_firmware(struct mt792x_dev *dev)
 {
 	int ret;
 
-	mt76_connac_mcu_restart(&dev->mt76);
-
-	if (!mt76_poll_msec(dev, MT_CONN_ON_MISC, MT_TOP_MISC_FW_STATE,
-			    MT_TOP_MISC2_FW_PWR_ON, 1000))
-		dev_warn(dev->mt76.dev,
-			 "MCU is not ready for firmware download\n");
-
 	if (is_mt7928(&dev->mt76)) {
 		dev_info(dev->mt76.dev, "Loading CB firmware patch: %s\n",
 			 mt792x_cb_patch_name(dev));
