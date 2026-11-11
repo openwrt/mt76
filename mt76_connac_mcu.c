@@ -2176,7 +2176,8 @@ s8 mt76_connac_get_ch_power(struct mt76_phy *phy,
 
 		if (ch->hw_value == chan->hw_value) {
 			if (!(ch->flags & IEEE80211_CHAN_DISABLED)) {
-				int power = 2 * ch->max_reg_power;
+				int power = clamp_t(int, 2 * ch->max_reg_power,
+						    S8_MIN, S8_MAX);
 
 				if (is_mt7663(dev) && (power > 63 || power < -64))
 					power = 63;
