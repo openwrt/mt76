@@ -2392,6 +2392,22 @@ static int mt7915_mcu_set_mwds(struct mt7915_dev *dev, bool enabled)
 				 sizeof(req), false);
 }
 
+static int mt7915_mcu_set_wed_version(struct mt7915_dev *dev)
+{
+#ifdef CONFIG_NET_MEDIATEK_SOC_WED
+	struct mtk_wed_device *wed = &dev->mt76.mmio.wed;
+
+	if (!mtk_wed_device_active(wed) || is_mt7915(&dev->mt76) ||
+	    !mtk_wed_get_rx_capa(wed))
+		return 0;
+
+	return mt7915_mcu_wa_cmd(dev, MCU_WA_PARAM_CMD(SET),
+				 MCU_WA_PARAM_WED_VERSION, wed->rev_id, 0);
+#else
+	return 0;
+#endif
+}
+
 int mt7915_mcu_set_muru_ctrl(struct mt7915_dev *dev, u32 cmd, u32 val)
 {
 	struct {
@@ -2529,20 +2545,14 @@ int mt7915_mcu_init_firmware(struct mt7915_dev *dev)
 
 	mt76_connac_mcu_del_wtbl_all(&dev->mt76);
 
-#if IS_ENABLED(CONFIG_NET_MEDIATEK_SOC_WED)
-	if (mtk_wed_device_active(&dev->mt76.mmio.wed)) {
-		if (is_mt7915(&dev->mt76) ||
-		    !mtk_wed_get_rx_capa(&dev->mt76.mmio.wed))
-			ret = mt7915_mcu_wa_cmd(dev, MCU_WA_PARAM_CMD(CAPABILITY),
-			                        0, 0, 0);
-		else
-			ret = mt7915_mcu_wa_cmd(dev, MCU_WA_PARAM_CMD(SET),
-						MCU_WA_PARAM_WED_VERSION,
-						dev->mt76.mmio.wed.rev_id, 0);
-		if (ret)
-			return ret;
-	}
-#endif
+	if ((mtk_wed_device_active(&dev->mt76.mmio.wed) &&
+	     is_mt7915(&dev->mt76)) ||
+	    !mtk_wed_get_rx_capa(&dev->mt76.mmio.wed))
+		mt7915_mcu_wa_cmd(dev, MCU_WA_PARAM_CMD(CAPABILITY), 0, 0, 0);
+
+	ret = mt7915_mcu_set_wed_version(dev);
+	if (ret)
+		return ret;
 
 	ret = mt7915_mcu_set_mwds(dev, 1);
 	if (ret)
