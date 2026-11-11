@@ -663,8 +663,6 @@ mt7915_init_led_mux(struct mt7915_dev *dev)
 
 void mt7915_vow_init(struct mt7915_dev *dev)
 {
-	dev->vow_atf_en = true;
-
 	mt7915_mcu_set_vow_drr_ctrl(dev, NULL, VOW_DRR_CTRL_AIRTIME_DEFICIT_BOUND, 0);
 	mt7915_mcu_set_vow_drr_ctrl(dev, NULL, VOW_DRR_CTRL_AIRTIME_QUANTUM_ALL, 0);
 	mt7915_mcu_set_vow_feature_ctrl(dev);
@@ -1321,6 +1319,7 @@ int mt7915_register_device(struct mt7915_dev *dev)
 	mutex_init(&dev->dump_mutex);
 
 	dev->dbdc_support = mt7915_band_config(dev);
+	dev->vow_atf_en = true;
 
 	phy2 = mt7915_alloc_ext_phy(dev);
 	if (IS_ERR(phy2))
