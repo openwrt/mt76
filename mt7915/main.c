@@ -742,10 +742,15 @@ mt7915_stop_ap(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	mutex_unlock(&dev->mt76.mutex);
 }
 
-static void
-mt7915_sta_vow_set_airtime_weight(struct mt7915_dev *dev,
-				  struct mt7915_sta *msta, u16 weight)
+static void mt7915_sta_vow_init(struct mt7915_dev *dev, struct mt7915_sta *msta)
 {
+	/* mac80211 never passes a weight of 0, so 0 means that none is set */
+	u16 weight = msta->airtime_weight ?: IEEE80211_DEFAULT_AIRTIME_WEIGHT;
+
+	if (is_mt7915(&dev->mt76))
+		return;
+
+	mt7915_mcu_set_vow_drr_ctrl(dev, msta, VOW_DRR_CTRL_STA_PAUSE, 0);
 	mt7915_mcu_set_vow_drr_ctrl(dev, msta, VOW_DRR_CTRL_STA_ALL, weight);
 }
 
@@ -785,12 +790,7 @@ int mt7915_mac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	mt7915_mac_wtbl_update(dev, idx,
 			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
 	mt7915_mcu_add_sta(dev, vif, sta, CONN_STATE_DISCONNECT, true);
-
-	if (!is_mt7915(&dev->mt76)) {
-		mt7915_mcu_set_vow_drr_ctrl(dev, msta, VOW_DRR_CTRL_STA_PAUSE, 0);
-		mt7915_sta_vow_set_airtime_weight(dev, msta,
-						  IEEE80211_DEFAULT_AIRTIME_WEIGHT);
-	}
+	mt7915_sta_vow_init(dev, msta);
 
 	return 0;
 }
@@ -1391,10 +1391,12 @@ static void mt7915_sta_set_airtime_weight(struct ieee80211_hw *hw,
 	struct mt7915_dev *dev = mt7915_hw_dev(hw);
 	struct mt7915_sta *msta = (struct mt7915_sta *)sta->drv_priv;
 
-	if (is_mt7915(&dev->mt76) || !msta->wcid.sta)
+	msta->airtime_weight = weight;
+	if (is_mt7915(&dev->mt76))
 		return;
 
-	mt7915_sta_vow_set_airtime_weight(dev, msta, weight);
+	/* mt7915_mac_sta_add() creates the firmware entry of the station */
+	mt7915_mcu_set_vow_drr_ctrl(dev, msta, VOW_DRR_CTRL_STA_ALL, weight);
 }
 
 static int mt7915_sta_set_txpwr(struct ieee80211_hw *hw,

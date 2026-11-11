@@ -143,7 +143,6 @@ enum vow_drr_ctrl_id {
 	VOW_DRR_CTRL_STA_PAUSE = 0x30,
 };
 
-
 struct mt7915_sta {
 	struct mt76_wcid wcid; /* must be first */
 
@@ -158,6 +157,7 @@ struct mt7915_sta {
 	unsigned long changed;
 	unsigned long jiffies;
 	struct mt76_connac_sta_key_conf bip;
+	u16 airtime_weight;
 
 	struct {
 		u8 flowid_mask;
