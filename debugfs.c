@@ -113,7 +113,9 @@ mt76_register_debugfs_fops(struct mt76_phy *phy,
 
 	dir = debugfs_create_dir("mt76", phy->hw->wiphy->debugfsdir);
 	debugfs_create_u8("led_pin", 0600, dir, &phy->leds.pin);
-	debugfs_create_bool("led_active_low", 0600, dir, &phy->leds.al);
+	if (phy == &dev->phy)
+		debugfs_create_bool("led_active_low", 0600, dir,
+				    &phy->leds.al);
 	debugfs_create_u32("regidx", 0600, dir, &dev->debugfs_reg);
 	debugfs_create_file_unsafe("regval", 0600, dir, dev, fops);
 	debugfs_create_file_unsafe("napi_threaded", 0600, dir, dev,
