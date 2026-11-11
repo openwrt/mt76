@@ -170,10 +170,29 @@ void mt7925_mac_set_fixed_rate_table(struct mt792x_dev *dev,
 	u32 ctrl = MT_WTBL_ITCR_WR | MT_WTBL_ITCR_EXEC | tbl_idx;
 
 	if (is_mt7928(&dev->mt76)) {
-		mt76_wr(dev, MT7928_WTBL_ITDR0, rate_idx);
+		/* MT7928 drops host writes to the WTBLON CRs (reads still
+		 * work), so program the table through MCU REG_ACCESS.
+		 */
+		u32 spe = MT_WTBL_SPE_IDX_SEL;
+		u32 rate = rate_idx;
+		int ret;
+
+		ret = mt7925_mcu_regval(dev, MT7928_WTBL_ITDR0, &rate, true);
+		if (ret)
+			goto out;
 		/* use wtbl spe idx */
-		mt76_wr(dev, MT7928_WTBL_ITDR1, MT_WTBL_SPE_IDX_SEL);
-		mt76_wr(dev, MT7928_WTBL_ITCR, ctrl);
+		ret = mt7925_mcu_regval(dev, MT7928_WTBL_ITDR1, &spe, true);
+		if (ret)
+			goto out;
+		ret = mt7925_mcu_regval(dev, MT7928_WTBL_ITCR, &ctrl, true);
+		if (ret)
+			goto out;
+
+		return;
+out:
+		dev_err(dev->mt76.dev,
+			"failed to set fixed rate table idx %u: %d\n",
+			tbl_idx, ret);
 	} else {
 		mt76_wr(dev, MT_WTBL_ITDR0, rate_idx);
 		/* use wtbl spe idx */
