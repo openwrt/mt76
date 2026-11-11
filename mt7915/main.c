@@ -847,13 +847,19 @@ mt7915_drop_other_sta(struct mt7915_dev *dev, struct ieee80211_vif *vif,
 	ieee80211_iterate_active_interfaces(data.hw, 0, __mt7915_drop_sta, &data);
 }
 
+static void mt7915_mac_sta_wtbl_set(struct mt7915_dev *dev, u16 idx)
+{
+	u32 addr = mt7915_mac_wtbl_lmac_addr(dev, idx, 30);
+
+	mt76_rmw_field(dev, addr, GENMASK(7, 0), 0xa0);
+}
+
 int mt7915_mac_sta_event(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 			 struct ieee80211_sta *sta, enum mt76_sta_event ev)
 {
 	struct mt7915_dev *dev = container_of(mdev, struct mt7915_dev, mt76);
 	struct mt7915_sta *msta = (struct mt7915_sta *)sta->drv_priv;
 	int i, ret;
-	u32 addr;
 
 	switch (ev) {
 	case MT76_STA_EVENT_ASSOC:
@@ -861,8 +867,7 @@ int mt7915_mac_sta_event(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		if (ret)
 			return ret;
 
-		addr = mt7915_mac_wtbl_lmac_addr(dev, msta->wcid.idx, 30);
-		mt76_rmw_field(dev, addr, GENMASK(7, 0), 0xa0);
+		mt7915_mac_sta_wtbl_set(dev, msta->wcid.idx);
 
 		ret = mt7915_mcu_add_rate_ctrl(dev, vif, sta, &msta->wcid, false);
 		if (ret)
@@ -871,12 +876,18 @@ int mt7915_mac_sta_event(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		msta->wcid.tx_info |= MT_WCID_TX_INFO_SET;
 		msta->wcid.sta = 1;
 		msta->wcid.sta_disabled = 0;
+		msta->conn_state = CONN_STATE_CONNECT;
 
 		return 0;
 
 	case MT76_STA_EVENT_AUTHORIZE:
 		mt7915_drop_other_sta(dev, vif, sta);
-		return mt7915_mcu_add_sta(dev, vif, sta, CONN_STATE_PORT_SECURE, false);
+		ret = mt7915_mcu_add_sta(dev, vif, sta, CONN_STATE_PORT_SECURE,
+					 false);
+		if (!ret)
+			msta->conn_state = CONN_STATE_PORT_SECURE;
+
+		return ret;
 
 	case MT76_STA_EVENT_DISASSOC:
 		mutex_lock(&dev->mt76.mutex);
@@ -885,6 +896,7 @@ int mt7915_mac_sta_event(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		mutex_unlock(&dev->mt76.mutex);
 
 		mt7915_mcu_add_sta(dev, vif, sta, CONN_STATE_DISCONNECT, false);
+		msta->conn_state = CONN_STATE_DISCONNECT;
 		msta->wcid.tx_info &= ~MT_WCID_TX_INFO_SET;
 		msta->wcid.sta_disabled = 1;
 		msta->wcid.sta = 0;
@@ -1309,31 +1321,85 @@ mt7915_set_bitrate_mask(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	return 0;
 }
 
-static void mt7915_sta_wed_set_4addr(struct mt7915_dev *dev, struct ieee80211_vif *vif,
+struct mt7915_wds_key_data {
+	struct ieee80211_sta *sta;
+	struct mt76_wcid *wcid;
+};
+
+static void
+mt7915_sta_wds_key_iter(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+			struct ieee80211_sta *sta, struct ieee80211_key_conf *key,
+			void *data)
+{
+	struct mt7915_dev *dev = mt7915_hw_dev(hw);
+	struct mt7915_wds_key_data *kd = data;
+	struct mt7915_sta *msta;
+
+	if (sta != kd->sta || key->keyidx != kd->wcid->hw_key_idx)
+		return;
+
+	msta = (struct mt7915_sta *)sta->drv_priv;
+	mt76_connac_mcu_add_key(&dev->mt76, vif, &msta->bip, key,
+				MCU_EXT_CMD(STA_REC_UPDATE), kd->wcid, SET_KEY);
+}
+
+/* A WED with more than 256 WLAN entries finds the station of a frame by its
+ * DA, which is not the station of a 4-address frame. WED and the firmware map
+ * the WDS range of WLAN indexes instead, so a station that turns to 4-address
+ * moves its entry there.
+ */
+static void mt7915_sta_wed_set_4addr(struct ieee80211_hw *hw,
+				     struct ieee80211_vif *vif,
 				     struct ieee80211_sta *sta)
 {
 	struct mt7915_sta *msta = (struct mt7915_sta *)sta->drv_priv;
 	int min = MT76_WED_WDS_MIN, max = MT76_WED_WDS_MAX;
-	int idx, prev_idx = msta->wcid.idx;
-	struct mt76_wcid wcid = msta->wcid;
-	int state;
+	struct mt7915_dev *dev = mt7915_hw_dev(hw);
+	struct mt7915_wds_key_data kd = {
+		.sta = sta,
+	};
+	unsigned long rx_ba = 0;
+	struct mt76_wcid wcid;
+	int i, idx, prev_idx;
 
-	if (!is_mt7915(&dev->mt76))
-	       return;
-
-	if (msta->wcid.idx >= min && msta->wcid.idx < max)
+	if (is_mt7915(&dev->mt76))
 		return;
+
+	mutex_lock(&dev->mt76.mutex);
+
+	prev_idx = msta->wcid.idx;
+	if (prev_idx >= min && prev_idx < max)
+		goto out;
 
 	idx = __mt76_wcid_alloc(dev->mt76.wcid_mask, min, max);
 	if (idx < 0)
-		return;
+		goto out;
 
+	/* the new entry gets the state, the keys and the rate control of the
+	 * old one before the TX moves to it
+	 */
+	wcid = msta->wcid;
 	wcid.idx = idx;
-	state = msta->wcid.sta ? CONN_STATE_PORT_SECURE : CONN_STATE_DISCONNECT;
-	__mt7915_mcu_add_sta(dev, vif, sta, &wcid, state, true);
-	mt7915_mcu_add_rate_ctrl(dev, vif, sta, &wcid, false);
+	__mt7915_mcu_add_sta(dev, vif, sta, &wcid, msta->conn_state, true);
+	if (msta->conn_state != CONN_STATE_DISCONNECT) {
+		mt7915_mac_sta_wtbl_set(dev, idx);
+		mt7915_mcu_add_rate_ctrl(dev, vif, sta, &wcid, false);
+	}
+	kd.wcid = &wcid;
+	ieee80211_iter_keys(hw, vif, mt7915_sta_wds_key_iter, &kd);
+
 	rcu_assign_pointer(dev->mt76.wcid[idx], &msta->wcid);
 	msta->wcid.idx = idx;
+	mt7915_sta_vow_init(dev, msta);
+	for (i = 0; i < ARRAY_SIZE(sta->txq); i++) {
+		struct mt76_txq *mtxq;
+
+		if (!sta->txq[i])
+			continue;
+
+		mtxq = (struct mt76_txq *)sta->txq[i]->drv_priv;
+		mtxq->wcid = idx;
+	}
 
 	synchronize_rcu();
 
@@ -1341,6 +1407,19 @@ static void mt7915_sta_wed_set_4addr(struct mt7915_dev *dev, struct ieee80211_vi
 	mt76_wcid_mask_clear(dev->mt76.wcid_mask, prev_idx);
 	wcid.idx = prev_idx;
 	__mt7915_mcu_add_sta(dev, vif, sta, &wcid, CONN_STATE_DISCONNECT, false);
+
+	/* the block ack sessions of the old entry stay behind */
+	for (i = 0; i < IEEE80211_NUM_TIDS; i++) {
+		if (rcu_access_pointer(msta->wcid.aggr[i]))
+			rx_ba |= BIT(i);
+		if (test_bit(i, &msta->wcid.ampdu_state))
+			ieee80211_stop_tx_ba_session(sta, i);
+	}
+	if (rx_ba)
+		ieee80211_stop_rx_ba_session(vif, rx_ba, sta->addr);
+
+out:
+	mutex_unlock(&dev->mt76.mutex);
 }
 
 static void mt7915_sta_set_4addr(struct ieee80211_hw *hw,
@@ -1357,7 +1436,7 @@ static void mt7915_sta_set_4addr(struct ieee80211_hw *hw,
 		clear_bit(MT_WCID_FLAG_4ADDR, &msta->wcid.flags);
 
 	if (mtk_wed_device_active(&dev->mt76.mmio.wed) && enabled)
-		mt7915_sta_wed_set_4addr(dev, vif, sta);
+		mt7915_sta_wed_set_4addr(hw, vif, sta);
 
 	if (!msta->wcid.sta)
 		return;
@@ -1823,8 +1902,17 @@ mt7915_net_fill_forward_path(struct ieee80211_hw *hw,
 	if (!mtk_wed_device_active(wed))
 		return -ENODEV;
 
-	if (msta->wcid.idx > MT7915_WTBL_STA)
+	/* WED gets the WLAN index on MT7915 and for a 4-address station of a
+	 * later chip, which then takes it from the WDS range
+	 */
+	if (is_mt7915(&dev->mt76)) {
+		if (msta->wcid.idx > 0xff)
+			return -EIO;
+	} else if (test_bit(MT_WCID_FLAG_4ADDR, &msta->wcid.flags) &&
+		   (msta->wcid.idx < MT76_WED_WDS_MIN ||
+		    msta->wcid.idx >= MT76_WED_WDS_MAX)) {
 		return -EIO;
+	}
 
 	path->type = DEV_PATH_MTK_WDMA;
 	path->dev = ctx->dev;

@@ -30,7 +30,7 @@ int __mt76_wcid_alloc(u32 *mask, int min, int size);
 
 static inline int mt76_wcid_alloc(u32 *mask, int size)
 {
-       return __mt76_wcid_alloc(mask, 0, size);
+	return __mt76_wcid_alloc(mask, 0, size);
 }
 
 static inline void

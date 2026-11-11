@@ -1411,14 +1411,12 @@ int mt7915_mcu_set_fixed_rate_ctrl(struct mt7915_dev *dev,
 				   void *data, u32 field)
 {
 	struct mt7915_vif *mvif = (struct mt7915_vif *)vif->drv_priv;
-	struct mt7915_sta *msta = (struct mt7915_sta *)sta->drv_priv;
 	struct sta_phy *phy = data;
 	struct sta_rec_ra_fixed *ra;
 	struct sk_buff *skb;
 	struct tlv *tlv;
 
-	skb = mt76_connac_mcu_alloc_sta_req(&dev->mt76, &mvif->mt76,
-					    &msta->wcid);
+	skb = mt76_connac_mcu_alloc_sta_req(&dev->mt76, &mvif->mt76, wcid);
 	if (IS_ERR(skb))
 		return PTR_ERR(skb);
 
@@ -1557,14 +1555,13 @@ mt7915_mcu_add_rate_ctrl_fixed(struct mt7915_dev *dev,
 	/* fixed GI */
 	if (mask->control[band].gi != NL80211_TXRATE_DEFAULT_GI ||
 	    mask->control[band].he_gi != GENMASK(7, 0)) {
-		struct mt7915_sta *msta = (struct mt7915_sta *)sta->drv_priv;
 		u32 addr;
 
 		/* firmware updates only TXCMD but doesn't take WTBL into
 		 * account, so driver should update here to reflect the
 		 * actual txrate hardware sends out.
 		 */
-		addr = mt7915_mac_wtbl_lmac_addr(dev, msta->wcid.idx, 7);
+		addr = mt7915_mac_wtbl_lmac_addr(dev, wcid->idx, 7);
 		if (sta->deflink.he_cap.has_he)
 			mt76_rmw_field(dev, addr, GENMASK(31, 24), phy.sgi);
 		else
@@ -1728,11 +1725,10 @@ int mt7915_mcu_add_rate_ctrl(struct mt7915_dev *dev, struct ieee80211_vif *vif,
 
 static int
 mt7915_mcu_add_group(struct mt7915_dev *dev, struct ieee80211_vif *vif,
-		     struct ieee80211_sta *sta)
+		     struct mt76_wcid *wcid)
 {
 #define MT_STA_BSS_GROUP		1
 	struct mt7915_vif *mvif = (struct mt7915_vif *)vif->drv_priv;
-	struct mt7915_sta *msta = sta ? (struct mt7915_sta *)sta->drv_priv : &mvif->sta;
 	struct {
 		__le32 action;
 		u8 wlan_idx_lo;
@@ -1748,8 +1744,8 @@ mt7915_mcu_add_group(struct mt7915_dev *dev, struct ieee80211_vif *vif,
 				   mt7915_vow_sta_bss_grp(&mvif->mt76)),
 	};
 
-	req.wlan_idx_lo = to_wcid_lo(msta->wcid.idx);
-	req.wlan_idx_hi = to_wcid_hi(msta->wcid.idx);
+	req.wlan_idx_lo = to_wcid_lo(wcid->idx);
+	req.wlan_idx_hi = to_wcid_hi(wcid->idx);
 
 	return mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD(SET_DRR_CTRL), &req,
 				 sizeof(req), true);
@@ -1824,7 +1820,7 @@ out:
 	if (ret || conn_state == CONN_STATE_DISCONNECT)
 		return ret;
 
-	mt7915_mcu_add_group(dev, vif, sta);
+	mt7915_mcu_add_group(dev, vif, wcid);
 
 	return 0;
 }

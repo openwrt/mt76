@@ -158,6 +158,7 @@ struct mt7915_sta {
 	unsigned long jiffies;
 	struct mt76_connac_sta_key_conf bip;
 	u16 airtime_weight;
+	u8 conn_state;
 
 	struct {
 		u8 flowid_mask;
