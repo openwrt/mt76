@@ -697,8 +697,6 @@ int mt7996_txbf_init(struct mt7996_dev *dev)
 
 void mt7996_vow_init(struct mt7996_phy *phy)
 {
-	phy->dev->vow_atf_en = true;
-
 	mt7996_mcu_set_vow_drr_ctrl(phy->dev, phy->mt76->band_idx, NULL, NULL,
 				    VOW_DRR_CTRL_AIRTIME_DEFICIT_BOUND, 0);
 	mt7996_mcu_set_vow_drr_ctrl(phy->dev, phy->mt76->band_idx, NULL, NULL,
@@ -1783,6 +1781,7 @@ int mt7996_register_device(struct mt7996_dev *dev)
 	INIT_WORK(&dev->reset_work, mt7996_mac_reset_work);
 	INIT_WORK(&dev->dump_work, mt7996_mac_dump_work);
 	mutex_init(&dev->dump_mutex);
+	dev->vow_atf_en = true;
 
 	ret = mt7996_init_hardware(dev);
 	if (ret)
