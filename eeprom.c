@@ -174,12 +174,12 @@ int
 mt76_eeprom_override(struct mt76_phy *phy)
 {
 	struct mt76_dev *dev = phy->dev;
-	struct device_node *np = dev->dev->of_node, *band_np;
+	struct device_node *np = dev->dev->of_node;
 	bool found_mac = false;
 	u32 reg;
 	int ret;
 
-	for_each_child_of_node(np, band_np) {
+	for_each_child_of_node_scoped(np, band_np) {
 		ret = of_property_read_u32(band_np, "reg", &reg);
 		if (ret)
 			continue;
