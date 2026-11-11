@@ -1093,6 +1093,97 @@ mt7996_mcu_rx_bss_event(struct mt7996_dev *dev, struct sk_buff *skb)
 	}
 }
 
+struct mt7996_mld_attlm_data {
+	struct mt7996_dev *dev;
+	const u8 *mld_addr;
+	enum nl80211_commands cmd;
+};
+
+static void
+mt7996_mcu_mld_attlm_notify(void *priv, u8 *mac, struct ieee80211_vif *vif)
+{
+	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+	struct mt7996_mld_attlm_data *data = priv;
+	struct cfg80211_adv_ttlm_event event = {
+		.cmd = data->cmd,
+	};
+
+	if (vif->type != NL80211_IFTYPE_AP || !ieee80211_vif_is_mld(vif) ||
+	    !ether_addr_equal(vif->addr, data->mld_addr))
+		return;
+
+	spin_lock_bh(&data->dev->mt76.lock);
+	event.cookie = mvif->attlm_cookie;
+	if (data->cmd == NL80211_CMD_ADV_TTLM_ESTABLISHED)
+		event.tbtt_boottime = mvif->attlm_tbtt_boottime;
+	if (data->cmd == NL80211_CMD_ADV_TTLM_ENDED) {
+		mvif->attlm_cookie = 0;
+		mvif->attlm_end_boottime = 0;
+	}
+	spin_unlock_bh(&data->dev->mt76.lock);
+
+	/* a cancelled mapping runs on in the firmware until its end */
+	if (!event.cookie)
+		return;
+
+	ieee80211_adv_ttlm_notify(vif, &event, GFP_ATOMIC);
+}
+
+static void
+mt7996_mcu_mld_attlm_timeout(struct mt7996_dev *dev, const u8 *mld_addr,
+			     struct tlv *tlv)
+{
+	struct mt7996_mcu_mld_attlm_timeout_event *timeout = (void *)tlv;
+	struct mt7996_mld_attlm_data data = {
+		.dev = dev,
+		.mld_addr = mld_addr,
+	};
+
+	if (le16_to_cpu(tlv->len) < sizeof(*timeout))
+		return;
+
+	switch (timeout->event_type) {
+	case MLD_ATTLM_TIMEOUT_SWITCH_TIME:
+		data.cmd = NL80211_CMD_ADV_TTLM_ESTABLISHED;
+		break;
+	case MLD_ATTLM_TIMEOUT_DURATION:
+		data.cmd = NL80211_CMD_ADV_TTLM_ENDED;
+		break;
+	default:
+		return;
+	}
+
+	ieee80211_iterate_active_interfaces_atomic(mt76_hw(dev),
+			IEEE80211_IFACE_ITER_RESUME_ALL,
+			mt7996_mcu_mld_attlm_notify, &data);
+}
+
+static void
+mt7996_mcu_rx_mld_event(struct mt7996_dev *dev, struct sk_buff *skb)
+{
+	struct mt7996_mcu_mld_event *event = (void *)skb->data;
+	u8 *pos = event->buf;
+	int len;
+
+	if (skb->len < sizeof(*event))
+		return;
+
+	len = skb->len - sizeof(*event);
+	while (len >= sizeof(struct tlv)) {
+		struct tlv *tlv = (struct tlv *)pos;
+		u16 tlv_len = le16_to_cpu(tlv->len);
+
+		if (tlv_len < sizeof(*tlv) || tlv_len > len)
+			break;
+
+		if (le16_to_cpu(tlv->tag) == UNI_EVENT_MLD_ATTLM_TIMEOUT)
+			mt7996_mcu_mld_attlm_timeout(dev, event->mld_addr, tlv);
+
+		pos += tlv_len;
+		len -= tlv_len;
+	}
+}
+
 static void
 mt7996_mcu_uni_rx_unsolicited_event(struct mt7996_dev *dev, struct sk_buff *skb)
 {
@@ -1119,6 +1210,9 @@ mt7996_mcu_uni_rx_unsolicited_event(struct mt7996_dev *dev, struct sk_buff *skb)
 		break;
 	case MCU_UNI_EVENT_BSS_INFO:
 		mt7996_mcu_rx_bss_event(dev, skb);
+		break;
+	case MCU_UNI_EVENT_MLD:
+		mt7996_mcu_rx_mld_event(dev, skb);
 		break;
 	default:
 		break;
@@ -3100,6 +3194,223 @@ int mt7996_mcu_mld_reconf_stop_link(struct mt7996_dev *dev,
 				     true);
 }
 
+static struct mt7996_vif_link *
+mt7996_mcu_mld_link_by_idx(struct mt7996_dev *dev, struct ieee80211_vif *vif,
+			   u8 bss_idx)
+{
+	unsigned long valid_links = vif->valid_links;
+	unsigned int link_id;
+
+	for_each_set_bit(link_id, &valid_links, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct mt7996_vif_link *link = mt7996_vif_link(dev, vif, link_id);
+
+		if (link && link->mt76.idx == bss_idx)
+			return link;
+	}
+
+	return NULL;
+}
+
+static u64 mt7996_tsf_to_boottime(u64 tsf, u64 ref_tsf, u64 ref_boottime)
+{
+	return ref_boottime + (s64)(tsf - ref_tsf) * NSEC_PER_USEC;
+}
+
+static int
+mt7996_mcu_mld_attlm_started(struct mt7996_dev *dev, struct ieee80211_vif *vif,
+			     struct sk_buff *skb,
+			     struct cfg80211_adv_ttlm_params *params)
+{
+	unsigned int hdr_len = sizeof(struct mt7996_mcu_mld_event) -
+			       sizeof(struct mt7996_mcu_rxd);
+	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+	struct mt7996_mcu_mld_attlm_resp_event *resp;
+	unsigned long valid_links = vif->valid_links;
+	u64 switch_tsf, end_tsf, ref_tsf, ref_boottime;
+	struct ieee80211_hw *hw = mt76_hw(dev);
+	struct mt7996_vif_link *ref;
+	unsigned int link_id;
+	u64 switch_boottime;
+
+	if (skb->len < hdr_len + sizeof(*resp))
+		return -EIO;
+
+	resp = (struct mt7996_mcu_mld_attlm_resp_event *)(skb->data + hdr_len);
+	if (le16_to_cpu(resp->tag) != UNI_EVENT_MLD_ATTLM_RES_RSP ||
+	    le16_to_cpu(resp->len) < sizeof(*resp))
+		return -EIO;
+
+	if (resp->status) {
+		dev_warn(dev->mt76.dev, "A-TTLM request failed: status %u\n",
+			 resp->status);
+		return -EIO;
+	}
+
+	ref = mt7996_mcu_mld_link_by_idx(dev, vif, resp->bss_idx);
+	if (!ref)
+		return -EIO;
+
+	switch_tsf = le32_to_cpu(resp->switch_time_tsf[0]) |
+		     (u64)le32_to_cpu(resp->switch_time_tsf[1]) << 32;
+	end_tsf = le32_to_cpu(resp->end_tsf[0]) |
+		  (u64)le32_to_cpu(resp->end_tsf[1]) << 32;
+
+	/* the events of the firmware carry no time, so the TSF of the switch
+	 * gives the CLOCK_BOOTTIME of its TBTT
+	 */
+	ref_tsf = __mt7996_get_tsf(hw, ref);
+	ref_boottime = ktime_get_boottime_ns();
+	switch_boottime = mt7996_tsf_to_boottime(switch_tsf, ref_tsf,
+						 ref_boottime);
+
+	spin_lock_bh(&dev->mt76.lock);
+	mvif->attlm_cookie = params->cookie;
+	mvif->attlm_tbtt_boottime = switch_boottime;
+	mvif->attlm_end_boottime = mt7996_tsf_to_boottime(end_tsf, ref_tsf,
+							  ref_boottime);
+	spin_unlock_bh(&dev->mt76.lock);
+
+	/* the firmware reports the switch time in the TSF of one link, and
+	 * each affiliated AP advertises it in its own TSF
+	 */
+	for_each_set_bit(link_id, &valid_links, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct mt7996_vif_link *link = mt7996_vif_link(dev, vif, link_id);
+		struct cfg80211_adv_ttlm_event event = {
+			.cmd = NL80211_CMD_ADV_TTLM_STARTED,
+			.cookie = params->cookie,
+			.link_id = link_id,
+		};
+		struct ieee80211_bss_conf *link_conf;
+		u64 tsf, beacon_int, rem;
+
+		link_conf = link_conf_dereference_protected(vif, link_id);
+		if (!link || !link_conf)
+			continue;
+
+		tsf = switch_tsf + __mt7996_get_tsf(hw, link) -
+		      __mt7996_get_tsf(hw, ref);
+		event.switch_tsf = (tsf >> 10) & 0xffff;
+
+		/* a TBTT is where the TSF is a multiple of the beacon
+		 * interval
+		 */
+		beacon_int = (u64)link_conf->beacon_int * 1024;
+		if (beacon_int) {
+			div64_u64_rem(tsf, beacon_int, &rem);
+			event.tbtt_boottime = switch_boottime +
+				(rem ? beacon_int - rem : 0) * NSEC_PER_USEC;
+		}
+
+		ieee80211_adv_ttlm_notify(vif, &event, GFP_KERNEL);
+	}
+
+	return 0;
+}
+
+int mt7996_mcu_mld_adv_ttlm(struct mt7996_dev *dev, struct ieee80211_vif *vif,
+			    struct cfg80211_adv_ttlm_params *params)
+{
+	unsigned long disabled = vif->valid_links & ~params->links;
+	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+	u64 duration_us = (u64)params->duration * 1024;
+	u64 switch_us = (u64)params->switch_time * 1024;
+	struct mld_req_hdr hdr = { .mld_idx = 0xff };
+	struct mld_attlm_req *req;
+	struct sk_buff *skb, *rskb;
+	unsigned int link_id;
+	struct tlv *tlv;
+	bool busy;
+	int ret;
+
+	if (!disabled)
+		return -EINVAL;
+
+	if (switch_us > U32_MAX || duration_us > U32_MAX)
+		return -ERANGE;
+
+	/* the firmware has no command that stops a mapping, so a cancelled
+	 * one runs until its end
+	 */
+	spin_lock_bh(&dev->mt76.lock);
+	busy = ktime_get_boottime_ns() < mvif->attlm_end_boottime;
+	spin_unlock_bh(&dev->mt76.lock);
+	if (busy)
+		return -EBUSY;
+
+	skb = mt76_mcu_msg_alloc(&dev->mt76, NULL, sizeof(hdr) + sizeof(*req));
+	if (!skb)
+		return -ENOMEM;
+
+	memcpy(hdr.mld_addr, vif->addr, ETH_ALEN);
+	skb_put_data(skb, &hdr, sizeof(hdr));
+
+	tlv = mt7996_mcu_add_uni_tlv(skb, UNI_CMD_MLD_ATTLM_RES_REQ,
+				     sizeof(*req));
+	req = (struct mld_attlm_req *)tlv;
+	req->mst_timer = 1;
+	req->e_timer = 1;
+	req->mst_timer_adv_time = cpu_to_le16(50);
+	req->mst_duration = cpu_to_le32(switch_us);
+	req->e_duration = cpu_to_le32(duration_us);
+	req->disabled_link_bitmap = cpu_to_le16(disabled);
+	req->bss_idx = 0xff;
+
+	for_each_set_bit(link_id, &disabled, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct mt7996_vif_link *link = mt7996_vif_link(dev, vif, link_id);
+
+		if (!link)
+			continue;
+
+		if (req->bss_idx == 0xff)
+			req->bss_idx = link->mt76.idx;
+		req->disabled_bss_idx[link_id] = link->mt76.idx;
+	}
+
+	if (req->bss_idx == 0xff) {
+		dev_kfree_skb(skb);
+		return -ENOLINK;
+	}
+
+	ret = mt76_mcu_skb_send_and_get_msg(&dev->mt76, skb,
+					    MCU_WM_UNI_CMD(MLD), true, &rskb);
+	if (ret)
+		return ret;
+
+	ret = mt7996_mcu_mld_attlm_started(dev, vif, rskb, params);
+	dev_kfree_skb(rskb);
+
+	return ret;
+}
+
+void mt7996_mcu_mld_adv_ttlm_cancel(struct mt7996_dev *dev,
+				    struct ieee80211_vif *vif, u64 cookie)
+{
+	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+
+	spin_lock_bh(&dev->mt76.lock);
+	if (mvif->attlm_cookie == cookie)
+		mvif->attlm_cookie = 0;
+	spin_unlock_bh(&dev->mt76.lock);
+}
+
+void mt7996_mcu_mld_adv_ttlm_reset(struct mt7996_dev *dev,
+				   struct ieee80211_vif *vif)
+{
+	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+	struct cfg80211_adv_ttlm_event event = {
+		.cmd = NL80211_CMD_ADV_TTLM_ENDED,
+	};
+
+	spin_lock_bh(&dev->mt76.lock);
+	event.cookie = mvif->attlm_cookie;
+	mvif->attlm_cookie = 0;
+	mvif->attlm_end_boottime = 0;
+	spin_unlock_bh(&dev->mt76.lock);
+
+	if (event.cookie)
+		ieee80211_adv_ttlm_notify(vif, &event, GFP_KERNEL);
+}
+
 int mt7996_mcu_mld_link_oper(struct mt7996_dev *dev,
 			     struct ieee80211_bss_conf *link_conf,
 			     struct mt7996_vif_link *link, bool add)
@@ -3792,6 +4103,45 @@ mt7996_mcu_beacon_send(struct mt7996_dev *dev, struct mt7996_vif_link *link,
 }
 
 static void
+mt7996_mcu_beacon_attlm(struct sk_buff *rskb, struct sk_buff *skb,
+			struct ieee80211_vif *vif,
+			struct ieee80211_mutable_offsets *offs)
+{
+	u16 tail_offset = offs->tim_offset + offs->tim_length;
+	struct bss_bcn_attlm_offset_tlv *attlm;
+	const struct element *elem;
+	struct tlv *tlv;
+
+	if (!ieee80211_vif_is_mld(vif))
+		return;
+
+	/* the firmware counts the Expected Duration field down once the
+	 * mapping is established, which is when the Mapping Switch Time
+	 * field leaves the element
+	 */
+	for_each_element_extid(elem, WLAN_EID_EXT_TID_TO_LINK_MAPPING,
+			       skb->data + tail_offset,
+			       skb->len - tail_offset) {
+		const struct ieee80211_ttlm_elem *ttlm = (const void *)(elem->data + 1);
+
+		if (!ieee80211_tid_to_link_map_size_ok(elem->data + 1,
+						       elem->datalen - 1))
+			continue;
+
+		if ((ttlm->control & IEEE80211_TTLM_CONTROL_SWITCH_TIME_PRESENT) ||
+		    !(ttlm->control & IEEE80211_TTLM_CONTROL_EXPECTED_DUR_PRESENT))
+			continue;
+
+		tlv = mt7996_mcu_add_uni_tlv(rskb, UNI_BSS_INFO_BCN_ATTLM,
+					     sizeof(*attlm));
+		attlm = (struct bss_bcn_attlm_offset_tlv *)tlv;
+		attlm->valid_id_bitmap = BIT(0);
+		attlm->offset[0] = cpu_to_le16((const u8 *)elem - skb->data);
+		return;
+	}
+}
+
+static void
 mt7996_mcu_beacon_cont(struct mt7996_dev *dev,
 		       struct ieee80211_bss_conf *link_conf,
 		       struct mt7996_vif_link *link,
@@ -3893,6 +4243,7 @@ int mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	mt7996_mcu_beacon_cntdwn(rskb, skb, &offs, link_conf->csa_active);
 	crit_update = mt7996_mcu_beacon_crit_update(rskb, skb, vif, link, &offs,
 						    &bpcc);
+	mt7996_mcu_beacon_attlm(rskb, skb, vif, &offs);
 out:
 	dev_kfree_skb(skb);
 	ret = mt7996_mcu_beacon_send(dev, link, rskb, crit_update,

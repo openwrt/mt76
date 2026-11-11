@@ -72,6 +72,46 @@ enum {
 	UNI_EVENT_BSS_BCN_CRIT_UPDATE = 0x01,
 };
 
+struct mt7996_mcu_mld_event {
+	struct mt7996_mcu_rxd rxd;
+
+	u8 ver;
+	u8 mld_addr[ETH_ALEN];
+	u8 mld_idx;
+	u8 __rsv[4];
+
+	u8 buf[];
+} __packed;
+
+struct mt7996_mcu_mld_attlm_resp_event {
+	__le16 tag;
+	__le16 len;
+	u8 status;
+	u8 attlm_idx;
+	u8 bss_idx;
+	u8 __rsv;
+	__le32 switch_time_tsf[2];
+	__le32 end_tsf[2];
+} __packed;
+
+struct mt7996_mcu_mld_attlm_timeout_event {
+	__le16 tag;
+	__le16 len;
+	u8 attlm_idx;
+	u8 event_type;
+	u8 __rsv[2];
+} __packed;
+
+enum {
+	UNI_EVENT_MLD_ATTLM_RES_RSP = 0x02,
+	UNI_EVENT_MLD_ATTLM_TIMEOUT = 0x03,
+};
+
+enum {
+	MLD_ATTLM_TIMEOUT_SWITCH_TIME = 1,
+	MLD_ATTLM_TIMEOUT_DURATION = 2,
+};
+
 struct mt7996_mcu_rdd_report {
 	struct mt7996_mcu_rxd rxd;
 
@@ -532,6 +572,20 @@ struct bss_bcn_crit_update_tlv {
 	u8 rsv[3];
 } __packed;
 
+#define MAX_ATTLM_NUM	1
+
+struct bss_bcn_attlm_offset_tlv {
+	__le16 tag;
+	__le16 len;
+	u8 valid_id_bitmap;
+	u8 rsv;
+	__le16 offset[MAX_ATTLM_NUM];
+	__le16 non_tx_bitmap;
+	u8 rsv2[2];
+	u8 non_tx_valid_id_bitmap[MAX_BEACON_NUM];
+	__le16 non_tx_offset[MAX_BEACON_NUM][MAX_ATTLM_NUM];
+} __packed;
+
 struct bss_txcmd_tlv {
 	__le16 tag;
 	__le16 len;
@@ -796,7 +850,24 @@ struct mld_reconf_stop_link {
 	u8 bss_idx[16];
 } __packed;
 
+struct mld_attlm_req {
+	__le16 tag;
+	__le16 len;
+	u8 attlm_idx;
+	u8 bss_idx;
+	u8 mst_timer;
+	u8 e_timer;
+	__le16 mst_timer_adv_time;
+	__le16 e_timer_adv_time;
+	__le32 mst_duration;
+	__le32 e_duration;
+	__le16 disabled_link_bitmap;
+	u8 disabled_bss_idx[16];
+	u8 rsv[2];
+} __packed;
+
 enum {
+	UNI_CMD_MLD_ATTLM_RES_REQ = 0x02,
 	UNI_CMD_MLD_RECONF_AP_REM_TIMER = 0x03,
 	UNI_CMD_MLD_RECONF_STOP_LINK = 0x04,
 };
@@ -1045,7 +1116,8 @@ enum {
 					 4 + MT_TXD_SIZE +			\
 					 sizeof(struct bss_bcn_cntdwn_tlv) * 2 +	\
 					 sizeof(struct bss_bcn_mbss_tlv) +	\
-					 sizeof(struct bss_bcn_crit_update_tlv))
+					 sizeof(struct bss_bcn_crit_update_tlv) + \
+					 sizeof(struct bss_bcn_attlm_offset_tlv))
 #define MT7996_MAX_BSS_OFFLOAD_SIZE	2048
 #define MT7996_MAX_BEACON_SIZE		(MT7996_MAX_BSS_OFFLOAD_SIZE - \
 					 MT7996_BEACON_UPDATE_SIZE)

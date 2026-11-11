@@ -369,6 +369,11 @@ struct mt7996_vif {
 
 	u8 mld_group_idx;
 	u8 mld_remap_idx;
+
+	/* advertised TID-to-link mapping, under mt76_dev.lock */
+	u64 attlm_cookie;
+	u64 attlm_tbtt_boottime;
+	u64 attlm_end_boottime;
 };
 
 /* crash-dump */
@@ -926,6 +931,12 @@ int mt7996_mcu_mld_reconf_stop_link(struct mt7996_dev *dev,
 int mt7996_mcu_mld_link_oper(struct mt7996_dev *dev,
 			     struct ieee80211_bss_conf *link_conf,
 			     struct mt7996_vif_link *link, bool add);
+int mt7996_mcu_mld_adv_ttlm(struct mt7996_dev *dev, struct ieee80211_vif *vif,
+			    struct cfg80211_adv_ttlm_params *params);
+void mt7996_mcu_mld_adv_ttlm_cancel(struct mt7996_dev *dev,
+				    struct ieee80211_vif *vif, u64 cookie);
+void mt7996_mcu_mld_adv_ttlm_reset(struct mt7996_dev *dev,
+				   struct ieee80211_vif *vif);
 
 static inline bool mt7996_has_hwrro(struct mt7996_dev *dev)
 {

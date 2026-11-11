@@ -533,6 +533,7 @@ mt7996_init_wiphy(struct ieee80211_hw *hw, struct mtk_wed_device *wed)
 	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_SCS);
 	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_MSCS);
 	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_BEACON_CRIT_UPDATE);
+	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_AP_ADV_TTLM);
 
 	if (mt7996_eeprom_has_background_radar(dev) &&
 	    (!mdev->dev->of_node ||

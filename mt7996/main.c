@@ -693,6 +693,9 @@ static int mt7996_add_interface(struct ieee80211_hw *hw,
 		}
 	}
 
+	/* the firmware of a hardware restart lost the mapping */
+	mt7996_mcu_mld_adv_ttlm_reset(dev, vif);
+
 	mt76_vif_init(vif, &mvif->mt76);
 
 	vif->offload_flags |= IEEE80211_OFFLOAD_ENCAP_4ADDR;
@@ -3472,6 +3475,27 @@ mt7996_set_eml_op_mode(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	return ret;
 }
 
+static int
+mt7996_adv_ttlm_request(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+			struct cfg80211_adv_ttlm_params *params)
+{
+	struct mt7996_dev *dev = mt7996_hw_dev(hw);
+	int ret;
+
+	mutex_lock(&dev->mt76.mutex);
+	ret = mt7996_mcu_mld_adv_ttlm(dev, vif, params);
+	mutex_unlock(&dev->mt76.mutex);
+
+	return ret;
+}
+
+static void
+mt7996_adv_ttlm_cancel(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+		       u64 cookie)
+{
+	mt7996_mcu_mld_adv_ttlm_cancel(mt7996_hw_dev(hw), vif, cookie);
+}
+
 const struct ieee80211_ops mt7996_ops = {
 	.add_chanctx = mt76_add_chanctx,
 	.remove_chanctx = mt76_remove_chanctx,
@@ -3537,4 +3561,6 @@ const struct ieee80211_ops mt7996_ops = {
 	.change_sta_links = mt7996_mac_sta_change_links,
 	.reconfig_complete = mt7996_reconfig_complete,
 	.set_eml_op_mode = mt7996_set_eml_op_mode,
+	.adv_ttlm_request = mt7996_adv_ttlm_request,
+	.adv_ttlm_cancel = mt7996_adv_ttlm_cancel,
 };
