@@ -4112,6 +4112,7 @@ int mt7996_mcu_set_peer_mld(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	if (!ret) {
 		msta->peer_mld_links = links;
 		msta->fw_mld_idx = fw_mld_idx;
+		msta->fw_mld_link_id = msta->deflink_id;
 	}
 
 	return ret;

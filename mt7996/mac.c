@@ -811,26 +811,32 @@ mt7996_mac_write_txwi_80211(struct mt7996_dev *dev, __le32 *txwi,
 }
 
 /* The WLAN_IDX in the TXD and TXP must belong to the primary or secondary
- * link of an MLD station; any other link id can make the firmware spin when
- * that link is in powersave. Completion events carry the same index, so the
- * wcid used for status tracking and accounting must match it
+ * link of the last MLD setup of an MLD station; any other link id can make
+ * the firmware spin when that link is in powersave. While the PEER_MLD
+ * description is valid, the primary is the link of fw_mld_idx, also after the
+ * default link moved away from it. Completion events carry the same index, so
+ * the wcid used for status tracking and accounting must match it
  */
 struct mt76_wcid *mt7996_get_tx_wcid(struct mt76_wcid *wcid)
 {
 	struct mt7996_sta_link *msta_link;
 	struct mt7996_sta *msta;
+	u8 primary;
 
 	if (!wcid->sta)
 		return wcid;
 
 	msta_link = container_of(wcid, struct mt7996_sta_link, wcid);
 	msta = msta_link->sta;
-
-	if (!msta || wcid->link_id == msta->seclink_id ||
-	    wcid->link_id == msta->deflink_id)
+	if (!msta)
 		return wcid;
 
-	msta_link = mt7996_sta_link(msta, msta->deflink_id);
+	primary = msta->peer_mld_links ? msta->fw_mld_link_id :
+					 msta->deflink_id;
+	if (wcid->link_id == msta->seclink_id || wcid->link_id == primary)
+		return wcid;
+
+	msta_link = mt7996_sta_link(msta, primary);
 	if (msta_link)
 		return &msta_link->wcid;
 
