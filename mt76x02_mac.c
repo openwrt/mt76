@@ -823,6 +823,8 @@ int mt76x02_mac_process_rx(struct mt76x02_dev *dev, struct sk_buff *skb,
 		status->flag |= RX_FLAG_IV_STRIPPED;
 	}
 
+	/* one PN array serves all group keys of the vif */
+	status->skip_pn_check = !unicast;
 	wcid = FIELD_GET(MT_RXWI_CTL_WCID, ctl);
 	sta = mt76x02_rx_get_sta(&dev->mt76, wcid);
 	status->wcid = mt76x02_rx_get_sta_wcid(sta, unicast);

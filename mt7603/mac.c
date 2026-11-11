@@ -550,6 +550,8 @@ mt7603_mac_fill_rx(struct mt7603_dev *dev, struct sk_buff *skb)
 	sband = (i & 1) ? &dev->mphy.sband_5g.sband : &dev->mphy.sband_2g.sband;
 	i >>= 1;
 
+	/* one PN array serves all group keys of the vif */
+	status->skip_pn_check = !unicast;
 	idx = FIELD_GET(MT_RXD2_NORMAL_WLAN_IDX, rxd2);
 	status->wcid = mt7603_rx_get_wcid(dev, idx, unicast);
 
