@@ -281,6 +281,9 @@ static int mt7915_add_interface(struct ieee80211_hw *hw,
 
 	mutex_unlock(&dev->mt76.mutex);
 
+	if (!is_mt7915(&dev->mt76))
+		mt7915_mcu_set_vow_band(dev, mvif);
+
 	return 0;
 
 err:
@@ -291,9 +294,6 @@ out:
 	if (phy->monitor_vif == vif)
 		phy->monitor_vif = NULL;
 	mutex_unlock(&dev->mt76.mutex);
-
-	if (!is_mt7915(&dev->mt76))
-		mt7915_mcu_set_vow_band(dev, mvif);
 
 	return ret;
 }
