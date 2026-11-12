@@ -1416,7 +1416,8 @@ int __mt7921_mcu_set_clc(struct mt792x_dev *dev, u8 *alpha2,
 		.env = env_cap,
 		.env_6g = dev->phy.power_type,
 		.acpi_conf = mt792x_acpi_get_flags(&dev->phy),
-		.mtcl_conf = mt792x_acpi_get_mtcl_conf(&dev->phy, alpha2),
+		/* MT792X_ACPI_MTCL_INVALID is sent to the FW as 0xff */
+		.mtcl_conf = mt792x_acpi_get_mtcl_conf(&dev->phy, alpha2) & 0xff,
 	};
 	struct device_node *np;
 	int ret, valid_cnt = 0;
