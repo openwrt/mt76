@@ -4643,6 +4643,7 @@ mt7996_mcu_beacon_attlm(struct sk_buff *rskb, struct sk_buff *skb,
 
 struct mt7996_mcu_ml_reconf {
 	u16 links;
+	u16 to_sec;
 	u16 offs[IEEE80211_MLD_MAX_NUM_LINKS];
 	u16 count[IEEE80211_MLD_MAX_NUM_LINKS];
 };
@@ -4740,18 +4741,15 @@ mt7996_mcu_beacon_ml_reconf(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	}
 }
 
-static int
-mt7996_mcu_mld_reconf_timer(struct mt7996_dev *dev, struct ieee80211_vif *vif,
-			    u16 removed_links,
-			    const struct mt7996_mcu_ml_reconf *reconf)
+/* the firmware times the removal in whole seconds, and a time rounded up
+ * keeps each count that it puts on air at or above that of the template
+ */
+static u16
+mt7996_mcu_mld_reconf_to_sec(struct ieee80211_vif *vif, u16 removed_links,
+			     const struct mt7996_mcu_ml_reconf *reconf)
 {
-	struct mld_req_hdr hdr = { .mld_idx = 0xff };
-	unsigned long valid_links = vif->valid_links;
 	unsigned long rem_links = removed_links;
-	struct mld_reconf_timer *rt;
 	unsigned int link_id;
-	struct sk_buff *skb;
-	struct tlv *tlv;
 	u16 to_sec = 0;
 
 	for_each_set_bit(link_id, &rem_links, IEEE80211_MLD_MAX_NUM_LINKS) {
@@ -4760,9 +4758,37 @@ mt7996_mcu_mld_reconf_timer(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		link_conf = link_conf_dereference_protected(vif, link_id);
 		if (link_conf)
 			to_sec = max_t(u16, to_sec,
-				       link_conf->beacon_int *
-				       reconf->count[link_id] / 1000);
+				       DIV_ROUND_UP(link_conf->beacon_int *
+						    reconf->count[link_id],
+						    1000));
 	}
+
+	return to_sec;
+}
+
+/* the firmware puts the count of its timer into the Beacon frames, not the
+ * count of the template
+ */
+static u16
+mt7996_mcu_mld_reconf_count(const struct ieee80211_bss_conf *link_conf,
+			    u16 to_sec)
+{
+	if (!link_conf->beacon_int)
+		return 0;
+
+	return to_sec * 1000 / link_conf->beacon_int;
+}
+
+static int
+mt7996_mcu_mld_reconf_timer(struct mt7996_dev *dev, struct ieee80211_vif *vif,
+			    u16 to_sec)
+{
+	struct mld_req_hdr hdr = { .mld_idx = 0xff };
+	unsigned long valid_links = vif->valid_links;
+	struct mld_reconf_timer *rt;
+	unsigned int link_id;
+	struct sk_buff *skb;
+	struct tlv *tlv;
 
 	skb = mt76_mcu_msg_alloc(&dev->mt76, NULL, sizeof(hdr) + sizeof(*rt));
 	if (!skb)
@@ -4802,7 +4828,7 @@ mt7996_mcu_mld_reconf_timer(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 static u16
 mt7996_mcu_beacon_reconf_start(struct mt7996_dev *dev,
 			       struct ieee80211_vif *vif,
-			       const struct mt7996_mcu_ml_reconf *reconf)
+			       struct mt7996_mcu_ml_reconf *reconf)
 {
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
 	u16 links;
@@ -4812,8 +4838,11 @@ mt7996_mcu_beacon_reconf_start(struct mt7996_dev *dev,
 				  mvif->reconf_done_links);
 	spin_unlock_bh(&dev->mt76.lock);
 
-	if (!links || (links & ~mvif->mt76.valid_links) ||
-	    mt7996_mcu_mld_reconf_timer(dev, vif, links, reconf))
+	if (!links || (links & ~mvif->mt76.valid_links))
+		return 0;
+
+	reconf->to_sec = mt7996_mcu_mld_reconf_to_sec(vif, links, reconf);
+	if (mt7996_mcu_mld_reconf_timer(dev, vif, reconf->to_sec))
 		return 0;
 
 	spin_lock_bh(&dev->mt76.lock);
@@ -4881,6 +4910,43 @@ mt7996_mcu_beacon_reconf_align(struct mt7996_dev *dev,
 	return mt7996_mcu_beacon_tbtt_wait(dev, link, bi_us, bi_us);
 }
 
+/* one timer stops the TX of all links that a template starts, at the
+ * removal TBTT of the first one, so each link reports that time
+ */
+static void
+mt7996_mcu_beacon_reconf_report(struct mt7996_dev *dev,
+				struct ieee80211_vif *vif, u16 links,
+				const struct mt7996_mcu_ml_reconf *reconf,
+				struct mt7996_vif_link *ref, u64 tbtt_tsf,
+				u64 tbtt)
+{
+	struct cfg80211_ap_removal_timer_event event = {
+		.tbtt_boottime = tbtt,
+	};
+	struct ieee80211_hw *hw = mt76_hw(dev);
+	unsigned long started = links;
+	unsigned int link_id;
+
+	for_each_set_bit(link_id, &started, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct ieee80211_bss_conf *link_conf;
+		struct mt7996_vif_link *link;
+
+		link_conf = link_conf_dereference_protected(vif, link_id);
+		link = mt7996_vif_link(dev, vif, link_id);
+		if (!link_conf || !link)
+			continue;
+
+		event.link_id = link_id;
+		event.count = mt7996_mcu_mld_reconf_count(link_conf,
+							  reconf->to_sec);
+		event.tsf = tbtt_tsf;
+		if (link != ref)
+			event.tsf += __mt7996_get_tsf(hw, link) -
+				     __mt7996_get_tsf(hw, ref);
+		ieee80211_ap_removal_timer_started(vif, &event, GFP_KERNEL);
+	}
+}
+
 /* stops the TX of the removed links just before their removal TBTT */
 static void
 mt7996_mcu_beacon_reconf_arm(struct mt7996_dev *dev, struct ieee80211_vif *vif,
@@ -4893,6 +4959,7 @@ mt7996_mcu_beacon_reconf_arm(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	struct ieee80211_bss_conf *link_conf;
 	struct mt7996_vif_link *link;
 	u32 bi_us;
+	u16 count;
 
 	link_conf = link_conf_dereference_protected(vif, link_id);
 	link = mt7996_vif_link(dev, vif, link_id);
@@ -4900,8 +4967,9 @@ mt7996_mcu_beacon_reconf_arm(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		return;
 
 	bi_us = link_conf->beacon_int * 1024;
+	count = mt7996_mcu_mld_reconf_count(link_conf, reconf->to_sec);
 	t0 = div_u64(upload_tsf, bi_us) + 1;
-	tbtt_tsf = (t0 + reconf->count[link_id]) * bi_us;
+	tbtt_tsf = (t0 + count) * bi_us;
 
 	ref_tsf = __mt7996_get_tsf(mt76_hw(dev), link);
 	ref_boottime = ktime_get_boottime_ns();
@@ -4919,7 +4987,10 @@ mt7996_mcu_beacon_reconf_arm(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		      HRTIMER_MODE_ABS_SOFT);
 	dev_dbg(dev->mt76.dev,
 		"removal of links 0x%x at TSF %llu of link %u, count %u\n",
-		links, tbtt_tsf, link_id, reconf->count[link_id]);
+		links, tbtt_tsf, link_id, count);
+
+	mt7996_mcu_beacon_reconf_report(dev, vif, links, reconf, link,
+					tbtt_tsf, tbtt);
 }
 
 static void
