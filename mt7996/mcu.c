@@ -5295,7 +5295,7 @@ int mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct mt7996_vif_link *link = mt7996_vif_conf_link(dev, vif, link_conf);
 	struct mt76_phy *mphy;
 	struct mt7996_phy *phy;
-	u16 done;
+	u16 stopped;
 
 	if (link_conf->nontransmitted)
 		return 0;
@@ -5303,14 +5303,15 @@ int mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	if (!link)
 		return -EINVAL;
 
-	/* a link whose TX the removal stopped stays off until it goes, and
-	 * the other links leave its profile out
+	/* a link whose TX the removal stopped, or is due to stop, stays off
+	 * until it goes, and the other links leave its profile out, since the
+	 * firmware after a full reset holds no timer for it
 	 */
 	spin_lock_bh(&dev->mt76.lock);
-	done = mvif->reconf_done_links;
+	stopped = mvif->reconf_done_links | mvif->reconf_stop_links;
 	spin_unlock_bh(&dev->mt76.lock);
 
-	if (!enabled || (done & BIT(link_conf->link_id))) {
+	if (!enabled || (stopped & BIT(link_conf->link_id))) {
 		mt7996_mcu_beacon_reconf_stop(dev, vif, link_conf->link_id,
 					      false);
 		return __mt7996_mcu_add_beacon(hw, vif, link_conf, link, false, 0);
@@ -5323,7 +5324,7 @@ int mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	    mt7996_mcu_beacon_reconf_held(dev, vif, link_conf->link_id))
 		return 0;
 
-	return __mt7996_mcu_add_beacon(hw, vif, link_conf, link, true, done);
+	return __mt7996_mcu_add_beacon(hw, vif, link_conf, link, true, stopped);
 }
 
 int mt7996_mcu_beacon_inband_discov(struct mt7996_dev *dev,
