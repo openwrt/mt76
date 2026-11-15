@@ -134,8 +134,7 @@ void mt76_connac_pm_dequeue_skbs(struct mt76_phy *phy,
 			continue;
 
 		if (wcid && wcid->sta)
-			sta = container_of((void *)wcid, struct ieee80211_sta,
-					   drv_priv);
+			sta = wcid_to_sta(wcid);
 
 		mt76_tx(phy, sta, wcid, pm->tx_q[i].skb);
 		pm->tx_q[i].skb = NULL;
