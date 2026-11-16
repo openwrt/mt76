@@ -1524,7 +1524,16 @@ mt7925_mac_sta_remove_links(struct mt792x_dev *dev, struct ieee80211_vif *vif,
 		struct mt792x_bss_conf *mconf;
 		struct mt792x_link_sta *mlink;
 
-		if (vif->type == NL80211_IFTYPE_AP)
+		/* AP, NAN, and NAN_DATA BSSes host multiple peer STAs; removing
+		 * one peer must not deactivate the shared BSS. For NAN, doing
+		 * so would kill the sync BSS and the firmware would drop all
+		 * subsequent host-originated NAN management frames. For
+		 * NAN_DATA, it would tear down all other NDPs sharing the same
+		 * NDI.
+		 */
+		if (vif->type == NL80211_IFTYPE_AP ||
+		    vif->type == NL80211_IFTYPE_NAN ||
+		    vif->type == NL80211_IFTYPE_NAN_DATA)
 			break;
 
 		if (vif->type == NL80211_IFTYPE_STATION && sta->tdls)
