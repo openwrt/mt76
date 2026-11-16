@@ -787,6 +787,128 @@ int mt7925_nan_send_lowpower_ctrl_cmd(struct mt792x_dev *dev, bool enable)
 	return mt76_mcu_skb_send_msg(mdev, skb, MCU_UNI_CMD(NAN), true);
 }
 
+static int
+mt7925_nan_key_mgmt_tlv(struct sk_buff *skb,
+			enum mt7925_nan_key_operation key_op,
+			enum mt7925_nan_key_type key_type,
+			u16 wtbl_entry,
+			const u8 *local_addr,
+			const u8 *peer_addr,
+			const struct mt7925_nan_key_info *key)
+{
+	struct mt7925_nan_key_mgmt_tlv *key_mgmt_tlv = NULL;
+	struct tlv *tlv = NULL;
+
+	if (!skb)
+		return -EINVAL;
+
+	tlv = mt76_connac_mcu_add_tlv(skb, NAN_UNI_CMD_KEY_MANAGEMENT,
+				      sizeof(struct mt7925_nan_key_mgmt_tlv));
+	if (!tlv)
+		return -ENOMEM;
+
+	key_mgmt_tlv = (struct mt7925_nan_key_mgmt_tlv *)tlv;
+	key_mgmt_tlv->op = (u8)key_op;
+	key_mgmt_tlv->key_type = (u8)key_type;
+	key_mgmt_tlv->wtbl_idx = cpu_to_le16(wtbl_entry);
+	key_mgmt_tlv->init = 1;
+	key_mgmt_tlv->key_exist = 0;
+	key_mgmt_tlv->is_nmi_tk = 0;
+
+	memcpy(key_mgmt_tlv->local_addr, local_addr, ETH_ALEN);
+	memcpy(key_mgmt_tlv->peer_addr, peer_addr, ETH_ALEN);
+
+	switch (key_type) {
+	case NAN_KEY_TYPE_NMI_CXT_MGMT_KEY:
+		key_mgmt_tlv->nmi_key_idx = 0;
+		key_mgmt_tlv->is_nmi_tk = true;
+		break;
+	case NAN_KEY_TYPE_MC_TX_KEY:
+	case NAN_KEY_TYPE_MC_MGMT_TX_KEY:
+		/* TX GTK/IGTK/BIGTK: NDI-indexed slot; NDC ID not yet tracked */
+		key_mgmt_tlv->ndi_idx = 0;
+		break;
+	case NAN_KEY_TYPE_MC_RX_KEY:
+	case NAN_KEY_TYPE_MC_MGMT_RX_KEY:
+		key_mgmt_tlv->mc_rx_idx = (u8)wtbl_entry;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (key_op == NAN_KEY_OP_SET_KEY) {
+		key_mgmt_tlv->algorithm_id = key->algo_id;
+		key_mgmt_tlv->key_id = key->key_id;
+		key_mgmt_tlv->key_len = key->key_len;
+
+		if (key_type == NAN_KEY_TYPE_MC_MGMT_RX_KEY && key->pn) {
+			memcpy(key_mgmt_tlv->key_rsc, key->pn,
+			       min_t(size_t, NAN_PACKET_NUMBER_LEN,
+				     sizeof(key_mgmt_tlv->key_rsc)));
+		}
+
+		if (key->key_data) {
+			memcpy(key_mgmt_tlv->key_material, key->key_data,
+			       min_t(size_t, key->key_len,
+				     sizeof(key_mgmt_tlv->key_material)));
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * mt7925_nan_manage_key_cmd - Install/remove a NAN group or pairwise key
+ * @dev: mt792x device pointer
+ * @key_op: NAN_KEY_OP_SET_KEY or NAN_KEY_OP_CLS_KEY
+ * @key_type: which NAN key slot this targets (enum mt7925_nan_key_type)
+ * @wtbl_entry: WTBL index the key is bound to (WTBL_RESERVED_ENTRY invalid)
+ * @local_addr: local MAC address for this key context
+ * @peer_addr: peer MAC address for this key context
+ * @key: key material; key->key_data required for NAN_KEY_OP_SET_KEY
+ *
+ * There are no other callers yet; NAN group key installation added by a
+ * later change calls into this single command path.
+ */
+int
+mt7925_nan_manage_key_cmd(struct mt792x_dev *dev,
+			  enum mt7925_nan_key_operation key_op,
+			  enum mt7925_nan_key_type key_type,
+			  u16 wtbl_entry,
+			  const u8 *local_addr,
+			  const u8 *peer_addr,
+			  const struct mt7925_nan_key_info *key)
+{
+	struct mt76_dev *mdev = &dev->mt76;
+	struct mt7925_nan_common_hdr *hdr = NULL;
+	struct sk_buff *skb = NULL;
+	int ret;
+
+	if (!key || !local_addr || !peer_addr ||
+	    key_type >= NAN_KEY_TYPE_NUM ||
+	    wtbl_entry == WTBL_RESERVED_ENTRY ||
+	    (key_op == NAN_KEY_OP_SET_KEY && !key->key_data))
+		return -EINVAL;
+
+	skb = mt76_mcu_msg_alloc(mdev, NULL,
+				 sizeof(struct mt7925_nan_common_hdr) +
+				 sizeof(struct mt7925_nan_key_mgmt_tlv));
+	if (!skb)
+		return -ENOMEM;
+
+	hdr = (struct mt7925_nan_common_hdr *)skb_put(skb, sizeof(*hdr));
+	memset(hdr, 0, sizeof(*hdr));
+
+	ret = mt7925_nan_key_mgmt_tlv(skb, key_op, key_type, wtbl_entry,
+				      local_addr, peer_addr, key);
+	if (ret) {
+		dev_kfree_skb(skb);
+		return ret;
+	}
+
+	return mt76_mcu_skb_send_msg(mdev, skb, MCU_UNI_CMD(NAN), true);
+}
+
 static int mt7925_nan_avail_ctrl_tlv(struct sk_buff *skb,
 				     struct ieee80211_vif *vif)
 {

@@ -110,6 +110,24 @@ enum nan_disc_event_type {
 	NAN_EVENT_ID_JOINED_CLUSTER		= 2,
 };
 
+enum mt7925_nan_key_operation {
+	NAN_KEY_OP_SET_KEY,
+	NAN_KEY_OP_CLS_KEY,
+};
+
+enum mt7925_nan_key_type {
+	NAN_KEY_TYPE_NMI_CXT_MGMT_KEY,	/* NM-TK: NAN Management pairwise key */
+	NAN_KEY_TYPE_ND_TK,		/* ND-TK: NAN Data pairwise key */
+	NAN_KEY_TYPE_MC_TX_KEY,		/* TX GTK (multicast data) */
+	NAN_KEY_TYPE_MC_RX_KEY,		/* RX GTK (multicast data) */
+	NAN_KEY_TYPE_MC_MGMT_TX_KEY,	/* TX IGTK/BIGTK (multicast mgmt) */
+	NAN_KEY_TYPE_MC_MGMT_RX_KEY,	/* RX IGTK/BIGTK (multicast mgmt) */
+	NAN_KEY_TYPE_NUM,
+};
+
+#define WTBL_RESERVED_ENTRY	0xFFFF
+#define NAN_PACKET_NUMBER_LEN	6
+
 /* bit indices into mt792x_dev->nan_deferred_pending, set from the atomic
  * MCU-event RX path and consumed by mt7925_nan_deferred_work()
  */
@@ -479,6 +497,35 @@ struct mt7925_nan_update_phy_setting_tlv {
 	struct mt7925_nan_phy_setting phy_5g;
 } __packed __aligned(4);
 
+struct mt7925_nan_key_mgmt_tlv {
+	__le16 tag;
+	__le16 len;
+
+	u8 op;			/* enum mt7925_nan_key_operation */
+	u8 key_type;		/* enum mt7925_nan_key_type */
+	__le16 wtbl_idx;
+	u8 init;
+	u8 key_exist;
+	u8 is_nmi_tk;
+	u8 reserved0;
+
+	u8 local_addr[ETH_ALEN];
+	u8 peer_addr[ETH_ALEN];
+
+	union {
+		u8 nmi_key_idx;
+		u8 ndi_idx;
+		u8 mc_rx_idx;
+	};
+	u8 algorithm_id;
+	u8 key_id;
+	u8 key_len;
+
+	u8 key_rsc[NAN_PACKET_NUMBER_LEN];
+	u8 reserved1[2];
+	u8 key_material[32];
+} __packed __aligned(4);
+
 /* NAN Low Power Control Command */
 struct mt7925_nan_lowpower_ctrl_tlv {
 	__le16 tag;
@@ -513,6 +560,31 @@ int mt7925_nan_change_configure(struct ieee80211_vif *vif,
 void mt7925_nan_mcu_event(struct mt792x_dev *dev, struct sk_buff *skb);
 
 int mt7925_nan_send_lowpower_ctrl_cmd(struct mt792x_dev *dev, bool enable);
+
+/**
+ * struct mt7925_nan_key_info - key material for mt7925_nan_manage_key_cmd
+ * @algo_id:  firmware cipher algorithm ID (from mt7925_mcu_get_cipher())
+ * @key_id:   key index (1-2 for GTK, 4-7 for IGTK/BIGTK)
+ * @key_len:  key material length in bytes (16 or 32)
+ * @key_data: key bytes; must be non-NULL for SET_KEY operations
+ * @pn:       6-byte packet number / RSC; only used for MC_MGMT_RX_KEY,
+ *            pass NULL for all other key types
+ */
+struct mt7925_nan_key_info {
+	u8 algo_id;
+	u8 key_id;
+	u8 key_len;
+	const u8 *key_data;
+	const u8 *pn;
+};
+
+int mt7925_nan_manage_key_cmd(struct mt792x_dev *dev,
+			      enum mt7925_nan_key_operation key_op,
+			      enum mt7925_nan_key_type key_type,
+			      u16 wtbl_entry,
+			      const u8 *local_addr,
+			      const u8 *peer_addr,
+			      const struct mt7925_nan_key_info *key);
 
 void mt7925_nan_local_sched_changed(struct mt792x_dev *dev,
 				    struct ieee80211_vif *vif);
