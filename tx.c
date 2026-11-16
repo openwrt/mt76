@@ -190,11 +190,20 @@ mt76_tx_status_skb_get(struct mt76_dev *dev, struct mt76_wcid *wcid, int pktid,
 		struct mt76_tx_cb *cb = mt76_tx_skb_cb(skb);
 
 		if (pktid >= 0) {
+			unsigned long timeout = MT_TX_STATUS_SKB_TIMEOUT;
+
 			if (!(cb->flags & MT_TX_CB_DMA_DONE))
 				continue;
 
-			if (time_is_after_jiffies(cb->jiffies +
-						   MT_TX_STATUS_SKB_TIMEOUT))
+			/* A frame held to the NAN DW legitimately waits up to
+			 * a full DW period (524ms) before it airs; timing its
+			 * status out earlier reports a false no-ack to the
+			 * one-shot NAN handshakes (PASN, NDP key install).
+			 */
+			if (wcid->nan_dw)
+				timeout = HZ;
+
+			if (time_is_after_jiffies(cb->jiffies + timeout))
 				continue;
 		}
 
