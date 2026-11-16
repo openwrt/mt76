@@ -424,6 +424,7 @@ struct mt792x_dev {
 	spinlock_t nan_deferred_lock;
 	unsigned long nan_deferred_pending;
 	u8 nan_started_cluster_id[ETH_ALEN];
+	u8 nan_joined_cluster_id[ETH_ALEN];
 
 	struct {
 		void *va;

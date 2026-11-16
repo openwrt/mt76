@@ -706,8 +706,20 @@ mt7925_nan_mcu_handle_de_event(struct mt792x_dev *dev, struct tlv *tlv)
 		return;
 	}
 
+	/* JOINED_CLUSTER has the same race as STARTED_CLUSTER above: the
+	 * firmware joins an existing cluster from inside its start-up passive
+	 * scan, so the event can land while NAN_START is still running and
+	 * nan.started is not set yet. Defer it the same way instead of
+	 * dropping it - a lost join leaves userspace unaware of the cluster it
+	 * is in and service discovery never completes.
+	 */
 	if (!dev->nan_vif || !ieee80211_vif_nan_started(dev->nan_vif)) {
-		dev_warn(dev->mt76.dev, "nan: joined-cluster event but NAN not started\n");
+		spin_lock_bh(&dev->nan_deferred_lock);
+		memcpy(dev->nan_joined_cluster_id, cluster_id, ETH_ALEN);
+		set_bit(MT7925_NAN_DEFERRED_JOINED_CLUSTER,
+			&dev->nan_deferred_pending);
+		spin_unlock_bh(&dev->nan_deferred_lock);
+		ieee80211_queue_work(dev->mt76.hw, &dev->nan_deferred_work);
 		return;
 	}
 
@@ -729,6 +741,7 @@ mt7925_nan_deferred_work(struct work_struct *work)
 {
 	struct mt792x_dev *dev = container_of(work, struct mt792x_dev,
 					      nan_deferred_work);
+	u8 joined_cluster_id[ETH_ALEN];
 	struct ieee80211_vif *vif;
 	unsigned long pending;
 	u8 cluster_id[ETH_ALEN];
@@ -737,6 +750,7 @@ mt7925_nan_deferred_work(struct work_struct *work)
 	pending = dev->nan_deferred_pending;
 	dev->nan_deferred_pending = 0;
 	memcpy(cluster_id, dev->nan_started_cluster_id, ETH_ALEN);
+	memcpy(joined_cluster_id, dev->nan_joined_cluster_id, ETH_ALEN);
 	spin_unlock_bh(&dev->nan_deferred_lock);
 
 	if (!pending)
@@ -749,6 +763,10 @@ mt7925_nan_deferred_work(struct work_struct *work)
 
 	if (test_bit(MT7925_NAN_DEFERRED_STARTED_CLUSTER, &pending))
 		ieee80211_nan_cluster_joined(vif, cluster_id, true, GFP_KERNEL);
+
+	if (test_bit(MT7925_NAN_DEFERRED_JOINED_CLUSTER, &pending))
+		ieee80211_nan_cluster_joined(vif, joined_cluster_id, false,
+					     GFP_KERNEL);
 
 	if (test_bit(MT7925_NAN_DEFERRED_SCHED_UPDATE_DONE, &pending))
 		ieee80211_nan_sched_update_done(vif);
