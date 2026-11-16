@@ -706,31 +706,29 @@ mt7925_nan_mcu_handle_de_event(struct mt792x_dev *dev, struct tlv *tlv)
 		return;
 	}
 
-	/* JOINED_CLUSTER has the same race as STARTED_CLUSTER above: the
-	 * firmware joins an existing cluster from inside its start-up passive
-	 * scan, so the event can land while NAN_START is still running and
-	 * nan.started is not set yet. Defer it the same way instead of
-	 * dropping it - a lost join leaves userspace unaware of the cluster it
-	 * is in and service discovery never completes.
-	 */
-	if (!dev->nan_vif || !ieee80211_vif_nan_started(dev->nan_vif)) {
-		spin_lock_bh(&dev->nan_deferred_lock);
-		memcpy(dev->nan_joined_cluster_id, cluster_id, ETH_ALEN);
-		set_bit(MT7925_NAN_DEFERRED_JOINED_CLUSTER,
-			&dev->nan_deferred_pending);
-		spin_unlock_bh(&dev->nan_deferred_lock);
-		ieee80211_queue_work(dev->mt76.hw, &dev->nan_deferred_work);
-		return;
-	}
-
 	dev_dbg(dev->mt76.dev, "nan: anchor_master_rank=%*phN\n",
 		NAN_ANCHOR_MASTER_RANK_NUM, de_evt->anchor_master_rank);
 
 	dev_dbg(dev->mt76.dev, "nan: own_nmi=%pM master_nmi=%pM\n",
 		de_evt->own_nmi, de_evt->master_nmi);
 
-	/* joined an existing cluster, not a self-anchored new one */
-	ieee80211_nan_cluster_joined(dev->nan_vif, cluster_id, false, GFP_KERNEL);
+	/* JOINED_CLUSTER has the same race as STARTED_CLUSTER above (the
+	 * firmware joins from inside its start-up passive scan, so the event
+	 * can land while NAN_START is still running), and it can also race
+	 * the work that is about to deliver a deferred STARTED_CLUSTER -
+	 * userspace keeps the last event it sees, so a directly sent JOINED
+	 * would be overwritten by the stale self cluster for the whole
+	 * session. Always deliver JOINED through the work, which sends
+	 * STARTED before JOINED.
+	 */
+	dev_dbg(dev->mt76.dev, "nan: deferring JOINED_CLUSTER cluster=%pM\n",
+		cluster_id);
+	spin_lock_bh(&dev->nan_deferred_lock);
+	memcpy(dev->nan_joined_cluster_id, cluster_id, ETH_ALEN);
+	set_bit(MT7925_NAN_DEFERRED_JOINED_CLUSTER,
+		&dev->nan_deferred_pending);
+	spin_unlock_bh(&dev->nan_deferred_lock);
+	ieee80211_queue_work(dev->mt76.hw, &dev->nan_deferred_work);
 }
 
 /* Runs the deferred NAN MCU events in process context; takes wiphy_lock
