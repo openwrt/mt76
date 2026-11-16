@@ -724,6 +724,18 @@ mt76_txq_schedule_pending_wcid(struct mt76_phy *phy, struct mt76_wcid *wcid,
 		     head == &wcid->tx_offchannel))
 			qid = MT_TXQ_PSD;
 
+		/* NAN unicast mgmt (NAFs) must stay on its AC queue: the
+		 * PSD path maps to the ALTX (force-TX) hardware queue,
+		 * which escapes the per-peer STA_PAUSE availability gating
+		 * and transmits regardless of the peer's committed bitmap.
+		 */
+		if (qid == MT_TXQ_PSD && wcid->sta &&
+		    info->control.vif &&
+		    (info->control.vif->type == NL80211_IFTYPE_NAN ||
+		     info->control.vif->type == NL80211_IFTYPE_NAN_DATA) &&
+		    head != &wcid->tx_offchannel)
+			qid = skb_get_queue_mapping(skb);
+
 		q = phy->q_tx[qid];
 		if (mt76_txq_stopped(q) || test_bit(MT76_RESET, &phy->state)) {
 			ret = -1;
