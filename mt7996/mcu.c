@@ -1483,8 +1483,9 @@ mt7996_mcu_mld_reconf_sta_iter(void *priv, struct ieee80211_sta *sta)
 /* The removed links stop their Beacon frames, and MLD stations move their TX
  * to the other links, just before the removal TBTT; user space disassociates
  * the non-MLD stations and stops the links after it. The other links drop
- * the profiles of the removed links from their templates here, since a new
- * template from user space comes too late for the removal TBTT.
+ * the profiles and the Reduced Neighbor Report entries of the removed links
+ * from their templates here, since a new template from user space comes too
+ * late for the removal TBTT.
  */
 static bool
 mt7996_mcu_mld_reconf_tx_stop(struct mt7996_dev *dev, struct ieee80211_vif *vif,
@@ -5178,8 +5179,104 @@ mt7996_mcu_beacon_cut(struct sk_buff *skb,
 		offs->mbssid_off -= len;
 }
 
-/* Takes the per-STA profiles of @strip_links out of the Reconfiguration
- * Multi-Link element of a template, and the element where none is left.
+struct mt7996_mcu_rnr_strip {
+	u16 links;
+	struct ieee80211_neighbor_ap_info *info;
+	u8 *tbtt;
+};
+
+static enum cfg80211_rnr_iter_ret
+mt7996_mcu_beacon_rnr_strip_iter(void *_data, u8 type,
+				 const struct ieee80211_neighbor_ap_info *info,
+				 const u8 *tbtt_info, u8 tbtt_info_len)
+{
+	const struct ieee80211_tbtt_info_ge_11 *ti = (const void *)tbtt_info;
+	const struct ieee80211_rnr_mld_params *mld;
+	struct mt7996_mcu_rnr_strip *data = _data;
+
+	if (type == IEEE80211_TBTT_INFO_TYPE_TBTT &&
+	    tbtt_info_len >= offsetofend(struct ieee80211_tbtt_info_ge_11,
+					 mld_params))
+		mld = &ti->mld_params;
+	else if (type == IEEE80211_TBTT_INFO_TYPE_MLD &&
+		 tbtt_info_len >= sizeof(*mld))
+		mld = (const void *)tbtt_info;
+	else
+		return RNR_ITER_CONTINUE;
+
+	/* AP MLD ID 0 names the AP MLD of the reporting AP */
+	if (mld->mld_id ||
+	    !(BIT(le16_get_bits(mld->params, IEEE80211_RNR_MLD_PARAMS_LINK_ID)) &
+	      data->links))
+		return RNR_ITER_CONTINUE;
+
+	data->info = (struct ieee80211_neighbor_ap_info *)info;
+	data->tbtt = (u8 *)tbtt_info;
+
+	return RNR_ITER_BREAK;
+}
+
+/* Takes the TBTT Information fields of @strip_links of the own AP MLD out of
+ * the Reduced Neighbor Report elements of a template, and each Neighbor AP
+ * Information field and element that is left empty.
+ */
+static void
+mt7996_mcu_beacon_rnr_strip(struct sk_buff *skb,
+			    struct ieee80211_mutable_offsets *offs,
+			    u16 strip_links)
+{
+	u16 tail_offset = offs->tim_offset + offs->tim_length;
+
+	/* a cut moves the rest of the template, so each cut starts over */
+	for (;;) {
+		struct mt7996_mcu_rnr_strip data = {
+			.links = strip_links,
+		};
+		const struct element *elem;
+		u8 *elem_start, *cut;
+		u8 count;
+		u16 len;
+
+		for_each_element_id(elem, WLAN_EID_REDUCED_NEIGHBOR_REPORT,
+				    skb->data + tail_offset,
+				    skb->len - tail_offset) {
+			cfg80211_iter_rnr((const u8 *)elem,
+					  sizeof(*elem) + elem->datalen,
+					  mt7996_mcu_beacon_rnr_strip_iter,
+					  &data);
+			if (data.tbtt)
+				break;
+		}
+		if (!data.tbtt)
+			return;
+
+		elem_start = (u8 *)elem;
+		cut = data.tbtt;
+		len = data.info->tbtt_info_len;
+		count = u8_get_bits(data.info->tbtt_info_hdr,
+				    IEEE80211_AP_INFO_TBTT_HDR_COUNT);
+		if (count) {
+			u8p_replace_bits(&data.info->tbtt_info_hdr, count - 1,
+					 IEEE80211_AP_INFO_TBTT_HDR_COUNT);
+		} else {
+			cut = (u8 *)data.info;
+			len += sizeof(*data.info);
+		}
+
+		if (len == elem->datalen) {
+			cut = elem_start;
+			len += sizeof(*elem);
+		} else {
+			elem_start[1] -= len;
+		}
+
+		mt7996_mcu_beacon_cut(skb, offs, cut, len);
+	}
+}
+
+/* Takes @strip_links out of a template: their TBTT Information fields out of
+ * the Reduced Neighbor Report elements, and their per-STA profiles out of the
+ * Reconfiguration Multi-Link element, with the element where none is left.
  */
 static void
 mt7996_mcu_beacon_reconf_strip(struct sk_buff *skb,
@@ -5189,6 +5286,8 @@ mt7996_mcu_beacon_reconf_strip(struct sk_buff *skb,
 	const struct element *elem, *sub;
 	u8 *elem_start;
 	bool kept = false;
+
+	mt7996_mcu_beacon_rnr_strip(skb, offs, strip_links);
 
 	elem = mt7996_mcu_beacon_ml_reconf_elem(skb, offs);
 	if (!elem)
@@ -5396,8 +5495,9 @@ int mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		return -EINVAL;
 
 	/* a link whose TX the removal stopped, or is due to stop, stays off
-	 * until it goes, and the other links leave its profile out, since the
-	 * firmware after a full reset holds no timer for it
+	 * until it goes. The other links leave its Reduced Neighbor Report
+	 * entries out, and its profile, since the firmware after a full reset
+	 * holds no timer for it.
 	 */
 	spin_lock_bh(&dev->mt76.lock);
 	stopped = mvif->reconf_done_links | mvif->reconf_stop_links;
