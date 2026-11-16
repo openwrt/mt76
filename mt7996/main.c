@@ -1821,7 +1821,7 @@ mt7996_mac_sta_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	case MT76_STA_EVENT_DISASSOC:
 		msta->conn_state = CONN_STATE_DISCONNECT;
 		msta->peer_mld_links = 0;
-		msta->neg_ttlm.valid = false;
+		WRITE_ONCE(msta->neg_ttlm.valid, false);
 		mt7996_mac_sta_clear_connected(dev, msta);
 		break;
 	}
@@ -3620,12 +3620,20 @@ mt7996_set_sta_ttlm(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 {
 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
-	int ret;
+	int ret, tid;
 
 	mutex_lock(&dev->mt76.mutex);
 	ret = mt7996_mcu_peer_mld_ttlm_req(dev, vif, sta, ttlm);
-	if (!ret)
-		msta->neg_ttlm = *ttlm;
+	if (ret)
+		goto out;
+
+	for (tid = 0; tid < IEEE80211_TTLM_NUM_TIDS; tid++) {
+		WRITE_ONCE(msta->neg_ttlm.downlink[tid], ttlm->downlink[tid]);
+		WRITE_ONCE(msta->neg_ttlm.uplink[tid], ttlm->uplink[tid]);
+	}
+	WRITE_ONCE(msta->neg_ttlm.valid, ttlm->valid);
+
+out:
 	mutex_unlock(&dev->mt76.mutex);
 
 	return ret;

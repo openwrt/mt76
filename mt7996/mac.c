@@ -843,6 +843,38 @@ struct mt76_wcid *mt7996_get_tx_wcid(struct mt76_wcid *wcid)
 	return wcid;
 }
 
+static u8
+mt7996_sta_tx_link_get(struct mt7996_sta *msta, u8 tid)
+{
+	u8 link_id = (tid % 2) ? msta->seclink_id : msta->deflink_id;
+	u16 links, mapped = 0;
+	unsigned long pair;
+	unsigned int i;
+	u8 primary;
+
+	if (tid >= IEEE80211_TTLM_NUM_TIDS || !READ_ONCE(msta->neg_ttlm.valid))
+		return link_id;
+
+	primary = msta->peer_mld_links ? msta->fw_mld_link_id :
+					 msta->deflink_id;
+	pair = BIT(primary) | BIT(msta->seclink_id);
+	links = READ_ONCE(msta->neg_ttlm.downlink[tid]);
+	for_each_set_bit(i, &pair, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct mt7996_sta_link *msta_link = mt7996_sta_link(msta, i);
+
+		if (!msta_link || !msta_link->wcid.link_valid ||
+		    (msta->tx_released_links & BIT(i)))
+			continue;
+
+		mapped |= links & BIT(i);
+	}
+
+	if (hweight16(mapped) != 1)
+		return link_id;
+
+	return __ffs(mapped);
+}
+
 void mt7996_mac_write_txwi(struct mt7996_dev *dev, __le32 *txwi,
 			   struct sk_buff *skb, struct mt76_wcid *wcid,
 			   struct ieee80211_key_conf *key, int pid,
@@ -1034,7 +1066,7 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	    likely(tx_info->skb->protocol != cpu_to_be16(ETH_P_PAE))) {
 		u8 tid = tx_info->skb->priority & IEEE80211_QOS_CTL_TID_MASK;
 
-		link_id = (tid % 2) ? msta->seclink_id : msta->deflink_id;
+		link_id = mt7996_sta_tx_link_get(msta, tid);
 	} else if (is_8023) {
 		/* mac80211 does not set the MLO link of an 802.3 frame */
 		link_id = IEEE80211_LINK_UNSPECIFIED;
