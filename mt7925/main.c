@@ -491,6 +491,7 @@ mt7925_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 	if (vif->type == NL80211_IFTYPE_NAN)
 		dev->nan_vif = vif;
+
 out:
 	mt792x_mutex_release(dev);
 
@@ -824,6 +825,33 @@ static int mt7925_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 				  &mvif->sta;
 	struct mt792x_link_sta *mlink;
 	int err;
+
+	/* Route NAN/NAN_DATA keys.
+	 *
+	 * mt7925_nan_set_key() owns every key that needs a dedicated WTBL and
+	 * returns -EOPNOTSUPP to signal "not mine, use the normal HW path".
+	 * Three cases legitimately reach the normal path:
+	 *
+	 *   NAN     + pairwise  (NM-TK):     set_link_key via NMI peer WTBL
+	 *   NAN_DATA + pairwise (ND-TK):     set_link_key via NDI peer WTBL
+	 *   NAN     + group     (TX IGTK/BIGTK): set_link_key via NAN iface WTBL
+	 *
+	 * NAN_DATA TX GTK is the one group key on NAN_DATA that nan_set_key
+	 * also declines (-EOPNOTSUPP) because NDC ID is unavailable at set_key
+	 * time.  It must NOT reach set_link_key: that function would succeed
+	 * and silently install the key on the interface WTBL, causing mac80211
+	 * to mark it as HW-offloaded and skip SW crypto.  Return -EOPNOTSUPP
+	 * so mac80211 uses SW encryption until TX GTK support is complete.
+	 */
+	if (vif->type == NL80211_IFTYPE_NAN || vif->type == NL80211_IFTYPE_NAN_DATA) {
+		err = mt7925_nan_set_key(hw, cmd, vif, sta, key);
+		if (err != -EOPNOTSUPP)
+			return err;
+		/* Block NAN_DATA group keys from reaching set_link_key. */
+		if (vif->type == NL80211_IFTYPE_NAN_DATA &&
+		    !(key->flags & IEEE80211_KEY_FLAG_PAIRWISE))
+			return -EOPNOTSUPP;
+	}
 
 	/* The hardware does not support per-STA RX GTK, fallback
 	 * to software mode for these.

@@ -128,6 +128,16 @@ enum mt7925_nan_key_type {
 #define WTBL_RESERVED_ENTRY	0xFFFF
 #define NAN_PACKET_NUMBER_LEN	6
 
+/* NAN key index ranges from the Wi-Fi NAN spec.  mac80211 passes keyidx
+ * straight from wpa_supplicant without interpretation, so the driver must
+ * define these boundaries itself -- no kernel-wide equivalent exists.
+ * Wi-Fi NAN spec 7.1.3.2 (GTKSA), 7.1.3.3 (IGTKSA), 7.1.3.4 (BIGTKSA).
+ */
+#define NAN_KEY_IDX_GTK_MIN		1	/* GTKSA:  key ID 1-2 */
+#define NAN_KEY_IDX_GTK_MAX		2
+#define NAN_KEY_IDX_MGMT_INTEG_MIN	4	/* IGTKSA (4-5) + BIGTKSA (6-7) */
+#define NAN_KEY_IDX_MGMT_INTEG_MAX	7
+
 /* bit indices into mt792x_dev->nan_deferred_pending, set from the atomic
  * MCU-event RX path and consumed by mt7925_nan_deferred_work()
  */
@@ -585,6 +595,12 @@ int mt7925_nan_manage_key_cmd(struct mt792x_dev *dev,
 			      const u8 *local_addr,
 			      const u8 *peer_addr,
 			      const struct mt7925_nan_key_info *key);
+
+int mt7925_nan_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+		       struct ieee80211_vif *vif, struct ieee80211_sta *sta,
+		       struct ieee80211_key_conf *key);
+
+int mt7925_nan_wcid_alloc(struct mt792x_dev *dev, struct mt76_wcid *wcid);
 
 void mt7925_nan_local_sched_changed(struct mt792x_dev *dev,
 				    struct ieee80211_vif *vif);

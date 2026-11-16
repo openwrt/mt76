@@ -1469,3 +1469,158 @@ clear_ndp_ctx:
 
 	return ret ?: -ENOMEM;
 }
+
+/* Allocate a WTBL slot for a lazily-created per-peer NAN group key wcid.
+ * Mirrors mt76_wcid_alloc/init but wires the slot into the RCU wcid table and
+ * clears the hardware admission counter, matching what mt7925_mac_link_sta_add
+ * does for every normal per-link wcid.  Caller must hold dev->mt76.mutex; RCU
+ * publish is the final step so readers always see a fully initialised wcid.
+ */
+int mt7925_nan_wcid_alloc(struct mt792x_dev *dev, struct mt76_wcid *wcid)
+{
+	int idx;
+
+	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT792x_WTBL_STA - 1);
+	if (idx < 0)
+		return -ENOSPC;
+
+	wcid->idx = idx;
+	wcid->tx_info |= MT_WCID_TX_INFO_SET;
+	mt76_wcid_init(wcid, 0);
+	mt7925_mac_wtbl_update(dev, idx, MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
+	rcu_assign_pointer(dev->mt76.wcid[idx], wcid);
+
+	return 0;
+}
+
+/* NAN RX IGTK/BIGTK (keyidx 4-7, sta != NULL): lock first, then lazy alloc. */
+static int mt7925_nan_set_rx_igtk(struct mt792x_dev *dev,
+				  const u8 *local_addr, const u8 *peer_addr,
+				  struct mt792x_sta *msta,
+				  enum set_key_cmd cmd,
+				  struct ieee80211_key_conf *key)
+{
+	enum mt7925_nan_key_operation key_op;
+	u16 wtbl_idx;
+	int err;
+
+	mt792x_mutex_acquire(dev);
+
+	/* Lazy allocation of per-peer RX IGTK/BIGTK WTBL: mt76_wcid_alloc()
+	 * touches the shared wcid mask and mt7925_mac_wtbl_update() writes
+	 * hardware registers, so both need dev->mt76.mutex and a woken chip.
+	 */
+	if (msta->nan_rx_igtk_wcid.idx == MT792x_WCID_IDX_UNSET) {
+		if (cmd != SET_KEY) {
+			mt792x_mutex_release(dev);
+			return 0;
+		}
+		err = mt7925_nan_wcid_alloc(dev, &msta->nan_rx_igtk_wcid);
+		if (err) {
+			mt792x_mutex_release(dev);
+			return err;
+		}
+	}
+
+	key_op = (cmd == SET_KEY) ? NAN_KEY_OP_SET_KEY : NAN_KEY_OP_CLS_KEY;
+	wtbl_idx = msta->nan_rx_igtk_wcid.idx;
+
+	err = mt7925_nan_manage_key_cmd(dev, key_op, NAN_KEY_TYPE_MC_MGMT_RX_KEY,
+					wtbl_idx, local_addr, peer_addr,
+					&(struct mt7925_nan_key_info){
+						.algo_id = mt7925_mcu_get_cipher(key->cipher),
+						.key_id  = key->keyidx,
+						.key_len = key->keylen,
+						.key_data = key->key,
+					});
+	mt792x_mutex_release(dev);
+	return err;
+}
+
+/* NAN_DATA GTK (keyidx 1-2): lock first, then lazy alloc for RX; TX unsupported. */
+static int mt7925_nan_set_data_gtk(struct mt792x_dev *dev,
+				   struct ieee80211_sta *sta,
+				   struct mt792x_sta *msta,
+				   enum set_key_cmd cmd,
+				   struct ieee80211_key_conf *key)
+{
+	static const u8 bcast_addr[ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+	enum mt7925_nan_key_operation key_op;
+	enum mt7925_nan_key_type key_type;
+	u8 *peer_addr, *local_addr;
+	u16 wtbl_idx;
+	int err;
+
+	mt792x_mutex_acquire(dev);
+
+	key_op = (cmd == SET_KEY) ? NAN_KEY_OP_SET_KEY : NAN_KEY_OP_CLS_KEY;
+
+	if (sta) {
+		/* RX GTK: per-peer dedicated WTBL */
+		peer_addr = sta->addr;
+		local_addr = (u8 *)bcast_addr;
+		key_type = NAN_KEY_TYPE_MC_RX_KEY;
+
+		/* Lazy allocation of per-peer RX GTK WTBL */
+		if (msta->nan_rx_gtk_wcid.idx == MT792x_WCID_IDX_UNSET) {
+			if (key_op != NAN_KEY_OP_SET_KEY) {
+				mt792x_mutex_release(dev);
+				return 0;
+			}
+			err = mt7925_nan_wcid_alloc(dev, &msta->nan_rx_gtk_wcid);
+			if (err) {
+				mt792x_mutex_release(dev);
+				return err;
+			}
+		}
+
+		wtbl_idx = msta->nan_rx_gtk_wcid.idx;
+	} else {
+		/* TX GTK: not supported yet.  Each NAN Data Cluster uses its own
+		 * TX GTK, but mac80211 does not pass an NDC ID at set_key time,
+		 * so the correct key cannot be selected.
+		 */
+		dev_warn(dev->mt76.dev,
+			 "nan: TX GTK not supported (missing NDC ID)\n");
+		mt792x_mutex_release(dev);
+		return -EOPNOTSUPP;
+	}
+
+	err = mt7925_nan_manage_key_cmd(dev, key_op, key_type, wtbl_idx,
+					local_addr, peer_addr,
+					&(struct mt7925_nan_key_info){
+						.algo_id = mt7925_mcu_get_cipher(key->cipher),
+						.key_id  = key->keyidx,
+						.key_len = key->keylen,
+						.key_data = key->key,
+					});
+	mt792x_mutex_release(dev);
+	return err;
+}
+
+int mt7925_nan_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+		       struct ieee80211_vif *vif, struct ieee80211_sta *sta,
+		       struct ieee80211_key_conf *key)
+{
+	struct mt792x_dev *dev = mt792x_hw_dev(hw);
+	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
+	struct mt792x_sta *msta = sta ? (struct mt792x_sta *)sta->drv_priv : &mvif->sta;
+
+	/* NAN RX IGTK/BIGTK (keyidx 4-7, sta != NULL) */
+	if (vif->type == NL80211_IFTYPE_NAN && sta &&
+	    key->keyidx >= NAN_KEY_IDX_MGMT_INTEG_MIN &&
+	    key->keyidx <= NAN_KEY_IDX_MGMT_INTEG_MAX)
+		return mt7925_nan_set_rx_igtk(dev, vif->addr, sta->addr, msta,
+					      cmd, key);
+
+	/* NAN_DATA GTK (keyidx 1-2) */
+	if (vif->type == NL80211_IFTYPE_NAN_DATA &&
+	    key->keyidx >= NAN_KEY_IDX_GTK_MIN &&
+	    key->keyidx <= NAN_KEY_IDX_GTK_MAX)
+		return mt7925_nan_set_data_gtk(dev, sta, msta, cmd, key);
+
+	/* Unicast keys (NM-TK, ND-TK) and NAN TX IGTK/BIGTK use the normal
+	 * hardware path via set_link_key.
+	 */
+	return -EOPNOTSUPP;
+}

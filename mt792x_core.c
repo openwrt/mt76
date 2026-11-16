@@ -828,6 +828,13 @@ int mt792x_init_wiphy(struct ieee80211_hw *hw)
 		wiphy->nan_capa.max_channel_switch_time = 12;
 		wiphy->nan_capa.dev_capabilities = NAN_DEV_CAPA_EXT_KEY_ID_SUPPORTED;
 		wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_SECURE_NAN);
+		wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_BEACON_PROTECTION);
+		wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_BEACON_PROTECTION_CLIENT);
+		/* Per-peer group key WTBL needed for NAN RX IGTK/BIGTK delivery:
+		 * ieee80211_key_enable_hw_accel() drops per-STA group keys unless
+		 * this flag is set or the vif is NAN_DATA.
+		 */
+		ieee80211_hw_set(hw, SUPPORTS_PER_STA_GTK);
 	}
 
 	wiphy->max_scan_ie_len = MT76_CONNAC_SCAN_IE_LEN;

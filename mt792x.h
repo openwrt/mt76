@@ -155,9 +155,7 @@ struct mt792x_sta {
 	/* NAN peer schedule */
 	struct mt792x_sta_nan_sched nan_sched;
 
-	/* NAN per-peer group key WTBLs (allocated lazily when keys are installed)
-	 * Note: TX GTK is interface-level, see mt792x_vif->nan_tx_gtk_table
-	 */
+	/* NAN per-peer group key WTBLs (allocated lazily when keys are installed) */
 	struct mt76_wcid nan_rx_gtk_wcid;    /* NAN_DATA peer: RX GTK WTBL (per-peer) */
 	struct mt76_wcid nan_rx_igtk_wcid;   /* NAN peer: RX IGTK/BIGTK WTBL (per-peer) */
 };
@@ -189,6 +187,44 @@ struct mt792x_nan_conf {
 	u32 discovery_beacon_interval;
 	bool enable_dw_notification;
 };
+
+/*
+ * NAN WTBL layout (mt7925)
+ *
+ * TX scope -- determined by who shares the encrypting key:
+ *
+ *   mvif->sta.deflink.wcid          [NAN vif, interface-level]
+ *     TX IGTK/BIGTK: multicast management TX.  Shared by all NMI peers;
+ *     installed via the normal hardware key path (set_key fallback).
+ *
+ *   mvif->sta.deflink.wcid          [NAN_DATA vif, interface-level]
+ *     TX GTK: multicast data TX.
+ *     NOTE: all peers in the same NAN Data Cluster share one TX GTK, and
+ *     different NDCs use independent keys, so this really wants one WTBL
+ *     per NDC.  set_key returns -EOPNOTSUPP instead: mac80211 does not
+ *     pass an NDC ID, so the right key cannot be picked.
+ *
+ * RX scope -- always per-peer because each sender has its own key:
+ *
+ *   msta->deflink.wcid              [NMI or NDI peer, peer-level]
+ *     NM-TK (NMI unicast) or ND-TK (NDI unicast).
+ *
+ *   msta->nan_rx_gtk_wcid           [NDI peer under NAN_DATA vif, peer-level]
+ *     RX GTK: multicast data RX.  Keyidx 1-2; allocated lazily in set_key.
+ *
+ *   msta->nan_rx_igtk_wcid          [NMI peer under NAN vif, peer-level]
+ *     RX IGTK/BIGTK: multicast management RX.  Keyidx 4-7; allocated
+ *     lazily in set_key.
+ *
+ * Example -- 2 peers, full security:
+ *   1  NAN vif WTBL                 TX IGTK/BIGTK
+ *   1  NAN_DATA vif WTBL            TX GTK
+ *   2  NMI peer WTBLs               NM-TK (one per peer)
+ *   2  NDI peer WTBLs               ND-TK (one per peer)
+ *   2  RX GTK WTBLs                 nan_rx_gtk_wcid, one per NDI peer
+ *   2  RX IGTK/BIGTK WTBLs          nan_rx_igtk_wcid, one per NMI peer
+ *  = 10 WTBLs total
+ */
 
 struct mt792x_nan {
 	struct mt792x_nan_conf conf;
