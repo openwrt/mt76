@@ -1001,6 +1001,8 @@ mt7925_get_rates_table(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	return mvif->basic_rates_idx;
 }
 
+static void mt7925_nan_sta_wcids_init(struct mt792x_sta *msta);
+
 static int mt7925_mac_link_sta_add(struct mt76_dev *mdev,
 				   struct ieee80211_vif *vif,
 				   struct ieee80211_link_sta *link_sta,
@@ -1122,6 +1124,9 @@ static int mt7925_mac_link_sta_add(struct mt76_dev *mdev,
 		if (ret)
 			goto out_pm;
 	}
+
+	if (vif->type == NL80211_IFTYPE_NAN || vif->type == NL80211_IFTYPE_NAN_DATA)
+		mt7925_nan_sta_wcids_init(msta);
 
 	mt76_connac_power_save_sched(&dev->mphy, &dev->pm);
 
@@ -1376,6 +1381,45 @@ int mt7925_mac_sta_event(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 }
 EXPORT_SYMBOL_GPL(mt7925_mac_sta_event);
 
+/* Mark per-peer NAN group key WTBLs as unallocated at station add time.
+ * Pairs with mt7925_nan_peer_wcids_free() at station remove time.
+ */
+static void mt7925_nan_sta_wcids_init(struct mt792x_sta *msta)
+{
+	msta->nan_rx_gtk_wcid.idx = MT792x_WCID_IDX_UNSET;
+	msta->nan_rx_igtk_wcid.idx = MT792x_WCID_IDX_UNSET;
+}
+
+/* Free a lazily-allocated per-peer NAN group key WTBL and reset its sentinel. */
+static void mt7925_nan_wcid_free(struct mt76_dev *mdev, struct mt76_wcid *wcid)
+{
+	u16 idx = wcid->idx;
+
+	rcu_assign_pointer(mdev->wcid[idx], NULL);
+	mt76_wcid_cleanup(mdev, wcid);
+	mt76_wcid_mask_clear(mdev->wcid_mask, idx);
+	wcid->idx = MT792x_WCID_IDX_UNSET;
+}
+
+/* Release any lazily-allocated per-peer NAN group key WTBLs for a departing
+ * station.  Called from mt7925_mac_link_sta_remove() after the primary WTBL
+ * is already freed, so the NAN-specific cleanup is clearly separated from the
+ * generic STA teardown path.
+ */
+static void mt7925_nan_peer_wcids_free(struct mt76_dev *mdev,
+				       struct ieee80211_vif *vif,
+				       struct ieee80211_sta *sta)
+{
+	struct mt792x_sta *msta = (struct mt792x_sta *)sta->drv_priv;
+
+	if (vif->type == NL80211_IFTYPE_NAN_DATA &&
+	    msta->nan_rx_gtk_wcid.idx != MT792x_WCID_IDX_UNSET)
+		mt7925_nan_wcid_free(mdev, &msta->nan_rx_gtk_wcid);
+
+	if (msta->nan_rx_igtk_wcid.idx != MT792x_WCID_IDX_UNSET)
+		mt7925_nan_wcid_free(mdev, &msta->nan_rx_igtk_wcid);
+}
+
 static void mt7925_mac_link_sta_remove(struct mt76_dev *mdev,
 				       struct ieee80211_vif *vif,
 				       struct ieee80211_link_sta *link_sta,
@@ -1419,6 +1463,9 @@ static void mt7925_mac_link_sta_remove(struct mt76_dev *mdev,
 	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
 	mt76_wcid_cleanup(mdev, wcid);
 	mt76_wcid_mask_clear(mdev->wcid_mask, idx);
+
+	if (vif->type == NL80211_IFTYPE_NAN || vif->type == NL80211_IFTYPE_NAN_DATA)
+		mt7925_nan_peer_wcids_free(mdev, vif, link_sta->sta);
 
 	mt76_connac_power_save_sched(&dev->mphy, &dev->pm);
 }

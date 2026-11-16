@@ -18,6 +18,11 @@
 #define MT792x_WTBL_SIZE	20
 #define MT792x_WTBL_RESERVED	(MT792x_WTBL_SIZE - 1)
 #define MT792x_WTBL_STA		(MT792x_WTBL_RESERVED - MT792x_MAX_INTERFACES)
+/* Sentinel for a lazily-allocated wcid that has not yet been assigned a slot.
+ * U16_MAX is outside every valid alloc range and matches the 0xffff value
+ * used in mt76 DMA ring entries to mark an unused wcid field.
+ */
+#define MT792x_WCID_IDX_UNSET	U16_MAX
 
 #define MT792x_CFEND_RATE_DEFAULT	0x49	/* OFDM 24M */
 #define MT792x_CFEND_RATE_11B		0x03	/* 11B LP, 11M */
@@ -149,6 +154,12 @@ struct mt792x_sta {
 
 	/* NAN peer schedule */
 	struct mt792x_sta_nan_sched nan_sched;
+
+	/* NAN per-peer group key WTBLs (allocated lazily when keys are installed)
+	 * Note: TX GTK is interface-level, see mt792x_vif->nan_tx_gtk_table
+	 */
+	struct mt76_wcid nan_rx_gtk_wcid;    /* NAN_DATA peer: RX GTK WTBL (per-peer) */
+	struct mt76_wcid nan_rx_igtk_wcid;   /* NAN peer: RX IGTK/BIGTK WTBL (per-peer) */
 };
 
 DECLARE_EWMA(rssi, 10, 8);
