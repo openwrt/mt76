@@ -808,6 +808,19 @@ mt7925_mac_write_txwi(struct mt76_dev *dev, __le32 *txwi,
 
 	val = FIELD_PREP(MT_TXD3_REM_TX_COUNT, 15);
 
+	/* NAN setup handshakes are one-shot at the host: a single lost burst
+	 * kills the NDP (peers transmit at each other nearly simultaneously
+	 * after M3 and half-duplex radios miss the reply). Double the retry
+	 * budget so the burst outlives the cross-fire window.
+	 */
+	if (vif && vif->type == NL80211_IFTYPE_NAN) {
+		struct ieee80211_hdr *nan_hdr = (struct ieee80211_hdr *)skb->data;
+
+		if (ieee80211_is_mgmt(nan_hdr->frame_control) &&
+		    !is_multicast_ether_addr(nan_hdr->addr1))
+			val = FIELD_PREP(MT_TXD3_REM_TX_COUNT, 31);
+	}
+
 	if (key)
 		val |= MT_TXD3_PROTECT_FRAME;
 	if (info->flags & IEEE80211_TX_CTL_NO_ACK)
