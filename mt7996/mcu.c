@@ -4616,7 +4616,8 @@ mt7996_mcu_beacon_send(struct mt7996_dev *dev, struct mt7996_vif_link *link,
  * the firmware again, also between the DTIM Beacon frame that ends it and its
  * event. A template of the running update therefore waits for the event,
  * after which mac80211 updates the beacon without the flag. A template that
- * starts or ends a countdown or removes links goes up at once.
+ * starts a countdown after one without, ends a countdown or removes links
+ * goes up at once.
  */
 static bool
 mt7996_mcu_beacon_crit_update_held(struct mt7996_dev *dev,
