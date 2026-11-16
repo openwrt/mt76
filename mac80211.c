@@ -912,6 +912,13 @@ static void mt76_reset_phy(struct mt76_phy *phy)
 	mt76_roc_complete(phy);
 }
 
+static void mt76_reset_sta_iter(void *data, struct ieee80211_sta *sta)
+{
+	struct mt76_wcid *wcid = (struct mt76_wcid *)sta->drv_priv;
+
+	wcid->sta = 0;
+}
+
 void mt76_reset_device(struct mt76_dev *dev)
 {
 	int i;
@@ -929,6 +936,16 @@ void mt76_reset_device(struct mt76_dev *dev)
 		mt76_wcid_cleanup(dev, wcid);
 	}
 	rcu_read_unlock();
+
+	/* the replay after a reset is a first registration, also for a
+	 * station whose drv_priv wcid was not published
+	 */
+	ieee80211_iterate_stations_atomic(dev->hw, mt76_reset_sta_iter, NULL);
+	for (i = 0; i < ARRAY_SIZE(dev->phys); i++)
+		if (dev->phys[i] && dev->phys[i]->hw != dev->hw)
+			ieee80211_iterate_stations_atomic(dev->phys[i]->hw,
+							  mt76_reset_sta_iter,
+							  NULL);
 
 	INIT_LIST_HEAD(&dev->wcid_list);
 
@@ -1760,6 +1777,9 @@ mt76_sta_add(struct mt76_phy *phy, struct ieee80211_vif *vif,
 
 	mutex_lock(&dev->mutex);
 
+	/* drv_priv of a new station is zeroed and never published, and the
+	 * sta_add of most drivers takes every station as a new one
+	 */
 	published = rcu_dereference_protected(dev->wcid[wcid->idx],
 					      lockdep_is_held(&dev->mutex));
 	registered = wcid->sta || published == wcid;
