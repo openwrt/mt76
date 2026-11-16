@@ -2188,6 +2188,13 @@ mt7996_update_vif_beacon(void *priv, u8 *mac, struct ieee80211_vif *vif)
 		if (link_phy != phy)
 			continue;
 
+		/* a reset or a stop of the beacon can drop the critical update of
+		 * the firmware
+		 */
+		spin_lock_bh(&dev->mt76.lock);
+		link->crit_update_active = false;
+		spin_unlock_bh(&dev->mt76.lock);
+
 		mt7996_mcu_add_beacon(dev->mt76.hw, vif, link_conf,
 				      link_conf->enable_beacon);
 	}

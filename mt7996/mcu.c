@@ -4595,11 +4595,53 @@ mt7996_mcu_beacon_send(struct mt7996_dev *dev, struct mt7996_vif_link *link,
 	if (pending && !ret)
 		link->crit_update_id = crit_update_id;
 	*ambiguous = pending && !ret && link->crit_update_ambiguous;
+	if (!ret) {
+		link->crit_update_active = crit_update && !*ambiguous;
+		link->crit_update_time = jiffies;
+	}
 	link->crit_update_pending = false;
 	link->crit_update_ambiguous = false;
 	spin_unlock_bh(&dev->mt76.lock);
 
 	return ret;
+}
+
+/* the DTIM Count of a link can stall for several beacon intervals while
+ * another link switches channel, so the wait for an event that can get lost
+ * ends well after the next DTIM Beacon frame
+ */
+#define MT7996_CRIT_UPDATE_EVENT_MARGIN	HZ
+
+/* Each template with the critical update TLV starts the critical update in
+ * the firmware again, also between the DTIM Beacon frame that ends it and its
+ * event. A template of the running update therefore waits for the event,
+ * after which mac80211 updates the beacon without the flag. A template that
+ * starts or ends a countdown or removes links goes up at once.
+ */
+static bool
+mt7996_mcu_beacon_crit_update_held(struct mt7996_dev *dev,
+				   struct ieee80211_bss_conf *link_conf,
+				   struct mt7996_vif_link *link,
+				   bool crit_update, u32 crit_update_id,
+				   bool cntdwn, u16 links)
+{
+	unsigned long timeout;
+	bool held;
+
+	if (!crit_update || links || link->bcn_cntdwn != cntdwn)
+		return false;
+
+	timeout = TU_TO_JIFFIES((u32)(link_conf->dtim_period + 2) *
+				link_conf->beacon_int) +
+		  MT7996_CRIT_UPDATE_EVENT_MARGIN;
+
+	spin_lock_bh(&dev->mt76.lock);
+	held = link->crit_update_active &&
+	       crit_update_id == link->crit_update_id &&
+	       time_before(jiffies, link->crit_update_time + timeout);
+	spin_unlock_bh(&dev->mt76.lock);
+
+	return held;
 }
 
 static void
@@ -5198,7 +5240,7 @@ __mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct sk_buff *skb, *rskb;
 	struct tlv *tlv;
 	struct bss_bcn_content_tlv *bcn;
-	bool crit_update = false, ambiguous;
+	bool crit_update = false, cntdwn = false, ambiguous;
 	int len, extra_len = 0, ret;
 	u64 upload_tsf = 0;
 	u16 started = 0;
@@ -5250,10 +5292,18 @@ __mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	if (link_conf->bssid_indicator)
 		mt7996_mcu_beacon_mbss(rskb, skb, bcn, &offs);
 	mt7996_mcu_beacon_cntdwn(rskb, skb, &offs, link_conf->csa_active);
+	cntdwn = !!offs.cntdwn_counter_offs[0];
 	crit_update = mt7996_mcu_beacon_crit_update(rskb, skb, vif, link, &offs,
 						    &bpcc);
 	mt7996_mcu_beacon_attlm(rskb, skb, vif, &offs);
 	mt7996_mcu_beacon_ml_reconf(dev, vif, link, rskb, skb, &offs, &reconf);
+	if (mt7996_mcu_beacon_crit_update_held(dev, link_conf, link, crit_update,
+					       offs.crit_update_id, cntdwn,
+					       strip_links | reconf.links)) {
+		dev_kfree_skb(skb);
+		dev_kfree_skb(rskb);
+		return 0;
+	}
 	if (reconf.links)
 		started = mt7996_mcu_beacon_reconf_start(dev, vif, &reconf);
 	if (started)
@@ -5270,6 +5320,8 @@ out:
 				     crit_update ? offs.crit_update_id : 0,
 				     !started, &ambiguous);
 	link->csa_bcn_uploaded = !ret && enabled && link_conf->csa_active;
+	if (!ret)
+		link->bcn_cntdwn = cntdwn;
 	if (!ret && !ambiguous && bpcc >= 0)
 		link->bpcc = bpcc;
 	if (!ret && started)
