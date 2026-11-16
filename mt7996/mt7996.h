@@ -392,13 +392,14 @@ struct mt7996_vif {
 	u64 attlm_end_boottime;
 
 	/* AP Removal Timer that the firmware counts, under mt76_dev.lock:
-	 * the removed links, and the links whose template with the
-	 * Reconfiguration element the firmware holds, and the expired links
-	 * whose TX mt7996_mcu_mld_reconf_work() stops, and the links whose TX
-	 * it stopped, until they go; the removal TBTT of the removed links,
-	 * with the links whose TX stop is still due
+	 * the removed links and the time of their timer, and the links whose
+	 * template with the Reconfiguration element the firmware holds, and
+	 * the expired links whose TX mt7996_mcu_mld_reconf_work() stops, and
+	 * the links whose TX it stopped, until they go; the removal TBTT of
+	 * the removed links, with the links whose TX stop is still due
 	 */
 	u16 reconf_links;
+	u16 reconf_to_sec;
 	u16 reconf_bcn_links;
 	u16 reconf_stop_links;
 	u16 reconf_done_links;
