@@ -2273,9 +2273,11 @@ static void mt7996_tx(struct ieee80211_hw *hw,
 	if (link_id == IEEE80211_LINK_UNSPECIFIED) {
 		link_id = deflink_id;
 		/* mt7996_get_tx_wcid() can move a station wcid off this link */
-		if (msta)
+		if (msta) {
+			link_id = mt7996_sta_tx_enabled_link_get(msta, link_id);
 			u32p_replace_bits(&info->control.flags, link_id,
 					  IEEE80211_TX_CTRL_MLO_LINK);
+		}
 	}
 
 	if (vif && ieee80211_vif_is_mld(vif) &&

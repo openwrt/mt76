@@ -810,6 +810,12 @@ mt7996_mac_write_txwi_80211(struct mt7996_dev *dev, __le32 *txwi,
 		txwi[6] |= cpu_to_le32(MT_TXD6_DIS_MAT);
 }
 
+static u8
+mt7996_sta_tx_primary_get(struct mt7996_sta *msta)
+{
+	return msta->peer_mld_links ? msta->fw_mld_link_id : msta->deflink_id;
+}
+
 /* The WLAN_IDX in the TXD and TXP must belong to the primary or secondary
  * link of the last MLD setup of an MLD station; any other link id can make
  * the firmware spin when that link is in powersave. While the PEER_MLD
@@ -831,8 +837,7 @@ struct mt76_wcid *mt7996_get_tx_wcid(struct mt76_wcid *wcid)
 	if (!msta)
 		return wcid;
 
-	primary = msta->peer_mld_links ? msta->fw_mld_link_id :
-					 msta->deflink_id;
+	primary = mt7996_sta_tx_primary_get(msta);
 	if (wcid->link_id == msta->seclink_id || wcid->link_id == primary)
 		return wcid;
 
@@ -843,22 +848,14 @@ struct mt76_wcid *mt7996_get_tx_wcid(struct mt76_wcid *wcid)
 	return wcid;
 }
 
-static u8
-mt7996_sta_tx_link_get(struct mt7996_sta *msta, u8 tid)
+static u16
+mt7996_sta_tx_pair_links(struct mt7996_sta *msta)
 {
-	u8 link_id = (tid % 2) ? msta->seclink_id : msta->deflink_id;
-	u16 links, mapped = 0;
 	unsigned long pair;
 	unsigned int i;
-	u8 primary;
+	u16 links = 0;
 
-	if (tid >= IEEE80211_TTLM_NUM_TIDS || !READ_ONCE(msta->neg_ttlm.valid))
-		return link_id;
-
-	primary = msta->peer_mld_links ? msta->fw_mld_link_id :
-					 msta->deflink_id;
-	pair = BIT(primary) | BIT(msta->seclink_id);
-	links = READ_ONCE(msta->neg_ttlm.downlink[tid]);
+	pair = BIT(mt7996_sta_tx_primary_get(msta)) | BIT(msta->seclink_id);
 	for_each_set_bit(i, &pair, IEEE80211_MLD_MAX_NUM_LINKS) {
 		struct mt7996_sta_link *msta_link = mt7996_sta_link(msta, i);
 
@@ -866,13 +863,71 @@ mt7996_sta_tx_link_get(struct mt7996_sta *msta, u8 tid)
 		    (msta->tx_released_links & BIT(i)))
 			continue;
 
-		mapped |= links & BIT(i);
+		links |= BIT(i);
 	}
 
+	return links;
+}
+
+static u8
+mt7996_sta_tx_link_get(struct mt7996_sta *msta, u8 tid)
+{
+	u8 link_id = (tid % 2) ? msta->seclink_id : msta->deflink_id;
+	u16 mapped;
+
+	if (tid >= IEEE80211_TTLM_NUM_TIDS || !READ_ONCE(msta->neg_ttlm.valid))
+		return link_id;
+
+	mapped = READ_ONCE(msta->neg_ttlm.downlink[tid]) &
+		 mt7996_sta_tx_pair_links(msta);
 	if (hweight16(mapped) != 1)
 		return link_id;
 
 	return __ffs(mapped);
+}
+
+/* A link that no TID maps to in either direction is disabled for a non-AP
+ * MLD (IEEE 802.11be-2024 35.3.7.2.1)
+ */
+static u16
+mt7996_sta_tx_disabled_links(struct mt7996_sta *msta)
+{
+	unsigned int tid;
+	u16 enabled = 0;
+
+	if (!READ_ONCE(msta->neg_ttlm.valid))
+		return 0;
+
+	for (tid = 0; tid < IEEE80211_TTLM_NUM_TIDS; tid++)
+		enabled |= READ_ONCE(msta->neg_ttlm.downlink[tid]) |
+			   READ_ONCE(msta->neg_ttlm.uplink[tid]);
+
+	return ~enabled;
+}
+
+/* mac80211 gives the management and Null frames that it builds for an MLO
+ * station no link, and hostapd names none for the EAPOL frames of an
+ * authorised MLO station without OCV. They may go on any enabled link, and
+ * the TXD must name a link of the firmware pair (see mt7996_get_tx_wcid()),
+ * whose primary the MLD record of the firmware names.
+ */
+u8 mt7996_sta_tx_enabled_link_get(struct mt7996_sta *msta, u8 link_id)
+{
+	u16 disabled = mt7996_sta_tx_disabled_links(msta);
+	u8 primary = mt7996_sta_tx_primary_get(msta);
+	u16 links;
+
+	if (!(disabled & BIT(link_id)))
+		return link_id;
+
+	links = mt7996_sta_tx_pair_links(msta) & ~disabled;
+	if (links & BIT(primary))
+		return primary;
+
+	if (!links)
+		return link_id;
+
+	return __ffs(links);
 }
 
 void mt7996_mac_write_txwi(struct mt7996_dev *dev, __le32 *txwi,
@@ -1072,6 +1127,10 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	} else {
 		link_id = u32_get_bits(info->control.flags,
 				       IEEE80211_TX_CTRL_MLO_LINK);
+		if (link_id == IEEE80211_LINK_UNSPECIFIED && msta &&
+		    tx_info->skb->protocol == cpu_to_be16(ETH_P_PAE))
+			link_id = mt7996_sta_tx_enabled_link_get(msta,
+								 wcid->link_id);
 	}
 
 	/* non-MLD frames are LINK_UNSPECIFIED; use the wcid's own link */
