@@ -33,16 +33,15 @@ int mt7925e_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	 * full retry budget on an unACKable multicast RA, so one frame eats a
 	 * whole DW window and the publish SDF queue backlogs.
 	 *
-	 * Unencrypted unicast to a peer we have no station for is first
-	 * contact (SDF, NDP request): the DW is the only rendezvous, so it
-	 * goes on the DW-WTBL and waits for it.
-	 *
-	 * Once its schedule is known - the peer station exists, which is also
-	 * when firmware holds its committed bitmap - the frame belongs on that
-	 * station instead. Firmware then airs it inside the peer's own
-	 * committed slots, where the peer is awake and the medium is not the
-	 * DW pile-up, and follows the FAW onto whatever channel the window
-	 * actually uses rather than being pinned to the DW channel.
+	 * Unencrypted unicast is handshake traffic (SDF follow-up, NDP
+	 * request/response, pairing bootstrap). Until firmware holds the
+	 * peer's committed bitmap its availability gate has nothing to open,
+	 * so a frame steered at the peer WTBL would park behind the BY_NAN
+	 * pause; such frames ride the DW-WTBL, which firmware unpauses every
+	 * DW - the one rendezvous both peers must be awake for. Once the CRB
+	 * download latches has_commit, the frame keeps the peer's own WTBL
+	 * and firmware serves it in the committed slots, which a 2-second
+	 * handshake deadline needs (the DW alone offers only ~4 shots).
 	 *
 	 * Secured frames belong to an established peer and keep its own WTBL
 	 * and key.
@@ -52,24 +51,16 @@ int mt7925e_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 		struct mt792x_vif *mvif = (void *)vif->drv_priv;
 		bool mcast = is_multicast_ether_addr(hdr->addr1);
 
+		struct mt792x_sta *peer = (!mcast && sta) ?
+			(struct mt792x_sta *)sta->drv_priv : NULL;
+
 		if (mcast && wcid == &mvif->nan_dw_wcid) {
 			wcid = &mvif->sta.deflink.wcid;
 		} else if (!mcast && !key &&
+			   !(peer && peer->nan_sched.has_commit) &&
 			   mvif->nan_dw_wcid.idx &&
 			   mvif->nan_dw_wcid.idx < MT792x_WTBL_STA) {
-			struct ieee80211_sta *psta;
-			struct mt792x_sta *pmsta;
-
-			rcu_read_lock();
-			psta = ieee80211_find_sta(vif, hdr->addr1);
-			pmsta = psta ? (struct mt792x_sta *)psta->drv_priv :
-				       NULL;
-
-			if (pmsta && pmsta->deflink.wcid.idx)
-				wcid = &pmsta->deflink.wcid;
-			else
-				wcid = &mvif->nan_dw_wcid;
-			rcu_read_unlock();
+			wcid = &mvif->nan_dw_wcid;
 		}
 	}
 

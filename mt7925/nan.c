@@ -1336,14 +1336,14 @@ static int mt7925_nan_peer_cap_tlv(struct sk_buff *skb,
 	return 0;
 }
 
-static void
+static u32
 mt7925_nan_fill_crb_committed(struct mt7925_nan_sched_update_crb_tlv *crb_tlv,
 			      struct ieee80211_nan_peer_sched *sched)
 {
-	u32 m, slot;
+	u32 m, slot, total = 0;
 
 	if (!sched)
-		return;
+		return 0;
 
 	for (m = 0; m < CFG80211_NAN_MAX_PEER_MAPS &&
 	     m < NAN_TIMELINE_MGMT_SIZE; m++) {
@@ -1369,10 +1369,14 @@ mt7925_nan_fill_crb_committed(struct mt7925_nan_sched_update_crb_tlv *crb_tlv,
 			if (!ch || !ch->chanctx_conf)
 				continue;
 
+			total++;
+
 			for (dw = 0; dw < NAN_TOTAL_DW; dw++)
 				tl->avail_map[dw] |= cpu_to_le32(BIT(slot));
 		}
 	}
+
+	return total;
 }
 
 static int mt7925_nan_update_crb_tlv(struct sk_buff *skb,
@@ -1397,9 +1401,10 @@ static int mt7925_nan_update_crb_tlv(struct sk_buff *skb,
 	crb_tlv->is_use_ranging = false;
 	crb_tlv->comm_ndc_ctrl.is_valid = false;
 
-	mt7925_nan_fill_crb_committed(crb_tlv, sta->nan_sched);
-
-	return 0;
+	/* Returns the number of committed slots programmed; the caller latches
+	 * has_commit only once the command has actually reached firmware.
+	 */
+	return mt7925_nan_fill_crb_committed(crb_tlv, sta->nan_sched);
 }
 
 static int
@@ -1442,6 +1447,7 @@ int mt792x_nan_set_peer_schedule(struct mt792x_dev *dev,
 	struct mt792x_nan *nan;
 	struct mt76_dev *mdev;
 	struct sk_buff *skb;
+	int committed;
 	int ret;
 
 	if (!dev || !sta)
@@ -1480,7 +1486,8 @@ int mt792x_nan_set_peer_schedule(struct mt792x_dev *dev,
 		}
 	}
 
-	if (mt7925_nan_update_crb_tlv(skb, sta, msta)) {
+	committed = mt7925_nan_update_crb_tlv(skb, sta, msta);
+	if (committed < 0) {
 		ret = -ENOMEM;
 		goto free_skb;
 	}
@@ -1493,6 +1500,13 @@ int mt792x_nan_set_peer_schedule(struct mt792x_dev *dev,
 	if (ret && idx_allocated)
 		goto clear_idx;
 
+	/* Latch only now: firmware holds this peer's committed bitmap, so its
+	 * availability gate has slots to open and unencrypted NAF may be
+	 * steered at the peer WTBL. Cleared when the CRB is torn down.
+	 */
+	if (!ret)
+		msta->nan_sched.has_commit = committed > 0;
+
 	return ret;
 
 free_skb:
@@ -1503,6 +1517,7 @@ free_skb:
 clear_idx:
 	clear_bit(msta->nan_sched.sch_idx, &nan->conn_bitmap);
 	msta->nan_sched.idx_assigned = false;
+	msta->nan_sched.has_commit = false;
 
 	return ret;
 }
@@ -1566,6 +1581,7 @@ int mt792x_nan_set_peer_rec(struct mt76_dev *mdev,
 
 	clear_bit(msta->nan_sched.sch_idx, &nan->conn_bitmap);
 	msta->nan_sched.idx_assigned = false;
+	msta->nan_sched.has_commit = false;
 
 	return 0;
 }
