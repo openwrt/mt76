@@ -817,8 +817,18 @@ mt7925_mac_write_txwi(struct mt76_dev *dev, __le32 *txwi,
 		struct ieee80211_hdr *nan_hdr = (struct ieee80211_hdr *)skb->data;
 
 		if (ieee80211_is_mgmt(nan_hdr->frame_control) &&
-		    !is_multicast_ether_addr(nan_hdr->addr1))
+		    !is_multicast_ether_addr(nan_hdr->addr1)) {
 			val = FIELD_PREP(MT_TXD3_REM_TX_COUNT, 31);
+
+			/* The retry budget alone never finalises a frame whose
+			 * peer has gone: the DW-WTBL gate re-arms it every DW,
+			 * so firmware holds the frame indefinitely and the host
+			 * never gets a TX status. Bound it in time instead -
+			 * about six DWs, beyond the 2 s handshake deadline.
+			 */
+			txwi[2] |= cpu_to_le32(FIELD_PREP(MT_TXD2_MAX_TX_TIME,
+							  NAN_MGMT_MAX_TX_TIME));
+		}
 	}
 
 	if (key)

@@ -31,6 +31,9 @@
 #define MT7925_SKU_MAX_DELTA_IDX	MT7925_SKU_RATE_NUM
 #define MT7925_SKU_TABLE_SIZE		(MT7925_SKU_RATE_NUM + 1)
 
+/* NAN unicast mgmt TXD MAX_TX_TIME, units of 64 TU: 46 is about 3 s */
+#define NAN_MGMT_MAX_TX_TIME		46
+
 #define MCU_UNI_EVENT_ROC  0x27
 
 #define HIF_TRAFFIC_IDLE 0x2
