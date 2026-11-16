@@ -1458,7 +1458,15 @@ mt7925_mcu_sta_key_tlv(struct mt76_wcid *wcid,
 		if (cipher == CONNAC3_CIPHER_NONE)
 			return -EOPNOTSUPP;
 
-		if (cipher == CONNAC3_CIPHER_BIP_CMAC_128) {
+		/* STA/AP mode installs the IGTK together with the CCMP GTK that
+		 * sta_key_conf cached earlier on the same link.  NAN has no such
+		 * pairing: no CCMP key is ever installed on a NAN interface WTBL,
+		 * so sta_key_conf would contribute a zero key and a stale key_id.
+		 * Install the NAN BIP key standalone via the generic path instead.
+		 */
+		if (cipher == CONNAC3_CIPHER_BIP_CMAC_128 &&
+		    vif->type != NL80211_IFTYPE_NAN &&
+		    vif->type != NL80211_IFTYPE_NAN_DATA) {
 			sec->cipher_id = CONNAC3_CIPHER_BIP_CMAC_128;
 			sec->key_id = sta_key_conf->keyidx;
 			sec->key_len = 32;
