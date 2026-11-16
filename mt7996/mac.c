@@ -1016,8 +1016,7 @@ mt7996_tx_use_mgmt(struct mt7996_dev *dev, struct sk_buff *skb)
 }
 
 static bool
-mt7996_tx_is_link_null(struct ieee80211_vif *vif, struct ieee80211_sta *sta,
-		       struct sk_buff *skb)
+mt7996_tx_is_link_null(struct ieee80211_sta *sta, struct sk_buff *skb)
 {
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
@@ -1025,7 +1024,7 @@ mt7996_tx_is_link_null(struct ieee80211_vif *vif, struct ieee80211_sta *sta,
 	if (info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP)
 		return false;
 
-	if (!vif || vif->type != NL80211_IFTYPE_STATION || !sta || !sta->mlo)
+	if (!sta || !sta->mlo)
 		return false;
 
 	return ieee80211_is_any_nullfunc(hdr->frame_control);
@@ -1059,7 +1058,7 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 		wcid = &dev->mt76.global_wcid;
 
 	/* the header of this frame holds the addresses of one link */
-	link_null = mt7996_tx_is_link_null(vif, sta, tx_info->skb);
+	link_null = mt7996_tx_is_link_null(sta, tx_info->skb);
 
 	if ((is_8023 || ieee80211_is_data_qos(hdr->frame_control)) && sta && sta->mlo &&
 	    !link_null &&
