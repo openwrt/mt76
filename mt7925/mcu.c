@@ -2107,16 +2107,7 @@ mt7925_mcu_sta_state_v2_tlv(struct mt76_phy *mphy, struct sk_buff *skb,
 			    struct ieee80211_vif *vif,
 			    u8 rcpi, u8 sta_state)
 {
-	struct sta_rec_state_v2 {
-		__le16 tag;
-		__le16 len;
-		u8 state;
-		u8 rsv[3];
-		__le32 flags;
-		u8 vht_opmode;
-		u8 action;
-		u8 rsv2[2];
-	} __packed * state;
+	struct sta_rec_state_v2 *state;
 	struct tlv *tlv;
 
 	tlv = mt76_connac_mcu_add_tlv(skb, STA_REC_STATE, sizeof(*state));

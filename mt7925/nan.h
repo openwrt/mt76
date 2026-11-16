@@ -93,6 +93,7 @@ enum nan_uni_cmd_tag {
 	NAN_UNI_CMD_SET_SYNC_RSSI		= 39,
 	NAN_UNI_CMD_SET_CLUSTER_ID		= 40,
 	NAN_UNI_CMD_KEY_MANAGEMENT		= 53,
+	NAN_UNI_CMD_DW_WTBL_IDX			= 55,
 };
 
 enum nan_uni_event_tag {
@@ -378,6 +379,13 @@ struct mt7925_nan_nmi_addr_tlv {
 	__le16 tag;
 	__le16 len;
 	u8 nmi_addr[ETH_ALEN];
+} __packed __aligned(4);
+
+struct mt7925_nan_dw_wtbl_idx_tlv {
+	__le16 tag;
+	__le16 len;
+	__le16 wlan_idx;
+	u8 reserved[2];
 } __packed __aligned(4);
 
 struct mt7925_nan_avail_ctrl_tlv {

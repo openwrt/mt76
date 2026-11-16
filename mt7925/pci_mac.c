@@ -14,6 +14,8 @@ int mt7925e_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	struct mt792x_dev *dev = container_of(mdev, struct mt792x_dev, mt76);
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(tx_info->skb);
 	struct ieee80211_key_conf *key = info->control.hw_key;
+	struct ieee80211_hdr *hdr = (void *)tx_info->skb->data;
+	struct ieee80211_vif *vif = info->control.vif;
 	struct mt76_connac_hw_txp *txp;
 	struct mt76_txwi_cache *t;
 	int id, pid;
@@ -24,6 +26,52 @@ int mt7925e_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 
 	if (!wcid)
 		wcid = &dev->mt76.global_wcid;
+
+	/* Split NAN mgmt TX per frame, by what is known about the destination.
+	 *
+	 * Multicast must not ride the DW-WTBL STA: a STA-type WTBL spends the
+	 * full retry budget on an unACKable multicast RA, so one frame eats a
+	 * whole DW window and the publish SDF queue backlogs.
+	 *
+	 * Unencrypted unicast to a peer we have no station for is first
+	 * contact (SDF, NDP request): the DW is the only rendezvous, so it
+	 * goes on the DW-WTBL and waits for it.
+	 *
+	 * Once its schedule is known - the peer station exists, which is also
+	 * when firmware holds its committed bitmap - the frame belongs on that
+	 * station instead. Firmware then airs it inside the peer's own
+	 * committed slots, where the peer is awake and the medium is not the
+	 * DW pile-up, and follows the FAW onto whatever channel the window
+	 * actually uses rather than being pinned to the DW channel.
+	 *
+	 * Secured frames belong to an established peer and keep its own WTBL
+	 * and key.
+	 */
+	if (vif && vif->type == NL80211_IFTYPE_NAN &&
+	    ieee80211_is_mgmt(hdr->frame_control)) {
+		struct mt792x_vif *mvif = (void *)vif->drv_priv;
+		bool mcast = is_multicast_ether_addr(hdr->addr1);
+
+		if (mcast && wcid == &mvif->nan_dw_wcid) {
+			wcid = &mvif->sta.deflink.wcid;
+		} else if (!mcast && !key &&
+			   mvif->nan_dw_wcid.idx &&
+			   mvif->nan_dw_wcid.idx < MT792x_WTBL_STA) {
+			struct ieee80211_sta *psta;
+			struct mt792x_sta *pmsta;
+
+			rcu_read_lock();
+			psta = ieee80211_find_sta(vif, hdr->addr1);
+			pmsta = psta ? (struct mt792x_sta *)psta->drv_priv :
+				       NULL;
+
+			if (pmsta && pmsta->deflink.wcid.idx)
+				wcid = &pmsta->deflink.wcid;
+			else
+				wcid = &mvif->nan_dw_wcid;
+			rcu_read_unlock();
+		}
+	}
 
 	t = (struct mt76_txwi_cache *)(txwi + mdev->drv->txwi_size);
 	t->skb = tx_info->skb;

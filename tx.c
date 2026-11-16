@@ -729,7 +729,7 @@ mt76_txq_schedule_pending_wcid(struct mt76_phy *phy, struct mt76_wcid *wcid,
 		 * which escapes the per-peer STA_PAUSE availability gating
 		 * and transmits regardless of the peer's committed bitmap.
 		 */
-		if (qid == MT_TXQ_PSD && wcid->sta &&
+		if (qid == MT_TXQ_PSD && (wcid->sta || wcid->nan_dw) &&
 		    info->control.vif &&
 		    (info->control.vif->type == NL80211_IFTYPE_NAN ||
 		     info->control.vif->type == NL80211_IFTYPE_NAN_DATA) &&

@@ -4,6 +4,7 @@
 #include <asm/byteorder.h>
 #include <linux/bitfield.h>
 #include <linux/errno.h>
+#include <linux/etherdevice.h>
 #include <linux/kernel.h>
 #include <linux/stddef.h>
 #include <linux/string.h>
@@ -326,6 +327,167 @@ mt7925_nan_seed_link_sta(struct mt792x_dev *dev,
 	return nan_ctx;
 }
 
+/* Hand the DW-WTBL STA's WTBL index down to the firmware, which gates the
+ * queue by index alone - no address has to be agreed on. Until the index
+ * arrives the firmware's gate stays disarmed, so a failure here degrades
+ * to stock (ungated) management TX rather than breaking NAN.
+ */
+static int mt7925_nan_set_dw_wtbl_idx(struct mt792x_dev *dev, u16 wlan_idx)
+{
+	struct {
+		u8 rsv[4];
+		struct mt7925_nan_dw_wtbl_idx_tlv tlv;
+	} cmd = {
+		.tlv = {
+			.tag = cpu_to_le16(NAN_UNI_CMD_DW_WTBL_IDX),
+			.len = cpu_to_le16(sizeof(struct mt7925_nan_dw_wtbl_idx_tlv)),
+			.wlan_idx = cpu_to_le16(wlan_idx),
+		},
+	};
+
+	return mt76_mcu_send_msg(&dev->mt76, MCU_UNI_CMD(NAN), &cmd,
+				 sizeof(cmd), true);
+}
+
+/* Create the DW-WTBL STA and steer host mgmt TX onto it. The firmware is
+ * handed its WTBL index and holds that queue outside the DW, so unicast
+ * discovery only airs when every synced peer is awake. Best-effort: on
+ * failure the stock path keeps mgmt on the interface WTBL.
+ */
+static void mt7925_nan_dw_wcid_setup(struct mt792x_dev *dev,
+				     struct ieee80211_vif *vif)
+{
+	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
+	struct mt792x_bss_conf *mconf = &mvif->bss_conf;
+	struct mt76_wcid *own = &mvif->sta.deflink.wcid;
+	struct sta_rec_basic *basic;
+	struct mt76_txq *mtxq;
+	struct sk_buff *skb;
+	struct tlv *tlv;
+	int idx, ret;
+
+	if (mvif->nan_dw_wcid.idx > 0 &&
+	    mvif->nan_dw_wcid.idx < MT792x_WTBL_STA)
+		return;
+
+	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT792x_WTBL_STA - 1);
+	if (idx < 0)
+		goto err;
+
+	mvif->nan_dw_wcid.idx = idx;
+	mvif->nan_dw_wcid.phy_idx = own->phy_idx;
+	mvif->nan_dw_wcid.nan_dw = 1;
+	mvif->nan_dw_wcid.tx_info |= MT_WCID_TX_INFO_SET;
+	mt76_wcid_init(&mvif->nan_dw_wcid, mconf->mt76.band_idx);
+	mt7925_mac_wtbl_update(dev, idx, MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
+
+	skb = __mt76_connac_mcu_alloc_sta_req(&dev->mt76, &mconf->mt76,
+					      &mvif->nan_dw_wcid,
+					      MT7925_STA_UPDATE_MAX_SIZE);
+	if (IS_ERR(skb))
+		goto err_free;
+
+	tlv = mt76_connac_mcu_add_tlv(skb, STA_REC_BASIC, sizeof(*basic));
+	basic = (struct sta_rec_basic *)tlv;
+	basic->conn_type = cpu_to_le32(CONNECTION_NAN);
+	basic->conn_state = CONN_STATE_PORT_SECURE;
+	basic->extra_info = cpu_to_le16(EXTRA_INFO_VER | EXTRA_INFO_NEW);
+	/* The record needs an address but nothing ever matches on it: frame
+	 * headers carry the real NMI/peer addresses and the firmware gates the
+	 * queue by WTBL index. Any locally administered address will do.
+	 */
+	eth_random_addr(basic->peer_addr);
+
+	/* A bare STA_REC leaves the WTBL rate table unconfigured and HW
+	 * unicast from it crawls (multi-second delivery). Give it the NAN
+	 * base rates: OFDM+ERP, no CCK.
+	 */
+	{
+		struct sta_rec_phy *phy;
+		struct sta_rec_ra_info *ra_info;
+
+		tlv = mt76_connac_mcu_add_tlv(skb, STA_REC_PHY, sizeof(*phy));
+		phy = (struct sta_rec_phy *)tlv;
+		phy->phy_type = PHY_TYPE_BIT_OFDM | PHY_TYPE_BIT_ERP;
+		phy->basic_rate = cpu_to_le16(0x150);
+
+		tlv = mt76_connac_mcu_add_tlv(skb, STA_REC_RA,
+					      sizeof(*ra_info));
+		ra_info = (struct sta_rec_ra_info *)tlv;
+		ra_info->legacy = cpu_to_le16(FIELD_PREP(RA_LEGACY_OFDM, 0xff));
+	}
+
+	/* Drive the record to the associated state: firmware buffers TX for
+	 * a STA that never left the initial state, which shows up as NAFs
+	 * sitting in the queue for seconds and then failing.
+	 */
+	{
+		struct sta_rec_state_v2 *state;
+
+		tlv = mt76_connac_mcu_add_tlv(skb, STA_REC_STATE,
+					      sizeof(*state));
+		state = (struct sta_rec_state_v2 *)tlv;
+		state->state = MT76_STA_INFO_STATE_ASSOC;
+	}
+
+	ret = mt76_mcu_skb_send_msg(&dev->mt76, skb,
+				    MCU_UNI_CMD(STA_REC_UPDATE), true);
+	if (ret)
+		goto err_free;
+
+	rcu_assign_pointer(dev->mt76.wcid[idx], &mvif->nan_dw_wcid);
+
+	/* Arm the firmware's DW gate for this WTBL index; on failure the gate
+	 * stays disarmed and management TX degrades to stock (ungated).
+	 */
+	ret = mt7925_nan_set_dw_wtbl_idx(dev, idx);
+	if (ret)
+		dev_warn(dev->mt76.dev,
+			 "NAN: DW-WTBL index handoff failed (%d)\n", ret);
+
+	if (vif->txq_mgmt) {
+		mtxq = (struct mt76_txq *)vif->txq_mgmt->drv_priv;
+		mtxq->wcid = idx;
+	}
+
+	dev_info(dev->mt76.dev, "NAN DW-WTBL up: wcid=%d\n", idx);
+	return;
+
+err_free:
+	mt76_wcid_cleanup(&dev->mt76, &mvif->nan_dw_wcid);
+	mt76_wcid_mask_clear(dev->mt76.wcid_mask, idx);
+	mvif->nan_dw_wcid.idx = 0;
+err:
+	dev_warn(dev->mt76.dev, "NAN DW-WTBL setup failed, stock mgmt path\n");
+}
+
+/* Rebind host mgmt TX to the interface WTBL and drop the DW-WTBL STA.
+ * The firmware frees the STA record (and force-releases the gate) as
+ * part of NAN disable, so only the driver-side wcid is torn down here.
+ */
+static void mt7925_nan_dw_wcid_release(struct mt792x_dev *dev,
+				       struct ieee80211_vif *vif)
+{
+	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
+	struct mt76_txq *mtxq;
+	int idx = mvif->nan_dw_wcid.idx;
+
+	if (idx <= 0 || idx >= MT792x_WTBL_STA)
+		return;
+
+	if (vif->txq_mgmt) {
+		mtxq = (struct mt76_txq *)vif->txq_mgmt->drv_priv;
+		mtxq->wcid = mvif->sta.deflink.wcid.idx;
+	}
+
+	/* Flush TX-status entries still tracked on this wcid before it goes. */
+	mt76_tx_status_check(&dev->mt76, true);
+	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
+	mt76_wcid_cleanup(&dev->mt76, &mvif->nan_dw_wcid);
+	mt76_wcid_mask_clear(dev->mt76.wcid_mask, idx);
+	mvif->nan_dw_wcid.idx = 0;
+}
+
 int mt7925_nan_enable(struct ieee80211_vif *vif,
 		      struct mt792x_dev *dev,
 		      struct cfg80211_nan_conf *conf)
@@ -335,6 +497,7 @@ int mt7925_nan_enable(struct ieee80211_vif *vif,
 	struct mt7925_nan_common_hdr *hdr;
 	struct mt7925_nan_enable_req_tlv *req;
 	struct sk_buff *skb;
+	int ret;
 
 	if (!vif || !dev || !conf)
 		return -EINVAL;
@@ -374,7 +537,13 @@ int mt7925_nan_enable(struct ieee80211_vif *vif,
 
 	mt7925_nan_update_conf(mvif, conf);
 
-	return mt76_mcu_skb_send_msg(mdev, skb, MCU_UNI_CMD(NAN), true);
+	ret = mt76_mcu_skb_send_msg(mdev, skb, MCU_UNI_CMD(NAN), true);
+	if (ret)
+		return ret;
+
+	mt7925_nan_dw_wcid_setup(dev, vif);
+
+	return 0;
 }
 
 int mt7925_nan_disable(struct ieee80211_vif *vif, struct mt792x_dev *dev)
@@ -393,6 +562,9 @@ int mt7925_nan_disable(struct ieee80211_vif *vif, struct mt792x_dev *dev)
 
 	if (!dev)
 		return -EINVAL;
+
+	if (vif)
+		mt7925_nan_dw_wcid_release(dev, vif);
 
 	return mt76_mcu_send_msg(mdev, MCU_UNI_CMD(NAN), &nan_cmd, sizeof(nan_cmd), true);
 }

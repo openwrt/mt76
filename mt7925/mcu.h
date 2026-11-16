@@ -466,6 +466,17 @@ struct sta_rec_hdr_trans {
 	u8 rsv;
 } __packed;
 
+struct sta_rec_state_v2 {
+	__le16 tag;
+	__le16 len;
+	u8 state;
+	u8 rsv[3];
+	__le32 flags;
+	u8 vht_opmode;
+	u8 action;
+	u8 rsv2[2];
+} __packed;
+
 struct sta_rec_mld {
 	__le16 tag;
 	__le16 len;

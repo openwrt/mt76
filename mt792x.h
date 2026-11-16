@@ -261,6 +261,13 @@ struct mt792x_vif {
 	struct timer_list csa_timer;
 
 	struct mt792x_nan nan;
+
+	/* NAN DW-WTBL: driver-created STA the firmware gates to the DW;
+	 * host mgmt TX (SDF / pre-NDP NAF) is steered onto it so the BMC
+	 * WTBL carries multicast data only and is never paused for it.
+	 * idx == 0 or >= MT792x_WTBL_STA means not set up.
+	 */
+	struct mt76_wcid nan_dw_wcid;
 };
 
 struct mt792x_phy {
