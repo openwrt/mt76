@@ -97,7 +97,6 @@ void mt7925e_axidma_cal_cache_init(struct mt792x_dev *dev)
 
 static void mt7925e_unregister_device(struct mt792x_dev *dev)
 {
-	int i;
 	struct mt76_connac_pm *pm = &dev->pm;
 	struct ieee80211_hw *hw = mt76_hw(dev);
 
@@ -108,8 +107,12 @@ static void mt7925e_unregister_device(struct mt792x_dev *dev)
 	mt76_unregister_device(&dev->mt76);
 	set_bit(MT76_REMOVED, &dev->mphy.state);
 	cancel_work_sync(&dev->reset_work);
-	mt76_for_each_q_rx(&dev->mt76, i)
-		napi_disable(&dev->mt76.napi[i]);
+	/* Do not disable the RX NAPIs here: mt76_dma_cleanup(), reached below
+	 * via mt792x_dma_cleanup(), disables them as part of the generic
+	 * teardown. Disabling twice makes the second napi_disable() wait
+	 * forever for NAPI_STATE_SCHED to clear, hanging module unload in D
+	 * state with the module refcount left at -1.
+	 */
 	cancel_delayed_work_sync(&pm->ps_work);
 	cancel_delayed_work_sync(&dev->mlo_pm_work);
 	cancel_work_sync(&pm->wake_work);
