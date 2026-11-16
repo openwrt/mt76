@@ -118,7 +118,7 @@ static const struct ieee80211_iface_combination if_comb_chanctx_nan[] = {
 		.limits = if_limits_nan_mcc,
 		.n_limits = ARRAY_SIZE(if_limits_nan_mcc),
 		.max_interfaces = MT792x_MAX_INTERFACES,
-		.num_different_channels = 2,
+		.num_different_channels = 3,
 		.beacon_int_infra_match = false,
 	},
 	{
