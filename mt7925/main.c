@@ -458,6 +458,17 @@ static int mt7925_mac_link_bss_add(struct mt792x_dev *dev,
 		mtxq->wcid = idx;
 	}
 
+	/* A NAN vif has no vif->txq; its SDFs are queued on vif->txq_mgmt,
+	 * whose wcid was never set and defaults to 0 (WTBL 0 has no unicast
+	 * rate), so unicast follow-ups go unacknowledged. Point txq_mgmt at
+	 * the same interface WTBL as the beacon path so SDFs continue to use
+	 * txq_mgmt but with a properly initialised wcid.
+	 */
+	if (vif->txq_mgmt) {
+		mtxq = (struct mt76_txq *)vif->txq_mgmt->drv_priv;
+		mtxq->wcid = idx;
+	}
+
 out:
 	return ret;
 }
