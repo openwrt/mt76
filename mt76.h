@@ -1593,11 +1593,43 @@ int mt76_rx_aggr_start(struct mt76_dev *dev, struct mt76_wcid *wcid, u8 tid,
 		       u16 ssn, u16 size);
 void mt76_rx_aggr_stop(struct mt76_dev *dev, struct mt76_wcid *wcid, u8 tid);
 
+static inline bool
+mt76_key_has_rx_pn(struct ieee80211_key_conf *key)
+{
+	switch (key->cipher) {
+	case WLAN_CIPHER_SUITE_CCMP:
+	case WLAN_CIPHER_SUITE_CCMP_256:
+	case WLAN_CIPHER_SUITE_GCMP:
+	case WLAN_CIPHER_SUITE_GCMP_256:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static inline bool
+mt76_key_is_bip(struct ieee80211_key_conf *key)
+{
+	switch (key->cipher) {
+	case WLAN_CIPHER_SUITE_AES_CMAC:
+	case WLAN_CIPHER_SUITE_BIP_CMAC_256:
+	case WLAN_CIPHER_SUITE_BIP_GMAC_128:
+	case WLAN_CIPHER_SUITE_BIP_GMAC_256:
+		return true;
+	default:
+		return false;
+	}
+}
+
 static inline void
 mt76_wcid_key_link_setup(struct mt76_wcid *wcid,
 			 struct ieee80211_key_conf *key)
 {
-	wcid->rx_check_pn = key && key->cipher == WLAN_CIPHER_SUITE_CCMP;
+	/* an IGTK or BIGTK shares the wcid of the GTK */
+	if (key && mt76_key_is_bip(key))
+		return;
+
+	wcid->rx_check_pn = key && mt76_key_has_rx_pn(key);
 }
 
 void mt76_wcid_key_setup(struct mt76_dev *dev, struct mt76_wcid *wcid,
