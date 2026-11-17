@@ -480,8 +480,6 @@ static void mt7925_nan_dw_wcid_release(struct mt792x_dev *dev,
 		mtxq->wcid = mvif->sta.deflink.wcid.idx;
 	}
 
-	/* Flush TX-status entries still tracked on this wcid before it goes. */
-	mt76_tx_status_check(&dev->mt76, true);
 	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
 	mt76_wcid_cleanup(&dev->mt76, &mvif->nan_dw_wcid);
 	mt76_wcid_mask_clear(dev->mt76.wcid_mask, idx);
