@@ -335,6 +335,8 @@ mt7921_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	mvif->sta.deflink.wcid.idx = idx;
 	mvif->sta.deflink.wcid.tx_info |= MT_WCID_TX_INFO_SET;
 	mt76_wcid_init(&mvif->sta.deflink.wcid, mvif->bss_conf.mt76.band_idx);
+	mt76_wcid_rx_group_pn_set(&mvif->sta.deflink.wcid, vif,
+				  &mvif->bss_conf.mt76.rx_group_pn);
 
 	mt7921_mac_wtbl_update(dev, idx,
 			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
@@ -559,7 +561,7 @@ static int mt7921_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 			goto out;
 	}
 
-	mt76_wcid_key_setup(&dev->mt76, wcid, key);
+	mt76_wcid_key_setup(&dev->mt76, wcid, cmd == SET_KEY ? key : NULL);
 	err = mt76_connac_mcu_add_key(&dev->mt76, vif, &msta->deflink.bip,
 				      key, MCU_UNI_CMD(STA_REC_UPDATE),
 				      &msta->deflink.wcid, cmd);

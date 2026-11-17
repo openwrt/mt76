@@ -449,6 +449,7 @@ static int mt7925_mac_link_bss_add(struct mt792x_dev *dev,
 	mlink->wcid.idx = idx;
 	mlink->wcid.tx_info |= MT_WCID_TX_INFO_SET;
 	mt76_wcid_init(&mlink->wcid, 0);
+	mt76_wcid_rx_group_pn_set(&mlink->wcid, vif, &mconf->mt76.rx_group_pn);
 
 	mt7925_mac_wtbl_update(dev, idx,
 			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);

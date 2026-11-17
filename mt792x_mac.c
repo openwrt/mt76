@@ -147,14 +147,19 @@ struct mt76_wcid *mt792x_rx_get_wcid(struct mt792x_dev *dev, u16 idx,
 		return wcid;
 
 	if (!wcid->sta)
-		return NULL;
+		return mt76_rx_group_wcid(wcid);
 
 	link = container_of(wcid, struct mt792x_link_sta, wcid);
 	sta = link->sta;
 	if (!sta->vif)
 		return NULL;
 
-	return &sta->vif->sta.deflink.wcid;
+	/* each link of the vif holds the group key of its own link */
+	link = mt792x_sta_to_link_rcu(&sta->vif->sta, wcid->link_id);
+	if (!link)
+		link = &sta->vif->sta.deflink;
+
+	return &link->wcid;
 }
 EXPORT_SYMBOL_GPL(mt792x_rx_get_wcid);
 
