@@ -401,10 +401,10 @@ mt76_tx(struct mt76_phy *phy, struct ieee80211_sta *sta,
 	__skb_queue_tail(head, skb);
 	spin_unlock_bh(&head->lock);
 
-	spin_lock_bh(&phy->tx_lock);
+	spin_lock_bh(&phy->dev->tx_lock);
 	if (list_empty(&wcid->tx_list))
 		list_add_tail(&wcid->tx_list, &phy->tx_list);
-	spin_unlock_bh(&phy->tx_lock);
+	spin_unlock_bh(&phy->dev->tx_lock);
 
 	mt76_worker_schedule(&phy->dev->tx_worker);
 }
@@ -769,6 +769,7 @@ mt76_txq_schedule_pending_wcid(struct mt76_phy *phy, struct mt76_wcid *wcid,
 
 void mt76_txq_schedule_pending(struct mt76_phy *phy)
 {
+	struct mt76_dev *dev = phy->dev;
 	LIST_HEAD(tx_list);
 	int ret = 0;
 
@@ -778,7 +779,7 @@ void mt76_txq_schedule_pending(struct mt76_phy *phy)
 	local_bh_disable();
 	rcu_read_lock();
 
-	spin_lock(&phy->tx_lock);
+	spin_lock(&dev->tx_lock);
 	list_splice_init(&phy->tx_list, &tx_list);
 	while (!list_empty(&tx_list)) {
 		struct mt76_wcid *wcid;
@@ -786,19 +787,19 @@ void mt76_txq_schedule_pending(struct mt76_phy *phy)
 		wcid = list_first_entry(&tx_list, struct mt76_wcid, tx_list);
 		list_del_init(&wcid->tx_list);
 
-		spin_unlock(&phy->tx_lock);
+		spin_unlock(&dev->tx_lock);
 		if (ret >= 0)
 			ret = mt76_txq_schedule_pending_wcid(phy, wcid, &wcid->tx_offchannel);
 		if (ret >= 0 && !phy->offchannel)
 			ret = mt76_txq_schedule_pending_wcid(phy, wcid, &wcid->tx_pending);
-		spin_lock(&phy->tx_lock);
+		spin_lock(&dev->tx_lock);
 
 		if ((!skb_queue_empty(&wcid->tx_pending) ||
 		     !skb_queue_empty(&wcid->tx_offchannel)) &&
 		    list_empty(&wcid->tx_list))
 			list_add_tail(&wcid->tx_list, &phy->tx_list);
 	}
-	spin_unlock(&phy->tx_lock);
+	spin_unlock(&dev->tx_lock);
 
 	rcu_read_unlock();
 	local_bh_enable();

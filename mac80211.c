@@ -431,7 +431,6 @@ mt76_phy_init(struct mt76_phy *phy, struct ieee80211_hw *hw)
 	int i;
 
 	INIT_LIST_HEAD(&phy->tx_list);
-	spin_lock_init(&phy->tx_lock);
 	for (i = 0; i < ARRAY_SIZE(phy->rx_amsdu); i++)
 		spin_lock_init(&phy->rx_amsdu[i].lock);
 	INIT_DELAYED_WORK(&phy->roc_work, mt76_roc_complete_work);
@@ -753,6 +752,7 @@ mt76_alloc_device(struct device *pdev, unsigned int size,
 	spin_lock_init(&dev->cc_lock);
 	spin_lock_init(&dev->status_lock);
 	spin_lock_init(&dev->wed_lock);
+	spin_lock_init(&dev->tx_lock);
 	mutex_init(&dev->mutex);
 	init_waitqueue_head(&dev->tx_wait);
 
@@ -1834,7 +1834,6 @@ EXPORT_SYMBOL_GPL(mt76_wcid_init);
 
 void mt76_wcid_cleanup(struct mt76_dev *dev, struct mt76_wcid *wcid)
 {
-	struct mt76_phy *phy = mt76_dev_phy(dev, wcid->phy_idx);
 	struct ieee80211_hw *hw;
 	struct sk_buff_head list;
 	struct sk_buff *skb;
@@ -1856,7 +1855,7 @@ void mt76_wcid_cleanup(struct mt76_dev *dev, struct mt76_wcid *wcid)
 		list_del_init(&wcid->poll_list);
 	spin_unlock_bh(&dev->sta_poll_lock);
 
-	spin_lock_bh(&phy->tx_lock);
+	spin_lock_bh(&dev->tx_lock);
 
 	if (!list_empty(&wcid->tx_list))
 		list_del_init(&wcid->tx_list);
@@ -1869,7 +1868,7 @@ void mt76_wcid_cleanup(struct mt76_dev *dev, struct mt76_wcid *wcid)
 	skb_queue_splice_tail_init(&wcid->tx_offchannel, &list);
 	spin_unlock(&wcid->tx_offchannel.lock);
 
-	spin_unlock_bh(&phy->tx_lock);
+	spin_unlock_bh(&dev->tx_lock);
 
 	while ((skb = __skb_dequeue(&list)) != NULL) {
 		hw = mt76_tx_status_get_hw(dev, skb);

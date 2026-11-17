@@ -872,7 +872,6 @@ struct mt76_phy {
 	unsigned int num_sta;
 	u8 band_idx;
 
-	spinlock_t tx_lock;
 	struct list_head tx_list;
 	struct mt76_queue *q_tx[__MT_TXQ_MAX];
 
@@ -988,6 +987,8 @@ struct mt76_dev {
 
 	struct mt76_worker tx_worker;
 	struct napi_struct tx_napi;
+	/* protects the tx_list of every phy */
+	spinlock_t tx_lock;
 
 	spinlock_t token_lock;
 	struct idr token;
