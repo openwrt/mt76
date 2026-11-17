@@ -258,10 +258,11 @@ mt7996_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 
 		skb_pull(skb, sizeof(*rxd));
 		event = (struct mt7996_mcu_uni_event *)skb->data;
-		ret = le32_to_cpu(event->status);
 		/* skip invalid event */
 		if (mcu_cmd != le16_to_cpu(event->cid))
 			ret = -EAGAIN;
+		else if (le32_to_cpu(event->status))
+			ret = -EREMOTEIO;
 	} else {
 		skb_pull(skb, sizeof(struct mt7996_mcu_rxd));
 	}
