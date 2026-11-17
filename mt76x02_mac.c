@@ -823,11 +823,12 @@ int mt76x02_mac_process_rx(struct mt76x02_dev *dev, struct sk_buff *skb,
 		status->flag |= RX_FLAG_IV_STRIPPED;
 	}
 
-	/* one PN array serves all group keys of the vif */
-	status->skip_pn_check = !unicast;
+	status->group = !unicast;
 	wcid = FIELD_GET(MT_RXWI_CTL_WCID, ctl);
 	sta = mt76x02_rx_get_sta(&dev->mt76, wcid);
 	status->wcid = mt76x02_rx_get_sta_wcid(sta, unicast);
+	if (!status->wcid && !unicast)
+		status->wcid = mt76_rx_group_wcid(mt76_wcid_ptr(dev, wcid));
 
 	len = FIELD_GET(MT_RXWI_CTL_MPDU_LEN, ctl);
 	pn_len = FIELD_GET(MT_RXINFO_PN_LEN, rxinfo);
@@ -845,6 +846,7 @@ int mt76x02_mac_process_rx(struct mt76x02_dev *dev, struct sk_buff *skb,
 		status->iv[3] = data[4];
 		status->iv[4] = data[1];
 		status->iv[5] = data[0];
+		status->key_id = data[3] >> 6;
 
 		/*
 		 * Driver CCMP validation can't deal with fragments.

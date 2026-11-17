@@ -265,7 +265,7 @@ mt76x02_rx_get_sta(struct mt76_dev *dev, u8 idx)
 	struct mt76_wcid *wcid;
 
 	wcid = __mt76_wcid_ptr(dev, idx);
-	if (!wcid)
+	if (!wcid || !wcid->sta)
 		return NULL;
 
 	return container_of(wcid, struct mt76x02_sta, wcid);
