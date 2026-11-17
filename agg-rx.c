@@ -13,6 +13,15 @@ static unsigned long mt76_aggr_tid_to_timeo(u8 tidno)
 }
 
 static void
+mt76_rx_aggr_pn_check(struct sk_buff *skb)
+{
+	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
+
+	mt76_check_ccmp_pn(skb);
+	status->skip_pn_check = true;
+}
+
+static void
 mt76_aggr_release(struct mt76_rx_tid *tid, struct sk_buff_head *frames, int idx)
 {
 	struct sk_buff *skb;
@@ -25,6 +34,7 @@ mt76_aggr_release(struct mt76_rx_tid *tid, struct sk_buff_head *frames, int idx)
 
 	tid->reorder_buf[idx] = NULL;
 	tid->nframes--;
+	mt76_rx_aggr_pn_check(skb);
 	__skb_queue_tail(frames, skb);
 }
 
@@ -204,6 +214,7 @@ void mt76_rx_aggr_reorder(struct sk_buff *skb, struct sk_buff_head *frames)
 	}
 
 	if (seqno == head) {
+		mt76_rx_aggr_pn_check(skb);
 		tid->head = ieee80211_sn_inc(head);
 		if (tid->nframes)
 			mt76_rx_aggr_release_head(tid, frames);

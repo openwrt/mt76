@@ -774,7 +774,7 @@ struct mt76_rx_status {
 		} eht;
 	};
 
-	u8 amsdu:1, first_amsdu:1, last_amsdu:1;
+	u8 amsdu:1, first_amsdu:1, last_amsdu:1, skip_pn_check:1;
 	u8 rate_idx;
 	u8 nss:5, band:3;
 	u8 chains;
@@ -1846,6 +1846,7 @@ void mt76_rx_complete(struct mt76_dev *dev, struct sk_buff_head *frames,
 void mt76_rx_poll_complete(struct mt76_dev *dev, enum mt76_rxq_id q,
 			   struct napi_struct *napi);
 void mt76_rx_aggr_reorder(struct sk_buff *skb, struct sk_buff_head *frames);
+void mt76_check_ccmp_pn(struct sk_buff *skb);
 void mt76_testmode_tx_pending(struct mt76_phy *phy);
 void mt76_queue_tx_complete(struct mt76_dev *dev, struct mt76_queue *q,
 			    struct mt76_queue_entry *e);
