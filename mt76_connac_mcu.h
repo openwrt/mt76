@@ -1964,9 +1964,21 @@ mt76_connac_mcu_get_wlan_idx(struct mt76_dev *dev, struct mt76_wcid *wcid,
 #define MT76_CONNAC_MCU_STATUS_WLAN_FAILURE	0xc0000001
 
 static inline int
+mt76_connac_mcu_status_err(u32 status)
+{
+	if (!status)
+		return 0;
+
+	if (status == MT76_CONNAC_MCU_STATUS_WLAN_FAILURE)
+		return -ENOLINK;
+
+	return -EREMOTEIO;
+}
+
+static inline int
 mt76_connac_mcu_bss_deact_err(struct mt76_dev *mdev, int err, bool enable)
 {
-	if (err != (int)MT76_CONNAC_MCU_STATUS_WLAN_FAILURE)
+	if (err != -ENOLINK)
 		return err;
 
 	/* Ignore wlan_failure state false alarm when deactivating an
