@@ -1089,6 +1089,32 @@ mt7996_tx_is_link_null(struct ieee80211_sta *sta, struct sk_buff *skb)
 	return ieee80211_is_any_nullfunc(hdr->frame_control);
 }
 
+/* mt76_txq_schedule_pending_wcid() keeps a bufferable MMPDU other than a
+ * Deauthentication on its AC queue, where the firmware can pick an awake
+ * link without MT_TXD5_FL. A negotiated TTLM leaves the link to the driver.
+ */
+bool mt7996_tx_mgmt_any_link(struct ieee80211_vif *vif,
+			     struct ieee80211_sta *sta, struct sk_buff *skb)
+{
+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+	struct mt7996_sta *msta;
+
+	if (!vif || vif->type != NL80211_IFTYPE_AP || !sta || !sta->mlo)
+		return false;
+
+	if (info->flags & (IEEE80211_TX_CTL_HW_80211_ENCAP |
+			   IEEE80211_TX_CTL_TX_OFFCHAN))
+		return false;
+
+	if (!ieee80211_is_bufferable_mmpdu(skb) ||
+	    ieee80211_is_deauth(hdr->frame_control))
+		return false;
+
+	msta = (struct mt7996_sta *)sta->drv_priv;
+	return !READ_ONCE(msta->neg_ttlm.valid);
+}
+
 int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  enum mt76_txq_id qid, struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta,
@@ -1107,7 +1133,7 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	bool is_8023 = info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP;
 	__le32 *ptr = (__le32 *)txwi_ptr;
 	u8 *txwi = (u8 *)txwi_ptr;
-	bool host_txd, link_null;
+	bool host_txd, link_null, any_link;
 	u8 link_id;
 
 	if (unlikely(tx_info->skb->len <= ETH_HLEN))
@@ -1137,7 +1163,20 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 								 wcid->link_id);
 	}
 
-	/* non-MLD frames are LINK_UNSPECIFIED; use the wcid's own link */
+	any_link = link_id == IEEE80211_LINK_UNSPECIFIED &&
+		   mt7996_tx_mgmt_any_link(vif, sta, tx_info->skb);
+	if (any_link && qid >= MT_TXQ_PSD) {
+		/* ALTX disables the address translation: keep the link of
+		 * the header that mt7996_tx() wrote
+		 */
+		link_id = mt7996_sta_tx_enabled_link_get(msta,
+							 msta->deflink_id);
+		any_link = false;
+	}
+
+	/* non-MLD frames and frames for any MLO link are LINK_UNSPECIFIED;
+	 * use the wcid's own link
+	 */
 	if (link_id == IEEE80211_LINK_UNSPECIFIED &&
 	    wcid != &dev->mt76.global_wcid)
 		link_id = wcid->link_id;
@@ -1215,6 +1254,8 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 
 	if (link_null)
 		ptr[5] |= cpu_to_le32(MT_TXD5_FL);
+	if (any_link)
+		ptr[5] &= ~cpu_to_le32(MT_TXD5_FL);
 
 	/* MT7996 and MT7992 require driver to provide the MAC TXP for AddBA
 	 * req
