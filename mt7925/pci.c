@@ -104,7 +104,9 @@ static void mt7925e_unregister_device(struct mt792x_dev *dev)
 	if (dev->phy.chip_cap & MT792x_CHIP_CAP_WF_RF_PIN_CTRL_EVT_EN)
 		wiphy_rfkill_stop_polling(hw->wiphy);
 
-	/* Stop new resets from being queued for the rest of the teardown.
+	/* mt7925_init_work() sets hw_init_done, so cancel it first.
+	 *
+	 * Stop new resets from being queued for the rest of the teardown.
 	 * mt792x_reset() bails out on !hw_init_done, which is otherwise only
 	 * set once at init, so clearing it here closes the window in which an
 	 * MCU timeout, a system error recovery interrupt or the watchdog
@@ -112,9 +114,9 @@ static void mt7925e_unregister_device(struct mt792x_dev *dev)
 	 * reset_work behind the cancel below and run it against a device that
 	 * is already being dismantled.
 	 */
+	cancel_work_sync(&dev->init_work);
 	dev->hw_init_done = false;
 
-	cancel_work_sync(&dev->init_work);
 	mt76_unregister_device(&dev->mt76);
 	set_bit(MT76_REMOVED, &dev->mphy.state);
 	cancel_work_sync(&dev->reset_work);
