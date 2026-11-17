@@ -965,18 +965,21 @@ static void mt76_rx_release_amsdu(struct mt76_phy *phy, enum mt76_rxq_id q)
 	 * address.
 	 */
 	if (skb_shinfo(skb)->frag_list) {
-		int offset = 0;
+		u8 *subframe = skb->data;
 
 		if (!(status->flag & RX_FLAG_8023)) {
-			offset = ieee80211_get_hdrlen_from_skb(skb);
+			struct ieee80211_hdr *hdr = mt76_skb_get_hdr(skb);
+
+			subframe = (u8 *)hdr +
+				   ieee80211_hdrlen(hdr->frame_control);
 
 			if ((status->flag &
 			     (RX_FLAG_DECRYPTED | RX_FLAG_IV_STRIPPED)) ==
 			    RX_FLAG_DECRYPTED)
-				offset += 8;
+				subframe += 8;
 		}
 
-		if (ether_addr_equal(skb->data + offset, rfc1042_header)) {
+		if (ether_addr_equal(subframe, rfc1042_header)) {
 			dev_kfree_skb(skb);
 			return;
 		}
