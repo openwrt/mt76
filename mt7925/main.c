@@ -536,23 +536,25 @@ static void mt7925_roc_iter(void *priv, u8 *mac,
 			    struct ieee80211_vif *vif)
 {
 	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
-	struct mt792x_phy *phy = priv;
+	u64 *bss_mask = priv;
 
-	mt7925_mcu_abort_roc(phy, &mvif->bss_conf, phy->roc_token_id);
+	*bss_mask |= BIT_ULL(mvif->bss_conf.mt76.idx);
 }
 
-struct mt7925_roc_abort_data {
-	struct mt792x_phy *phy;
-	u8 token;
-};
-
-static void mt7925_roc_token_iter(void *priv, u8 *mac,
-				  struct ieee80211_vif *vif)
+static void mt7925_roc_abort_all(struct mt792x_phy *phy, u8 token)
 {
-	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
-	struct mt7925_roc_abort_data *data = priv;
+	u64 bss_mask = 0;
+	u8 bss_idx;
 
-	mt7925_mcu_abort_roc(data->phy, &mvif->bss_conf, data->token);
+	ieee80211_iterate_active_interfaces_atomic(phy->mt76->hw,
+						   IEEE80211_IFACE_ITER_RESUME_ALL,
+						   mt7925_roc_iter, &bss_mask);
+
+	while (bss_mask) {
+		bss_idx = __ffs64(bss_mask);
+		bss_mask &= ~BIT_ULL(bss_idx);
+		mt7925_mcu_abort_roc(phy, bss_idx, token);
+	}
 }
 
 void mt7925_roc_abort_sync(struct mt792x_dev *dev)
@@ -566,22 +568,19 @@ void mt7925_roc_abort_sync(struct mt792x_dev *dev)
 
 	cancel_work(&phy->roc_work);
 
-	ieee80211_iterate_interfaces(mt76_hw(dev),
-				     IEEE80211_IFACE_ITER_RESUME_ALL,
-				     mt7925_roc_iter, (void *)phy);
+	mt7925_roc_abort_all(phy, phy->roc_token_id);
 }
 EXPORT_SYMBOL_GPL(mt7925_roc_abort_sync);
 
 void mt7925_roc_work(struct work_struct *work)
 {
-	struct mt7925_roc_abort_data data;
 	struct mt792x_phy *phy;
+	u8 token;
 
 	phy = (struct mt792x_phy *)container_of(work, struct mt792x_phy,
 						roc_work);
 
-	data.phy = phy;
-	data.token = phy->roc_token_id;
+	token = phy->roc_token_id;
 
 	if (!test_and_clear_bit(MT76_STATE_ROC, &phy->mt76->state))
 		return;
@@ -590,9 +589,7 @@ void mt7925_roc_work(struct work_struct *work)
 	ieee80211_remain_on_channel_expired(phy->mt76->hw);
 
 	mt792x_mutex_acquire(phy->dev);
-	ieee80211_iterate_active_interfaces(phy->mt76->hw,
-					    IEEE80211_IFACE_ITER_RESUME_ALL,
-					    mt7925_roc_token_iter, &data);
+	mt7925_roc_abort_all(phy, token);
 	mt792x_mutex_release(phy->dev);
 }
 
@@ -606,7 +603,8 @@ static int mt7925_abort_roc(struct mt792x_phy *phy,
 
 	mt792x_mutex_acquire(phy->dev);
 	if (test_and_clear_bit(MT76_STATE_ROC, &phy->mt76->state))
-		err = mt7925_mcu_abort_roc(phy, mconf, phy->roc_token_id);
+		err = mt7925_mcu_abort_roc(phy, mconf->mt76.idx,
+					   phy->roc_token_id);
 	mt792x_mutex_release(phy->dev);
 
 	return err;
@@ -615,10 +613,7 @@ static int mt7925_abort_roc(struct mt792x_phy *phy,
 /* Callers hold the mutex that mt7925_roc_work() takes, so no cancel_work_sync() */
 static void mt7925_roc_stale_reclaim(struct mt792x_phy *phy)
 {
-	struct mt7925_roc_abort_data data = {
-		.phy = phy,
-		.token = phy->roc_token_id,
-	};
+	u8 token = phy->roc_token_id;
 
 	if (!test_bit(MT76_STATE_ROC, &phy->mt76->state) ||
 	    timer_pending(&phy->roc_timer))
@@ -630,9 +625,7 @@ static void mt7925_roc_stale_reclaim(struct mt792x_phy *phy)
 	if (!test_and_clear_bit(MT76_STATE_ROC, &phy->mt76->state))
 		return;
 
-	ieee80211_iterate_active_interfaces(phy->mt76->hw,
-					    IEEE80211_IFACE_ITER_RESUME_ALL,
-					    mt7925_roc_token_iter, &data);
+	mt7925_roc_abort_all(phy, token);
 
 	if (phy->roc_notify)
 		ieee80211_remain_on_channel_expired(phy->mt76->hw);
@@ -665,7 +658,7 @@ static int mt7925_set_roc(struct mt792x_phy *phy,
 	if (!wait_event_timeout(phy->roc_wait, phy->roc_grant, 4 * HZ)) {
 		clear_bit(MT76_STATE_ROC, &phy->mt76->state);
 		timer_delete_sync(&phy->roc_timer);
-		mt7925_mcu_abort_roc(phy, mconf, phy->roc_token_id);
+		mt7925_mcu_abort_roc(phy, mconf->mt76.idx, phy->roc_token_id);
 		err = -ETIMEDOUT;
 	}
 
@@ -696,7 +689,7 @@ static int mt7925_set_mlo_roc(struct mt792x_phy *phy,
 	if (!wait_event_timeout(phy->roc_wait, phy->roc_grant, 4 * HZ)) {
 		clear_bit(MT76_STATE_ROC, &phy->mt76->state);
 		timer_delete_sync(&phy->roc_timer);
-		mt7925_mcu_abort_roc(phy, mconf, phy->roc_token_id);
+		mt7925_mcu_abort_roc(phy, mconf->mt76.idx, phy->roc_token_id);
 		err = -ETIMEDOUT;
 	}
 
@@ -921,12 +914,16 @@ mt7925_pm_interface_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 {
 	struct mt792x_dev *dev = priv;
 	struct ieee80211_hw *hw = mt76_hw(dev);
-	bool pm_enable = dev->pm.enable;
+	bool pm_enable;
 	int err;
 
+	mt792x_mutex_acquire(dev);
+
+	pm_enable = dev->pm.enable_user &&
+		    !(hw->conf.flags & IEEE80211_CONF_MONITOR);
 	err = mt7925_mcu_set_beacon_filter(dev, vif, pm_enable);
 	if (err < 0)
-		return;
+		goto out;
 
 	if (pm_enable) {
 		vif->driver_flags |= IEEE80211_VIF_BEACON_FILTER;
@@ -935,6 +932,8 @@ mt7925_pm_interface_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 		vif->driver_flags &= ~IEEE80211_VIF_BEACON_FILTER;
 		__clear_bit(IEEE80211_HW_CONNECTION_MONITOR, hw->flags);
 	}
+out:
+	mt792x_mutex_release(dev);
 }
 
 static void
@@ -959,14 +958,22 @@ void mt7925_set_runtime_pm(struct mt792x_dev *dev)
 {
 	struct ieee80211_hw *hw = mt76_hw(dev);
 	struct mt76_connac_pm *pm = &dev->pm;
-	bool monitor = !!(hw->conf.flags & IEEE80211_CONF_MONITOR);
+	bool monitor;
 
+	mutex_lock(&dev->mt76.mutex);
+	monitor = !!(hw->conf.flags & IEEE80211_CONF_MONITOR);
 	pm->enable = pm->enable_user && !monitor;
+	mutex_unlock(&dev->mt76.mutex);
+
 	ieee80211_iterate_active_interfaces(hw,
 					    IEEE80211_IFACE_ITER_RESUME_ALL,
 					    mt7925_pm_interface_iter, dev);
+
+	mt792x_mutex_acquire(dev);
+	monitor = !!(hw->conf.flags & IEEE80211_CONF_MONITOR);
 	pm->ds_enable = pm->ds_enable_user && !monitor;
 	mt7925_mcu_set_deep_sleep(dev, pm->ds_enable);
+	mt792x_mutex_release(dev);
 }
 
 static int mt7925_config(struct ieee80211_hw *hw, int radio_idx, u32 changed)

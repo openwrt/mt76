@@ -203,8 +203,11 @@ mt7925_pm_set(void *data, u64 val)
 	mt76_connac_pm_wake(&dev->mphy, pm);
 
 	pm->enable_user = val;
+	mutex_unlock(&dev->mt76.mutex);
+
 	mt7925_set_runtime_pm(dev);
-	mt76_connac_power_save_sched(&dev->mphy, pm);
+
+	return 0;
 out:
 	mutex_unlock(&dev->mt76.mutex);
 

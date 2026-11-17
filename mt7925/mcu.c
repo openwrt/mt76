@@ -1731,8 +1731,7 @@ int mt7925_mcu_set_roc(struct mt792x_phy *phy, struct mt792x_bss_conf *mconf,
 				 &req, sizeof(req), true);
 }
 
-int mt7925_mcu_abort_roc(struct mt792x_phy *phy, struct mt792x_bss_conf *mconf,
-			 u8 token_id)
+int mt7925_mcu_abort_roc(struct mt792x_phy *phy, u8 bss_idx, u8 token_id)
 {
 	struct mt792x_dev *dev = phy->dev;
 	struct {
@@ -1752,7 +1751,7 @@ int mt7925_mcu_abort_roc(struct mt792x_phy *phy, struct mt792x_bss_conf *mconf,
 			.tag = cpu_to_le16(UNI_ROC_ABORT),
 			.len = cpu_to_le16(sizeof(struct roc_abort_tlv)),
 			.tokenid = token_id,
-			.bss_idx = mconf->mt76.idx,
+			.bss_idx = bss_idx,
 			.dbdcband = 0xff, /* auto*/
 		},
 	};
