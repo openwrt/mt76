@@ -214,8 +214,6 @@ mt7915_mcu_set_timeout(struct mt76_dev *mdev, int cmd)
 	case MCU_EXT_CMD_THERMAL_CTRL:
 	case MCU_EXT_CMD_GET_MIB_INFO:
 	case MCU_EXT_CMD_PHY_STAT_INFO:
-	case MCU_EXT_CMD_STA_REC_UPDATE:
-	case MCU_EXT_CMD_BSS_INFO_UPDATE:
 		mdev->mcu.timeout = 2 * HZ;
 		return;
 	case MCU_EXT_CMD_EFUSE_BUFFER_MODE:
