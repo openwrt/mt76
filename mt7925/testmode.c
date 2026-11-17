@@ -90,7 +90,6 @@ mt7925_tm_query(struct mt792x_dev *dev, struct mt7925_tm_cmd *req,
 	const unsigned int hdr = offsetof(struct uni_cmd_testmode_ctrl, data);
 	struct mt7925_rftest_cmd cmd;
 	struct mt7925_rftest_cmd *pcmd = &cmd;
-	struct uni_cmd_testmode_evt *evt;
 	struct sk_buff *skb = NULL;
 	int ret;
 
@@ -108,8 +107,6 @@ mt7925_tm_query(struct mt792x_dev *dev, struct mt7925_tm_cmd *req,
 
 	if (ret)
 		goto out;
-
-	evt = (struct uni_cmd_testmode_evt *)skb->data;
 
 	if (!skb_pull(skb, hdr)) {
 		ret = -EINVAL;
