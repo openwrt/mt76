@@ -54,12 +54,14 @@ static void mt7925_mac_sta_poll(struct mt792x_dev *dev)
 		u16 idx;
 		u8 bw;
 
-		if (list_empty(&sta_poll_list))
+		spin_lock_bh(&dev->mt76.sta_poll_lock);
+		if (list_empty(&sta_poll_list)) {
+			spin_unlock_bh(&dev->mt76.sta_poll_lock);
 			break;
+		}
 		mlink = list_first_entry(&sta_poll_list,
 					 struct mt792x_link_sta, wcid.poll_list);
 		msta = mlink->sta;
-		spin_lock_bh(&dev->mt76.sta_poll_lock);
 		list_del_init(&mlink->wcid.poll_list);
 		spin_unlock_bh(&dev->mt76.sta_poll_lock);
 
