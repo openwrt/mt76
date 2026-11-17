@@ -1488,6 +1488,9 @@ static inline void *mt76_skb_get_hdr(struct sk_buff *skb)
 
 	mstat = *((struct mt76_rx_status *)skb->cb);
 
+	if (mstat.flag & RX_FLAG_RADIOTAP_TLV_AT_END)
+		return skb_mac_header(skb);
+
 	if (mstat.flag & RX_FLAG_RADIOTAP_HE)
 		data += sizeof(struct ieee80211_radiotap_he);
 	if (mstat.flag & RX_FLAG_RADIOTAP_HE_MU)
