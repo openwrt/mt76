@@ -1808,6 +1808,9 @@ int mt7925_nan_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
 	struct mt792x_sta *msta = sta ? (struct mt792x_sta *)sta->drv_priv : &mvif->sta;
 
+	if (mt7925_mcu_get_cipher(key->cipher) == CONNAC3_CIPHER_NONE)
+		return -EOPNOTSUPP;
+
 	/* NAN RX IGTK/BIGTK (keyidx 4-7, sta != NULL) */
 	if (vif->type == NL80211_IFTYPE_NAN && sta &&
 	    key->keyidx >= NAN_KEY_IDX_MGMT_INTEG_MIN &&
