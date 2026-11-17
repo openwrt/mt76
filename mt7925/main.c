@@ -868,6 +868,12 @@ static int mt7925_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 			return -EOPNOTSUPP;
 	}
 
+	/* wcid->hw_key_idx2 and the firmware command have room for one BIP
+	 * key, which is the IGTK.
+	 */
+	if (key->keyidx > 5 && vif->type != NL80211_IFTYPE_NAN)
+		return -EOPNOTSUPP;
+
 	/* The hardware does not support per-STA RX GTK, fallback
 	 * to software mode for these.
 	 */
