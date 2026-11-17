@@ -905,13 +905,16 @@ void mt7615_mac_sta_poll(struct mt7615_dev *dev)
 	list_splice_init(&dev->mt76.sta_poll_list, &sta_poll_list);
 	spin_unlock_bh(&dev->mt76.sta_poll_lock);
 
-	while (!list_empty(&sta_poll_list)) {
+	while (true) {
 		bool clear = false;
 
+		spin_lock_bh(&dev->mt76.sta_poll_lock);
+		if (list_empty(&sta_poll_list)) {
+			spin_unlock_bh(&dev->mt76.sta_poll_lock);
+			break;
+		}
 		msta = list_first_entry(&sta_poll_list, struct mt7615_sta,
 					wcid.poll_list);
-
-		spin_lock_bh(&dev->mt76.sta_poll_lock);
 		list_del_init(&msta->wcid.poll_list);
 		spin_unlock_bh(&dev->mt76.sta_poll_lock);
 
