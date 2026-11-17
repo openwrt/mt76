@@ -608,10 +608,16 @@ mt7996_mcu_rx_radar_detected(struct mt7996_dev *dev, struct sk_buff *skb)
 						&dev->rdd2_chandef,
 						GFP_ATOMIC);
 	} else {
+		struct mt76_chanctx *ctx = READ_ONCE(mphy->chanctx);
 		struct mt7996_phy *phy = mphy->priv;
+		struct ieee80211_chanctx_conf *conf;
 
 		phy->rdd_tx_paused = true;
-		ieee80211_radar_detected(mphy->hw, NULL);
+		if (ctx) {
+			conf = container_of((void *)ctx,
+					    struct ieee80211_chanctx_conf, drv_priv);
+			ieee80211_radar_detected(mphy->hw, conf);
+		}
 	}
 	dev->hw_pattern++;
 
