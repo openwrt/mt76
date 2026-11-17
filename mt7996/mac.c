@@ -2310,12 +2310,24 @@ void mt7996_tx_token_put(struct mt7996_dev *dev)
 	}
 }
 
+static void
+mt7996_wed_stop(struct mt7996_dev *dev)
+{
+	if (mtk_wed_device_active(&dev->mt76.mmio.wed_hif2))
+		mtk_wed_device_stop(&dev->mt76.mmio.wed_hif2);
+
+	if (mtk_wed_device_active(&dev->mt76.mmio.wed))
+		mtk_wed_device_stop(&dev->mt76.mmio.wed);
+}
+
 static int
 mt7996_mac_restart(struct mt7996_dev *dev)
 {
 	struct mt76_dev *mdev = &dev->mt76;
 	struct mt7996_phy *phy;
 	int i, ret;
+
+	mt7996_wed_stop(dev);
 
 	if (dev->hif2) {
 		mt76_wr(dev, MT_INT1_MASK_CSR, 0x0);
@@ -2592,12 +2604,7 @@ void mt7996_mac_reset_work(struct work_struct *work)
 	dev_info(dev->mt76.dev,"\n%s L1 SER recovery start.",
 		 wiphy_name(hw->wiphy));
 
-	if (mtk_wed_device_active(&dev->mt76.mmio.wed_hif2))
-		mtk_wed_device_stop(&dev->mt76.mmio.wed_hif2);
-
-	if (mtk_wed_device_active(&dev->mt76.mmio.wed))
-		mtk_wed_device_stop(&dev->mt76.mmio.wed);
-
+	mt7996_wed_stop(dev);
 	mt7996_npu_hw_stop(dev);
 	ieee80211_stop_queues(mt76_hw(dev));
 

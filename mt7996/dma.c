@@ -3,6 +3,7 @@
  * Copyright (C) 2022 MediaTek Inc.
  */
 
+#include <linux/iopoll.h>
 #include "mt7996.h"
 #include "../dma.h"
 #include "mac.h"
@@ -957,6 +958,25 @@ int mt7996_dma_init(struct mt7996_dev *dev)
 	return 0;
 }
 
+static void
+mt7996_wed_int_agent_disable(struct mt7996_dev *dev,
+			     struct mtk_wed_device *wed)
+{
+	u32 val;
+
+	if (!mtk_wed_device_active(wed))
+		return;
+
+	val = mtk_wed_device_reg_read(wed, MT_WED_CTRL);
+	mtk_wed_device_reg_write(wed, MT_WED_CTRL,
+				 val & ~MT_WED_CTRL_WPDMA_INT_AGENT_EN);
+
+	if (read_poll_timeout(mtk_wed_device_reg_read, val,
+			      !(val & MT_WED_CTRL_WPDMA_INT_AGENT_BUSY),
+			      100, 20000, false, wed, MT_WED_CTRL))
+		dev_warn(dev->mt76.dev, "WED interrupt agent still busy\n");
+}
+
 void mt7996_dma_reset(struct mt7996_dev *dev, bool force)
 {
 	struct mt76_phy *phy2 = dev->mt76.phys[MT_BAND1];
@@ -996,8 +1016,11 @@ void mt7996_dma_reset(struct mt7996_dev *dev, bool force)
 		mt7996_rro_msdu_page_map_free(dev);
 
 	/* reset wfsys */
-	if (force)
+	if (force) {
+		mt7996_wed_int_agent_disable(dev, &dev->mt76.mmio.wed_hif2);
+		mt7996_wed_int_agent_disable(dev, &dev->mt76.mmio.wed);
 		mt7996_wfsys_reset(dev);
+	}
 
 	if (dev->hif2 && mtk_wed_device_active(&dev->mt76.mmio.wed_hif2))
 		mtk_wed_device_dma_reset(&dev->mt76.mmio.wed_hif2);
