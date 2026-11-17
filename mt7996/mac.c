@@ -714,12 +714,15 @@ mt7996_mac_fill_rx(struct mt7996_dev *dev, enum mt76_rxq_id q,
 		}
 	}
 
-	if (!status->wcid || !ieee80211_is_data_qos(fc) || hw_aggr)
+	if (!status->wcid || !ieee80211_is_data_qos(fc))
+		return 0;
+
+	status->qos_ctl = qos_ctl;
+	if (hw_aggr)
 		return 0;
 
 	status->aggr = unicast &&
 		       !ieee80211_is_qos_nullfunc(fc);
-	status->qos_ctl = qos_ctl;
 	status->seqno = IEEE80211_SEQ_TO_SN(seq_ctrl);
 
 	return 0;
