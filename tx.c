@@ -374,6 +374,7 @@ mt76_tx(struct mt76_phy *phy, struct ieee80211_sta *sta,
 {
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_hdr *hdr = (void *)skb->data;
+	struct mt76_dev *dev = phy->dev;
 	struct sk_buff_head *head;
 
 	if (mt76_testmode_enabled(phy)) {
@@ -397,16 +398,23 @@ mt76_tx(struct mt76_phy *phy, struct ieee80211_sta *sta,
 	else
 		head = &wcid->tx_pending;
 
-	spin_lock_bh(&head->lock);
-	__skb_queue_tail(head, skb);
-	spin_unlock_bh(&head->lock);
+	spin_lock_bh(&dev->tx_lock);
+	if (wcid != &dev->global_wcid &&
+	    rcu_access_pointer(dev->wcid[wcid->idx]) != wcid) {
+		spin_unlock_bh(&dev->tx_lock);
+		ieee80211_free_txskb(phy->hw, skb);
+		return;
+	}
 
-	spin_lock_bh(&phy->dev->tx_lock);
+	spin_lock(&head->lock);
+	__skb_queue_tail(head, skb);
+	spin_unlock(&head->lock);
+
 	if (list_empty(&wcid->tx_list))
 		list_add_tail(&wcid->tx_list, &phy->tx_list);
-	spin_unlock_bh(&phy->dev->tx_lock);
+	spin_unlock_bh(&dev->tx_lock);
 
-	mt76_worker_schedule(&phy->dev->tx_worker);
+	mt76_worker_schedule(&dev->tx_worker);
 }
 EXPORT_SYMBOL_GPL(mt76_tx);
 

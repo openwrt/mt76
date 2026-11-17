@@ -1883,7 +1883,8 @@ void mt76_wcid_add_poll(struct mt76_dev *dev, struct mt76_wcid *wcid)
 		return;
 
 	spin_lock_bh(&dev->sta_poll_lock);
-	if (list_empty(&wcid->poll_list))
+	if (rcu_access_pointer(dev->wcid[wcid->idx]) == wcid &&
+	    list_empty(&wcid->poll_list))
 		list_add_tail(&wcid->poll_list, &dev->sta_poll_list);
 	spin_unlock_bh(&dev->sta_poll_lock);
 }

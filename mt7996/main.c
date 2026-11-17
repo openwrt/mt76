@@ -1390,6 +1390,9 @@ void mt7996_mac_sta_remove_link(struct mt7996_dev *dev,
 	if (!msta_link)
 		return;
 
+	if (flush)
+		rcu_assign_pointer(dev->mt76.wcid[msta_link->wcid.idx], NULL);
+
 	spin_lock_bh(&dev->mt76.sta_poll_lock);
 	if (!list_empty(&msta_link->wcid.poll_list))
 		list_del_init(&msta_link->wcid.poll_list);
@@ -1416,7 +1419,6 @@ void mt7996_mac_sta_remove_link(struct mt7996_dev *dev,
 			phy->mt76->num_sta--;
 
 		rcu_assign_pointer(msta->link[link_id], NULL);
-		rcu_assign_pointer(dev->mt76.wcid[msta_link->wcid.idx], NULL);
 		mt76_wcid_mask_clear(dev->mt76.wcid_mask, msta_link->wcid.idx);
 		if (msta_link != &msta->deflink)
 			kfree_rcu(msta_link, rcu_head);
