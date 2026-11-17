@@ -611,6 +611,9 @@ int mt7925_nan_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 
 int mt7925_nan_wcid_alloc(struct mt792x_dev *dev, struct mt76_wcid *wcid);
 
+void mt7925_nan_dw_wcid_release(struct mt792x_dev *dev,
+				struct ieee80211_vif *vif);
+
 void mt7925_nan_local_sched_changed(struct mt792x_dev *dev,
 				    struct ieee80211_vif *vif);
 

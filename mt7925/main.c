@@ -521,6 +521,10 @@ mt7925_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	if (dev->nan_vif == vif)
 		dev->nan_vif = NULL;
 
+	/* A suspend without WoWLAN removes the interface without stop_nan */
+	if (vif->type == NL80211_IFTYPE_NAN)
+		mt7925_nan_dw_wcid_release(dev, vif);
+
 	mconf = mt792x_link_conf_to_mconf(&vif->bss_conf);
 	mt792x_mac_link_bss_remove(dev, mconf, &mvif->sta.deflink);
 	mt7925_p2p_bmc_remove(dev, mconf);

@@ -465,8 +465,8 @@ err:
  * The firmware frees the STA record (and force-releases the gate) as
  * part of NAN disable, so only the driver-side wcid is torn down here.
  */
-static void mt7925_nan_dw_wcid_release(struct mt792x_dev *dev,
-				       struct ieee80211_vif *vif)
+void mt7925_nan_dw_wcid_release(struct mt792x_dev *dev,
+				struct ieee80211_vif *vif)
 {
 	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
 	struct mt76_txq *mtxq;
