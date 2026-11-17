@@ -645,16 +645,7 @@ mt76_txq_schedule_list(struct mt76_phy *phy, enum mt76_txq_id qid)
 			if (unlikely(n_frames < 0))
 				return n_frames;
 
-			/*
-			 * Keep the station in the airtime scheduler only while it
-			 * makes progress or the shared queue is stopped. A PS
-			 * station that cannot be drained consumes no airtime, so
-			 * its DRR deficit never goes negative and returning it here
-			 * would pin it at the head of the device-wide active_txqs
-			 * list, starving all other stations on every band. Leave it
-			 * unscheduled instead and let mt76_tx_complete_skb() re-arm
-			 * it once a buffered frame completes.
-			 */
+			/* an undrainable PS station would starve all others */
 			if (n_frames > 0 || mt76_txq_stopped(q))
 				ieee80211_return_txq(phy->hw, txq, false);
 
