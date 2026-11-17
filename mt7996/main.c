@@ -268,7 +268,11 @@ mt7996_set_hw_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	if (cmd != SET_KEY && !is_bigtk)
 		return 0;
 
-	mt76_wcid_key_link_setup(&msta_link->wcid, key);
+	/* the group key of each link has an RX PN state of its own */
+	if (sta)
+		mt76_wcid_key_link_setup(&msta_link->wcid, key);
+	else
+		mt76_wcid_key_setup(&dev->mt76, &msta_link->wcid, key);
 
 	err = mt7996_mcu_add_key(&dev->mt76, link, key,
 				 MCU_WMWA_UNI_CMD(STA_REC_UPDATE),
@@ -456,6 +460,7 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	msta_link->wcid.link_valid = ieee80211_vif_is_mld(vif);
 	msta_link->wcid.tx_info |= MT_WCID_TX_INFO_SET;
 	mt76_wcid_init(&msta_link->wcid, band_idx);
+	mt76_wcid_rx_group_pn_set(&msta_link->wcid, vif, &mlink->rx_group_pn);
 
 	if (vif->type != NL80211_IFTYPE_AP &&
 	    (!mlink->omac_idx || mlink->omac_idx > 3))
