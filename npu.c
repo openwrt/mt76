@@ -56,61 +56,81 @@ void mt76_npu_queue_cleanup(struct mt76_dev *dev, struct mt76_queue *q)
 		q->tail = (q->tail + 1) % q->ndesc;
 		q->queued--;
 	}
+	if (q->rx_head) {
+		dev_kfree_skb(q->rx_head);
+		q->rx_head = NULL;
+		q->pending = 0;
+	}
 	spin_unlock_bh(&q->lock);
 }
 
-static struct sk_buff *mt76_npu_dequeue(struct mt76_dev *dev,
-					struct mt76_queue *q,
-					u32 *info)
+static int mt76_npu_rx_process_entry(struct napi_struct *napi)
 {
+	struct mt76_dev *dev = mt76_priv(napi->dev);
+	enum mt76_rxq_id qid = napi - dev->napi;
+	struct mt76_queue *q = &dev->q_rx[qid];
 	struct airoha_npu_rx_dma_desc *desc = (void *)q->desc;
-	int i, nframes, index = q->tail;
-	struct sk_buff *skb = NULL;
+	int nframes = q->pending;
+	u32 info = 0;
 
-	nframes = FIELD_GET(NPU_RX_DMA_PKT_COUNT_MASK, desc[index].info);
-	nframes = max_t(int, nframes, 1);
+	do {
+		struct mt76_queue_entry *e = &q->entry[q->tail];
+		u32 ctrl = READ_ONCE(desc[q->tail].ctrl);
+		int len;
 
-	for (i = 0; i < nframes; i++) {
-		struct mt76_queue_entry *e = &q->entry[index];
-		int len = FIELD_GET(NPU_RX_DMA_DESC_CUR_LEN_MASK,
-				    desc[index].ctrl);
+		if (!q->queued) {
+			q->pending = nframes;
+			return -EBUSY;
+		}
 
-		if (!FIELD_GET(NPU_RX_DMA_DESC_DONE_MASK, desc[index].ctrl)) {
-			dev_kfree_skb(skb);
-			return NULL;
+		if (!FIELD_GET(NPU_RX_DMA_DESC_DONE_MASK, ctrl)) {
+			q->pending = nframes;
+			return -EBUSY;
+		}
+
+		dma_rmb();
+		len = FIELD_GET(NPU_RX_DMA_DESC_CUR_LEN_MASK, ctrl);
+		info = desc[q->tail].info;
+		if (nframes == q->pending && !nframes) {
+			nframes = FIELD_GET(NPU_RX_DMA_PKT_COUNT_MASK, info);
+			nframes = max_t(int, nframes, 1);
 		}
 
 		dma_sync_single_for_cpu(dev->dma_dev, e->dma_addr[0],
 					e->dma_len[0],
 					page_pool_get_dma_dir(q->page_pool));
 
-		if (!skb) {
-			skb = napi_build_skb(e->buf, q->buf_size);
-			if (!skb)
-				return NULL;
+		if (!q->rx_head) {
+			q->rx_head = napi_build_skb(e->buf, q->buf_size);
+			if (!q->rx_head)
+				return -ENOMEM;
 
-			__skb_put(skb, len);
-			skb_reset_mac_header(skb);
-			skb_mark_for_recycle(skb);
+			__skb_put(q->rx_head, len);
+			skb_reset_mac_header(q->rx_head);
+			skb_mark_for_recycle(q->rx_head);
 		} else {
-			struct skb_shared_info *shinfo = skb_shinfo(skb);
+			struct skb_shared_info *shinfo = skb_shinfo(q->rx_head);
 			struct page *page = virt_to_head_page(e->buf);
 			int nr_frags = shinfo->nr_frags;
 
 			if (nr_frags < ARRAY_SIZE(shinfo->frags))
-				skb_add_rx_frag(skb, nr_frags, page,
+				skb_add_rx_frag(q->rx_head, nr_frags, page,
 						e->buf - page_address(page),
 						len, q->buf_size);
 		}
 
-		*info = desc[index].info;
-		index = (index + 1) % q->ndesc;
-	}
-	q->tail = index;
-	q->queued -= i;
+		q->tail = (q->tail + 1) % q->ndesc;
+		q->queued--;
+	} while (--nframes > 0);
+
+	dev->drv->rx_skb(dev, qid, q->rx_head, &info);
+	mt76_rx_poll_complete(dev, qid, napi);
+	q->rx_head = NULL;
+	q->pending = 0;
+
 	Q_WRITE(q, dma_idx, q->tail);
 
-	return skb;
+	return 0;
 }
 
 void mt76_npu_check_ppe(struct mt76_dev *dev, struct sk_buff *skb,
@@ -155,18 +175,10 @@ static int mt76_npu_rx_poll(struct napi_struct *napi, int budget)
 		goto out;
 
 	while (done < budget) {
-		struct sk_buff *skb;
-		u32 info = 0;
-
-		skb = mt76_npu_dequeue(dev, &dev->q_rx[qid], &info);
-		if (!skb)
+		if (mt76_npu_rx_process_entry(napi))
 			break;
-
-		dev->drv->rx_skb(dev, qid, skb, &info);
-		mt76_rx_poll_complete(dev, qid, napi);
 		done++;
 	}
-
 	mt76_npu_fill_rx_queue(dev, &dev->q_rx[qid]);
 out:
 	if (done < budget && napi_complete(napi))
