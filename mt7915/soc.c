@@ -1199,16 +1199,12 @@ static int mt798x_wmac_init(struct mt7915_dev *dev)
 	struct platform_device *pfdev = to_platform_device(pdev);
 	struct clk *mcu_clk, *ap_conn_clk;
 
-	mcu_clk = devm_clk_get(pdev, "mcu");
+	mcu_clk = devm_clk_get_enabled(pdev, "mcu");
 	if (IS_ERR(mcu_clk))
-		dev_err(pdev, "mcu clock not found\n");
-	else if (clk_prepare_enable(mcu_clk))
 		dev_err(pdev, "mcu clock configuration failed\n");
 
-	ap_conn_clk = devm_clk_get(pdev, "ap2conn");
+	ap_conn_clk = devm_clk_get_enabled(pdev, "ap2conn");
 	if (IS_ERR(ap_conn_clk))
-		dev_err(pdev, "ap2conn clock not found\n");
-	else if (clk_prepare_enable(ap_conn_clk))
 		dev_err(pdev, "ap2conn clock configuration failed\n");
 
 	dev->dcm = devm_platform_ioremap_resource(pfdev, 1);
