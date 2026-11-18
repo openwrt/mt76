@@ -343,6 +343,12 @@ mt7921_sniffer_interface_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 		mt7921_vif_set_beacon_filter(dev, vif, true);
 }
 
+static void mt7921_monitor_hdr_trans_update(struct mt792x_dev *dev)
+{
+	mt76_rmw_field(dev, MT_MDP_DCR0, MT_MDP_DCR0_RX_HDR_TRANS_EN,
+		       !mt792x_monitor_active(dev));
+}
+
 static int
 mt7921_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
@@ -402,6 +408,7 @@ mt7921_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 		ieee80211_iterate_active_interfaces_mtx(hw,
 							IEEE80211_IFACE_ITER_NORMAL,
 							mt7921_sniffer_interface_iter, dev);
+		mt7921_monitor_hdr_trans_update(dev);
 	}
 
 	vif->driver_flags |= IEEE80211_VIF_BEACON_FILTER;
@@ -439,6 +446,9 @@ void mt7921_monitor_rearm(struct mt792x_dev *dev)
 	ieee80211_iterate_active_interfaces(mt76_hw(dev),
 					    IEEE80211_IFACE_ITER_NORMAL,
 					    mt7921_monitor_rearm_iter, dev);
+
+	if (mt792x_monitor_active(dev))
+		mt7921_monitor_hdr_trans_update(dev);
 }
 
 static void
@@ -456,6 +466,7 @@ mt7921_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 		ieee80211_iterate_active_interfaces_mtx(hw,
 							IEEE80211_IFACE_ITER_NORMAL,
 							mt7921_sniffer_interface_iter, dev);
+		mt7921_monitor_hdr_trans_update(dev);
 	}
 	mt792x_mutex_release(dev);
 }
@@ -1496,6 +1507,7 @@ mt7921_change_chanctx(struct ieee80211_hw *hw,
 		if (vif->type == NL80211_IFTYPE_MONITOR) {
 			mt7921_mcu_set_sniffer(mvif->phy->dev, vif, true);
 			mt7921_mcu_config_sniffer(mvif, ctx);
+			mt7921_monitor_hdr_trans_update(mvif->phy->dev);
 		} else {
 			mt76_connac_mcu_uni_set_chctx(mvif->phy->mt76,
 						      &mvif->bss_conf.mt76, ctx);
@@ -1555,6 +1567,7 @@ static int mt7921_assign_vif_chanctx(struct ieee80211_hw *hw,
 	mt792x_mutex_acquire(dev);
 	mt7921_mcu_set_sniffer(dev, vif, true);
 	mt7921_mcu_config_sniffer(mvif, ctx);
+	mt7921_monitor_hdr_trans_update(dev);
 	mt792x_mutex_release(dev);
 
 	return 0;
