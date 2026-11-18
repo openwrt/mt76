@@ -2597,6 +2597,51 @@ free:
 	return err;
 }
 
+struct mt7925_key_iter_data {
+	struct ieee80211_sta *sta;
+	struct mt792x_link_sta *mlink;
+	unsigned int link_id;
+	int err;
+};
+
+static void
+mt7925_sta_key_iter(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+		    struct ieee80211_sta *sta, struct ieee80211_key_conf *key,
+		    void *data)
+{
+	struct mt7925_key_iter_data *it = data;
+
+	if (it->err || sta != it->sta || key->link_id >= 0)
+		return;
+
+	it->err = mt7925_set_link_key(hw, SET_KEY, vif, sta, key, it->link_id,
+				      it->mlink);
+}
+
+static void
+mt7925_mac_sta_links_set_keys(struct ieee80211_hw *hw,
+			      struct ieee80211_vif *vif,
+			      struct ieee80211_sta *sta, unsigned long links)
+{
+	struct mt792x_sta *msta = (struct mt792x_sta *)sta->drv_priv;
+	struct mt7925_key_iter_data it = {
+		.sta = sta,
+	};
+	unsigned int link_id;
+
+	for_each_set_bit(link_id, &links, IEEE80211_MLD_MAX_NUM_LINKS) {
+		it.link_id = link_id;
+		it.mlink = mt792x_sta_to_link(msta, link_id);
+		ieee80211_iter_keys(hw, vif, mt7925_sta_key_iter, &it);
+		if (it.err) {
+			dev_err(mt792x_hw_dev(hw)->mt76.dev,
+				"failed to set station keys on link %u: %d\n",
+				link_id, it.err);
+			return;
+		}
+	}
+}
+
 static int
 mt7925_change_sta_links(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			struct ieee80211_sta *sta, u16 old_links, u16 new_links)
@@ -2618,6 +2663,8 @@ mt7925_change_sta_links(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	err = mt7925_mac_sta_add_links(dev, vif, sta, add);
 	if (err < 0)
 		goto out;
+
+	mt7925_mac_sta_links_set_keys(hw, vif, sta, add);
 
 out:
 	mt792x_mutex_release(dev);
