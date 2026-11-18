@@ -1626,9 +1626,17 @@ void mt76_rx_complete(struct mt76_dev *dev, struct sk_buff_head *frames,
 
 	spin_lock(&dev->rx_lock);
 	while ((skb = __skb_dequeue(frames)) != NULL) {
+		struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
 		struct sk_buff *nskb = skb_shinfo(skb)->frag_list;
+		bool only_monitor;
 
 		mt76_check_ccmp_pn(skb);
+		only_monitor = status->flag & RX_FLAG_ONLY_MONITOR;
+		if (only_monitor && (status->flag & RX_FLAG_8023)) {
+			dev_kfree_skb(skb);
+			continue;
+		}
+
 		skb_shinfo(skb)->frag_list = NULL;
 		mt76_rx_convert(dev, skb, &hw, &sta);
 		if (nskb)
@@ -1640,6 +1648,10 @@ void mt76_rx_complete(struct mt76_dev *dev, struct sk_buff_head *frames,
 			skb = nskb;
 			nskb = nskb->next;
 			skb->next = NULL;
+
+			status = (struct mt76_rx_status *)skb->cb;
+			if (only_monitor)
+				status->flag |= RX_FLAG_ONLY_MONITOR;
 
 			mt76_rx_convert(dev, skb, &hw, &sta);
 			if (nskb)
