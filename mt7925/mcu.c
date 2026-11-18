@@ -2347,9 +2347,17 @@ mt7925_mcu_sta_cmd(struct mt76_phy *phy,
 	}
 
 	if (!info->enable) {
+		struct mt792x_sta *msta;
+
+		msta = (struct mt792x_sta *)info->link_sta->sta->drv_priv;
 		mt7925_mcu_sta_remove_tlv(skb);
-		mt76_connac_mcu_add_tlv(skb, STA_REC_MLD_OFF,
-					sizeof(struct tlv));
+
+		/* One MLD record serves all links of the station, and the
+		 * caller drops the removed link from valid_links first.
+		 */
+		if (!msta->valid_links)
+			mt76_connac_mcu_add_tlv(skb, STA_REC_MLD_OFF,
+						sizeof(struct tlv));
 	} else {
 		if (!info->link_sta)
 			mlink = &mvif->sta.deflink;
