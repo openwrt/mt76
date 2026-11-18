@@ -3055,13 +3055,40 @@ int mt7996_mcu_mld_link_oper(struct mt7996_dev *dev,
 				     MCU_WMWA_UNI_CMD(BSS_INFO_UPDATE), true);
 }
 
+static unsigned long
+mt7996_mcu_sta_mld_setup_links(struct mt7996_dev *dev,
+			       struct ieee80211_vif *vif,
+			       struct ieee80211_sta *sta)
+{
+	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	unsigned long links = mt7996_mac_sta_links(dev, vif, sta);
+	unsigned int link_id;
+
+	if (!msta->peer_mld_links)
+		return links;
+
+	for (link_id = 0; link_id < ARRAY_SIZE(msta->link); link_id++) {
+		struct mt7996_sta_link *msta_link;
+
+		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
+		if (!msta_link || msta_link->wcid.idx != msta->fw_mld_idx)
+			continue;
+
+		if (mt7996_vif_link(dev, vif, link_id))
+			links |= BIT(link_id);
+		break;
+	}
+
+	return links;
+}
+
 static void
 mt7996_mcu_sta_mld_setup_tlv(struct mt7996_dev *dev, struct sk_buff *skb,
 			     struct ieee80211_vif *vif,
 			     struct ieee80211_sta *sta)
 {
+	unsigned long links = mt7996_mcu_sta_mld_setup_links(dev, vif, sta);
 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
-	unsigned long links = mt7996_mac_sta_links(dev, vif, sta);
 	unsigned int nlinks = hweight16(links);
 	struct mld_setup_link *mld_setup_link;
 	struct sta_rec_mld_setup *mld_setup;
