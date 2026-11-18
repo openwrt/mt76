@@ -143,7 +143,7 @@ mt76_rx_aggr_check_ctl(struct sk_buff *skb, struct sk_buff_head *frames)
 
 	status->qos_ctl = tidno = le16_to_cpu(bar->control) >> 12;
 	seqno = IEEE80211_SEQ_TO_SN(le16_to_cpu(bar->start_seq_num));
-	tid = rcu_dereference(wcid->aggr[tidno]);
+	tid = rcu_dereference(mt76_wcid_primary(wcid)->aggr[tidno]);
 	if (!tid)
 		return;
 
