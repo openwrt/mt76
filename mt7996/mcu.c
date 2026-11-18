@@ -6062,7 +6062,10 @@ int mt7996_mcu_set_txpower_sku(struct mt7996_phy *phy)
 	struct sk_buff *skb;
 	int i, tx_power;
 
-	tx_power = mt76_get_power_bound(mphy, phy->txpower);
+	tx_power = mphy->chandef.chan->max_power;
+	if (phy->txpower != INT_MIN)
+		tx_power = min(tx_power, phy->txpower);
+	tx_power = mt76_get_power_bound(mphy, tx_power);
 	tx_power = mt76_get_rate_power_limits(mphy, mphy->chandef.chan,
 					      &la, tx_power);
 	mphy->txpower_cur = tx_power;
