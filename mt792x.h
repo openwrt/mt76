@@ -258,6 +258,8 @@ struct mt792x_vif {
 	struct work_struct csa_work;
 	struct timer_list csa_timer;
 
+	struct list_head monitor_list;
+
 	struct mt792x_nan nan;
 
 	/* NAN DW-WTBL: driver-created STA the firmware gates to the DW;
@@ -395,6 +397,7 @@ struct mt792x_dev {
 	/* LED state last written to the GPIO, -1 if unknown */
 	s8 led_state;
 	u8 monitor_vifs;
+	struct list_head monitor_list;
 
 	struct mt76_connac_pm pm;
 	struct mt76_connac_coredump coredump;

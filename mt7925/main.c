@@ -370,6 +370,9 @@ static int mt7925_start(struct ieee80211_hw *hw)
 	int err;
 
 	mt792x_mutex_acquire(phy->dev);
+	/* a hardware restart adds every interface again without removing it */
+	INIT_LIST_HEAD(&phy->dev->monitor_list);
+	phy->dev->monitor_vifs = 0;
 	err = __mt7925_start(phy);
 	mt792x_mutex_release(phy->dev);
 
@@ -559,6 +562,7 @@ mt7925_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 	if (vif->type == NL80211_IFTYPE_MONITOR) {
 		dev->monitor_vifs++;
+		list_add_tail(&mvif->monitor_list, &dev->monitor_list);
 		mt7925_sniffer_interface_iter(dev, NULL, vif);
 		mt7925_mcu_config_sniffer(mvif, NULL);
 		ieee80211_iterate_active_interfaces_mtx(hw,
@@ -582,19 +586,6 @@ out:
 	return ret;
 }
 
-static void
-mt7925_monitor_rearm_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
-{
-	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
-	struct mt792x_dev *dev = priv;
-
-	if (vif->type != NL80211_IFTYPE_MONITOR)
-		return;
-
-	mt7925_mcu_set_sniffer(dev, vif, true);
-	mt7925_mcu_config_sniffer(mvif, mvif->bss_conf.mt76.ctx);
-}
-
 /* A scan takes the radio off the monitor's channel and the sniffer does
  * not come back by itself, so set it up again when a scan ends, after a
  * chip reset or when another interface goes down. Called with the device
@@ -602,9 +593,17 @@ mt7925_monitor_rearm_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
  */
 void mt7925_monitor_rearm(struct mt792x_dev *dev)
 {
-	ieee80211_iterate_active_interfaces(mt76_hw(dev),
-					    IEEE80211_IFACE_ITER_NORMAL,
-					    mt7925_monitor_rearm_iter, dev);
+	struct mt792x_vif *mvif;
+
+	lockdep_assert_held(&dev->mt76.mutex);
+
+	list_for_each_entry(mvif, &dev->monitor_list, monitor_list) {
+		struct ieee80211_vif *vif;
+
+		vif = container_of((void *)mvif, struct ieee80211_vif, drv_priv);
+		mt7925_mcu_set_sniffer(dev, vif, true);
+		mt7925_mcu_config_sniffer(mvif, mvif->bss_conf.mt76.ctx);
+	}
 }
 
 static void
@@ -629,11 +628,15 @@ mt7925_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 	if (vif->type != NL80211_IFTYPE_MONITOR) {
 		mt7925_monitor_rearm(dev);
-	} else if (!--dev->monitor_vifs) {
-		mt7925_sniffer_interface_iter(dev, NULL, vif);
-		ieee80211_iterate_active_interfaces_mtx(hw,
-							IEEE80211_IFACE_ITER_NORMAL,
-							mt7925_sniffer_interface_iter, dev);
+	} else {
+		list_del(&mvif->monitor_list);
+		if (!--dev->monitor_vifs) {
+			mt7925_sniffer_interface_iter(dev, NULL, vif);
+			ieee80211_iterate_active_interfaces_mtx(hw,
+								IEEE80211_IFACE_ITER_NORMAL,
+								mt7925_sniffer_interface_iter,
+								dev);
+		}
 	}
 
 	mt792x_mutex_release(dev);
