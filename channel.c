@@ -360,6 +360,21 @@ bool mt76_phy_csa_active(struct mt76_phy *phy)
 	return data.active;
 }
 
+static struct mt76_phy *
+mt76_vif_roc_phy(struct mt76_dev *dev, struct ieee80211_vif *vif)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(dev->phys); i++) {
+		struct mt76_phy *phy = dev->phys[i];
+
+		if (phy && phy->roc_vif == vif)
+			return phy;
+	}
+
+	return NULL;
+}
+
 void mt76_roc_complete(struct mt76_phy *phy)
 {
 	struct mt76_vif_link *mlink = phy->roc_link;
@@ -368,7 +383,7 @@ void mt76_roc_complete(struct mt76_phy *phy)
 	if (!phy->roc_vif)
 		return;
 
-	if (mlink)
+	if (mlink && mlink->mvif->roc_phy == phy)
 		mlink->mvif->roc_phy = NULL;
 	if (phy->chanctx && phy->main_chandef.chan && phy->offchannel &&
 	    !test_bit(MT76_MCU_RESET, &dev->phy.state)) {
@@ -425,8 +440,8 @@ int mt76_remain_on_channel(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	mutex_lock(&dev->mutex);
 
-	if (phy->roc_vif || mt76_phy_scanning(phy) ||
-	    mt76_phy_csa_active(phy) ||
+	if (phy->roc_vif || mt76_vif_roc_phy(dev, vif) ||
+	    mt76_phy_scanning(phy) || mt76_phy_csa_active(phy) ||
 	    test_bit(MT76_MCU_RESET, &dev->phy.state) ||
 	    test_bit(MT76_RESTART, &dev->phy.state)) {
 		ret = -EBUSY;
