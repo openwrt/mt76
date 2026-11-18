@@ -237,6 +237,7 @@ struct mt7915_phy {
 	struct mt76_mib_stats mib;
 	struct mt76_channel_state state_ts;
 
+	bool counter_reset;
 	bool sku_limit_en:1;
 	bool sku_path_en:1;
 

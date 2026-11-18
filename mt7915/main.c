@@ -87,8 +87,10 @@ int mt7915_run(struct ieee80211_hw *hw)
 		ieee80211_queue_delayed_work(hw, &phy->mt76->mac_work,
 					     MT7915_WATCHDOG_TIME);
 
-	if (!running)
+	if (!running || !phy->counter_reset) {
 		mt7915_mac_reset_counters(phy);
+		phy->counter_reset = true;
+	}
 
 out:
 	return ret;

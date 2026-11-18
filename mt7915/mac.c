@@ -1405,6 +1405,17 @@ mt7915_mac_restart(struct mt7915_dev *dev)
 			goto out;
 	}
 
+	/* the reloaded firmware counts the MIB airtime from zero */
+	if (!run_main)
+		dev->phy.counter_reset = false;
+	else if (!ret)
+		ret = mt7915_mcu_get_chan_mib_info(&dev->phy, true);
+
+	if (phy2 && !run_ext)
+		phy2->counter_reset = false;
+	else if (run_ext && !ret)
+		ret = mt7915_mcu_get_chan_mib_info(phy2, true);
+
 out:
 	/* reset done */
 	clear_bit(MT76_RESET, &dev->mphy.state);
