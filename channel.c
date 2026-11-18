@@ -507,14 +507,16 @@ EXPORT_SYMBOL_GPL(mt76_remain_on_channel);
 int mt76_cancel_remain_on_channel(struct ieee80211_hw *hw,
 				  struct ieee80211_vif *vif)
 {
-	struct mt76_vif_link *mlink = (struct mt76_vif_link *)vif->drv_priv;
-	struct mt76_vif_data *mvif = mlink->mvif;
-	struct mt76_phy *phy = mvif->roc_phy;
+	struct mt76_phy *phy = hw->priv;
+	struct mt76_dev *dev = phy->dev;
 
-	if (!phy || phy->roc_vif != vif)
-		return 0;
+	/* a completion holds the mutex until it reported the expiry */
+	mutex_lock(&dev->mutex);
+	phy = mt76_vif_roc_phy(dev, vif);
+	mutex_unlock(&dev->mutex);
 
-	mt76_abort_roc(phy);
+	if (phy)
+		mt76_abort_roc(phy);
 
 	return 0;
 }
