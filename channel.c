@@ -216,8 +216,10 @@ int mt76_switch_vif_chanctx(struct ieee80211_hw *hw,
 		else
 			phy = new_ctx->phy;
 
-		if (!phy)
-			return -EINVAL;
+		if (!phy) {
+			ret = -EINVAL;
+			goto restart_mac_work;
+		}
 
 		if (need_update[phy->band_idx])
 			continue;
@@ -272,6 +274,11 @@ int mt76_switch_vif_chanctx(struct ieee80211_hw *hw,
 
 out:
 	mutex_unlock(&dev->mutex);
+
+restart_mac_work:
+	for (i = 0; i < ARRAY_SIZE(need_update); i++)
+		if (need_update[i] && dev->phys[i])
+			mt76_phy_mac_work_restart(dev->phys[i]);
 
 	return ret;
 }
