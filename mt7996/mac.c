@@ -2449,6 +2449,18 @@ mt7996_mac_restart(struct mt7996_dev *dev)
 			goto out;
 	}
 
+	/* the reloaded firmware counts the MIB airtime from zero */
+	mt7996_for_each_phy(dev, phy) {
+		if (!test_bit(MT76_STATE_RUNNING, &phy->mt76->state)) {
+			phy->counter_reset = false;
+			continue;
+		}
+
+		ret = mt7996_mcu_get_chan_mib_info(phy, true);
+		if (ret)
+			goto out;
+	}
+
 out:
 	/* reset done */
 	mt7996_for_each_phy(dev, phy)
