@@ -611,6 +611,17 @@ static void mt7996_phy_set_rxfilter(struct mt7996_phy *phy)
 		mt76_set(dev, MT_WF_RFCR1(phy->mt76->band_idx), ctl_flags);
 	else
 		mt76_clear(dev, MT_WF_RFCR1(phy->mt76->band_idx), ctl_flags);
+
+	/* Firmware sniffer mode clears the drop of trigger frames for other
+	 * stations, and the band's RX stops where it accepts FCS-failed
+	 * frames without it.
+	 */
+	if (!(filter & MT_WF_RFCR_DROP_FCSFAIL))
+		mt76_set(dev, MT_WF_RFCR1(phy->mt76->band_idx),
+			 MT_WF_RFCR1_DROP_NO2ME_TF);
+	else if (!(filter & MT_WF_RFCR_DROP_OTHER_UC))
+		mt76_clear(dev, MT_WF_RFCR1(phy->mt76->band_idx),
+			   MT_WF_RFCR1_DROP_NO2ME_TF);
 }
 
 static bool mt7996_monitor_active(struct mt7996_dev *dev)
@@ -645,8 +656,8 @@ static void mt7996_set_monitor(struct mt7996_phy *phy, bool enabled)
 		       MT_DMA_DCR0_RXD_G5_EN, enabled);
 	mt76_rmw_field(dev, MT_MDP_DCR0,
 		       MT_MDP_DCR0_RX_HDR_TRANS_EN, !mt7996_monitor_active(dev));
-	mt7996_phy_set_rxfilter(phy);
 	mt7996_mcu_set_sniffer_mode(phy, enabled);
+	mt7996_phy_set_rxfilter(phy);
 }
 
 static int mt7996_add_interface(struct ieee80211_hw *hw,

@@ -426,6 +426,7 @@ enum offs_rev {
 #define MT_WF_RFCR1_DROP_BA			BIT(6)
 #define MT_WF_RFCR1_DROP_CFEND			BIT(7)
 #define MT_WF_RFCR1_DROP_CFACK			BIT(8)
+#define MT_WF_RFCR1_DROP_NO2ME_TF		BIT(22)
 
 #define MT_WF_RMAC_MIB_AIRTIME0(_band)		MT_WF_RMAC(_band, 0x0380)
 #define MT_WF_RMAC_MIB_RXTIME_CLR		BIT(31)
