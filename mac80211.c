@@ -2333,10 +2333,7 @@ mt76_offchannel_notify_iter(void *_data, u8 *mac, struct ieee80211_vif *vif)
 	}
 
 	for (link_id = 0; link_id < IEEE80211_MLD_MAX_NUM_LINKS; link_id++) {
-		if (link_id == mvif->deflink_id)
-			mlink = (struct mt76_vif_link *)vif->drv_priv;
-		else
-			mlink = rcu_dereference(mvif->link[link_id]);
+		mlink = rcu_dereference(mvif->link[link_id]);
 		if (!mlink)
 			continue;
 		if (mt76_vif_link_phy(mlink) != data->phy)
@@ -2386,10 +2383,7 @@ static void mt76_rx_beacon_iter(void *_data, u8 *mac,
 	for (link_id = 0; link_id < IEEE80211_MLD_MAX_NUM_LINKS; link_id++) {
 		struct ieee80211_bss_conf *link_conf;
 
-		if (link_id == mvif->deflink_id)
-			mlink = (struct mt76_vif_link *)vif->drv_priv;
-		else
-			mlink = rcu_dereference(mvif->link[link_id]);
+		mlink = rcu_dereference(mvif->link[link_id]);
 		if (!mlink || !READ_ONCE(mlink->beacon_mon_interval))
 			continue;
 
@@ -2447,10 +2441,7 @@ static void mt76_beacon_mon_iter(void *data, u8 *mac,
 	for (link_id = 0; link_id < IEEE80211_MLD_MAX_NUM_LINKS; link_id++) {
 		u16 interval;
 
-		if (link_id == mvif->deflink_id)
-			mlink = (struct mt76_vif_link *)vif->drv_priv;
-		else
-			mlink = rcu_dereference(mvif->link[link_id]);
+		mlink = rcu_dereference(mvif->link[link_id]);
 		if (!mlink)
 			continue;
 
