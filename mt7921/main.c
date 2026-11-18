@@ -300,6 +300,24 @@ static void mt7921_stop(struct ieee80211_hw *hw, bool suspend)
 }
 
 static void
+mt7921_vif_set_beacon_filter(struct mt792x_dev *dev, struct ieee80211_vif *vif,
+			     bool enable)
+{
+	struct ieee80211_hw *hw = mt76_hw(dev);
+
+	if (mt7921_mcu_set_beacon_filter(dev, vif, enable) < 0)
+		return;
+
+	if (enable) {
+		vif->driver_flags |= IEEE80211_VIF_BEACON_FILTER;
+		ieee80211_hw_set(hw, CONNECTION_MONITOR);
+	} else {
+		vif->driver_flags &= ~IEEE80211_VIF_BEACON_FILTER;
+		__clear_bit(IEEE80211_HW_CONNECTION_MONITOR, hw->flags);
+	}
+}
+
+static void
 mt7921_sniffer_interface_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 {
 	struct mt792x_dev *dev = priv;
@@ -312,8 +330,17 @@ mt7921_sniffer_interface_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 
 	mt76_connac_mcu_set_deep_sleep(&dev->mt76, pm->ds_enable);
 
-	if (monitor)
+	if (monitor) {
 		mt7921_mcu_set_beacon_filter(dev, vif, false);
+		return;
+	}
+
+	/* The firmware expects the filter only after the association. The
+	 * driver flag stays set where no runtime PM write turned it off.
+	 */
+	if (vif->cfg.assoc &&
+	    (pm->enable || (vif->driver_flags & IEEE80211_VIF_BEACON_FILTER)))
+		mt7921_vif_set_beacon_filter(dev, vif, true);
 }
 
 static int
@@ -656,21 +683,8 @@ static void
 mt7921_pm_interface_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 {
 	struct mt792x_dev *dev = priv;
-	struct ieee80211_hw *hw = mt76_hw(dev);
-	bool pm_enable = dev->pm.enable;
-	int err;
 
-	err = mt7921_mcu_set_beacon_filter(dev, vif, pm_enable);
-	if (err < 0)
-		return;
-
-	if (pm_enable) {
-		vif->driver_flags |= IEEE80211_VIF_BEACON_FILTER;
-		ieee80211_hw_set(hw, CONNECTION_MONITOR);
-	} else {
-		vif->driver_flags &= ~IEEE80211_VIF_BEACON_FILTER;
-		__clear_bit(IEEE80211_HW_CONNECTION_MONITOR, hw->flags);
-	}
+	mt7921_vif_set_beacon_filter(dev, vif, dev->pm.enable);
 }
 
 void mt7921_set_runtime_pm(struct mt792x_dev *dev)
