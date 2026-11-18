@@ -275,6 +275,8 @@ static int mt7921_start(struct ieee80211_hw *hw)
 	int err;
 
 	mt792x_mutex_acquire(phy->dev);
+	/* a hardware restart adds every interface again without removing it */
+	phy->dev->monitor_vifs = 0;
 	err = __mt7921_start(phy);
 	mt792x_mutex_release(phy->dev);
 
