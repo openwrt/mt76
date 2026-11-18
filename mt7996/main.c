@@ -212,9 +212,6 @@ mt7996_set_hw_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	if (!link)
 		return 0;
 
-	if (!mt7996_vif_link_phy(link))
-		return 0;
-
 	if (sta) {
 		struct mt7996_sta *msta;
 
@@ -226,6 +223,9 @@ mt7996_set_hw_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 		if (!msta_link->wcid.sta)
 			return -EOPNOTSUPP;
 	} else {
+		if (!mt7996_vif_link_phy(link))
+			return 0;
+
 		msta_link = &link->msta_link;
 	}
 	wcid_keyidx = &msta_link->wcid.hw_key_idx;
