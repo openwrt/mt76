@@ -29,6 +29,16 @@ mt76_phy_update_channel(struct mt76_phy *phy,
 	return __mt76_set_channel(phy, &phy->main_chandef, false);
 }
 
+static void mt76_phy_mac_work_restart(struct mt76_phy *phy)
+{
+	struct mt76_dev *dev = phy->dev;
+
+	if (test_bit(MT76_STATE_RUNNING, &phy->state) &&
+	    !test_bit(MT76_MCU_RESET, &dev->phy.state) &&
+	    !test_bit(MT76_RESTART, &dev->phy.state))
+		ieee80211_queue_delayed_work(phy->hw, &phy->mac_work, 0);
+}
+
 int mt76_add_chanctx(struct ieee80211_hw *hw,
 		     struct ieee80211_chanctx_conf *conf)
 {
@@ -440,18 +450,22 @@ int mt76_remain_on_channel(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	mutex_lock(&dev->mutex);
 
-	if (phy->roc_vif || mt76_vif_roc_phy(dev, vif) ||
-	    mt76_phy_scanning(phy) || mt76_phy_csa_active(phy) ||
-	    test_bit(MT76_MCU_RESET, &dev->phy.state) ||
+	if (test_bit(MT76_MCU_RESET, &dev->phy.state) ||
 	    test_bit(MT76_RESTART, &dev->phy.state)) {
 		ret = -EBUSY;
 		goto out;
 	}
 
+	if (phy->roc_vif || mt76_vif_roc_phy(dev, vif) ||
+	    mt76_phy_scanning(phy) || mt76_phy_csa_active(phy)) {
+		ret = -EBUSY;
+		goto restart_mac_work;
+	}
+
 	mlink = mt76_get_vif_phy_link(phy, vif);
 	if (IS_ERR(mlink)) {
 		ret = PTR_ERR(mlink);
-		goto out;
+		goto restart_mac_work;
 	}
 
 	mlink->mvif->roc_phy = phy;
@@ -473,6 +487,10 @@ int mt76_remain_on_channel(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	ieee80211_queue_delayed_work(phy->hw, &phy->roc_work,
 				     msecs_to_jiffies(duration));
 
+	goto out;
+
+restart_mac_work:
+	mt76_phy_mac_work_restart(phy);
 out:
 	mutex_unlock(&dev->mutex);
 	return ret;
