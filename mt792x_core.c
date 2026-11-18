@@ -560,6 +560,26 @@ void mt792x_set_wakeup(struct ieee80211_hw *hw, bool enabled)
 }
 EXPORT_SYMBOL_GPL(mt792x_set_wakeup);
 
+void mt792x_rx_group_pn_reset_iter(void *priv, u8 *mac,
+				   struct ieee80211_vif *vif)
+{
+	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
+	unsigned long valid = ieee80211_vif_is_mld(vif) ?
+			      mvif->valid_links : BIT(0);
+	unsigned int link_id;
+
+	if (!mvif->gtk_rekey_offload)
+		return;
+
+	/* the firmware can renew the GTK in suspend and does not report it */
+	for_each_set_bit(link_id, &valid, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct mt792x_bss_conf *mconf = mt792x_vif_to_link(mvif, link_id);
+
+		mt76_rx_group_pn_reset(&mconf->mt76.rx_group_pn);
+	}
+}
+EXPORT_SYMBOL_GPL(mt792x_rx_group_pn_reset_iter);
+
 static const char mt792x_gstrings_stats[][ETH_GSTRING_LEN] = {
 	/* tx counters */
 	"tx_ampdu_cnt",

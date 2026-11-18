@@ -1673,6 +1673,12 @@ mt76_rx_group_wcid(struct mt76_wcid *wcid)
 	return wcid;
 }
 
+static inline void
+mt76_rx_group_pn_reset(struct mt76_rx_group_pn *group_pn)
+{
+	memset(group_pn->pn, 0, sizeof(group_pn->pn));
+}
+
 void mt76_wcid_key_setup(struct mt76_dev *dev, struct mt76_wcid *wcid,
 			 struct ieee80211_key_conf *key);
 

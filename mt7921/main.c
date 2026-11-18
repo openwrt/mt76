@@ -697,6 +697,7 @@ static void mt7921_bss_info_changed(struct ieee80211_hw *hw,
 				    struct ieee80211_bss_conf *info,
 				    u64 changed)
 {
+	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
 	struct mt792x_phy *phy = mt792x_hw_phy(hw);
 	struct mt792x_dev *dev = mt792x_hw_dev(hw);
 
@@ -730,14 +731,13 @@ static void mt7921_bss_info_changed(struct ieee80211_hw *hw,
 		mt7921_mcu_sta_update(dev, NULL, vif, true,
 				      MT76_STA_INFO_STATE_ASSOC);
 		mt7921_mcu_set_beacon_filter(dev, vif, vif->cfg.assoc);
+		if (!vif->cfg.assoc)
+			mvif->gtk_rekey_offload = false;
 	}
 
-	if (changed & BSS_CHANGED_ARP_FILTER) {
-		struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
-
+	if (changed & BSS_CHANGED_ARP_FILTER)
 		mt76_connac_mcu_update_arp_filter(&dev->mt76, &mvif->bss_conf.mt76,
 						  info);
-	}
 
 	mt792x_mutex_release(dev);
 }
@@ -1183,6 +1183,10 @@ static int mt7921_resume(struct ieee80211_hw *hw)
 	set_bit(MT76_STATE_RUNNING, &phy->mt76->state);
 	ieee80211_iterate_active_interfaces_mtx(hw,
 						IEEE80211_IFACE_ITER_RESUME_ALL,
+						mt792x_rx_group_pn_reset_iter,
+						NULL);
+	ieee80211_iterate_active_interfaces_mtx(hw,
+						IEEE80211_IFACE_ITER_RESUME_ALL,
 						mt76_connac_mcu_set_suspend_iter,
 						&dev->mphy);
 
@@ -1198,10 +1202,12 @@ static void mt7921_set_rekey_data(struct ieee80211_hw *hw,
 				  struct ieee80211_vif *vif,
 				  struct cfg80211_gtk_rekey_data *data)
 {
+	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
 	struct mt792x_dev *dev = mt792x_hw_dev(hw);
 
 	mt792x_mutex_acquire(dev);
 	mt76_connac_mcu_update_gtk_rekey(hw, vif, data);
+	mvif->gtk_rekey_offload = true;
 	mt792x_mutex_release(dev);
 }
 #endif /* CONFIG_PM */
