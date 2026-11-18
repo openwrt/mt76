@@ -276,7 +276,8 @@ int mt76_hw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	}
 
 	for_each_set_bit(i, &phy_mask, ARRAY_SIZE(dev->phys)) {
-		if (dev->phys[i]->roc_vif) {
+		if (dev->phys[i]->roc_vif ||
+		    mt76_phy_csa_active(dev->phys[i])) {
 			ret = -EBUSY;
 			goto out;
 		}

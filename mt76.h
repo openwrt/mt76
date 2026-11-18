@@ -1908,6 +1908,7 @@ struct mt76_vif_link *mt76_get_vif_phy_link(struct mt76_phy *phy,
 					    struct ieee80211_vif *vif);
 void mt76_put_vif_phy_link(struct mt76_phy *phy, struct ieee80211_vif *vif,
 			   struct mt76_vif_link *mlink);
+bool mt76_phy_csa_active(struct mt76_phy *phy);
 void mt76_offchannel_notify(struct mt76_phy *phy, bool offchannel);
 
 /* usb */

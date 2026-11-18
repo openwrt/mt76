@@ -313,6 +313,53 @@ void mt76_put_vif_phy_link(struct mt76_phy *phy, struct ieee80211_vif *vif,
 	kfree_rcu(mlink, rcu_head);
 }
 
+struct mt76_csa_active_data {
+	struct mt76_phy *phy;
+	bool active;
+};
+
+static void
+mt76_csa_active_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
+{
+	struct mt76_csa_active_data *data = priv;
+	struct ieee80211_bss_conf *link_conf;
+	struct mt76_vif_link *mlink;
+	unsigned int link_id;
+
+	switch (vif->type) {
+	case NL80211_IFTYPE_AP:
+	case NL80211_IFTYPE_MESH_POINT:
+	case NL80211_IFTYPE_ADHOC:
+		break;
+	default:
+		return;
+	}
+
+	for_each_vif_active_link(vif, link_conf, link_id) {
+		if (!link_conf->csa_active)
+			continue;
+
+		mlink = mt76_vif_link(data->phy->dev, vif, link_id);
+		if (mlink && mt76_vif_link_phy(mlink) == data->phy)
+			data->active = true;
+	}
+}
+
+bool mt76_phy_csa_active(struct mt76_phy *phy)
+{
+	struct mt76_csa_active_data data = {
+		.phy = phy,
+	};
+
+	lockdep_assert_held(&phy->dev->mutex);
+
+	ieee80211_iterate_active_interfaces_mtx(phy->hw,
+						IEEE80211_IFACE_ITER_NORMAL,
+						mt76_csa_active_iter, &data);
+
+	return data.active;
+}
+
 void mt76_roc_complete(struct mt76_phy *phy)
 {
 	struct mt76_vif_link *mlink = phy->roc_link;
@@ -379,6 +426,7 @@ int mt76_remain_on_channel(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	mutex_lock(&dev->mutex);
 
 	if (phy->roc_vif || mt76_phy_scanning(phy) ||
+	    mt76_phy_csa_active(phy) ||
 	    test_bit(MT76_MCU_RESET, &dev->phy.state) ||
 	    test_bit(MT76_RESTART, &dev->phy.state)) {
 		ret = -EBUSY;
