@@ -2010,9 +2010,20 @@ mt7996_mac_sta_remove(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		      struct ieee80211_sta *sta)
 {
 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	struct mt7996_sta_link *msta_link = &msta->deflink;
 	int i;
 
 	mutex_lock(&dev->mt76.mutex);
+
+	/* the firmware can still hold an agreement whose delete failed, so
+	 * its table entry stays counted
+	 */
+	for (i = 0; i < ARRAY_SIZE(msta_link->twt.flow); i++) {
+		if (msta_link->twt.flowid_mask & BIT(i))
+			list_del_init(&msta_link->twt.flow[i].list);
+	}
+	msta_link->twt.flowid_mask = 0;
+
 	for (i = 0; i < ARRAY_SIZE(msta->link); i++)
 		mt7996_mac_sta_remove_link(dev, sta, i, true);
 	mutex_unlock(&dev->mt76.mutex);
