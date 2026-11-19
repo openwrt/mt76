@@ -1472,7 +1472,11 @@ mt7915_mac_full_reset(struct mt7915_dev *dev)
 
 	mt76_reset_device(&dev->mt76);
 
-	INIT_LIST_HEAD(&dev->sta_rc_list);
+	spin_lock_bh(&dev->mt76.sta_poll_lock);
+	while (!list_empty(&dev->sta_rc_list))
+		list_del_init(dev->sta_rc_list.next);
+	spin_unlock_bh(&dev->mt76.sta_poll_lock);
+
 	INIT_LIST_HEAD(&dev->twt_list);
 
 	i = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7915_WTBL_STA);
