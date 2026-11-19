@@ -501,7 +501,9 @@ void mt792xu_disconnect(struct usb_interface *usb_intf)
 	if (!dev)
 		return;
 
+	mutex_lock(&dev->mt76.mutex);
 	set_bit(MT76_RESET, &dev->mphy.state);
+	mutex_unlock(&dev->mt76.mutex);
 	clear_bit(MT76_STATE_RUNNING, &dev->mphy.state);
 
 	cancel_work_sync(&dev->init_work);

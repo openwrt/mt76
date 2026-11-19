@@ -435,9 +435,25 @@ void mt792x_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		  u32 queues, bool drop)
 {
 	struct mt792x_dev *dev = mt792x_hw_dev(hw);
+	bool park;
+
+	mt792x_mutex_acquire(dev);
+
+	park = !test_bit(MT76_RESET, &dev->mphy.state);
+	if (park) {
+		mt76_worker_disable(&dev->mt76.tx_worker);
+		if (drop)
+			mt76_txq_purge_pending(&dev->mphy);
+		mt76_txq_schedule_pending(&dev->mphy);
+	}
 
 	wait_event_timeout(dev->mt76.tx_wait,
 			   !mt76_has_tx_pending(&dev->mphy), HZ / 2);
+
+	if (park)
+		mt76_worker_enable(&dev->mt76.tx_worker);
+
+	mt792x_mutex_release(dev);
 }
 EXPORT_SYMBOL_GPL(mt792x_flush);
 

@@ -812,6 +812,27 @@ void mt76_txq_schedule_pending(struct mt76_phy *phy)
 	rcu_read_unlock();
 	local_bh_enable();
 }
+EXPORT_SYMBOL_GPL(mt76_txq_schedule_pending);
+
+void mt76_txq_purge_pending(struct mt76_phy *phy)
+{
+	struct mt76_dev *dev = phy->dev;
+	struct sk_buff_head list;
+	struct mt76_wcid *wcid;
+
+	__skb_queue_head_init(&list);
+
+	spin_lock_bh(&dev->tx_lock);
+	list_for_each_entry(wcid, &phy->tx_list, tx_list) {
+		spin_lock(&wcid->tx_pending.lock);
+		skb_queue_splice_tail_init(&wcid->tx_pending, &list);
+		spin_unlock(&wcid->tx_pending.lock);
+	}
+	spin_unlock_bh(&dev->tx_lock);
+
+	ieee80211_purge_tx_queue(phy->hw, &list);
+}
+EXPORT_SYMBOL_GPL(mt76_txq_purge_pending);
 
 void mt76_txq_schedule_all(struct mt76_phy *phy)
 {
