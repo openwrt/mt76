@@ -2581,8 +2581,7 @@ mt7996_mac_full_reset(struct mt7996_dev *dev)
 		kfree(e);
 	}
 
-	i = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7996_WTBL_STA);
-	dev->mt76.global_wcid.idx = i;
+	mt7996_global_wcid_init(dev);
 	dev->recovery.hw_full_reset = false;
 
 	mutex_unlock(&dev->mt76.mutex);
