@@ -1122,16 +1122,28 @@ mt7925_mcu_parse_phy_cap(struct mt792x_dev *dev, char *data, int len)
 		WF0_24G,
 		WF0_5G
 	};
+	bool changed;
+	u8 mask;
 
 	if (len < offsetofend(struct mt7925_mcu_phy_cap, hw_path))
 		return;
 
 	cap = (struct mt7925_mcu_phy_cap *)data;
 
-	mdev->phy.antenna_mask = BIT(cap->nss) - 1;
-	mdev->phy.chainmask = mdev->phy.antenna_mask;
+	mask = BIT(cap->nss) - 1;
+	if (dev->hw_init_done)
+		mask &= mdev->phy.antenna_mask;
+	changed = mask != mdev->phy.antenna_mask;
+
+	mdev->phy.antenna_mask = mask;
+	mdev->phy.chainmask = mask;
 	mdev->phy.cap.has_2ghz = cap->hw_path & BIT(WF0_24G);
 	mdev->phy.cap.has_5ghz = cap->hw_path & BIT(WF0_5G);
+
+	if (dev->hw_init_done && changed) {
+		mt76_set_stream_caps(mphy, true);
+		mt7925_set_stream_he_eht_caps(&dev->phy);
+	}
 }
 
 static void
