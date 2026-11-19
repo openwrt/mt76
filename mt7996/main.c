@@ -1401,8 +1401,10 @@ void mt7996_mac_sta_remove_link(struct mt7996_dev *dev,
 	if (!msta_link)
 		return;
 
-	if (flush)
+	if (flush) {
+		rcu_assign_pointer(msta->link[link_id], NULL);
 		rcu_assign_pointer(dev->mt76.wcid[msta_link->wcid.idx], NULL);
+	}
 
 	spin_lock_bh(&dev->mt76.sta_poll_lock);
 	if (!list_empty(&msta_link->wcid.poll_list))
@@ -1429,7 +1431,6 @@ void mt7996_mac_sta_remove_link(struct mt7996_dev *dev,
 		if (phy)
 			phy->mt76->num_sta--;
 
-		rcu_assign_pointer(msta->link[link_id], NULL);
 		mt76_wcid_mask_clear(dev->mt76.wcid_mask, msta_link->wcid.idx);
 		if (msta_link != &msta->deflink)
 			kfree_rcu(msta_link, rcu_head);
@@ -2568,6 +2569,7 @@ static void mt7996_link_rate_ctrl_update(void *data,
 {
 	struct mt7996_sta *msta = msta_link->sta;
 	struct mt7996_phy *phy = mt7996_vif_link_phy(&msta->vif->deflink);
+	u8 link_id = msta_link->wcid.link_id;
 	struct mt7996_dev *dev;
 	u32 *changed = data;
 
@@ -2578,7 +2580,8 @@ static void mt7996_link_rate_ctrl_update(void *data,
 	spin_lock_bh(&dev->mt76.sta_poll_lock);
 
 	msta_link->changed |= *changed;
-	if (list_empty(&msta_link->rc_list))
+	if (list_empty(&msta_link->rc_list) &&
+	    rcu_access_pointer(msta->link[link_id]) == msta_link)
 		list_add_tail(&msta_link->rc_list, &dev->sta_rc_list);
 
 	spin_unlock_bh(&dev->mt76.sta_poll_lock);
