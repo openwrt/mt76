@@ -893,7 +893,11 @@ static void mt76_reset_phy(struct mt76_phy *phy)
 	if (!phy)
 		return;
 
-	INIT_LIST_HEAD(&phy->tx_list);
+	spin_lock_bh(&phy->dev->tx_lock);
+	while (!list_empty(&phy->tx_list))
+		list_del_init(phy->tx_list.next);
+	spin_unlock_bh(&phy->dev->tx_lock);
+
 	phy->num_sta = 0;
 	phy->chanctx = NULL;
 	mt76_roc_complete(phy);
