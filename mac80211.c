@@ -922,7 +922,12 @@ void mt76_reset_device(struct mt76_dev *dev)
 	rcu_read_unlock();
 
 	INIT_LIST_HEAD(&dev->wcid_list);
-	INIT_LIST_HEAD(&dev->sta_poll_list);
+
+	spin_lock_bh(&dev->sta_poll_lock);
+	while (!list_empty(&dev->sta_poll_list))
+		list_del_init(dev->sta_poll_list.next);
+	spin_unlock_bh(&dev->sta_poll_lock);
+
 	dev->vif_mask = 0;
 	memset(dev->wcid_mask, 0, sizeof(dev->wcid_mask));
 
@@ -1861,11 +1866,6 @@ void mt76_wcid_cleanup(struct mt76_dev *dev, struct mt76_wcid *wcid)
 	idr_destroy(&wcid->pktid);
 	mt76_tx_status_unlock(dev, &list);
 
-	/* Remove from sta_poll_list to prevent list corruption after reset.
-	 * Without this, mt76_reset_device() reinitializes sta_poll_list but
-	 * leaves wcid->poll_list with stale pointers, causing list corruption
-	 * when mt76_wcid_add_poll() checks list_empty().
-	 */
 	spin_lock_bh(&dev->sta_poll_lock);
 	if (!list_empty(&wcid->poll_list))
 		list_del_init(&wcid->poll_list);
