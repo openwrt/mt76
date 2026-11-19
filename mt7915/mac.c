@@ -1436,6 +1436,7 @@ out:
 static void
 mt7915_mac_full_reset(struct mt7915_dev *dev)
 {
+	struct mt7915_twt_flow *flow, *tmp;
 	struct mt76_phy *ext_phy;
 	struct mt7915_phy *phy2;
 	int i;
@@ -1477,7 +1478,15 @@ mt7915_mac_full_reset(struct mt7915_dev *dev)
 		list_del_init(dev->sta_rc_list.next);
 	spin_unlock_bh(&dev->mt76.sta_poll_lock);
 
-	INIT_LIST_HEAD(&dev->twt_list);
+	list_for_each_entry_safe(flow, tmp, &dev->twt_list, list) {
+		struct mt7915_sta *msta;
+
+		msta = container_of(flow, struct mt7915_sta, twt.flow[flow->id]);
+		msta->twt.flowid_mask &= ~BIT(flow->id);
+		list_del_init(&flow->list);
+	}
+	dev->twt.table_mask = 0;
+	dev->twt.n_agrt = 0;
 
 	i = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7915_WTBL_STA);
 	dev->mt76.global_wcid.idx = i;
