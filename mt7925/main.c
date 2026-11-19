@@ -2081,6 +2081,9 @@ static void mt7925_ipv6_addr_change(struct ieee80211_hw *hw,
 	struct ieee80211_bss_conf *bss_conf;
 	int i;
 
+	if (!mvif->phy)
+		return;
+
 	for_each_set_bit(i, &valid, IEEE80211_MLD_MAX_NUM_LINKS) {
 		bss_conf = mt792x_vif_to_bss_conf(vif, i);
 		__mt7925_ipv6_addr_change(hw, bss_conf, idev);
