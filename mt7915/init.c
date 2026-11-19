@@ -898,10 +898,25 @@ static bool mt7915_band_config(struct mt7915_dev *dev)
 	return ret;
 }
 
+int mt7915_global_wcid_init(struct mt7915_dev *dev)
+{
+	int idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7915_WTBL_STA);
+
+	if (idx)
+		return -ENOSPC;
+
+	dev->mt76.global_wcid.idx = idx;
+	dev->mt76.global_wcid.hw_key_idx = -1;
+	dev->mt76.global_wcid.tx_info |= MT_WCID_TX_INFO_SET;
+	rcu_assign_pointer(dev->mt76.wcid[idx], &dev->mt76.global_wcid);
+
+	return 0;
+}
+
 static int
 mt7915_init_hardware(struct mt7915_dev *dev, struct mt7915_phy *phy2)
 {
-	int ret, idx;
+	int ret;
 
 	mt76_wr(dev, MT_INT_MASK_CSR, 0);
 	mt76_wr(dev, MT_INT_SOURCE_CSR, ~0);
@@ -928,17 +943,7 @@ mt7915_init_hardware(struct mt7915_dev *dev, struct mt7915_phy *phy2)
 			return ret;
 	}
 
-	/* Beacon and mgmt frames should occupy wcid 0 */
-	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7915_WTBL_STA);
-	if (idx)
-		return -ENOSPC;
-
-	dev->mt76.global_wcid.idx = idx;
-	dev->mt76.global_wcid.hw_key_idx = -1;
-	dev->mt76.global_wcid.tx_info |= MT_WCID_TX_INFO_SET;
-	rcu_assign_pointer(dev->mt76.wcid[idx], &dev->mt76.global_wcid);
-
-	return 0;
+	return mt7915_global_wcid_init(dev);
 }
 
 void mt7915_set_stream_vht_txbf_caps(struct mt7915_phy *phy)
