@@ -746,6 +746,16 @@ mt7925_mac_write_txwi_80211(struct mt76_dev *dev, __le32 *txwi,
 	}
 }
 
+static bool
+mt7925_mac_deauth_on_ac(struct ieee80211_vif *vif, struct sk_buff *skb)
+{
+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+
+	return vif && vif->type == NL80211_IFTYPE_STATION &&
+	       ieee80211_vif_is_mld(vif) && vif->cfg.assoc &&
+	       ieee80211_is_deauth(hdr->frame_control);
+}
+
 void
 mt7925_mac_write_txwi(struct mt76_dev *dev, __le32 *txwi,
 		      struct sk_buff *skb, struct mt76_wcid *wcid,
@@ -780,7 +790,7 @@ mt7925_mac_write_txwi(struct mt76_dev *dev, __le32 *txwi,
 	} else if (beacon) {
 		p_fmt = MT_TX_TYPE_FW;
 		q_idx = MT_LMAC_BCN0;
-	} else if (qid >= MT_TXQ_PSD) {
+	} else if (qid >= MT_TXQ_PSD && !mt7925_mac_deauth_on_ac(vif, skb)) {
 		p_fmt = mt76_is_mmio(dev) ? MT_TX_TYPE_CT : MT_TX_TYPE_SF;
 		q_idx = MT_LMAC_ALTX0;
 	} else {
