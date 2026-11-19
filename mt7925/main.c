@@ -1640,13 +1640,11 @@ void mt7925_mac_sta_remove(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 		rcu_read_unlock();
 	}
 
-	if (ieee80211_vif_is_mld(vif)) {
+	if (ieee80211_vif_is_mld(vif))
 		mt7925_mac_sta_remove_links(dev, vif, sta, msta->valid_links);
-		mt7925_mcu_del_dev(mdev, vif);
-	} else {
+	else
 		mt7925_mac_link_sta_remove(mdev, vif, &sta->deflink,
 					   &msta->deflink);
-	}
 
 	if (vif->type == NL80211_IFTYPE_STATION) {
 		mvif->wep_sta = NULL;
