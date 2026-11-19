@@ -2512,6 +2512,7 @@ static void
 mt7996_mac_full_reset(struct mt7996_dev *dev)
 {
 	struct ieee80211_hw *hw = mt76_hw(dev);
+	struct mt7996_twt_flow *flow, *tmp;
 	struct mt7996_phy *phy;
 	LIST_HEAD(list);
 	int i;
@@ -2556,7 +2557,16 @@ mt7996_mac_full_reset(struct mt7996_dev *dev)
 		list_del_init(dev->sta_rc_list.next);
 	spin_unlock_bh(&dev->mt76.sta_poll_lock);
 
-	INIT_LIST_HEAD(&dev->twt_list);
+	list_for_each_entry_safe(flow, tmp, &dev->twt_list, list) {
+		struct mt7996_sta_link *msta_link;
+
+		msta_link = container_of(flow, struct mt7996_sta_link,
+					 twt.flow[flow->id]);
+		msta_link->twt.flowid_mask &= ~BIT(flow->id);
+		list_del_init(&flow->list);
+	}
+	dev->twt.table_mask = 0;
+	dev->twt.n_agrt = 0;
 
 	spin_lock_bh(&dev->wed_rro.lock);
 	list_splice_init(&dev->wed_rro.poll_list, &list);
