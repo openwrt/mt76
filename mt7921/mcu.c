@@ -577,9 +577,10 @@ static void mt7921_mcu_parse_tx_resource(struct mt76_dev *dev,
 	sdio->sched.deficit = tx_res->pp_padding;
 }
 
-static void mt7921_mcu_parse_phy_cap(struct mt76_dev *dev,
+static void mt7921_mcu_parse_phy_cap(struct mt76_dev *mdev,
 				     struct sk_buff *skb, int len)
 {
+	struct mt792x_dev *dev = container_of(mdev, struct mt792x_dev, mt76);
 	struct mt7921_phy_cap {
 		u8 ht;
 		u8 vht;
@@ -599,16 +600,28 @@ static void mt7921_mcu_parse_phy_cap(struct mt76_dev *dev,
 		WF0_24G,
 		WF0_5G
 	};
+	bool changed;
+	u8 mask;
 
 	if (len < offsetofend(struct mt7921_phy_cap, hw_path))
 		return;
 
 	cap = (struct mt7921_phy_cap *)skb->data;
 
-	dev->phy.antenna_mask = BIT(cap->nss) - 1;
-	dev->phy.chainmask = dev->phy.antenna_mask;
-	dev->phy.cap.has_2ghz = cap->hw_path & BIT(WF0_24G);
-	dev->phy.cap.has_5ghz = cap->hw_path & BIT(WF0_5G);
+	mask = BIT(cap->nss) - 1;
+	if (dev->hw_init_done)
+		mask &= mdev->phy.antenna_mask;
+	changed = mask != mdev->phy.antenna_mask;
+
+	mdev->phy.antenna_mask = mask;
+	mdev->phy.chainmask = mask;
+	mdev->phy.cap.has_2ghz = cap->hw_path & BIT(WF0_24G);
+	mdev->phy.cap.has_5ghz = cap->hw_path & BIT(WF0_5G);
+
+	if (dev->hw_init_done && changed) {
+		mt76_set_stream_caps(&mdev->phy, true);
+		mt7921_set_stream_he_caps(&dev->phy);
+	}
 }
 
 static int mt7921_mcu_get_nic_capability(struct mt792x_phy *mphy)
