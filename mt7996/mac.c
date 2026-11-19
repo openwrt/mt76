@@ -2551,7 +2551,11 @@ mt7996_mac_full_reset(struct mt7996_dev *dev)
 						   IEEE80211_IFACE_SKIP_SDATA_NOT_IN_DRIVER,
 						   mt7996_mac_reset_vif_iter, dev);
 
-	INIT_LIST_HEAD(&dev->sta_rc_list);
+	spin_lock_bh(&dev->mt76.sta_poll_lock);
+	while (!list_empty(&dev->sta_rc_list))
+		list_del_init(dev->sta_rc_list.next);
+	spin_unlock_bh(&dev->mt76.sta_poll_lock);
+
 	INIT_LIST_HEAD(&dev->twt_list);
 
 	spin_lock_bh(&dev->wed_rro.lock);
