@@ -1710,6 +1710,42 @@ void mt76_rx_poll_complete(struct mt76_dev *dev, enum mt76_rxq_id q,
 }
 EXPORT_SYMBOL_GPL(mt76_rx_poll_complete);
 
+static void
+mt76_sta_teardown(struct mt76_phy *phy, struct ieee80211_vif *vif,
+		  struct ieee80211_sta *sta)
+{
+	struct mt76_dev *dev = phy->dev;
+	struct mt76_wcid *wcid = (struct mt76_wcid *)sta->drv_priv;
+	int i, idx = wcid->idx;
+
+	for (i = 0; i < ARRAY_SIZE(wcid->aggr); i++)
+		mt76_rx_aggr_stop(dev, wcid, i);
+
+	if (dev->drv->sta_remove)
+		dev->drv->sta_remove(dev, vif, sta);
+
+	mt76_wcid_cleanup(dev, wcid);
+
+	mt76_wcid_mask_clear(dev->wcid_mask, idx);
+}
+
+static void
+mt76_sta_replay_drop(struct mt76_phy *phy, struct ieee80211_vif *vif,
+		     struct ieee80211_sta *sta)
+{
+	struct mt76_wcid *wcid = (struct mt76_wcid *)sta->drv_priv;
+	struct mt76_dev *dev = phy->dev;
+
+	spin_lock_bh(&dev->status_lock);
+	if (rcu_access_pointer(dev->wcid[wcid->idx]) == wcid)
+		rcu_assign_pointer(dev->wcid[wcid->idx], NULL);
+	spin_unlock_bh(&dev->status_lock);
+	synchronize_net();
+
+	mt76_sta_teardown(phy, vif, sta);
+	wcid->sta = 0;
+}
+
 static int
 mt76_sta_add(struct mt76_phy *phy, struct ieee80211_vif *vif,
 	     struct ieee80211_sta *sta)
@@ -1723,8 +1759,12 @@ mt76_sta_add(struct mt76_phy *phy, struct ieee80211_vif *vif,
 
 	mutex_lock(&dev->mutex);
 
-	/* drv_priv of a new station is zeroed, so only a replay has it set */
-	registered = wcid->sta;
+	published = rcu_dereference_protected(dev->wcid[wcid->idx],
+					      lockdep_is_held(&dev->mutex));
+	registered = wcid->sta || published == wcid;
+	if (registered && !(dev->drv->drv_flags & MT_DRV_KEEP_REPLAYED_STA))
+		mt76_sta_replay_drop(phy, vif, sta);
+
 	ret = dev->drv->sta_add(dev, vif, sta);
 	if (ret)
 		goto out;
@@ -1762,19 +1802,7 @@ out:
 void __mt76_sta_remove(struct mt76_phy *phy, struct ieee80211_vif *vif,
 		       struct ieee80211_sta *sta)
 {
-	struct mt76_dev *dev = phy->dev;
-	struct mt76_wcid *wcid = (struct mt76_wcid *)sta->drv_priv;
-	int i, idx = wcid->idx;
-
-	for (i = 0; i < ARRAY_SIZE(wcid->aggr); i++)
-		mt76_rx_aggr_stop(dev, wcid, i);
-
-	if (dev->drv->sta_remove)
-		dev->drv->sta_remove(dev, vif, sta);
-
-	mt76_wcid_cleanup(dev, wcid);
-
-	mt76_wcid_mask_clear(dev->wcid_mask, idx);
+	mt76_sta_teardown(phy, vif, sta);
 	phy->num_sta--;
 }
 EXPORT_SYMBOL_GPL(__mt76_sta_remove);

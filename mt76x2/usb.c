@@ -58,7 +58,8 @@ static int mt76x2u_probe(struct usb_interface *intf,
 {
 	static const struct mt76_driver_ops drv_ops = {
 		.drv_flags = MT_DRV_SW_RX_AIRTIME |
-			     MT_DRV_IGNORE_TXS_FAILED,
+			     MT_DRV_IGNORE_TXS_FAILED |
+			     MT_DRV_KEEP_REPLAYED_STA,
 		.survey_flags = SURVEY_INFO_TIME_TX,
 		.update_survey = mt76x02_update_channel,
 		.set_channel = mt76x2u_set_channel,
