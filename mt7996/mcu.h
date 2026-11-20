@@ -30,6 +30,8 @@ struct mt7996_mcu_uni_event {
 	__le32 status; /* 0: success, others: fail */
 } __packed;
 
+#define MT7996_MCU_STATUS_STA_REC_IN_USE	0x10003
+
 struct mt7996_mcu_thermal_ctrl {
 	u8 ctrl_id;
 	u8 band_idx;

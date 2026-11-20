@@ -267,7 +267,11 @@ mt7996_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 			dev_warn_ratelimited(mdev->dev,
 					     "Message %08x (seq %d) cid %04x failed: firmware status 0x%x\n",
 					     cmd, seq, mcu_cmd, status);
-			ret = -EREMOTEIO;
+			if (mcu_cmd == MCU_UNI_CMD_STA_REC_UPDATE &&
+			    status == MT7996_MCU_STATUS_STA_REC_IN_USE)
+				ret = -EEXIST;
+			else
+				ret = -EREMOTEIO;
 		}
 	} else {
 		skb_pull(skb, sizeof(struct mt7996_mcu_rxd));
