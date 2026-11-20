@@ -409,9 +409,9 @@ void mt76_roc_complete(struct mt76_phy *phy)
 	} else {
 		phy->offchannel = false;
 	}
-	mt76_put_vif_phy_link(phy, phy->roc_vif, phy->roc_link);
-	phy->roc_vif = NULL;
 	phy->roc_link = NULL;
+	mt76_put_vif_phy_link(phy, phy->roc_vif, mlink);
+	phy->roc_vif = NULL;
 	if (!test_bit(MT76_RESTART, &dev->phy.state))
 		ieee80211_remain_on_channel_expired(phy->hw);
 }
