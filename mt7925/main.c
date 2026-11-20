@@ -2149,16 +2149,20 @@ mt7925_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	       const struct ieee80211_tx_queue_params *params)
 {
 	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
-	struct mt792x_bss_conf *mconf = mt792x_vif_to_link(mvif, link_id);
+	struct mt792x_dev *dev = mt792x_hw_dev(hw);
 	static const u8 mq_to_aci[] = {
 		    [IEEE80211_AC_VO] = 3,
 		    [IEEE80211_AC_VI] = 2,
 		    [IEEE80211_AC_BE] = 0,
 		    [IEEE80211_AC_BK] = 1,
 	};
+	struct mt792x_bss_conf *mconf;
 
+	mutex_lock(&dev->mt76.mutex);
+	mconf = mt792x_vif_to_link(mvif, link_id);
 	/* firmware uses access class index */
 	mconf->queue_params[mq_to_aci[queue]] = *params;
+	mutex_unlock(&dev->mt76.mutex);
 
 	return 0;
 }
