@@ -90,7 +90,7 @@ static void mt7925_mac_sta_poll(struct mt792x_dev *dev)
 			memset(mlink->airtime_ac, 0, sizeof(mlink->airtime_ac));
 		}
 
-		if (!mlink->wcid.sta)
+		if (!msta || !mlink->wcid.sta)
 			continue;
 
 		sta = container_of((void *)msta, struct ieee80211_sta,
