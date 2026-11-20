@@ -31,6 +31,8 @@ struct mt7996_mcu_uni_event {
 } __packed;
 
 #define MT7996_MCU_STATUS_STA_REC_IN_USE	0x10003
+/* a host flag above the command fields, not sent to the firmware */
+#define MT7996_MCU_CMD_STA_REC_CONNECT		BIT(21)
 /* the firmware ORs the results of the tags: a deferred template (0xc000009a)
  * and a refused tag (0xc0000001) end the command with no rerun
  */

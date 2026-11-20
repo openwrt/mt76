@@ -267,7 +267,7 @@ mt7996_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 			dev_warn_ratelimited(mdev->dev,
 					     "Message %08x (seq %d) cid %04x failed: firmware status 0x%x\n",
 					     cmd, seq, mcu_cmd, status);
-			if (mcu_cmd == MCU_UNI_CMD_STA_REC_UPDATE &&
+			if ((cmd & MT7996_MCU_CMD_STA_REC_CONNECT) &&
 			    status == MT7996_MCU_STATUS_STA_REC_IN_USE)
 				ret = -EEXIST;
 			else if (mcu_cmd == MCU_UNI_CMD_BSS_INFO_UPDATE &&
@@ -4151,6 +4151,7 @@ int mt7996_mcu_add_sta(struct mt7996_dev *dev,
 	struct mt76_wcid *wcid = msta_link ? &msta_link->wcid : link->mt76.wcid;
 	struct ieee80211_sta *sta = link_sta ? link_sta->sta : NULL;
 	u16 weight = IEEE80211_DEFAULT_AIRTIME_WEIGHT;
+	int cmd = MCU_WMWA_UNI_CMD(STA_REC_UPDATE);
 	struct sk_buff *skb;
 	int ret;
 
@@ -4213,8 +4214,10 @@ int mt7996_mcu_add_sta(struct mt7996_dev *dev,
 	}
 
 out:
-	ret = mt76_mcu_skb_send_msg(&dev->mt76, skb,
-				    MCU_WMWA_UNI_CMD(STA_REC_UPDATE), true);
+	if (conn_state == CONN_STATE_CONNECT)
+		cmd |= MT7996_MCU_CMD_STA_REC_CONNECT;
+
+	ret = mt76_mcu_skb_send_msg(&dev->mt76, skb, cmd, true);
 	if (ret || conn_state == CONN_STATE_DISCONNECT)
 		return ret;
 
