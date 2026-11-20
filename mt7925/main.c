@@ -1736,19 +1736,24 @@ mt7925_mlo_pm_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 {
 	struct mt792x_dev *dev = priv;
 	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
-	unsigned long valid = ieee80211_vif_is_mld(vif) ?
-				    mvif->valid_links : BIT(0);
 	struct ieee80211_bss_conf *bss_conf;
+	unsigned long valid;
 	int i;
 
-	if (mvif->mlo_pm_state != MT792x_MLO_CHANGED_PS)
-		return;
-
 	mt792x_mutex_acquire(dev);
+
+	if (mvif->mlo_pm_state != MT792x_MLO_CHANGED_PS)
+		goto out;
+
+	valid = ieee80211_vif_is_mld(vif) ? mvif->valid_links : BIT(0);
 	for_each_set_bit(i, &valid, IEEE80211_MLD_MAX_NUM_LINKS) {
 		bss_conf = mt792x_vif_to_bss_conf(vif, i);
+		if (!bss_conf)
+			continue;
+
 		mt7925_mcu_uni_bss_ps(dev, bss_conf);
 	}
+out:
 	mt792x_mutex_release(dev);
 }
 
