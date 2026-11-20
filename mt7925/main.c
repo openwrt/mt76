@@ -2760,7 +2760,7 @@ static int mt7925_assign_vif_chanctx(struct ieee80211_hw *hw,
 	struct mt792x_bss_conf *mconf;
 	u8 band_idx;
 
-	mutex_lock(&dev->mt76.mutex);
+	mt792x_mutex_acquire(dev);
 
 	if (ieee80211_vif_is_mld(vif)) {
 		mconf = mt792x_vif_to_link(mvif, link_conf->link_id);
@@ -2782,7 +2782,11 @@ static int mt7925_assign_vif_chanctx(struct ieee80211_hw *hw,
 
 	mconf->mt76.ctx = ctx;
 	mt76_phy_chandef_set(mvif->phy->mt76, &ctx->def);
-	mutex_unlock(&dev->mt76.mutex);
+	if (vif->type == NL80211_IFTYPE_MONITOR) {
+		mt7925_mcu_set_sniffer(dev, vif, true);
+		mt7925_mcu_config_sniffer(mvif, ctx);
+	}
+	mt792x_mutex_release(dev);
 
 	return 0;
 }

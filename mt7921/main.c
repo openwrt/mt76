@@ -1469,12 +1469,33 @@ static void mt7921_mgd_complete_tx(struct ieee80211_hw *hw,
 	mt7921_abort_roc(mvif->phy, mvif);
 }
 
+static int mt7921_assign_vif_chanctx(struct ieee80211_hw *hw,
+				     struct ieee80211_vif *vif,
+				     struct ieee80211_bss_conf *link_conf,
+				     struct ieee80211_chanctx_conf *ctx)
+{
+	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
+	struct mt792x_dev *dev = mt792x_hw_dev(hw);
+	int ret;
+
+	ret = mt792x_assign_vif_chanctx(hw, vif, link_conf, ctx);
+	if (ret || vif->type != NL80211_IFTYPE_MONITOR)
+		return ret;
+
+	mt792x_mutex_acquire(dev);
+	mt7921_mcu_set_sniffer(dev, vif, true);
+	mt7921_mcu_config_sniffer(mvif, ctx);
+	mt792x_mutex_release(dev);
+
+	return 0;
+}
+
 static int mt7921_switch_vif_chanctx(struct ieee80211_hw *hw,
 				     struct ieee80211_vif_chanctx_switch *vifs,
 				     int n_vifs,
 				     enum ieee80211_chanctx_switch_mode mode)
 {
-	return mt792x_assign_vif_chanctx(hw, vifs->vif, vifs->link_conf,
+	return mt7921_assign_vif_chanctx(hw, vifs->vif, vifs->link_conf,
 					 vifs->new_ctx);
 }
 
@@ -1620,7 +1641,7 @@ const struct ieee80211_ops mt7921_ops = {
 	.add_chanctx = mt7921_add_chanctx,
 	.remove_chanctx = mt7921_remove_chanctx,
 	.change_chanctx = mt7921_change_chanctx,
-	.assign_vif_chanctx = mt792x_assign_vif_chanctx,
+	.assign_vif_chanctx = mt7921_assign_vif_chanctx,
 	.unassign_vif_chanctx = mt792x_unassign_vif_chanctx,
 	.mgd_prepare_tx = mt7921_mgd_prepare_tx,
 	.mgd_complete_tx = mt7921_mgd_complete_tx,
