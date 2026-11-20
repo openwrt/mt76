@@ -397,10 +397,12 @@ struct mt7996_vif {
 	 * template with the Reconfiguration element the firmware holds, and
 	 * the expired links whose TX mt7996_mcu_mld_reconf_work() stops, and
 	 * the links whose TX it stopped, until they go; the removal TBTT of
-	 * the removed links, with the links whose TX stop is still due
+	 * the removed links, with the links whose TX stop is still due; the
+	 * links that the last timer command named with a BSS
 	 */
 	u16 reconf_links;
 	u16 reconf_to_sec;
+	u16 reconf_cmd_links;
 	u16 reconf_bcn_links;
 	u16 reconf_stop_links;
 	u16 reconf_done_links;
