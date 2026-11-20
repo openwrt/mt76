@@ -1547,7 +1547,14 @@ void mt7996_mac_sta_remove_link(struct mt7996_dev *dev,
 		if (phy)
 			phy->mt76->num_sta--;
 
-		mt76_wcid_mask_clear(dev->mt76.wcid_mask, msta_link->wcid.idx);
+		/* a full reset frees an index whose STA_REC was not torn down */
+		if (msta_link->sta_rec_active)
+			dev_warn(dev->mt76.dev,
+				 "wcid %d kept: its STA_REC was not torn down\n",
+				 msta_link->wcid.idx);
+		else
+			mt76_wcid_mask_clear(dev->mt76.wcid_mask,
+					     msta_link->wcid.idx);
 		if (msta_link != &msta->deflink)
 			kfree_rcu(msta_link, rcu_head);
 	}
