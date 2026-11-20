@@ -4849,8 +4849,9 @@ mt7996_mcu_mld_reconf_timer(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	memcpy(hdr.mld_addr, vif->addr, ETH_ALEN);
 	skb_put_data(skb, &hdr, sizeof(hdr));
 
-	/* the firmware refuses the timer where the bitmap leaves out a link
-	 * of the AP MLD; its expiry event names only the removed links
+	/* the firmware refuses the removal entries of a template of a link
+	 * that the bitmap leaves out; its expiry event names only the removed
+	 * links
 	 */
 	tlv = mt7996_mcu_add_uni_tlv(skb, UNI_CMD_MLD_RECONF_AP_REM_TIMER,
 				     sizeof(*rt));
@@ -4933,8 +4934,7 @@ mt7996_mcu_beacon_reconf_count_set(const struct ieee80211_bss_conf *link_conf,
 
 /* The firmware defers a template that reaches it from up to about 9 ms
  * before to a few ms after a TBTT of its BSS and runs it again by itself
- * later. The second run of a critical update template can set the
- * Critical Update flag again at a later DTIM Beacon frame.
+ * later.
  */
 #define MT7996_BCN_DEFER_LEAD_US	9000
 #define MT7996_BCN_DEFER_TAIL_US	4000

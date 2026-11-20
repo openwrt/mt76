@@ -1158,7 +1158,9 @@ mt7996_link_beacon_update(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		return;
 	}
 
-	/* each upload of the CSA beacon restarts the firmware countdown */
+	/* a CSA beacon upload in the last interval before the switch cancels
+	 * it, and uploads after the switch start a new countdown
+	 */
 	if (link->csa_bcn_uploaded)
 		return;
 

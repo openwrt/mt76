@@ -797,8 +797,8 @@ mt7996_sta_tx_primary_get(struct mt7996_sta *msta)
 }
 
 /* The WLAN_IDX in the TXD and TXP must belong to the primary or secondary
- * link of the last MLD setup of an MLD station; any other link id can make
- * the firmware spin when that link is in powersave. While the PEER_MLD
+ * link of the last MLD setup of an MLD station: for a station in powersave
+ * the firmware pauses the queues of those two alone. While the PEER_MLD
  * description is valid, the primary is the link of fw_mld_idx, also after the
  * default link moved away from it. Completion events carry the same index, so
  * the wcid used for status tracking and accounting must match it

@@ -69,18 +69,6 @@ mt7996_sys_recovery_set(struct file *file, const char __user *user_buf,
 		return -EINVAL;
 
 	switch (val) {
-	/*
-	 * <band>,0: grab firmware current SER state.
-	 * <band>,1: trigger & enable system error L1 recovery.
-	 * <band>,2: trigger & enable system error L2 recovery.
-	 * <band>,3: trigger & enable system error L3 rx abort.
-	 * <band>,4: trigger & enable system error L3 tx abort
-	 * <band>,5: trigger & enable system error L3 tx disable.
-	 * <band>,6: trigger & enable system error L3 bf recovery.
-	 * <band>,7: trigger & enable system error L4 mdp recovery.
-	 * <band>,8: trigger & enable system error full recovery.
-	 * <band>,9: trigger firmware crash.
-	 */
 	case UNI_CMD_SER_QUERY:
 		ret = mt7996_mcu_set_ser(dev, UNI_CMD_SER_QUERY, 0, band);
 		break;
@@ -138,19 +126,21 @@ mt7996_sys_recovery_get(struct file *file, char __user *user_buf,
 	desc += scnprintf(buff + desc, bufsz - desc,
 			  "<band>,0: grab firmware transient SER state\n");
 	desc += scnprintf(buff + desc, bufsz - desc,
-			  "<band>,1: trigger system error L1 recovery\n");
+			  "<band>,1 to 7: set the firmware SER enable mask to BIT(val) until the next firmware load, then request recovery val:\n");
 	desc += scnprintf(buff + desc, bufsz - desc,
-			  "<band>,2: trigger system error L2 recovery\n");
+			  "  1: L1 recovery\n");
 	desc += scnprintf(buff + desc, bufsz - desc,
-			  "<band>,3: trigger system error L3 rx abort\n");
+			  "  2: L2 recovery\n");
 	desc += scnprintf(buff + desc, bufsz - desc,
-			  "<band>,4: trigger system error L3 tx abort\n");
+			  "  3: L3 rx abort\n");
 	desc += scnprintf(buff + desc, bufsz - desc,
-			  "<band>,5: trigger system error L3 tx disable\n");
+			  "  4: L3 tx abort\n");
 	desc += scnprintf(buff + desc, bufsz - desc,
-			  "<band>,6: trigger system error L3 bf recovery\n");
+			  "  5: L3 tx disable\n");
 	desc += scnprintf(buff + desc, bufsz - desc,
-			  "<band>,7: trigger system error L4 mdp recovery\n");
+			  "  6: L3 bf recovery\n");
+	desc += scnprintf(buff + desc, bufsz - desc,
+			  "  7: L4 mdp recovery\n");
 	desc += scnprintf(buff + desc, bufsz - desc,
 			  "<band>,8: trigger system error full recovery\n");
 	desc += scnprintf(buff + desc, bufsz - desc,
