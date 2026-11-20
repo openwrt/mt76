@@ -4878,9 +4878,10 @@ mt7996_mcu_mld_reconf_timer(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	memcpy(hdr.mld_addr, vif->addr, ETH_ALEN);
 	skb_put_data(skb, &hdr, sizeof(hdr));
 
-	/* the firmware refuses the removal entries of a template of a link
-	 * that the bitmap leaves out; its expiry event names only the removed
-	 * links
+	/* the firmware starts no count for the removal entries of a template
+	 * of a link that the bitmap leaves out. The template of a staying link
+	 * counts by itself, and its expiry event names that link, which
+	 * mt7996_mcu_mld_reconf_notify() ignores as no removal of it runs.
 	 */
 	tlv = mt7996_mcu_add_uni_tlv(skb, UNI_CMD_MLD_RECONF_AP_REM_TIMER,
 				     sizeof(*rt));
