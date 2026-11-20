@@ -2227,7 +2227,7 @@ mt76_connac_mcu_rate_txpower_band(struct mt76_phy *phy,
 		209, 211, 213, 215, 217, 219, 221,
 		225, 227, 229, 233
 	};
-	int i, n_chan, batch_size, idx = 0, tx_power, last_ch, err = 0;
+	int i, n_chan, batch_size, idx = 0, last_ch, err = 0;
 	struct mt76_connac_sku_tlv sku_tlbv;
 	struct mt76_power_limits *limits;
 	const u8 *ch_list;
@@ -2237,9 +2237,6 @@ mt76_connac_mcu_rate_txpower_band(struct mt76_phy *phy,
 		return -ENOMEM;
 
 	sku_len = is_connac2(dev) ? sizeof(sku_tlbv) : sizeof(sku_tlbv) - 92;
-	tx_power = 2 * phy->hw->conf.power_level;
-	if (!tx_power)
-		tx_power = 127;
 
 	if (band == NL80211_BAND_2GHZ) {
 		n_chan = ARRAY_SIZE(chan_list_2ghz);
