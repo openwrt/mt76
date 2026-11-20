@@ -903,6 +903,7 @@ int mt7996_mcu_set_qos_map(struct mt7996_dev *dev,
 			   struct mt76_vif_link *mlink);
 int mt7996_mcu_fw_log_2_host(struct mt7996_dev *dev, u8 type, u8 ctrl);
 int mt7996_mcu_fw_dbg_ctrl(struct mt7996_dev *dev, u32 module, u8 level);
+int mt7996_mcu_fw_debug_set(struct mt7996_dev *dev, u8 type, bool load);
 int mt7996_mcu_trigger_assert(struct mt7996_dev *dev);
 void mt7996_mcu_rx_event(struct mt7996_dev *dev, struct sk_buff *skb);
 void mt7996_mcu_exit(struct mt7996_dev *dev);
