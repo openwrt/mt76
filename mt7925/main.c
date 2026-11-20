@@ -2715,6 +2715,18 @@ out:
 	return err;
 }
 
+static bool
+mt7925_can_activate_links(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+			  u16 active_links)
+{
+	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
+
+	if (!ieee80211_vif_is_mld(vif) || !vif->cfg.assoc)
+		return true;
+
+	return active_links & BIT(mvif->deflink_id);
+}
+
 static int
 mt7927_reconfig_band(struct mt792x_dev *dev, struct ieee80211_vif *vif,
 		     struct ieee80211_bss_conf *link_conf,
@@ -3148,6 +3160,7 @@ const struct ieee80211_ops mt7925_ops = {
 	.mgd_complete_tx = mt7925_mgd_complete_tx,
 	.vif_cfg_changed = mt7925_vif_cfg_changed,
 	.link_info_changed = mt7925_link_info_changed,
+	.can_activate_links = mt7925_can_activate_links,
 	.change_vif_links = mt7925_change_vif_links,
 	.change_sta_links = mt7925_change_sta_links,
 	.rfkill_poll = mt7925_rfkill_poll,
