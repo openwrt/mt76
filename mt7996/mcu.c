@@ -4904,9 +4904,8 @@ mt7996_mcu_mld_reconf_timer(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	skb_put_data(skb, &hdr, sizeof(hdr));
 
 	/* the firmware starts no count for the removal entries of a template
-	 * of a link that the bitmap leaves out. The template of a staying link
-	 * counts by itself, and its expiry event names that link, which
-	 * mt7996_mcu_mld_reconf_notify() ignores as no removal of it runs.
+	 * of a link outside the bitmap, and counts the template of a staying
+	 * link by itself
 	 */
 	tlv = mt7996_mcu_add_uni_tlv(skb, UNI_CMD_MLD_RECONF_AP_REM_TIMER,
 				     sizeof(*rt));
@@ -5196,8 +5195,8 @@ mt7996_mcu_beacon_reconf_set(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	spin_unlock_bh(&dev->mt76.lock);
 }
 
-/* A template upload can make the firmware count the AP Removal Timer again
- * from the template, as it does with the CSA count, so a link keeps the
+/* The firmware places the count of a later template by an offset that it
+ * corrects with the TIM length of the template before, so a link keeps the
  * template that it had at the start of the removal until the expiry.
  */
 static bool
