@@ -4993,7 +4993,8 @@ static void
 mt7996_mcu_beacon_reconf_resume(struct mt7996_dev *dev,
 				struct ieee80211_vif *vif,
 				struct ieee80211_bss_conf *link_conf,
-				struct mt7996_mcu_ml_reconf *reconf, u64 tsf)
+				struct mt7996_vif_link *link,
+				struct mt7996_mcu_ml_reconf *reconf)
 {
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
 	struct mt7996_mcu_ml_reconf left = {};
@@ -5001,7 +5002,7 @@ mt7996_mcu_beacon_reconf_resume(struct mt7996_dev *dev,
 	bool counted, armed, named;
 	s64 left_us;
 	u16 to_sec;
-	u64 tbtt;
+	u64 tbtt, tsf;
 
 	spin_lock_bh(&dev->mt76.lock);
 	counted = mvif->reconf_bcn_links & BIT(link_id);
@@ -5015,6 +5016,7 @@ mt7996_mcu_beacon_reconf_resume(struct mt7996_dev *dev,
 
 	to_sec = reconf->to_sec;
 	if (armed) {
+		tsf = __mt7996_get_tsf(mt76_hw(dev), link);
 		left_us = div_s64((s64)(tbtt - ktime_get_boottime_ns()),
 				  NSEC_PER_USEC);
 		left.count[link_id] =
@@ -5064,44 +5066,16 @@ mt7996_mcu_beacon_reconf_count_set(const struct ieee80211_bss_conf *link_conf,
 		put_unaligned_le16(count, frame + reconf->offs[link_id]);
 }
 
-/* The firmware defers a template that reaches it from up to about 9 ms
- * before to a few ms after a TBTT of its BSS and runs it again by itself
- * later.
- */
-#define MT7996_BCN_DEFER_LEAD_US	9000
-#define MT7996_BCN_DEFER_TAIL_US	4000
-
-static u64
-mt7996_mcu_beacon_tbtt_wait(struct mt7996_dev *dev,
-			    struct mt7996_vif_link *link, u32 bi_us,
-			    u32 lead_us)
-{
-	u64 tsf = __mt7996_get_tsf(mt76_hw(dev), link);
-	u64 intervals = tsf;
-	u32 phase, wait_us;
-
-	if (!bi_us)
-		return tsf;
-
-	phase = do_div(intervals, bi_us);
-	if (phase >= bi_us - lead_us)
-		wait_us = bi_us - phase + MT7996_BCN_DEFER_TAIL_US;
-	else if (phase < MT7996_BCN_DEFER_TAIL_US)
-		wait_us = MT7996_BCN_DEFER_TAIL_US - phase;
-	else
-		return tsf;
-
-	usleep_range(wait_us, wait_us + 200);
-
-	return __mt7996_get_tsf(mt76_hw(dev), link);
-}
-
 /* The firmware takes a template at the first TBTT after it has handled the
  * upload, which can take more than half a beacon interval, so the template
  * that starts a removal goes up just after a TBTT of the removed link and
- * starts its count at the next one. Returns the TSF of that link at the
+ * starts its count at the next one. With one BSS on the band the firmware
+ * delays a template that reaches it up to about 3 ms after a TBTT, and the
+ * partner templates queue behind it. Returns the TSF of that link at the
  * upload.
  */
+#define MT7996_RECONF_ALIGN_US	4000
+
 static u64
 mt7996_mcu_beacon_reconf_align(struct mt7996_dev *dev,
 			       struct ieee80211_vif *vif, u16 links)
@@ -5109,7 +5083,8 @@ mt7996_mcu_beacon_reconf_align(struct mt7996_dev *dev,
 	unsigned int link_id = ffs(links) - 1;
 	struct ieee80211_bss_conf *link_conf;
 	struct mt7996_vif_link *link;
-	u32 bi_us;
+	u32 bi_us, wait_us;
+	u64 tsf;
 
 	link_conf = link_conf_dereference_protected(vif, link_id);
 	link = mt7996_vif_link(dev, vif, link_id);
@@ -5117,8 +5092,11 @@ mt7996_mcu_beacon_reconf_align(struct mt7996_dev *dev,
 		return 0;
 
 	bi_us = link_conf->beacon_int * 1024;
+	tsf = __mt7996_get_tsf(mt76_hw(dev), link);
+	wait_us = bi_us - do_div(tsf, bi_us) + MT7996_RECONF_ALIGN_US;
+	usleep_range(wait_us, wait_us + 200);
 
-	return mt7996_mcu_beacon_tbtt_wait(dev, link, bi_us, bi_us);
+	return __mt7996_get_tsf(mt76_hw(dev), link);
 }
 
 /* one timer stops the TX of all links that a template starts, at the
@@ -5509,7 +5487,7 @@ __mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct bss_bcn_content_tlv *bcn;
 	bool crit_update = false, cntdwn = false, ambiguous;
 	int len, extra_len = 0, ret;
-	u64 upload_tsf = 0, tsf;
+	u64 upload_tsf = 0;
 	u16 started = 0;
 	int bpcc = -1;
 
@@ -5575,12 +5553,9 @@ __mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		started = mt7996_mcu_beacon_reconf_start(dev, vif, &reconf);
 	if (started)
 		upload_tsf = mt7996_mcu_beacon_reconf_align(dev, vif, started);
-	tsf = mt7996_mcu_beacon_tbtt_wait(dev, link,
-					  link_conf->beacon_int * 1024,
-					  MT7996_BCN_DEFER_LEAD_US);
 	if (!started)
-		mt7996_mcu_beacon_reconf_resume(dev, vif, link_conf, &reconf,
-						tsf);
+		mt7996_mcu_beacon_reconf_resume(dev, vif, link_conf, link,
+						&reconf);
 	mt7996_mcu_beacon_ml_reconf_tlv(rskb, link, &reconf);
 	mt7996_mcu_beacon_reconf_count_set(link_conf, &reconf,
 					   (u8 *)bcn + sizeof(*bcn) +
