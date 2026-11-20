@@ -263,15 +263,15 @@ mt7996_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 		/* skip invalid event */
 		if (mcu_cmd != le16_to_cpu(event->cid)) {
 			ret = -EAGAIN;
+		} else if ((cmd & MT7996_MCU_CMD_STA_REC_EEXIST) &&
+			   status == MT7996_MCU_STATUS_STA_REC_REFUSED) {
+			ret = -EEXIST;
 		} else if (status) {
 			dev_warn_ratelimited(mdev->dev,
 					     "Message %08x (seq %d) cid %04x failed: firmware status 0x%x\n",
 					     cmd, seq, mcu_cmd, status);
-			if ((cmd & MT7996_MCU_CMD_STA_REC_CONNECT) &&
-			    status == MT7996_MCU_STATUS_STA_REC_IN_USE)
-				ret = -EEXIST;
-			else if (mcu_cmd == MCU_UNI_CMD_BSS_INFO_UPDATE &&
-				 status == MT7996_MCU_STATUS_BCN_LOST)
+			if (mcu_cmd == MCU_UNI_CMD_BSS_INFO_UPDATE &&
+			    status == MT7996_MCU_STATUS_BCN_LOST)
 				ret = -EBUSY;
 			else
 				ret = -EREMOTEIO;
@@ -4215,7 +4215,7 @@ int mt7996_mcu_add_sta(struct mt7996_dev *dev,
 
 out:
 	if (conn_state == CONN_STATE_CONNECT)
-		cmd |= MT7996_MCU_CMD_STA_REC_CONNECT;
+		cmd |= MT7996_MCU_CMD_STA_REC_EEXIST;
 
 	ret = mt76_mcu_skb_send_msg(&dev->mt76, skb, cmd, true);
 	if (ret || conn_state == CONN_STATE_DISCONNECT)
@@ -4242,6 +4242,32 @@ int mt7996_mcu_teardown_mld_sta(struct mt7996_dev *dev,
 
 	return mt76_mcu_skb_send_msg(&dev->mt76, skb,
 				     MCU_WMWA_UNI_CMD(STA_REC_UPDATE), true);
+}
+
+int mt7996_mcu_sta_rec_check(struct mt7996_dev *dev,
+			     struct mt7996_vif_link *link,
+			     struct mt7996_sta_link *msta_link)
+{
+	struct sk_buff *skb;
+	int ret;
+
+	skb = __mt76_connac_mcu_alloc_sta_req(&dev->mt76, &link->mt76,
+					      &msta_link->wcid,
+					      MT7996_STA_UPDATE_MAX_SIZE);
+	if (IS_ERR(skb))
+		return PTR_ERR(skb);
+
+	/* the firmware refuses HDRT with 0x10003 only for a record not in use,
+	 * and on a record in use HDRT sets only the HDRT state that a complete
+	 * CONNECT sets
+	 */
+	mt7996_mcu_sta_hdrt_tlv(dev, skb);
+
+	ret = mt76_mcu_skb_send_msg(&dev->mt76, skb,
+				    MCU_WMWA_UNI_CMD(STA_REC_UPDATE) |
+				    MT7996_MCU_CMD_STA_REC_EEXIST, true);
+
+	return ret == -EEXIST ? -ENOENT : ret;
 }
 
 int mt7996_mcu_update_mld_sta(struct mt7996_dev *dev,
