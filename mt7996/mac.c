@@ -69,14 +69,6 @@ void mt7996_sta_link_airtime_clear(struct mt7996_dev *dev,
 			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
 }
 
-u32 mt7996_mac_wtbl_lmac_addr(struct mt7996_dev *dev, u16 wcid, u8 dw)
-{
-	mt76_wr(dev, MT_WTBLON_TOP_WDUCR,
-		FIELD_PREP(MT_WTBLON_TOP_WDUCR_GROUP, (wcid >> 7)));
-
-	return MT_WTBL_LMAC_OFFS(wcid, dw);
-}
-
 static void mt7996_mac_sta_poll(struct mt7996_dev *dev)
 {
 	u16 sta_list[MT7996_PER_STA_INFO_MAX_NUM];
