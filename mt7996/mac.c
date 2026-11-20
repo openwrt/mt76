@@ -879,23 +879,6 @@ mt7996_sta_tx_pair_links(struct mt7996_sta *msta)
 					  BIT(msta->seclink_id));
 }
 
-static u8
-mt7996_sta_tx_link_get(struct mt7996_sta *msta, u8 tid)
-{
-	u8 link_id = (tid % 2) ? msta->seclink_id : msta->deflink_id;
-	u16 mapped;
-
-	if (tid >= IEEE80211_TTLM_NUM_TIDS || !READ_ONCE(msta->neg_ttlm.valid))
-		return link_id;
-
-	mapped = READ_ONCE(msta->neg_ttlm.downlink[tid]) &
-		 mt7996_sta_tx_pair_links(msta);
-	if (hweight16(mapped) != 1)
-		return link_id;
-
-	return __ffs(mapped);
-}
-
 /* Under a negotiated TTLM the firmware pauses, on the band of each link and
  * by the downlink map alone, the queue of each AC and WLAN index of the MLD
  * pair by one TID: the primary by the even TID of the AC, the secondary by
@@ -1174,7 +1157,10 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	    likely(tx_info->skb->protocol != cpu_to_be16(ETH_P_PAE))) {
 		u8 tid = tx_info->skb->priority & IEEE80211_QOS_CTL_TID_MASK;
 
-		link_id = mt7996_sta_tx_link_get(msta, tid);
+		/* the firmware applies a negotiated TTLM to the queue of
+		 * this parity (see mt7996_ttlm_queue_tid)
+		 */
+		link_id = (tid % 2) ? msta->seclink_id : msta->deflink_id;
 	} else if (is_8023) {
 		/* mac80211 does not set the MLO link of an 802.3 frame */
 		link_id = IEEE80211_LINK_UNSPECIFIED;
