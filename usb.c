@@ -1070,6 +1070,7 @@ void mt76u_stop_tx(struct mt76_dev *dev)
 	if (!ret) {
 		struct mt76_queue_entry entry;
 		struct mt76_queue *q;
+		bool park;
 		int i, j;
 
 		dev_err(dev->dev, "timed out waiting for pending tx\n");
@@ -1083,7 +1084,9 @@ void mt76u_stop_tx(struct mt76_dev *dev)
 				usb_kill_urb(q->entry[j].urb);
 		}
 
-		mt76_worker_disable(&dev->tx_worker);
+		park = !test_bit(MT76_RESET, &dev->phy.state);
+		if (park)
+			mt76_worker_disable(&dev->tx_worker);
 
 		/* On device removal we maight queue skb's, but mt76u_tx_kick()
 		 * will fail to submit urb, cleanup those skb's manually.
@@ -1100,7 +1103,8 @@ void mt76u_stop_tx(struct mt76_dev *dev)
 			}
 		}
 
-		mt76_worker_enable(&dev->tx_worker);
+		if (park)
+			mt76_worker_enable(&dev->tx_worker);
 	}
 
 	cancel_work_sync(&dev->usb.stat_work);
