@@ -1081,9 +1081,6 @@ static inline bool mt7996_has_ext_eeprom(struct mt7996_dev *dev)
 }
 
 void mt7996_mac_init(struct mt7996_dev *dev);
-bool mt7996_mac_wtbl_update(struct mt7996_dev *dev, int idx, u32 mask);
-void mt7996_sta_link_airtime_clear(struct mt7996_dev *dev,
-				   struct mt7996_sta_link *msta_link);
 void mt7996_mac_reset_counters(struct mt7996_phy *phy);
 void mt7996_mac_cca_stats_reset(struct mt7996_phy *phy);
 void mt7996_mac_enable_nf(struct mt7996_dev *dev, u8 band);

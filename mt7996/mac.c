@@ -53,22 +53,6 @@ static struct mt76_wcid *mt7996_rx_get_wcid(struct mt7996_dev *dev,
 	return &msta_link->wcid;
 }
 
-bool mt7996_mac_wtbl_update(struct mt7996_dev *dev, int idx, u32 mask)
-{
-	mt76_rmw(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_WLAN_IDX,
-		 FIELD_PREP(MT_WTBL_UPDATE_WLAN_IDX, idx) | mask);
-
-	return mt76_poll(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_BUSY,
-			 0, 5000);
-}
-
-void mt7996_sta_link_airtime_clear(struct mt7996_dev *dev,
-				   struct mt7996_sta_link *msta_link)
-{
-	mt7996_mac_wtbl_update(dev, msta_link->wcid.idx,
-			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
-}
-
 static void mt7996_mac_sta_poll(struct mt7996_dev *dev)
 {
 	u16 sta_list[MT7996_PER_STA_INFO_MAX_NUM];
