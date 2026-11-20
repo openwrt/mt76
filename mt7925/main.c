@@ -916,29 +916,36 @@ static int mt7925_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 }
 
 static void
-mt7925_pm_interface_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
+mt7925_vif_set_beacon_filter(struct mt792x_dev *dev, struct ieee80211_vif *vif,
+			     bool enable)
 {
-	struct mt792x_dev *dev = priv;
 	struct ieee80211_hw *hw = mt76_hw(dev);
-	bool pm_enable;
-	int err;
 
-	mt792x_mutex_acquire(dev);
+	if (mt7925_mcu_set_beacon_filter(dev, vif, enable) < 0)
+		return;
 
-	pm_enable = dev->pm.enable_user &&
-		    !(hw->conf.flags & IEEE80211_CONF_MONITOR);
-	err = mt7925_mcu_set_beacon_filter(dev, vif, pm_enable);
-	if (err < 0)
-		goto out;
-
-	if (pm_enable) {
+	if (enable) {
 		vif->driver_flags |= IEEE80211_VIF_BEACON_FILTER;
 		ieee80211_hw_set(hw, CONNECTION_MONITOR);
 	} else {
 		vif->driver_flags &= ~IEEE80211_VIF_BEACON_FILTER;
 		__clear_bit(IEEE80211_HW_CONNECTION_MONITOR, hw->flags);
 	}
-out:
+}
+
+static void
+mt7925_pm_interface_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
+{
+	struct mt792x_dev *dev = priv;
+	struct ieee80211_hw *hw = mt76_hw(dev);
+	bool pm_enable;
+
+	mt792x_mutex_acquire(dev);
+
+	pm_enable = dev->pm.enable_user &&
+		    !(hw->conf.flags & IEEE80211_CONF_MONITOR);
+	mt7925_vif_set_beacon_filter(dev, vif, pm_enable);
+
 	mt792x_mutex_release(dev);
 }
 
@@ -956,8 +963,14 @@ mt7925_sniffer_interface_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
 
 	mt7925_mcu_set_deep_sleep(dev, pm->ds_enable);
 
-	if (monitor)
+	if (monitor) {
 		mt7925_mcu_set_beacon_filter(dev, vif, false);
+		return;
+	}
+
+	if (vif->cfg.assoc &&
+	    (pm->enable || (vif->driver_flags & IEEE80211_VIF_BEACON_FILTER)))
+		mt7925_vif_set_beacon_filter(dev, vif, true);
 }
 
 void mt7925_set_runtime_pm(struct mt792x_dev *dev)
