@@ -31,6 +31,10 @@ struct mt7996_mcu_uni_event {
 } __packed;
 
 #define MT7996_MCU_STATUS_STA_REC_IN_USE	0x10003
+/* the firmware ORs the results of the tags: a deferred template (0xc000009a)
+ * and a refused tag (0xc0000001) end the command with no rerun
+ */
+#define MT7996_MCU_STATUS_BCN_LOST		0xc000009b
 
 struct mt7996_mcu_thermal_ctrl {
 	u8 ctrl_id;

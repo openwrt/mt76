@@ -270,6 +270,9 @@ mt7996_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 			if (mcu_cmd == MCU_UNI_CMD_STA_REC_UPDATE &&
 			    status == MT7996_MCU_STATUS_STA_REC_IN_USE)
 				ret = -EEXIST;
+			else if (mcu_cmd == MCU_UNI_CMD_BSS_INFO_UPDATE &&
+				 status == MT7996_MCU_STATUS_BCN_LOST)
+				ret = -EBUSY;
 			else
 				ret = -EREMOTEIO;
 		}
@@ -5482,11 +5485,13 @@ __mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct mt7996_mcu_ml_reconf reconf = {};
 	struct ieee80211_mutable_offsets offs;
 	struct ieee80211_tx_info *info;
+	struct sk_buff *again = NULL;
 	struct sk_buff *skb, *rskb;
 	struct tlv *tlv;
 	struct bss_bcn_content_tlv *bcn;
 	bool crit_update = false, cntdwn = false, ambiguous;
 	int len, extra_len = 0, ret;
+	unsigned int reconf_len;
 	u64 upload_tsf = 0;
 	u16 started = 0;
 	int bpcc = -1;
@@ -5556,10 +5561,19 @@ __mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	if (!started)
 		mt7996_mcu_beacon_reconf_resume(dev, vif, link_conf, link,
 						&reconf);
+	reconf_len = rskb->len;
 	mt7996_mcu_beacon_ml_reconf_tlv(rskb, link, &reconf);
 	mt7996_mcu_beacon_reconf_count_set(link_conf, &reconf,
 					   (u8 *)bcn + sizeof(*bcn) +
 					   MT_TXD_SIZE);
+	/* a deferred template and a refused tag end the command with no rerun,
+	 * and the other tags go up with the lengths that the handlers test
+	 */
+	if (reconf.links && !started) {
+		again = skb_copy(rskb, GFP_KERNEL);
+		if (again)
+			skb_trim(again, reconf_len);
+	}
 out:
 	dev_kfree_skb(skb);
 	/* the templates of the partner links must reach the firmware before
@@ -5569,6 +5583,17 @@ out:
 	ret = mt7996_mcu_beacon_send(dev, link, rskb, crit_update,
 				     crit_update ? offs.crit_update_id : 0,
 				     !started, &ambiguous);
+	if (ret == -EBUSY && again) {
+		dev_warn(dev->mt76.dev,
+			 "beacon template of link %u lost, sending it without removal entries\n",
+			 link_conf->link_id);
+		ret = mt7996_mcu_beacon_send(dev, link, again, crit_update,
+					     crit_update ? offs.crit_update_id : 0,
+					     true, &ambiguous);
+		again = NULL;
+		reconf.links = 0;
+	}
+	dev_kfree_skb(again);
 	link->csa_bcn_uploaded = !ret && enabled && link_conf->csa_active;
 	if (!ret)
 		link->bcn_cntdwn = cntdwn;
