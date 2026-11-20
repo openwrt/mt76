@@ -231,8 +231,8 @@ mt7925_deep_sleep_set(void *data, u64 val)
 {
 	struct mt792x_dev *dev = data;
 	struct mt76_connac_pm *pm = &dev->pm;
-	bool monitor = !!(dev->mphy.hw->conf.flags & IEEE80211_CONF_MONITOR);
 	bool enable = !!val;
+	bool monitor;
 
 	if (mt76_is_usb(&dev->mt76))
 		return -EOPNOTSUPP;
@@ -241,6 +241,7 @@ mt7925_deep_sleep_set(void *data, u64 val)
 	if (pm->ds_enable_user == enable)
 		goto out;
 
+	monitor = !!(dev->mphy.hw->conf.flags & IEEE80211_CONF_MONITOR);
 	pm->ds_enable_user = enable;
 	pm->ds_enable = enable && !monitor;
 	mt7925_mcu_set_deep_sleep(dev, pm->ds_enable);
