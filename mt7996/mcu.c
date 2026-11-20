@@ -4870,6 +4870,21 @@ mt7996_mcu_mld_reconf_count(const struct ieee80211_bss_conf *link_conf,
 	return mt7996_mcu_mld_reconf_per_sec(link_conf) * to_sec;
 }
 
+/* the end rounds up to a TBTT, so the count stays at or above the true one */
+static u16
+mt7996_mcu_mld_reconf_left(u64 tsf, u32 bi_us, s64 left_us)
+{
+	u64 next, end;
+
+	if (!bi_us || left_us <= 0)
+		return 0;
+
+	next = div_u64(tsf, bi_us) + 1;
+	end = div_u64(tsf + left_us + bi_us - 1, bi_us);
+
+	return end > next ? min_t(u64, end - next, U16_MAX) : 0;
+}
+
 static int
 mt7996_mcu_mld_reconf_timer(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			    u16 to_sec)
@@ -4954,6 +4969,58 @@ mt7996_mcu_beacon_reconf_start(struct mt7996_dev *dev,
 	reconf->to_sec = to_sec;
 
 	return links;
+}
+
+/* A beacon disable clears the count of the firmware, which then counts the
+ * next template of the link from the time that the last timer gave. A
+ * template of a running removal that the firmware does not count therefore
+ * sends the time that is left first, and carries no removal entry where none
+ * is left.
+ */
+static void
+mt7996_mcu_beacon_reconf_resume(struct mt7996_dev *dev,
+				struct ieee80211_vif *vif,
+				struct ieee80211_bss_conf *link_conf,
+				struct mt7996_mcu_ml_reconf *reconf, u64 tsf)
+{
+	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+	struct mt7996_mcu_ml_reconf left = {};
+	unsigned int link_id = link_conf->link_id;
+	bool counted, armed;
+	s64 left_us;
+	u16 to_sec;
+	u64 tbtt;
+
+	spin_lock_bh(&dev->mt76.lock);
+	counted = mvif->reconf_bcn_links & BIT(link_id);
+	armed = mvif->reconf_tbtt_links & reconf->links;
+	tbtt = mvif->reconf_tbtt_boottime;
+	spin_unlock_bh(&dev->mt76.lock);
+
+	if (counted || !armed)
+		return;
+
+	left_us = div_s64((s64)(tbtt - ktime_get_boottime_ns()), NSEC_PER_USEC);
+	left.count[link_id] = mt7996_mcu_mld_reconf_left(tsf,
+							 link_conf->beacon_int * 1024,
+							 left_us);
+	if (!left.count[link_id]) {
+		reconf->links = 0;
+		return;
+	}
+
+	to_sec = mt7996_mcu_mld_reconf_to_sec(vif, BIT(link_id), &left);
+	if (to_sec != reconf->to_sec &&
+	    mt7996_mcu_mld_reconf_timer(dev, vif, to_sec)) {
+		reconf->links = 0;
+		return;
+	}
+
+	spin_lock_bh(&dev->mt76.lock);
+	mvif->reconf_to_sec = to_sec;
+	spin_unlock_bh(&dev->mt76.lock);
+
+	reconf->to_sec = to_sec;
 }
 
 /* On air the firmware changes only the low octet of the AP Removal Timer, so
@@ -5422,7 +5489,7 @@ __mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct bss_bcn_content_tlv *bcn;
 	bool crit_update = false, cntdwn = false, ambiguous;
 	int len, extra_len = 0, ret;
-	u64 upload_tsf = 0;
+	u64 upload_tsf = 0, tsf;
 	u16 started = 0;
 	int bpcc = -1;
 
@@ -5484,17 +5551,20 @@ __mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		dev_kfree_skb(rskb);
 		return 0;
 	}
-	if (reconf.links) {
+	if (reconf.links)
 		started = mt7996_mcu_beacon_reconf_start(dev, vif, &reconf);
-		mt7996_mcu_beacon_ml_reconf_tlv(rskb, link, &reconf);
-		mt7996_mcu_beacon_reconf_count_set(link_conf, &reconf,
-						   (u8 *)bcn + sizeof(*bcn) +
-						   MT_TXD_SIZE);
-	}
 	if (started)
 		upload_tsf = mt7996_mcu_beacon_reconf_align(dev, vif, started);
-	mt7996_mcu_beacon_tbtt_wait(dev, link, link_conf->beacon_int * 1024,
-				    MT7996_BCN_DEFER_LEAD_US);
+	tsf = mt7996_mcu_beacon_tbtt_wait(dev, link,
+					  link_conf->beacon_int * 1024,
+					  MT7996_BCN_DEFER_LEAD_US);
+	if (!started)
+		mt7996_mcu_beacon_reconf_resume(dev, vif, link_conf, &reconf,
+						tsf);
+	mt7996_mcu_beacon_ml_reconf_tlv(rskb, link, &reconf);
+	mt7996_mcu_beacon_reconf_count_set(link_conf, &reconf,
+					   (u8 *)bcn + sizeof(*bcn) +
+					   MT_TXD_SIZE);
 out:
 	dev_kfree_skb(skb);
 	/* the templates of the partner links must reach the firmware before
@@ -5514,6 +5584,9 @@ out:
 					     upload_tsf);
 	if (!ret && reconf.links)
 		mt7996_mcu_beacon_reconf_set(dev, vif, link_conf->link_id);
+	if (!ret && !enabled)
+		mt7996_mcu_beacon_reconf_stop(dev, vif, link_conf->link_id,
+					      false);
 	if (ret || !ambiguous)
 		return ret;
 
@@ -5531,7 +5604,6 @@ int mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
 	struct mt7996_vif_link *link = mt7996_vif_conf_link(dev, vif, link_conf);
 	struct mt76_phy *mphy;
-	struct mt7996_phy *phy;
 	u16 stopped;
 
 	if (link_conf->nontransmitted)
@@ -5549,16 +5621,12 @@ int mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	stopped = mvif->reconf_done_links | mvif->reconf_stop_links;
 	spin_unlock_bh(&dev->mt76.lock);
 
-	if (!enabled || (stopped & BIT(link_conf->link_id))) {
-		mt7996_mcu_beacon_reconf_stop(dev, vif, link_conf->link_id,
-					      false);
+	if (!enabled || (stopped & BIT(link_conf->link_id)))
 		return __mt7996_mcu_add_beacon(hw, vif, link_conf, link, false, 0);
-	}
 
-	/* beacons stopped for offchannel operation come back as they were */
+	/* a phy off channel stops its beacons, which drops their hold */
 	mphy = mt76_vif_link_phy(&link->mt76);
-	phy = mphy ? mphy->priv : NULL;
-	if ((!phy || (!mphy->offchannel && !phy->offchan_bcn_stopped)) &&
+	if ((!mphy || !mphy->offchannel) &&
 	    mt7996_mcu_beacon_reconf_held(dev, vif, link_conf->link_id))
 		return 0;
 
