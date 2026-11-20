@@ -2228,6 +2228,65 @@ int mt7915_mcu_fw_dbg_ctrl(struct mt7915_dev *dev, u32 module, u8 level)
 				 sizeof(data), false);
 }
 
+int mt7915_mcu_fw_debug_set(struct mt7915_dev *dev, u8 type, bool load)
+{
+	enum {
+		DEBUG_TXCMD = 62,
+		DEBUG_CMD_RPT_TX,
+		DEBUG_CMD_RPT_TRIG,
+		DEBUG_SPL,
+		DEBUG_RPT_RX,
+	} debug;
+	bool tx, rx, en;
+	u8 ctrl;
+	int ret;
+
+	if (type == MCU_FW_LOG_WA) {
+		ret = mt7915_mcu_fw_log_2_host(dev, MCU_FW_LOG_WA,
+					       dev->fw.debug_wa);
+		if (ret || (load && !dev->fw.debug_wa))
+			return ret;
+
+		return mt7915_mcu_wa_cmd(dev, MCU_WA_PARAM_CMD(SET),
+					 MCU_WA_PARAM_PDMA_RX,
+					 !!dev->fw.debug_wa, 0);
+	}
+
+	if (dev->fw.debug_bin)
+		ctrl = 16;
+	else
+		ctrl = dev->fw.debug_wm;
+
+	tx = dev->fw.debug_wm || (dev->fw.debug_bin & BIT(1));
+	rx = dev->fw.debug_wm || (dev->fw.debug_bin & BIT(2));
+	en = dev->fw.debug_wm || (dev->fw.debug_bin & BIT(0));
+
+	ret = mt7915_mcu_fw_log_2_host(dev, MCU_FW_LOG_WM, ctrl);
+	if (ret || (load && !en))
+		return ret;
+
+	for (debug = DEBUG_TXCMD; debug <= DEBUG_RPT_RX; debug++) {
+		u8 level;
+
+		if (debug == DEBUG_RPT_RX)
+			level = en && rx;
+		else
+			level = en && tx;
+
+		ret = mt7915_mcu_fw_dbg_ctrl(dev, debug, level);
+		if (ret)
+			return ret;
+	}
+
+	mt76_clear(dev, MT_CPU_UTIL_CTRL, BIT(0));
+	mt76_wr(dev, MT_DIC_CMD_REG_CMD, BIT(2) | BIT(13) |
+		(dev->fw.debug_wm ? 0 : BIT(0)));
+	mt76_wr(dev, MT_MCU_WM_CIRQ_IRQ_MASK_CLR_ADDR, BIT(5));
+	mt76_wr(dev, MT_MCU_WM_CIRQ_IRQ_SOFT_ADDR, BIT(5));
+
+	return 0;
+}
+
 int mt7915_mcu_muru_debug_set(struct mt7915_dev *dev, bool enabled)
 {
 	struct {
@@ -2448,11 +2507,11 @@ int mt7915_mcu_init_firmware(struct mt7915_dev *dev)
 		return ret;
 
 	set_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state);
-	ret = mt7915_mcu_fw_log_2_host(dev, MCU_FW_LOG_WM, 0);
+	ret = mt7915_mcu_fw_debug_set(dev, MCU_FW_LOG_WM, true);
 	if (ret)
 		return ret;
 
-	ret = mt7915_mcu_fw_log_2_host(dev, MCU_FW_LOG_WA, 0);
+	ret = mt7915_mcu_fw_debug_set(dev, MCU_FW_LOG_WA, true);
 	if (ret)
 		return ret;
 

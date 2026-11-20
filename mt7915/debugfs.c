@@ -518,50 +518,11 @@ static int
 mt7915_fw_debug_wm_set(void *data, u64 val)
 {
 	struct mt7915_dev *dev = data;
-	enum {
-		DEBUG_TXCMD = 62,
-		DEBUG_CMD_RPT_TX,
-		DEBUG_CMD_RPT_TRIG,
-		DEBUG_SPL,
-		DEBUG_RPT_RX,
-	} debug;
-	bool tx, rx, en;
 	int ret;
 
 	dev->fw.debug_wm = val ? MCU_FW_LOG_TO_HOST : 0;
 
-	if (dev->fw.debug_bin)
-		val = 16;
-	else
-		val = dev->fw.debug_wm;
-
-	tx = dev->fw.debug_wm || (dev->fw.debug_bin & BIT(1));
-	rx = dev->fw.debug_wm || (dev->fw.debug_bin & BIT(2));
-	en = dev->fw.debug_wm || (dev->fw.debug_bin & BIT(0));
-
-	ret = mt7915_mcu_fw_log_2_host(dev, MCU_FW_LOG_WM, val);
-	if (ret)
-		goto out;
-
-	for (debug = DEBUG_TXCMD; debug <= DEBUG_RPT_RX; debug++) {
-		if (debug == DEBUG_RPT_RX)
-			val = en && rx;
-		else
-			val = en && tx;
-
-		ret = mt7915_mcu_fw_dbg_ctrl(dev, debug, val);
-		if (ret)
-			goto out;
-	}
-
-	/* WM CPU info record control */
-	mt76_clear(dev, MT_CPU_UTIL_CTRL, BIT(0));
-	mt76_wr(dev, MT_DIC_CMD_REG_CMD, BIT(2) | BIT(13) |
-		(dev->fw.debug_wm ? 0 : BIT(0)));
-	mt76_wr(dev, MT_MCU_WM_CIRQ_IRQ_MASK_CLR_ADDR, BIT(5));
-	mt76_wr(dev, MT_MCU_WM_CIRQ_IRQ_SOFT_ADDR, BIT(5));
-
-out:
+	ret = mt7915_mcu_fw_debug_set(dev, MCU_FW_LOG_WM, false);
 	if (ret)
 		dev->fw.debug_wm = 0;
 
@@ -589,13 +550,7 @@ mt7915_fw_debug_wa_set(void *data, u64 val)
 
 	dev->fw.debug_wa = val ? MCU_FW_LOG_TO_HOST : 0;
 
-	ret = mt7915_mcu_fw_log_2_host(dev, MCU_FW_LOG_WA, dev->fw.debug_wa);
-	if (ret)
-		goto out;
-
-	ret = mt7915_mcu_wa_cmd(dev, MCU_WA_PARAM_CMD(SET),
-				MCU_WA_PARAM_PDMA_RX, !!dev->fw.debug_wa, 0);
-out:
+	ret = mt7915_mcu_fw_debug_set(dev, MCU_FW_LOG_WA, false);
 	if (ret)
 		dev->fw.debug_wa = 0;
 
