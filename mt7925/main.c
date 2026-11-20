@@ -2432,9 +2432,9 @@ static void mt7925_link_info_changed(struct ieee80211_hw *hw,
 	struct mt792x_dev *dev = mt792x_hw_dev(hw);
 	struct mt792x_bss_conf *mconf;
 
-	mconf = mt792x_vif_to_link(mvif, info->link_id);
-
 	mt792x_mutex_acquire(dev);
+
+	mconf = mt792x_vif_to_link(mvif, info->link_id);
 
 	if (changed & BSS_CHANGED_ERP_SLOT) {
 		int slottime = info->use_short_slot ? 9 : 20;
