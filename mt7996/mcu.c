@@ -4710,6 +4710,36 @@ mt7996_mcu_beacon_ml_reconf_elem(struct sk_buff *skb,
 	return NULL;
 }
 
+/* the firmware rounds the count per second down */
+static u16
+mt7996_mcu_mld_reconf_per_sec(const struct ieee80211_bss_conf *link_conf)
+{
+	if (!link_conf->beacon_int)
+		return 0;
+
+	return 1000 / link_conf->beacon_int;
+}
+
+/* the firmware gives each removal entry of a template the count of the
+ * template's link, from the last timer of the AP MLD
+ */
+static bool
+mt7996_mcu_mld_reconf_countable(struct ieee80211_vif *vif)
+{
+	unsigned long valid_links = vif->valid_links;
+	unsigned int link_id;
+
+	for_each_set_bit(link_id, &valid_links, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct ieee80211_bss_conf *link_conf;
+
+		link_conf = link_conf_dereference_protected(vif, link_id);
+		if (link_conf && !mt7996_mcu_mld_reconf_per_sec(link_conf))
+			return false;
+	}
+
+	return true;
+}
+
 /* The firmware counts the AP Removal Timer of each removed link down in the
  * Beacon frames. It writes the count of the BSS that an entry names, and in
  * a partner's Beacon frame that of the removed BSS is already one lower, so
@@ -4729,7 +4759,7 @@ mt7996_mcu_beacon_ml_reconf(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	unsigned long links;
 	struct tlv *tlv;
 
-	if (!ieee80211_vif_is_mld(vif))
+	if (!ieee80211_vif_is_mld(vif) || !mt7996_mcu_mld_reconf_countable(vif))
 		return;
 
 	elem = mt7996_mcu_beacon_ml_reconf_elem(skb, offs);
@@ -4800,19 +4830,21 @@ mt7996_mcu_mld_reconf_to_sec(struct ieee80211_vif *vif, u16 removed_links,
 
 	for_each_set_bit(link_id, &valid_links, IEEE80211_MLD_MAX_NUM_LINKS) {
 		struct ieee80211_bss_conf *link_conf;
-		u32 beacon_int;
+		u16 per_sec;
 
 		link_conf = link_conf_dereference_protected(vif, link_id);
-		if (!link_conf || !link_conf->beacon_int)
+		if (!link_conf)
 			continue;
 
-		beacon_int = link_conf->beacon_int;
-		max_sec = min_t(u32, max_sec, U8_MAX * beacon_int / 1000);
+		per_sec = mt7996_mcu_mld_reconf_per_sec(link_conf);
+		if (!per_sec)
+			continue;
+
+		max_sec = min_t(u32, max_sec, U8_MAX / per_sec);
 		if (removed_links & BIT(link_id))
 			to_sec = max_t(u32, to_sec,
-				       DIV_ROUND_UP(beacon_int *
-						    reconf->count[link_id],
-						    1000));
+				       DIV_ROUND_UP(reconf->count[link_id],
+						    per_sec));
 	}
 
 	return min_t(u32, to_sec, max_sec);
@@ -4825,10 +4857,7 @@ static u16
 mt7996_mcu_mld_reconf_count(const struct ieee80211_bss_conf *link_conf,
 			    u16 to_sec)
 {
-	if (!link_conf->beacon_int)
-		return 0;
-
-	return to_sec * 1000 / link_conf->beacon_int;
+	return mt7996_mcu_mld_reconf_per_sec(link_conf) * to_sec;
 }
 
 static int
