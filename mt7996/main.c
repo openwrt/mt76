@@ -1712,7 +1712,14 @@ mt7996_mac_sta_link_connect(struct mt7996_dev *dev,
 	if (err != -EEXIST)
 		return err;
 
-	mt7996_mcu_teardown_mld_sta(dev, link, msta_link);
+	err = mt7996_mcu_teardown_mld_sta(dev, link, msta_link);
+	if (!mt7996_mcu_cmd_answered(err)) {
+		dev_warn(dev->mt76.dev,
+			 "wcid %d: STA_REC in use at connect, MLD_OFF not sent: %d\n",
+			 msta_link->wcid.idx, err);
+		return -EREMOTEIO;
+	}
+
 	err = mt7996_mcu_add_sta(dev, link_conf, link_sta, link, msta_link,
 				 CONN_STATE_CONNECT, true);
 	if (err == -EEXIST) {
