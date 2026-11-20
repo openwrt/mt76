@@ -3063,6 +3063,7 @@ static void mt7925_stop(struct ieee80211_hw *hw, bool suspend)
 	cancel_delayed_work_sync(&dev->mlo_pm_work);
 
 	mt792x_stop(hw, suspend);
+	wiphy_work_cancel(hw->wiphy, &dev->reset_vif_work);
 }
 
 const struct ieee80211_ops mt7925_ops = {

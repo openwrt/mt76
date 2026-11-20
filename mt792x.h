@@ -374,6 +374,7 @@ struct mt792x_dev {
 	struct mt792x_phy phy;
 
 	struct work_struct reset_work;
+	struct wiphy_work reset_vif_work;
 	bool hw_full_reset:1;
 	bool hw_init_done:1;
 	bool fw_assert:1;
@@ -524,6 +525,15 @@ mt792x_hw_phy(struct ieee80211_hw *hw)
 	struct mt76_phy *phy = hw->priv;
 
 	return phy->priv;
+}
+
+static inline void mt792x_reset_vif_work_cancel(struct mt792x_dev *dev)
+{
+	struct wiphy *wiphy = mt76_hw(dev)->wiphy;
+
+	wiphy_lock(wiphy);
+	wiphy_work_cancel(wiphy, &dev->reset_vif_work);
+	wiphy_unlock(wiphy);
 }
 
 static inline void

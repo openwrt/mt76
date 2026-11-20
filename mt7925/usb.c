@@ -154,6 +154,7 @@ static void mt7925u_stop(struct ieee80211_hw *hw, bool suspend)
 	cancel_delayed_work_sync(&dev->mlo_pm_work);
 
 	mt792xu_stop(hw, suspend);
+	wiphy_work_cancel(hw->wiphy, &dev->reset_vif_work);
 }
 
 static int mt7925u_probe(struct usb_interface *usb_intf,

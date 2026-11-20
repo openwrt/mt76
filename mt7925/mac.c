@@ -1621,10 +1621,22 @@ out:
 		return;
 
 	ieee80211_wake_queues(hw);
-	ieee80211_iterate_active_interfaces(hw,
-					    IEEE80211_IFACE_ITER_RESUME_ALL,
-					    mt7925_vif_connect_iter, NULL);
-	mt76_connac_power_save_sched(&dev->mt76.phy, pm);
+	wiphy_work_queue(hw->wiphy, &dev->reset_vif_work);
+}
+
+void mt7925_mac_reset_vif_work(struct wiphy *wiphy, struct wiphy_work *work)
+{
+	struct mt792x_dev *dev = container_of(work, struct mt792x_dev,
+					      reset_vif_work);
+
+	if (test_bit(MT76_REMOVED, &dev->mphy.state))
+		return;
+
+	mt792x_mutex_acquire(dev);
+	ieee80211_iterate_active_interfaces_mtx(mt76_hw(dev),
+						IEEE80211_IFACE_ITER_RESUME_ALL,
+						mt7925_vif_connect_iter, NULL);
+	mt792x_mutex_release(dev);
 
 	mt7925_regd_change(&dev->phy, "00");
 }

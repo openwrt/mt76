@@ -320,6 +320,7 @@ int mt7925_register_device(struct mt792x_dev *dev)
 	skb_queue_head_init(&dev->coredump.msg_list);
 
 	INIT_WORK(&dev->reset_work, mt7925_mac_reset_work);
+	wiphy_work_init(&dev->reset_vif_work, mt7925_mac_reset_vif_work);
 	INIT_WORK(&dev->init_work, mt7925_init_work);
 	INIT_WORK(&dev->nan_deferred_work, mt7925_nan_deferred_work);
 	spin_lock_init(&dev->nan_deferred_lock);
