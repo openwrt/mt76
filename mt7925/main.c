@@ -2800,7 +2800,7 @@ static void mt7925_unassign_vif_chanctx(struct ieee80211_hw *hw,
 	struct mt792x_dev *dev = mt792x_hw_dev(hw);
 	struct mt792x_bss_conf *mconf;
 
-	mutex_lock(&dev->mt76.mutex);
+	mt792x_mutex_acquire(dev);
 
 	if (ieee80211_vif_is_mld(vif)) {
 		mconf = mt792x_vif_to_link(mvif, link_conf->link_id);
@@ -2814,7 +2814,7 @@ static void mt7925_unassign_vif_chanctx(struct ieee80211_hw *hw,
 	}
 
 	mconf->mt76.ctx = NULL;
-	mutex_unlock(&dev->mt76.mutex);
+	mt792x_mutex_release(dev);
 
 	if (link_conf->csa_active) {
 		timer_delete_sync(&mvif->csa_timer);
