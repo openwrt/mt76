@@ -853,14 +853,12 @@ struct mt76_wcid *mt7996_get_tx_wcid(struct mt76_wcid *wcid)
 }
 
 static u16
-mt7996_sta_tx_pair_links(struct mt7996_sta *msta)
+mt7996_sta_tx_usable_links(struct mt7996_sta *msta, unsigned long candidates)
 {
-	unsigned long pair;
 	unsigned int i;
 	u16 links = 0;
 
-	pair = BIT(mt7996_sta_tx_primary_get(msta)) | BIT(msta->seclink_id);
-	for_each_set_bit(i, &pair, IEEE80211_MLD_MAX_NUM_LINKS) {
+	for_each_set_bit(i, &candidates, IEEE80211_MLD_MAX_NUM_LINKS) {
 		struct mt7996_sta_link *msta_link = mt7996_sta_link(msta, i);
 
 		if (!msta_link || !msta_link->wcid.link_valid ||
@@ -871,6 +869,14 @@ mt7996_sta_tx_pair_links(struct mt7996_sta *msta)
 	}
 
 	return links;
+}
+
+static u16
+mt7996_sta_tx_pair_links(struct mt7996_sta *msta)
+{
+	return mt7996_sta_tx_usable_links(msta,
+					  BIT(mt7996_sta_tx_primary_get(msta)) |
+					  BIT(msta->seclink_id));
 }
 
 static u8
@@ -890,48 +896,66 @@ mt7996_sta_tx_link_get(struct mt7996_sta *msta, u8 tid)
 	return __ffs(mapped);
 }
 
-/* A link that no TID maps to in either direction is disabled for a non-AP
- * MLD (IEEE 802.11be-2024 35.3.7.2.1)
+/* Under a negotiated TTLM the firmware pauses, on the band of each link and
+ * by the downlink map alone, the queue of each AC and WLAN index of the MLD
+ * pair by one TID: the primary by the even TID of the AC, the secondary by
+ * the odd one. Where primary and secondary are one index, the higher TID of
+ * the AC sets the queue.
  */
-static u16
-mt7996_sta_tx_disabled_links(struct mt7996_sta *msta)
+static const u8 mt7996_ttlm_queue_tid[3][IEEE80211_NUM_ACS] = {
+	[0] = { 6, 4, 0, 2 },
+	[1] = { 7, 5, 3, 1 },
+	[2] = { 7, 5, 3, 2 },
+};
+
+static bool
+mt7996_sta_tx_queue_open(struct mt7996_sta *msta, u8 link_id, u8 ac)
 {
-	unsigned int tid;
-	u16 enabled = 0;
+	u8 primary = mt7996_sta_tx_primary_get(msta);
+	u8 queue = 0;
 
-	if (!READ_ONCE(msta->neg_ttlm.valid))
-		return 0;
+	if (msta->seclink_id == primary)
+		queue = 2;
+	else if (link_id == msta->seclink_id)
+		queue = 1;
 
-	for (tid = 0; tid < IEEE80211_TTLM_NUM_TIDS; tid++)
-		enabled |= READ_ONCE(msta->neg_ttlm.downlink[tid]) |
-			   READ_ONCE(msta->neg_ttlm.uplink[tid]);
-
-	return ~enabled;
+	return READ_ONCE(msta->neg_ttlm.downlink[mt7996_ttlm_queue_tid[queue][ac]]) &
+	       BIT(link_id);
 }
 
 /* mac80211 gives the management and Null frames that it builds for an MLO
  * station no link, and hostapd names none for the EAPOL frames of an
- * authorised MLO station without OCV. They may go on any enabled link, and
- * the TXD must name a link of the firmware pair (see mt7996_get_tx_wcid()),
- * whose primary the MLD record of the firmware names.
+ * authorised MLO station without OCV. They may go on any link whose band
+ * serves their queue; a frame with MT_TXD5_FL waits on a paused one, and
+ * mt7996_get_tx_wcid() keeps its WLAN index in the firmware pair.
  */
-u8 mt7996_sta_tx_enabled_link_get(struct mt7996_sta *msta, u8 link_id)
+u8 mt7996_sta_tx_enabled_link_get(struct mt7996_sta *msta, u8 link_id, u8 ac)
 {
-	u16 disabled = mt7996_sta_tx_disabled_links(msta);
 	u8 primary = mt7996_sta_tx_primary_get(msta);
-	u16 links;
+	unsigned long links;
+	unsigned int i;
+	u16 pair;
 
-	if (!(disabled & BIT(link_id)))
+	if (!READ_ONCE(msta->neg_ttlm.valid) ||
+	    mt7996_sta_tx_queue_open(msta, link_id, ac))
 		return link_id;
 
-	links = mt7996_sta_tx_pair_links(msta) & ~disabled;
-	if (links & BIT(primary))
+	pair = mt7996_sta_tx_pair_links(msta);
+	if ((pair & BIT(primary)) && mt7996_sta_tx_queue_open(msta, primary, ac))
 		return primary;
 
-	if (!links)
-		return link_id;
+	if ((pair & BIT(msta->seclink_id)) &&
+	    mt7996_sta_tx_queue_open(msta, msta->seclink_id, ac))
+		return msta->seclink_id;
 
-	return __ffs(links);
+	links = mt7996_sta_tx_usable_links(msta,
+					   GENMASK(IEEE80211_MLD_MAX_NUM_LINKS - 1, 0) &
+					   ~pair);
+	for_each_set_bit(i, &links, IEEE80211_MLD_MAX_NUM_LINKS)
+		if (mt7996_sta_tx_queue_open(msta, i, ac))
+			return i;
+
+	return link_id;
 }
 
 void mt7996_mac_write_txwi(struct mt7996_dev *dev, __le32 *txwi,
@@ -1160,7 +1184,8 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 		if (link_id == IEEE80211_LINK_UNSPECIFIED && msta &&
 		    tx_info->skb->protocol == cpu_to_be16(ETH_P_PAE))
 			link_id = mt7996_sta_tx_enabled_link_get(msta,
-								 wcid->link_id);
+					wcid->link_id,
+					skb_get_queue_mapping(tx_info->skb));
 	}
 
 	any_link = link_id == IEEE80211_LINK_UNSPECIFIED &&
@@ -1169,8 +1194,8 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 		/* ALTX disables the address translation: keep the link of
 		 * the header that mt7996_tx() wrote
 		 */
-		link_id = mt7996_sta_tx_enabled_link_get(msta,
-							 msta->deflink_id);
+		link_id = mt7996_sta_tx_enabled_link_get(msta, msta->deflink_id,
+							 skb_get_queue_mapping(tx_info->skb));
 		any_link = false;
 	}
 

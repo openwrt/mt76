@@ -2279,7 +2279,8 @@ static void mt7996_tx(struct ieee80211_hw *hw,
 		link_id = deflink_id;
 		/* mt7996_get_tx_wcid() can move a station wcid off this link */
 		if (msta)
-			link_id = mt7996_sta_tx_enabled_link_get(msta, link_id);
+			link_id = mt7996_sta_tx_enabled_link_get(msta, link_id,
+								 skb_get_queue_mapping(skb));
 		if (msta && !mt7996_tx_mgmt_any_link(vif, sta, skb))
 			u32p_replace_bits(&info->control.flags, link_id,
 					  IEEE80211_TX_CTRL_MLO_LINK);
