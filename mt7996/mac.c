@@ -2588,8 +2588,14 @@ mt7996_mac_reset_sta_iter(void *data, struct ieee80211_sta *sta)
 	struct mt7996_dev *dev = data;
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(msta->link); i++)
+	for (i = 0; i < ARRAY_SIZE(msta->link); i++) {
+		struct mt7996_sta_link *msta_link;
+
+		msta_link = mt76_dereference(msta->link[i], &dev->mt76);
+		if (msta_link)
+			msta_link->sta_rec_active = false;
 		mt7996_mac_sta_remove_link(dev, sta, i, true);
+	}
 }
 
 static void
