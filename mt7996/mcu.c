@@ -4911,6 +4911,8 @@ mt7996_mcu_mld_reconf_timer(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 				     sizeof(*rt));
 	rt = (struct mld_reconf_timer *)tlv;
 	rt->link_bitmap = cpu_to_le16(vif->valid_links);
+	/* the firmware skips a band whose index names no BSS */
+	memset(rt->bss_idx, 0xff, sizeof(rt->bss_idx));
 
 	for_each_set_bit(link_id, &valid_links, IEEE80211_MLD_MAX_NUM_LINKS) {
 		struct mt7996_vif_link *link = mt7996_vif_link(dev, vif, link_id);
