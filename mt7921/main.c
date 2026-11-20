@@ -1413,25 +1413,25 @@ mt7921_change_chanctx(struct ieee80211_hw *hw,
 		      struct ieee80211_chanctx_conf *ctx,
 		      u32 changed)
 {
-	struct mt792x_chanctx *mctx = (struct mt792x_chanctx *)ctx->drv_priv;
 	struct mt792x_phy *phy = mt792x_hw_phy(hw);
 	struct ieee80211_vif *vif;
-	struct mt792x_vif *mvif;
-
-	if (!mctx->bss_conf)
-		return;
-
-	mvif = container_of(mctx->bss_conf, struct mt792x_vif, bss_conf);
-	vif = container_of((void *)mvif, struct ieee80211_vif, drv_priv);
 
 	mt792x_mutex_acquire(phy->dev);
-	if (vif->type == NL80211_IFTYPE_MONITOR) {
-		mt7921_mcu_set_sniffer(mvif->phy->dev, vif, true);
-		mt7921_mcu_config_sniffer(mvif, ctx);
-	} else {
-		mt76_connac_mcu_uni_set_chctx(mvif->phy->mt76, &mvif->bss_conf.mt76, ctx);
+	for_each_active_interface(vif, hw) {
+		struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
+
+		if (mvif->bss_conf.mt76.ctx != ctx)
+			continue;
+
+		if (vif->type == NL80211_IFTYPE_MONITOR) {
+			mt7921_mcu_set_sniffer(mvif->phy->dev, vif, true);
+			mt7921_mcu_config_sniffer(mvif, ctx);
+		} else {
+			mt76_connac_mcu_uni_set_chctx(mvif->phy->mt76,
+						      &mvif->bss_conf.mt76, ctx);
+		}
+		mt76_phy_chandef_set(mvif->phy->mt76, &ctx->def);
 	}
-	mt76_phy_chandef_set(mvif->phy->mt76, &ctx->def);
 	mt792x_mutex_release(phy->dev);
 }
 

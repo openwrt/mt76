@@ -163,10 +163,6 @@ struct mt792x_sta {
 
 DECLARE_EWMA(rssi, 10, 8);
 
-struct mt792x_chanctx {
-	struct mt792x_bss_conf *bss_conf;
-};
-
 struct mt792x_bss_conf {
 	struct mt76_vif_link mt76; /* must be first */
 	struct mt792x_vif *vif;

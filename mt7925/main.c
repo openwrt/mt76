@@ -2287,58 +2287,57 @@ mt7925_remove_chanctx(struct ieee80211_hw *hw,
 }
 
 static void
-mt7925_change_chanctx(struct ieee80211_hw *hw,
-		      struct ieee80211_chanctx_conf *ctx,
-		      u32 changed)
+mt7925_link_change_chanctx(struct ieee80211_vif *vif,
+			   struct mt792x_bss_conf *mconf,
+			   struct ieee80211_chanctx_conf *ctx, u32 changed)
 {
-	struct mt792x_chanctx *mctx = (struct mt792x_chanctx *)ctx->drv_priv;
-	struct mt792x_phy *phy = mt792x_hw_phy(hw);
-	struct mt792x_bss_conf *mconf;
-	struct ieee80211_vif *vif;
-	struct mt792x_vif *mvif;
+	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
+	struct ieee80211_bss_conf *link_conf;
 
-	if (!mctx->bss_conf)
+	if (!mconf || mconf->mt76.ctx != ctx)
 		return;
 
-	mconf = mctx->bss_conf;
-	mvif = mconf->vif;
-	vif = container_of((void *)mvif, struct ieee80211_vif, drv_priv);
-
-	mt792x_mutex_acquire(phy->dev);
 	if (vif->type == NL80211_IFTYPE_MONITOR) {
 		mt7925_mcu_set_sniffer(mvif->phy->dev, vif, true);
 		mt7925_mcu_config_sniffer(mvif, ctx);
 	} else {
-		if (ieee80211_vif_is_mld(vif)) {
-			unsigned long valid = mvif->valid_links;
-			u8 i;
+		link_conf = mt792x_vif_to_bss_conf(vif, mconf->link_id);
+		if (mt7925_p2p_chanctx_bss_programmed(vif, link_conf))
+			mt7925_mcu_set_chctx(mvif->phy->mt76, &mconf->mt76,
+					     link_conf, ctx);
 
-			for_each_set_bit(i, &valid, IEEE80211_MLD_MAX_NUM_LINKS) {
-				mconf = mt792x_vif_to_link(mvif, i);
-				if (mconf && mconf->mt76.ctx == ctx)
-					break;
-			}
-
-		} else {
-			mconf = &mvif->bss_conf;
-		}
-
-		if (mconf) {
-			struct ieee80211_bss_conf *link_conf;
-
-			link_conf = mt792x_vif_to_bss_conf(vif, mconf->link_id);
-
-			if (mt7925_p2p_chanctx_bss_programmed(vif, link_conf))
-				mt7925_mcu_set_chctx(mvif->phy->mt76, &mconf->mt76,
-						     link_conf, ctx);
-
-			if (changed & IEEE80211_CHANCTX_CHANGE_PUNCTURING)
-				mt7925_mcu_set_eht_pp(mvif->phy->mt76, &mconf->mt76,
-						      link_conf, ctx);
-		}
+		if (changed & IEEE80211_CHANCTX_CHANGE_PUNCTURING)
+			mt7925_mcu_set_eht_pp(mvif->phy->mt76, &mconf->mt76,
+					      link_conf, ctx);
 	}
 	mt76_phy_chandef_set(mvif->phy->mt76, &ctx->def);
+}
 
+static void
+mt7925_change_chanctx(struct ieee80211_hw *hw,
+		      struct ieee80211_chanctx_conf *ctx,
+		      u32 changed)
+{
+	struct mt792x_phy *phy = mt792x_hw_phy(hw);
+	struct ieee80211_vif *vif;
+
+	mt792x_mutex_acquire(phy->dev);
+	for_each_active_interface(vif, hw) {
+		struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
+		unsigned long valid = mvif->valid_links;
+		u8 i;
+
+		if (!ieee80211_vif_is_mld(vif)) {
+			mt7925_link_change_chanctx(vif, &mvif->bss_conf, ctx,
+						   changed);
+			continue;
+		}
+
+		for_each_set_bit(i, &valid, IEEE80211_MLD_MAX_NUM_LINKS)
+			mt7925_link_change_chanctx(vif,
+						   mt792x_vif_to_link(mvif, i),
+						   ctx, changed);
+	}
 	mt792x_mutex_release(phy->dev);
 }
 
@@ -2755,7 +2754,6 @@ static int mt7925_assign_vif_chanctx(struct ieee80211_hw *hw,
 				     struct ieee80211_bss_conf *link_conf,
 				     struct ieee80211_chanctx_conf *ctx)
 {
-	struct mt792x_chanctx *mctx = (struct mt792x_chanctx *)ctx->drv_priv;
 	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
 	struct mt792x_dev *dev = mt792x_hw_dev(hw);
 	struct ieee80211_bss_conf *pri_link_conf;
@@ -2783,7 +2781,6 @@ static int mt7925_assign_vif_chanctx(struct ieee80211_hw *hw,
 	}
 
 	mconf->mt76.ctx = ctx;
-	mctx->bss_conf = mconf;
 	mt76_phy_chandef_set(mvif->phy->mt76, &ctx->def);
 	mutex_unlock(&dev->mt76.mutex);
 
@@ -2795,7 +2792,6 @@ static void mt7925_unassign_vif_chanctx(struct ieee80211_hw *hw,
 					struct ieee80211_bss_conf *link_conf,
 					struct ieee80211_chanctx_conf *ctx)
 {
-	struct mt792x_chanctx *mctx = (struct mt792x_chanctx *)ctx->drv_priv;
 	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
 	struct mt792x_dev *dev = mt792x_hw_dev(hw);
 	struct mt792x_bss_conf *mconf;
@@ -2813,7 +2809,6 @@ static void mt7925_unassign_vif_chanctx(struct ieee80211_hw *hw,
 		mconf = &mvif->bss_conf;
 	}
 
-	mctx->bss_conf = NULL;
 	mconf->mt76.ctx = NULL;
 	mutex_unlock(&dev->mt76.mutex);
 
