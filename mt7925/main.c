@@ -2496,8 +2496,8 @@ mt7925_change_vif_links(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	mt792x_mutex_acquire(dev);
 
 	for_each_set_bit(link_id, &rem, IEEE80211_MLD_MAX_NUM_LINKS) {
-		mconf = mt792x_vif_to_link(mvif, link_id);
-		mlink = mt792x_sta_to_link(&mvif->sta, link_id);
+		mconf = mt76_dereference(mvif->link_conf[link_id], &dev->mt76);
+		mlink = mt76_dereference(mvif->sta.link[link_id], &dev->mt76);
 
 		if (!mconf || !mlink)
 			continue;
