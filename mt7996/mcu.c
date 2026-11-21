@@ -3013,12 +3013,67 @@ mt7996_mcu_sta_muru_tlv(struct mt7996_dev *dev, struct sk_buff *skb,
 		HE_MAC(CAP3_RX_CTRL_FRAME_TO_MULTIBSS, elem->mac_cap_info[3]);
 }
 
+/* mac80211 fills the beamforming fields of link_conf for an AP alone, so a
+ * station takes the capabilities that it advertises on the band
+ */
+static bool
+mt7996_link_eht_su_bf(struct ieee80211_bss_conf *link_conf,
+		      struct ieee80211_supported_band *sband, bool bfee)
+{
+	u8 bit = bfee ? IEEE80211_EHT_PHY_CAP0_SU_BEAMFORMEE :
+			IEEE80211_EHT_PHY_CAP0_SU_BEAMFORMER;
+	const struct ieee80211_sta_eht_cap *cap;
+
+	if (link_conf->vif->type == NL80211_IFTYPE_AP)
+		return bfee ? link_conf->eht_su_beamformee :
+			      link_conf->eht_su_beamformer;
+
+	cap = ieee80211_get_eht_iftype_cap(sband, link_conf->vif->type);
+
+	return cap && (cap->eht_cap_elem.phy_cap_info[0] & bit);
+}
+
+static bool
+mt7996_link_he_su_bf(struct ieee80211_bss_conf *link_conf,
+		     struct ieee80211_supported_band *sband, bool bfee)
+{
+	const struct ieee80211_sta_he_cap *cap;
+
+	if (link_conf->vif->type == NL80211_IFTYPE_AP)
+		return bfee ? link_conf->he_su_beamformee :
+			      link_conf->he_su_beamformer;
+
+	cap = ieee80211_get_he_iftype_cap(sband, link_conf->vif->type);
+	if (!cap)
+		return false;
+
+	if (bfee)
+		return HE_PHY(CAP4_SU_BEAMFORMEE, cap->he_cap_elem.phy_cap_info[4]);
+
+	return HE_PHY(CAP3_SU_BEAMFORMER, cap->he_cap_elem.phy_cap_info[3]);
+}
+
+static bool
+mt7996_link_vht_su_bf(struct ieee80211_bss_conf *link_conf,
+		      struct ieee80211_supported_band *sband, bool bfee)
+{
+	u32 bit = bfee ? IEEE80211_VHT_CAP_SU_BEAMFORMEE_CAPABLE :
+			 IEEE80211_VHT_CAP_SU_BEAMFORMER_CAPABLE;
+
+	if (link_conf->vif->type == NL80211_IFTYPE_AP)
+		return bfee ? link_conf->vht_su_beamformee :
+			      link_conf->vht_su_beamformer;
+
+	return sband->vht_cap.cap & bit;
+}
+
 static inline bool
 mt7996_is_ebf_supported(struct mt7996_phy *phy,
 			struct ieee80211_bss_conf *link_conf,
 			struct ieee80211_link_sta *link_sta, bool bfee)
 {
 	int sts = hweight16(phy->mt76->chainmask);
+	struct ieee80211_supported_band *sband;
 
 	if (link_conf->vif->type != NL80211_IFTYPE_STATION &&
 	    link_conf->vif->type != NL80211_IFTYPE_AP)
@@ -3027,15 +3082,17 @@ mt7996_is_ebf_supported(struct mt7996_phy *phy,
 	if (!bfee && sts < 2)
 		return false;
 
+	sband = phy->mt76->hw->wiphy->bands[phy->mt76->chandef.chan->band];
+
 	if (link_sta->eht_cap.has_eht) {
 		struct ieee80211_sta_eht_cap *pc = &link_sta->eht_cap;
 		struct ieee80211_eht_cap_elem_fixed *pe = &pc->eht_cap_elem;
 
 		if (bfee)
-			return link_conf->eht_su_beamformee &&
+			return mt7996_link_eht_su_bf(link_conf, sband, true) &&
 			       EHT_PHY(CAP0_SU_BEAMFORMER, pe->phy_cap_info[0]);
 		else
-			return link_conf->eht_su_beamformer &&
+			return mt7996_link_eht_su_bf(link_conf, sband, false) &&
 			       EHT_PHY(CAP0_SU_BEAMFORMEE, pe->phy_cap_info[0]);
 	}
 
@@ -3043,10 +3100,10 @@ mt7996_is_ebf_supported(struct mt7996_phy *phy,
 		struct ieee80211_he_cap_elem *pe = &link_sta->he_cap.he_cap_elem;
 
 		if (bfee)
-			return link_conf->he_su_beamformee &&
+			return mt7996_link_he_su_bf(link_conf, sband, true) &&
 			       HE_PHY(CAP3_SU_BEAMFORMER, pe->phy_cap_info[3]);
 		else
-			return link_conf->he_su_beamformer &&
+			return mt7996_link_he_su_bf(link_conf, sband, false) &&
 			       HE_PHY(CAP4_SU_BEAMFORMEE, pe->phy_cap_info[4]);
 	}
 
@@ -3054,10 +3111,10 @@ mt7996_is_ebf_supported(struct mt7996_phy *phy,
 		u32 cap = link_sta->vht_cap.cap;
 
 		if (bfee)
-			return link_conf->vht_su_beamformee &&
+			return mt7996_link_vht_su_bf(link_conf, sband, true) &&
 			       (cap & IEEE80211_VHT_CAP_SU_BEAMFORMER_CAPABLE);
 		else
-			return link_conf->vht_su_beamformer &&
+			return mt7996_link_vht_su_bf(link_conf, sband, false) &&
 			       (cap & IEEE80211_VHT_CAP_SU_BEAMFORMEE_CAPABLE);
 	}
 
@@ -3392,9 +3449,12 @@ mt7996_mcu_sta_bfee_tlv(struct mt7996_dev *dev, struct sk_buff *skb,
 				 pc->cap);
 	}
 
-	/* reply with identity matrix to avoid 2x2 BF negative gain */
+	/* reply with identity matrix to avoid 2x2 BF negative gain; a station
+	 * feeds back the channel that it measured
+	 */
 	tx_ant = hweight8(phy->mt76->antenna_mask) - 1;
-	bfee->fb_identity_matrix = (nrow == 1 && tx_ant == 2);
+	bfee->fb_identity_matrix = link_conf->vif->type == NL80211_IFTYPE_AP &&
+				   nrow == 1 && tx_ant == 2;
 }
 
 static void
@@ -3748,7 +3808,7 @@ mt7996_mcu_sta_rate_ctrl_tlv(struct sk_buff *skb, struct mt7996_dev *dev,
 			cap |= STA_CAP_TX_STBC;
 		if (link_sta->ht_cap.cap & IEEE80211_HT_CAP_RX_STBC)
 			cap |= STA_CAP_RX_STBC;
-		if (link_conf->ht_ldpc &&
+		if ((vif->type != NL80211_IFTYPE_AP || link_conf->ht_ldpc) &&
 		    (link_sta->ht_cap.cap & IEEE80211_HT_CAP_LDPC_CODING))
 			cap |= STA_CAP_LDPC;
 
