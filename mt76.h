@@ -1461,6 +1461,22 @@ mtxq_to_txq(struct mt76_txq *mtxq)
 	return container_of(ptr, struct ieee80211_txq, drv_priv);
 }
 
+static inline void
+mt76_sta_txq_wcid_set(struct ieee80211_sta *sta, u16 idx)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(sta->txq); i++) {
+		struct mt76_txq *mtxq;
+
+		if (!sta->txq[i])
+			continue;
+
+		mtxq = (struct mt76_txq *)sta->txq[i]->drv_priv;
+		mtxq->wcid = idx;
+	}
+}
+
 /* peer-wide state uses the wcid of the primary link */
 static inline struct mt76_wcid *
 mt76_wcid_primary(struct mt76_wcid *wcid)

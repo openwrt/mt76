@@ -1755,7 +1755,6 @@ mt76_sta_add(struct mt76_phy *phy, struct ieee80211_vif *vif,
 	struct mt76_wcid *published;
 	bool registered;
 	int ret;
-	int i;
 
 	mutex_lock(&dev->mutex);
 
@@ -1769,15 +1768,7 @@ mt76_sta_add(struct mt76_phy *phy, struct ieee80211_vif *vif,
 	if (ret)
 		goto out;
 
-	for (i = 0; i < ARRAY_SIZE(sta->txq); i++) {
-		struct mt76_txq *mtxq;
-
-		if (!sta->txq[i])
-			continue;
-
-		mtxq = (struct mt76_txq *)sta->txq[i]->drv_priv;
-		mtxq->wcid = wcid->idx;
-	}
+	mt76_sta_txq_wcid_set(sta, wcid->idx);
 
 	published = rcu_dereference_protected(dev->wcid[wcid->idx],
 					      lockdep_is_held(&dev->mutex));

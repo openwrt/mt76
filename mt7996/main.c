@@ -1232,22 +1232,6 @@ out:
 }
 
 static void
-mt7996_sta_init_txq_wcid(struct ieee80211_sta *sta, int idx)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(sta->txq); i++) {
-		struct mt76_txq *mtxq;
-
-		if (!sta->txq[i])
-			continue;
-
-		mtxq = (struct mt76_txq *)sta->txq[i]->drv_priv;
-		mtxq->wcid = idx;
-	}
-}
-
-static void
 mt7996_sta_deflink_set(struct ieee80211_sta *sta, unsigned int link_id,
 		       int idx)
 {
@@ -1256,7 +1240,7 @@ mt7996_sta_deflink_set(struct ieee80211_sta *sta, unsigned int link_id,
 	msta->deflink_id = link_id;
 	if (msta->seclink_id == IEEE80211_LINK_UNSPECIFIED)
 		msta->seclink_id = link_id;
-	mt7996_sta_init_txq_wcid(sta, idx);
+	mt76_sta_txq_wcid_set(sta, idx);
 }
 
 static void
