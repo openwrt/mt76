@@ -64,6 +64,14 @@ bool mt7996_mac_wtbl_update(struct mt7996_dev *dev, int idx, u32 mask)
 			 0, 5000);
 }
 
+void mt7996_sta_link_airtime_clear(struct mt7996_dev *dev,
+				   struct mt7996_sta_link *msta_link)
+{
+	mt7996_mac_wtbl_update(dev, msta_link->wcid.idx,
+			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
+	memset(msta_link->airtime_ac, 0, sizeof(msta_link->airtime_ac));
+}
+
 u32 mt7996_mac_wtbl_lmac_addr(struct mt7996_dev *dev, u16 wcid, u8 dw)
 {
 	mt76_wr(dev, MT_WTBLON_TOP_WDUCR,
@@ -135,12 +143,8 @@ static void mt7996_mac_sta_poll(struct mt7996_dev *dev)
 			addr += 8;
 		}
 
-		if (clear) {
-			mt7996_mac_wtbl_update(dev, idx,
-					       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
-			memset(msta_link->airtime_ac, 0,
-			       sizeof(msta_link->airtime_ac));
-		}
+		if (clear)
+			mt7996_sta_link_airtime_clear(dev, msta_link);
 
 		if (!wcid->sta)
 			continue;

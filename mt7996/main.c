@@ -450,8 +450,7 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	msta_link->wcid.tx_info |= MT_WCID_TX_INFO_SET;
 	mt76_wcid_init(&msta_link->wcid, band_idx);
 
-	mt7996_mac_wtbl_update(dev, idx,
-			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
+	mt7996_sta_link_airtime_clear(dev, msta_link);
 
 	if (vif->type != NL80211_IFTYPE_AP &&
 	    (!mlink->omac_idx || mlink->omac_idx > 3))
@@ -1369,7 +1368,7 @@ mt7996_mac_sta_init_link(struct mt7996_dev *dev,
 
 	rcu_assign_pointer(msta->link[link_id], msta_link);
 
-	mt7996_mac_wtbl_update(dev, idx, MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
+	mt7996_sta_link_airtime_clear(dev, msta_link);
 
 	rcu_assign_pointer(dev->mt76.wcid[idx], &msta_link->wcid);
 	mt76_wcid_init(&msta_link->wcid, phy->mt76->band_idx);
@@ -1403,8 +1402,7 @@ void mt7996_mac_sta_remove_link(struct mt7996_dev *dev,
 	mt76_wcid_cleanup(&dev->mt76, &msta_link->wcid);
 
 	if (msta_link->wcid.link_valid) {
-		mt7996_mac_wtbl_update(dev, msta_link->wcid.idx,
-				       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
+		mt7996_sta_link_airtime_clear(dev, msta_link);
 
 		mt7996_sta_deflink_release(dev, sta, link_id);
 		msta_link->wcid.link_valid = false;
