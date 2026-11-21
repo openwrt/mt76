@@ -1446,7 +1446,8 @@ int mt7925_mac_sta_event(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 
 			link_sta = mt792x_sta_to_link_sta(vif, sta,
 							  msta->deflink_id);
-			mt7925_mac_set_links(mdev, vif);
+			if (vif->type == NL80211_IFTYPE_STATION)
+				mt7925_mac_set_links(mdev, vif);
 		}
 
 		mt7925_mac_link_sta_assoc(mdev, vif, link_sta);
@@ -2644,7 +2645,8 @@ mt7925_change_vif_links(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 		added |= BIT(link_id);
 
-		if (mconf != &mvif->bss_conf) {
+		if (mconf != &mvif->bss_conf &&
+		    vif->type == NL80211_IFTYPE_STATION) {
 			err = mt7925_set_mlo_roc(phy, &mvif->bss_conf,
 						 vif->active_links);
 			if (err < 0)
