@@ -1705,103 +1705,6 @@ mt7996_mcu_cmd_answered(int err)
 }
 
 static int
-mt7996_mac_sta_rec_lost(struct mt7996_dev *dev, struct ieee80211_vif *vif,
-			struct mt7996_sta_link *msta_link)
-{
-	struct mt7996_sta *msta = msta_link->sta;
-	unsigned int link_id;
-	int lost = 0;
-
-	for (link_id = 0; link_id < ARRAY_SIZE(msta->link); link_id++) {
-		struct mt7996_sta_link *other;
-		struct mt7996_vif_link *link;
-
-		other = mt7996_sta_link_protected(dev, msta, link_id);
-		if (!other || other == msta_link || !other->connected)
-			continue;
-
-		link = mt7996_vif_link(dev, vif, link_id);
-		if (!link || mt7996_mcu_sta_rec_check(dev, link, other) != -ENOENT)
-			continue;
-
-		other->sta_rec_active = false;
-		other->connected = false;
-		lost++;
-	}
-
-	return lost;
-}
-
-static int
-mt7996_mac_sta_link_connect(struct mt7996_dev *dev,
-			    struct ieee80211_bss_conf *link_conf,
-			    struct ieee80211_link_sta *link_sta,
-			    struct mt7996_vif_link *link,
-			    struct mt7996_sta_link *msta_link)
-{
-	const char *repair = "MLD_OFF";
-	int err;
-
-	err = mt7996_mcu_add_sta(dev, link_conf, link_sta, link, msta_link,
-				 CONN_STATE_CONNECT, true);
-	if (err != -EEXIST)
-		return err;
-
-	err = mt7996_mcu_sta_rec_check(dev, link, msta_link);
-	if (err == -ENOENT) {
-		dev_warn(dev->mt76.dev,
-			 "wcid %d: STA_REC not allocated at connect\n",
-			 msta_link->wcid.idx);
-		return -EREMOTEIO;
-	}
-	if (err) {
-		dev_warn(dev->mt76.dev,
-			 "wcid %d: STA_REC refused at connect, check failed: %d\n",
-			 msta_link->wcid.idx, err);
-		return -EREMOTEIO;
-	}
-
-	err = mt7996_mcu_teardown_mld_sta(dev, link, msta_link);
-	if (err) {
-		dev_warn(dev->mt76.dev,
-			 "wcid %d: STA_REC in use at connect, MLD_OFF not sent or refused: %d\n",
-			 msta_link->wcid.idx, err);
-		return -EREMOTEIO;
-	}
-
-	/* a record that the MLD_OFF left in use holds no group */
-	err = mt7996_mcu_sta_rec_check(dev, link, msta_link);
-	if (err && err != -ENOENT) {
-		dev_warn(dev->mt76.dev,
-			 "wcid %d: STA_REC in use at connect, check after MLD_OFF failed: %d\n",
-			 msta_link->wcid.idx, err);
-		return -EREMOTEIO;
-	}
-
-	if (!err) {
-		repair = "MLD_OFF and DISCONNECT";
-		mt7996_mcu_add_sta(dev, link_conf, link_sta, link, msta_link,
-				   CONN_STATE_DISCONNECT, false);
-	} else if (link_sta->sta->mlo &&
-		   mt7996_mac_sta_rec_lost(dev, link_conf->vif, msta_link)) {
-		dev_warn(dev->mt76.dev,
-			 "wcid %d: STA_REC in use at connect, MLD_OFF freed other links of the station\n",
-			 msta_link->wcid.idx);
-		return -EREMOTEIO;
-	}
-
-	err = mt7996_mcu_add_sta(dev, link_conf, link_sta, link, msta_link,
-				 CONN_STATE_CONNECT, true);
-
-	dev_warn(dev->mt76.dev,
-		 "wcid %d: STA_REC in use at connect, %s gave %d\n",
-		 msta_link->wcid.idx, repair, err);
-
-	/* hostapd takes -EEXIST of a station add for success */
-	return err == -EEXIST ? -EREMOTEIO : err;
-}
-
-static int
 mt7996_mac_sta_rec_finish(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			  struct ieee80211_sta *sta,
 			  struct mt7996_sta_link *msta_link)
@@ -1921,9 +1824,9 @@ mt7996_mac_sta_links_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			msta_link->wcid.sta = 1;
 			msta_link->wcid.sta_disabled = 0;
 
-			err = mt7996_mac_sta_link_connect(dev, link_conf,
-							  link_sta, link,
-							  msta_link);
+			err = mt7996_mcu_add_sta(dev, link_conf, link_sta,
+						 link, msta_link,
+						 CONN_STATE_CONNECT, true);
 			if (err)
 				return err;
 

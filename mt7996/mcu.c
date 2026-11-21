@@ -4151,7 +4151,6 @@ int mt7996_mcu_add_sta(struct mt7996_dev *dev,
 	struct mt76_wcid *wcid = msta_link ? &msta_link->wcid : link->mt76.wcid;
 	struct ieee80211_sta *sta = link_sta ? link_sta->sta : NULL;
 	u16 weight = IEEE80211_DEFAULT_AIRTIME_WEIGHT;
-	int cmd = MCU_WMWA_UNI_CMD(STA_REC_UPDATE);
 	struct sk_buff *skb;
 	int ret;
 
@@ -4214,10 +4213,8 @@ int mt7996_mcu_add_sta(struct mt7996_dev *dev,
 	}
 
 out:
-	if (conn_state == CONN_STATE_CONNECT)
-		cmd |= MT7996_MCU_CMD_STA_REC_EEXIST;
-
-	ret = mt76_mcu_skb_send_msg(&dev->mt76, skb, cmd, true);
+	ret = mt76_mcu_skb_send_msg(&dev->mt76, skb,
+				    MCU_WMWA_UNI_CMD(STA_REC_UPDATE), true);
 	if (ret || conn_state == CONN_STATE_DISCONNECT)
 		return ret;
 
