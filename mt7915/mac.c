@@ -530,6 +530,9 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 			qos_ctl = *ieee80211_get_qos_ctl(hdr);
 		}
 	} else {
+		if (unicast && mt76_rx_unprotected_keyed(skb))
+			return -EINVAL;
+
 		status->flag |= RX_FLAG_8023;
 		mt7915_wed_check_ppe(dev, &dev->mt76.q_rx[q], msta, skb,
 				     *info);
