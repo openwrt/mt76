@@ -1801,6 +1801,45 @@ mt7996_mac_sta_link_connect(struct mt7996_dev *dev,
 	return err == -EEXIST ? -EREMOTEIO : err;
 }
 
+static int
+mt7996_mac_sta_rec_finish(struct mt7996_dev *dev, struct ieee80211_vif *vif,
+			  struct ieee80211_sta *sta,
+			  struct mt7996_sta_link *msta_link)
+{
+	unsigned int link_id = msta_link->wcid.link_id;
+	struct ieee80211_bss_conf *link_conf;
+	struct ieee80211_link_sta *link_sta;
+	struct mt7996_vif_link *link;
+	int err;
+
+	link = mt7996_vif_link(dev, vif, link_id);
+	if (!link)
+		return -ENOLINK;
+
+	err = mt7996_mcu_sta_rec_check(dev, link, msta_link);
+	if (err)
+		return err == -ENOENT ? 0 : err;
+
+	if (sta->mlo) {
+		err = mt7996_mcu_teardown_mld_sta(dev, link, msta_link);
+		if (err)
+			return err;
+
+		err = mt7996_mcu_sta_rec_check(dev, link, msta_link);
+		if (err)
+			return err == -ENOENT ? 0 : err;
+	}
+
+	link_conf = link_conf_dereference_protected(vif, link_id);
+	link_sta = link_sta_dereference_protected(sta, link_id);
+	if (!link_conf || !link_sta)
+		return -ENOLINK;
+
+	/* a record that an MLD_OFF left in use holds no group */
+	return mt7996_mcu_add_sta(dev, link_conf, link_sta, link, msta_link,
+				  CONN_STATE_DISCONNECT, false);
+}
+
 static void
 mt7996_mac_sta_rec_teardown(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			    struct ieee80211_sta *sta)
@@ -1810,8 +1849,8 @@ mt7996_mac_sta_rec_teardown(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	struct mt7996_vif_link *link, *rec_vif_link = NULL;
 	unsigned long active = 0;
 	unsigned int link_id;
-	int err = -ENOENT;
-	bool answered;
+	int err = 0;
+	bool sent;
 
 	for (link_id = 0; link_id < ARRAY_SIZE(msta->link); link_id++) {
 		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
@@ -1833,25 +1872,18 @@ mt7996_mac_sta_rec_teardown(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	if (!active)
 		return;
 
-	if (rec_link && sta->mlo) {
+	if (rec_link && sta->mlo)
 		err = mt7996_mcu_teardown_mld_sta(dev, rec_vif_link, rec_link);
-	} else if (rec_link) {
-		struct ieee80211_bss_conf *link_conf;
-		struct ieee80211_link_sta *link_sta;
+	sent = mt7996_mcu_cmd_answered(err);
 
-		link_id = rec_link->wcid.link_id;
-		link_conf = link_conf_dereference_protected(vif, link_id);
-		link_sta = link_sta_dereference_protected(sta, link_id);
-		if (link_conf && link_sta)
-			err = mt7996_mcu_add_sta(dev, link_conf, link_sta,
-						 rec_vif_link, rec_link,
-						 CONN_STATE_DISCONNECT, false);
-	}
-
-	answered = mt7996_mcu_cmd_answered(err);
+	/* the MLD_OFF frees only the records of its group, and a link whose
+	 * MLD setup failed holds a record of no group
+	 */
 	for_each_set_bit(link_id, &active, IEEE80211_MLD_MAX_NUM_LINKS) {
 		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
-		if (!answered) {
+		if (sent)
+			err = mt7996_mac_sta_rec_finish(dev, vif, sta, msta_link);
+		if (err) {
 			dev_warn(dev->mt76.dev,
 				 "wcid %d: STA_REC teardown not sent: %d\n",
 				 msta_link->wcid.idx, err);
