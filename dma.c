@@ -1128,6 +1128,11 @@ mt76_dma_rx_queue_init(struct mt76_dev *dev, enum mt76_rxq_id qid,
 		       int (*poll)(struct napi_struct *napi, int budget))
 {
 	netif_napi_add(dev->napi_dev, &dev->napi[qid], poll);
+	/* Same as the usb/sdio rx workers: under CPU load a SCHED_OTHER napi
+	 * thread can be starved long enough for the rx ring to overflow.
+	 */
+	if (dev->napi[qid].thread)
+		sched_set_fifo_low(dev->napi[qid].thread);
 	mt76_dma_rx_fill_buf(dev, &dev->q_rx[qid], false);
 	napi_enable(&dev->napi[qid]);
 }
