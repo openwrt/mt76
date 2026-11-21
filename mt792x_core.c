@@ -195,7 +195,13 @@ void mt792x_tx(struct ieee80211_hw *hw, struct ieee80211_tx_control *control,
 		link_id = u32_get_bits(info->control.flags,
 				       IEEE80211_TX_CTRL_MLO_LINK);
 		sta = (struct mt792x_sta *)control->sta->drv_priv;
+		if (link_id >= IEEE80211_LINK_UNSPECIFIED)
+			link_id = sta->deflink_id;
 		mlink = mt792x_sta_to_link(sta, link_id);
+		if (!mlink) {
+			ieee80211_free_txskb(hw, skb);
+			return;
+		}
 		wcid = &mlink->wcid;
 	}
 

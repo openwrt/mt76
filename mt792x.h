@@ -125,8 +125,6 @@ struct mt792x_link_sta {
 	struct mt76_connac_sta_key_conf bip;
 
 	struct mt792x_sta *sta;
-
-	struct ieee80211_link_sta *pri_link;
 };
 
 struct mt792x_sta_nan_sched {
@@ -152,6 +150,7 @@ struct mt792x_sta {
 
 	u16 valid_links;
 	u8 deflink_id;
+	u8 seclink_id;
 
 	/* NAN peer schedule */
 	struct mt792x_sta_nan_sched nan_sched;

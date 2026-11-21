@@ -1134,7 +1134,8 @@ static int mt7925_mac_link_sta_add(struct mt76_dev *mdev,
 			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
 
 	link_conf = mt792x_vif_to_bss_conf(vif, link_id);
-	is_secondary_link_sta = ieee80211_vif_is_mld(vif) && link_sta != mlink->pri_link;
+	is_secondary_link_sta = ieee80211_vif_is_mld(vif) &&
+				msta->deflink_id != IEEE80211_LINK_UNSPECIFIED;
 
 	/* NAN_DATA (NDI) peers skip association - fill link_sta caps
 	 * from sband and push BSS_INFO with correct phymode + RLM.
@@ -1172,22 +1173,18 @@ static int mt7925_mac_link_sta_add(struct mt76_dev *mdev,
 		if (ret)
 			goto out_pm;
 	} else {
+		struct ieee80211_link_sta *pri_link_sta;
 		struct mt792x_link_sta *pri_mlink;
-		struct mt76_wcid *pri_wcid;
 
-		/* alternative lookup via def_wcid */
-		pri_wcid = mlink->wcid.def_wcid;
-
-		pri_mlink = pri_wcid ?
-			    container_of(pri_wcid, struct mt792x_link_sta, wcid) :
-			    NULL;
-
-		if (WARN_ON_ONCE(!pri_mlink)) {
+		pri_link_sta = mt792x_sta_to_link_sta(vif, link_sta->sta,
+						      msta->deflink_id);
+		pri_mlink = mt792x_sta_to_link(msta, msta->deflink_id);
+		if (WARN_ON_ONCE(!pri_link_sta || !pri_mlink)) {
 			ret = -EINVAL;
 			goto out_pm;
 		}
 
-		ret = mt7925_mcu_sta_update(dev, mlink->pri_link, vif,
+		ret = mt7925_mcu_sta_update(dev, pri_link_sta, vif,
 					    pri_mlink, true,
 					    MT76_STA_INFO_STATE_ASSOC, mlink);
 		if (ret)
@@ -1286,7 +1283,6 @@ mt7925_mac_sta_add_links(struct mt792x_dev *dev, struct ieee80211_vif *vif,
 		}
 
 		mlink->sta = msta;
-		mlink->pri_link = &sta->deflink;
 		mlink->wcid.def_wcid = &msta->deflink.wcid;
 
 		link_sta = mt792x_sta_to_link_sta(vif, sta, link_id);
@@ -1327,6 +1323,7 @@ int mt7925_mac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 
 	if (ieee80211_vif_is_mld(vif)) {
 		msta->deflink_id = IEEE80211_LINK_UNSPECIFIED;
+		msta->seclink_id = IEEE80211_LINK_UNSPECIFIED;
 
 		err = mt7925_mac_sta_add_links(dev, vif, sta, sta->valid_links);
 	} else {
@@ -1545,11 +1542,32 @@ static void mt7925_mac_link_sta_remove(struct mt76_dev *mdev,
 	mt76_connac_power_save_sched(&dev->mphy, &dev->pm);
 }
 
+static void
+mt7925_mac_sta_deflink_move(struct ieee80211_sta *sta, unsigned long links)
+{
+	struct mt792x_sta *msta = (struct mt792x_sta *)sta->drv_priv;
+	struct mt792x_link_sta *mlink;
+	unsigned int link_id;
+
+	/* prefer the secondary of the firmware's MLD record, so that the TXDs
+	 * keep naming a link of its pair until a link add sends a new record
+	 */
+	if (links & BIT(msta->seclink_id))
+		link_id = msta->seclink_id;
+	else
+		link_id = __ffs(links);
+
+	mlink = mt792x_sta_to_link(msta, link_id);
+	msta->deflink_id = link_id;
+	mt76_sta_txq_wcid_set(sta, mlink->wcid.idx);
+}
+
 static int
 mt7925_mac_sta_remove_links(struct mt792x_dev *dev, struct ieee80211_vif *vif,
 			    struct ieee80211_sta *sta, unsigned long old_links)
 {
 	struct mt792x_sta *msta = (struct mt792x_sta *)sta->drv_priv;
+	unsigned long links = msta->valid_links & ~old_links;
 	struct mt76_dev *mdev = &dev->mt76;
 	unsigned int link_id;
 
@@ -1593,6 +1611,9 @@ mt7925_mac_sta_remove_links(struct mt792x_dev *dev, struct ieee80211_vif *vif,
 					link_sta, false);
 	}
 
+	if (links && (old_links & BIT(msta->deflink_id)))
+		mt7925_mac_sta_deflink_move(sta, links);
+
 	for_each_set_bit(link_id, &old_links, IEEE80211_MLD_MAX_NUM_LINKS) {
 		struct ieee80211_link_sta *link_sta;
 		struct mt792x_link_sta *mlink;
@@ -1608,7 +1629,6 @@ mt7925_mac_sta_remove_links(struct mt792x_dev *dev, struct ieee80211_vif *vif,
 
 		msta->valid_links &= ~BIT(link_id);
 		mlink->sta = NULL;
-		mlink->pri_link = NULL;
 
 		mt7925_mac_link_sta_remove(&dev->mt76, vif, link_sta, mlink);
 
