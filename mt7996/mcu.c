@@ -2473,7 +2473,7 @@ mt7996_mcu_add_rate_ctrl_fixed(struct mt7996_dev *dev, struct mt7996_sta *msta,
 	struct mt7996_vif_link *link;
 	struct sta_phy_uni phy = {};
 	struct ieee80211_sta *sta;
-	int ret, nrates = 0, idx;
+	int ret, nrates = 0;
 	enum nl80211_band band;
 	struct mt76_phy *mphy;
 	bool has_he;
@@ -2516,7 +2516,6 @@ mt7996_mcu_add_rate_ctrl_fixed(struct mt7996_dev *dev, struct mt7996_sta *msta,
 	band = mphy->chandef.chan->band;
 	has_he = link_sta->he_cap.has_he;
 	mask = link->bitrate_mask;
-	idx = msta_link->wcid.idx;
 
 	if (has_he) {
 		__sta_phy_bitrate_mask_check(he_mcs, he_gi, 0, 1);
@@ -2551,18 +2550,6 @@ mt7996_mcu_add_rate_ctrl_fixed(struct mt7996_dev *dev, struct mt7996_sta *msta,
 	/* fixed GI */
 	if (mask.control[band].gi != NL80211_TXRATE_DEFAULT_GI ||
 	    mask.control[band].he_gi != GENMASK(7, 0)) {
-		u32 addr;
-
-		/* firmware updates only TXCMD but doesn't take WTBL into
-		 * account, so driver should update here to reflect the
-		 * actual txrate hardware sends out.
-		 */
-		addr = mt7996_mac_wtbl_lmac_addr(dev, idx, 7);
-		if (has_he)
-			mt76_rmw_field(dev, addr, GENMASK(31, 24), phy.sgi);
-		else
-			mt76_rmw_field(dev, addr, GENMASK(15, 12), phy.sgi);
-
 		ret = mt7996_mcu_set_fixed_field(dev, msta, &phy, link_id,
 						 RATE_PARAM_FIXED_GI);
 		if (ret)
