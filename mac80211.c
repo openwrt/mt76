@@ -908,6 +908,7 @@ static void mt76_reset_phy(struct mt76_phy *phy)
 
 	phy->num_sta = 0;
 	phy->chanctx = NULL;
+	phy->dfs_state = MT_DFS_STATE_UNKNOWN;
 	mt76_roc_complete(phy);
 }
 
