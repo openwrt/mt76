@@ -2574,6 +2574,9 @@ mt7996_mac_full_reset(struct mt7996_dev *dev)
 	if (i == 10)
 		dev_err(dev->mt76.dev, "chip full reset failed\n");
 
+	if (dev->rdd2_phy)
+		cfg80211_background_cac_abort(dev->rdd2_phy->mt76->hw->wiphy);
+
 	mt7996_for_each_phy(dev, phy) {
 		phy->omac_mask = 0;
 		phy->rxfilter |= MT_WF_RFCR_DROP_OTHER_UC;
