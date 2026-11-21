@@ -2082,7 +2082,9 @@ static void __mt7925_ipv6_addr_change(struct ieee80211_hw *hw,
 				      struct ieee80211_bss_conf *link_conf,
 				      struct inet6_dev *idev)
 {
-	struct mt792x_bss_conf *mconf = mt792x_link_conf_to_mconf(link_conf);
+	struct mt792x_vif *mvif = (struct mt792x_vif *)link_conf->vif->drv_priv;
+	struct mt792x_bss_conf *mconf =
+		mt792x_vif_to_link_rcu(mvif, link_conf->link_id);
 	struct mt792x_dev *dev = mt792x_hw_dev(hw);
 	struct inet6_ifaddr *ifa;
 	struct sk_buff *skb;
@@ -2147,7 +2149,10 @@ static void mt7925_ipv6_addr_change(struct ieee80211_hw *hw,
 		return;
 
 	for_each_set_bit(i, &valid, IEEE80211_MLD_MAX_NUM_LINKS) {
-		bss_conf = mt792x_vif_to_bss_conf(vif, i);
+		bss_conf = rcu_dereference(vif->link_conf[i]);
+		if (!bss_conf)
+			continue;
+
 		__mt7925_ipv6_addr_change(hw, bss_conf, idev);
 	}
 }
