@@ -2550,14 +2550,15 @@ static void mt7925_link_info_changed(struct ieee80211_hw *hw,
 
 static void
 mt7925_vif_link_remove(struct mt792x_dev *dev, struct mt792x_vif *mvif,
-		       unsigned int link_id, struct mt792x_bss_conf *mconf,
+		       unsigned int link_id, struct ieee80211_bss_conf *link_conf,
+		       struct mt792x_bss_conf *mconf,
 		       struct mt792x_link_sta *mlink, bool bss_remove)
 {
 	rcu_assign_pointer(mvif->link_conf[link_id], NULL);
 	rcu_assign_pointer(mvif->sta.link[link_id], NULL);
 
 	if (bss_remove)
-		mt792x_mac_link_bss_remove(dev, mconf, mlink);
+		__mt792x_mac_link_bss_remove(dev, link_conf, mconf, mlink);
 
 	if (mconf != &mvif->bss_conf) {
 		mt7925_p2p_bmc_remove(dev, mconf);
@@ -2596,8 +2597,8 @@ mt7925_change_vif_links(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		if (!mconf || !mlink)
 			continue;
 
-		mt7925_vif_link_remove(dev, mvif, link_id, mconf, mlink,
-				       mconf != &mvif->bss_conf);
+		mt7925_vif_link_remove(dev, mvif, link_id, old[link_id], mconf,
+				       mlink, mconf != &mvif->bss_conf);
 	}
 
 	for_each_set_bit(link_id, &add, IEEE80211_MLD_MAX_NUM_LINKS) {
@@ -2671,8 +2672,10 @@ mt7925_change_vif_links(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 free:
 	for_each_set_bit(link_id, &add, IEEE80211_MLD_MAX_NUM_LINKS)
-		mt7925_vif_link_remove(dev, mvif, link_id, mconfs[link_id],
-				       mlinks[link_id], added & BIT(link_id));
+		mt7925_vif_link_remove(dev, mvif, link_id,
+				       mt792x_vif_to_bss_conf(vif, link_id),
+				       mconfs[link_id], mlinks[link_id],
+				       added & BIT(link_id));
 	goto out;
 
 free_unpublished:

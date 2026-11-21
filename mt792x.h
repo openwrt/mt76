@@ -661,6 +661,10 @@ mt792x_get_mac80211_ops(struct device *dev,
 int mt792x_init_wcid(struct mt792x_dev *dev);
 int mt792x_mcu_drv_pmctrl(struct mt792x_dev *dev);
 int mt792x_mcu_fw_pmctrl(struct mt792x_dev *dev);
+void __mt792x_mac_link_bss_remove(struct mt792x_dev *dev,
+				  struct ieee80211_bss_conf *link_conf,
+				  struct mt792x_bss_conf *mconf,
+				  struct mt792x_link_sta *mlink);
 void mt792x_mac_link_bss_remove(struct mt792x_dev *dev,
 				struct mt792x_bss_conf *mconf,
 				struct mt792x_link_sta *mlink);
