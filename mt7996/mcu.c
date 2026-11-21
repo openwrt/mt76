@@ -4016,13 +4016,13 @@ int mt7996_mcu_peer_mld_ttlm_req(struct mt7996_dev *dev,
 				     sizeof(*req));
 	req = (struct peer_mld_ttlm_req *)tlv;
 	memcpy(req->mld_addr, vif->addr, ETH_ALEN);
-	req->enabled_link_bitmap = cpu_to_le16(vif->valid_links);
 
 	for_each_set_bit(link_id, &links, IEEE80211_MLD_MAX_NUM_LINKS) {
 		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
 		if (!msta_link)
 			continue;
 
+		req->enabled_link_bitmap |= cpu_to_le16(BIT(link_id));
 		req->link_to_wcid[link_id] = cpu_to_le16(msta_link->wcid.idx);
 		for (tid = 0; tid < IEEE80211_TTLM_NUM_TIDS; tid++) {
 			if (ttlm->downlink[tid] & BIT(link_id))
