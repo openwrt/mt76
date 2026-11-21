@@ -873,6 +873,7 @@ bool mt7996_eeprom_has_background_radar(struct mt7996_dev *dev);
 int mt7996_dma_init(struct mt7996_dev *dev);
 void mt7996_dma_reset(struct mt7996_dev *dev, bool force);
 void mt7996_dma_prefetch(struct mt7996_dev *dev);
+void mt7996_dma_rx_napi_disable(struct mt7996_dev *dev);
 void mt7996_dma_cleanup(struct mt7996_dev *dev);
 void mt7996_dma_start(struct mt7996_dev *dev, bool reset, bool wed_reset);
 int mt7996_init_tx_queues(struct mt7996_phy *phy, int idx,

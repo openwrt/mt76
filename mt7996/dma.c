@@ -945,13 +945,16 @@ int mt7996_dma_init(struct mt7996_dev *dev)
 	if (ret < 0)
 		return ret;
 
-	ret = mt7996_npu_rx_queues_init(dev);
-	if (ret)
-		return ret;
-
 	netif_napi_add_tx(dev->mt76.tx_napi_dev, &dev->mt76.tx_napi,
 			  mt7996_poll_tx);
 	napi_enable(&dev->mt76.tx_napi);
+
+	ret = mt7996_npu_rx_queues_init(dev);
+	if (ret) {
+		mt7996_dma_rx_napi_disable(dev);
+		mt7996_dma_cleanup(dev);
+		return ret;
+	}
 
 	mt7996_dma_enable(dev, false);
 
@@ -1070,6 +1073,16 @@ void mt7996_dma_reset(struct mt7996_dev *dev, bool force)
 	}
 
 	mt7996_dma_enable(dev, !force);
+}
+
+void mt7996_dma_rx_napi_disable(struct mt7996_dev *dev)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(dev->mt76.napi); i++) {
+		if (dev->mt76.napi[i].dev)
+			napi_disable(&dev->mt76.napi[i]);
+	}
 }
 
 void mt7996_dma_cleanup(struct mt7996_dev *dev)

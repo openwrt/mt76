@@ -1300,14 +1300,9 @@ int mt7996_global_wcid_init(struct mt7996_dev *dev)
 
 static void mt7996_stop_hardware(struct mt7996_dev *dev)
 {
-	int i;
-
 	cancel_work_sync(&dev->dump_work);
 	cancel_work_sync(&dev->reset_work);
-	for (i = 0; i < ARRAY_SIZE(dev->mt76.napi); i++) {
-		if (dev->mt76.napi[i].dev)
-			napi_disable(&dev->mt76.napi[i]);
-	}
+	mt7996_dma_rx_napi_disable(dev);
 	mt7996_mcu_exit(dev);
 	cancel_work_sync(&dev->reconf_work);
 	mt7996_tx_token_put(dev);
