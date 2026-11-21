@@ -1757,7 +1757,8 @@ reserve:
 static int
 mt7996_mac_sta_rec_finish(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			  struct ieee80211_sta *sta,
-			  struct mt7996_sta_link *msta_link)
+			  struct mt7996_sta_link *msta_link,
+			  struct mt7996_vif_link *mld_link)
 {
 	unsigned int link_id = msta_link->wcid.link_id;
 	struct ieee80211_bss_conf *link_conf;
@@ -1774,7 +1775,17 @@ mt7996_mac_sta_rec_finish(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		return err == -ENOENT ? 0 : err;
 
 	if (sta->mlo) {
-		err = mt7996_mcu_teardown_mld_sta(dev, link, msta_link);
+		struct mt7996_vif_link *off_link = link;
+
+		/* the BSS of a removed link can have left its MLD group, and
+		 * an MLD_OFF that names such a BSS skips the hardware reset
+		 */
+		if (sta->valid_links && !msta_link->wcid.link_valid)
+			off_link = mld_link;
+		if (!off_link)
+			return -ENOLINK;
+
+		err = mt7996_mcu_teardown_mld_sta(dev, off_link, msta_link);
 		if (err)
 			return err;
 
@@ -1835,7 +1846,8 @@ mt7996_mac_sta_rec_teardown(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	for_each_set_bit(link_id, &active, IEEE80211_MLD_MAX_NUM_LINKS) {
 		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
 		if (sent)
-			err = mt7996_mac_sta_rec_finish(dev, vif, sta, msta_link);
+			err = mt7996_mac_sta_rec_finish(dev, vif, sta, msta_link,
+							rec_vif_link);
 		if (err) {
 			dev_warn(dev->mt76.dev,
 				 "wcid %d: STA_REC teardown not sent: %d\n",
