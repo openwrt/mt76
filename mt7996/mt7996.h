@@ -393,6 +393,7 @@ struct mt7996_vif {
 	u64 attlm_cookie;
 	u64 attlm_tbtt_boottime;
 	u64 attlm_end_boottime;
+	bool attlm_ttlm_resend;
 
 	/* AP Removal Timer that the firmware counts, under mt76_dev.lock:
 	 * the removed links and the time of their timer, and the links whose
@@ -563,6 +564,7 @@ struct mt7996_dev {
 	struct work_struct dump_work;
 	struct work_struct reset_work;
 	struct work_struct reconf_work;
+	struct work_struct attlm_end_work;
 	wait_queue_head_t reset_wait;
 	struct {
 		u32 state;
@@ -1018,6 +1020,7 @@ int mt7996_mcu_mld_reconf_stop_link(struct mt7996_dev *dev,
 				    struct ieee80211_vif *vif,
 				    u16 removed_links);
 void mt7996_mcu_mld_reconf_work(struct work_struct *work);
+void mt7996_mcu_mld_attlm_end_work(struct work_struct *work);
 enum hrtimer_restart mt7996_mcu_mld_reconf_tbtt(struct hrtimer *timer);
 int mt7996_mcu_mld_link_oper(struct mt7996_dev *dev,
 			     struct ieee80211_bss_conf *link_conf,

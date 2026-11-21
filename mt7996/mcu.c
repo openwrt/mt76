@@ -1383,8 +1383,15 @@ mt7996_mcu_mld_attlm_notify(void *priv, u8 *mac, struct ieee80211_vif *vif)
 	if (data->cmd == NL80211_CMD_ADV_TTLM_ENDED) {
 		mvif->attlm_cookie = 0;
 		mvif->attlm_end_boottime = 0;
+		mvif->attlm_ttlm_resend = true;
 	}
 	spin_unlock_bh(&data->dev->mt76.lock);
+
+	/* the end of the mapping in the firmware also lifts the pause of a
+	 * negotiated mapping on the links it disabled
+	 */
+	if (data->cmd == NL80211_CMD_ADV_TTLM_ENDED)
+		queue_work(system_highpri_wq, &data->dev->attlm_end_work);
 
 	/* a cancelled mapping runs on in the firmware until its end */
 	if (!event.cookie)
@@ -1420,6 +1427,61 @@ mt7996_mcu_mld_attlm_timeout(struct mt7996_dev *dev, const u8 *mld_addr,
 	ieee80211_iterate_active_interfaces_atomic(mt76_hw(dev),
 			IEEE80211_IFACE_ITER_RESUME_ALL,
 			mt7996_mcu_mld_attlm_notify, &data);
+}
+
+struct mt7996_mld_attlm_end_data {
+	struct mt7996_dev *dev;
+	struct ieee80211_vif *vif;
+};
+
+static void
+mt7996_mcu_mld_attlm_end_sta_iter(void *priv, struct ieee80211_sta *sta)
+{
+	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	struct mt7996_mld_attlm_end_data *data = priv;
+
+	if (msta->vif != (struct mt7996_vif *)data->vif->drv_priv ||
+	    !sta->mlo || !msta->neg_ttlm.valid)
+		return;
+
+	mt7996_mcu_peer_mld_ttlm_req(data->dev, data->vif, sta,
+				     &msta->neg_ttlm);
+}
+
+void mt7996_mcu_mld_attlm_end_work(struct work_struct *work)
+{
+	struct mt7996_dev *dev = container_of(work, struct mt7996_dev,
+					      attlm_end_work);
+	struct mt7996_mld_attlm_end_data data = {
+		.dev = dev,
+	};
+	struct ieee80211_hw *hw = mt76_hw(dev);
+	struct ieee80211_vif *vif;
+
+	wiphy_lock(hw->wiphy);
+	for_each_active_interface(vif, hw) {
+		struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+		bool resend;
+
+		if (vif->type != NL80211_IFTYPE_AP || !ieee80211_vif_is_mld(vif))
+			continue;
+
+		spin_lock_bh(&dev->mt76.lock);
+		resend = mvif->attlm_ttlm_resend;
+		mvif->attlm_ttlm_resend = false;
+		spin_unlock_bh(&dev->mt76.lock);
+
+		if (!resend)
+			continue;
+
+		data.vif = vif;
+		mutex_lock(&dev->mt76.mutex);
+		ieee80211_iterate_stations_mtx(hw,
+					       mt7996_mcu_mld_attlm_end_sta_iter,
+					       &data);
+		mutex_unlock(&dev->mt76.mutex);
+	}
+	wiphy_unlock(hw->wiphy);
 }
 
 struct mt7996_mld_reconf_data {
