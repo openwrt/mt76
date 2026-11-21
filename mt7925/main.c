@@ -547,10 +547,9 @@ static void mt7925_roc_iter(void *priv, u8 *mac,
 	*bss_mask |= BIT_ULL(mvif->bss_conf.mt76.idx);
 }
 
-static void mt7925_roc_abort_all(struct mt792x_phy *phy, u8 token)
+static void mt7925_roc_abort_all(struct mt792x_phy *phy, u8 token, u8 bss_idx)
 {
-	u64 bss_mask = 0;
-	u8 bss_idx;
+	u64 bss_mask = BIT_ULL(bss_idx);
 
 	ieee80211_iterate_active_interfaces_atomic(phy->mt76->hw,
 						   IEEE80211_IFACE_ITER_RESUME_ALL,
@@ -574,19 +573,20 @@ void mt7925_roc_abort_sync(struct mt792x_dev *dev)
 
 	cancel_work(&phy->roc_work);
 
-	mt7925_roc_abort_all(phy, phy->roc_token_id);
+	mt7925_roc_abort_all(phy, phy->roc_token_id, phy->roc_bss_idx);
 }
 EXPORT_SYMBOL_GPL(mt7925_roc_abort_sync);
 
 void mt7925_roc_work(struct work_struct *work)
 {
 	struct mt792x_phy *phy;
-	u8 token;
+	u8 token, bss_idx;
 
 	phy = (struct mt792x_phy *)container_of(work, struct mt792x_phy,
 						roc_work);
 
 	token = phy->roc_token_id;
+	bss_idx = phy->roc_bss_idx;
 
 	if (!test_and_clear_bit(MT76_STATE_ROC, &phy->mt76->state))
 		return;
@@ -595,7 +595,7 @@ void mt7925_roc_work(struct work_struct *work)
 	ieee80211_remain_on_channel_expired(phy->mt76->hw);
 
 	mt792x_mutex_acquire(phy->dev);
-	mt7925_roc_abort_all(phy, token);
+	mt7925_roc_abort_all(phy, token, bss_idx);
 	mt792x_mutex_release(phy->dev);
 }
 
@@ -631,7 +631,7 @@ static void mt7925_roc_stale_reclaim(struct mt792x_phy *phy)
 	if (!test_and_clear_bit(MT76_STATE_ROC, &phy->mt76->state))
 		return;
 
-	mt7925_roc_abort_all(phy, token);
+	mt7925_roc_abort_all(phy, token, phy->roc_bss_idx);
 
 	if (phy->roc_notify)
 		ieee80211_remain_on_channel_expired(phy->mt76->hw);
@@ -652,6 +652,7 @@ static int mt7925_set_roc(struct mt792x_phy *phy,
 		return -EBUSY;
 
 	token = ++phy->roc_token_id;
+	phy->roc_bss_idx = mconf->mt76.idx;
 	phy->roc_grant = false;
 	phy->roc_notify = type == MT7925_ROC_REQ_ROC;
 
@@ -683,6 +684,7 @@ static int mt7925_set_mlo_roc(struct mt792x_phy *phy,
 		return -EBUSY;
 
 	token = ++phy->roc_token_id;
+	phy->roc_bss_idx = mconf->mt76.idx;
 	phy->roc_grant = false;
 	phy->roc_notify = false;
 

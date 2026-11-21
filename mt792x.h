@@ -305,6 +305,7 @@ struct mt792x_phy {
 	u8 roc_token_id;
 	bool roc_grant;
 	bool roc_notify; /* mac80211 expects the expiry of this ROC */
+	u8 roc_bss_idx;
 };
 
 struct mt792x_irq_map {
