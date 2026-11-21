@@ -253,6 +253,7 @@ struct mt7996_sta_link {
 	bool connected;
 	bool sta_rec_active;
 	bool sta_rec_reserved;
+	bool bf_active;
 
 	struct list_head rc_list;
 
@@ -964,6 +965,9 @@ int mt7996_mcu_teardown_mld_sta(struct mt7996_dev *dev,
 int mt7996_mcu_sta_rec_check(struct mt7996_dev *dev,
 			     struct mt7996_vif_link *link,
 			     struct mt7996_sta_link *msta_link);
+int mt7996_mcu_sta_bf_release(struct mt7996_dev *dev,
+			      struct mt7996_vif_link *link,
+			      struct mt7996_sta_link *msta_link);
 int mt7996_mcu_update_mld_sta(struct mt7996_dev *dev,
 			      struct ieee80211_vif *vif,
 			      struct ieee80211_sta *sta,

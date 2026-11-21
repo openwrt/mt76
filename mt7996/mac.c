@@ -2679,6 +2679,7 @@ mt7996_mac_reset_sta_iter(void *data, struct ieee80211_sta *sta)
 		if (msta_link) {
 			msta_link->sta_rec_active = false;
 			msta_link->sta_rec_reserved = false;
+			msta_link->bf_active = false;
 		}
 		mt7996_mac_sta_remove_link(dev, sta, i, true);
 	}

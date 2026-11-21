@@ -3273,7 +3273,7 @@ mt7996_mcu_sta_bfer_eht(struct ieee80211_link_sta *link_sta,
 	}
 }
 
-static void
+static bool
 mt7996_mcu_sta_bfer_tlv(struct mt7996_dev *dev, struct sk_buff *skb,
 			struct ieee80211_bss_conf *link_conf,
 			struct ieee80211_link_sta *link_sta,
@@ -3296,17 +3296,21 @@ mt7996_mcu_sta_bfer_tlv(struct mt7996_dev *dev, struct sk_buff *skb,
 	bool ebf;
 
 	if (!phy)
-		return;
+		return false;
 
 	if (!(link_sta->ht_cap.ht_supported || link_sta->he_cap.has_he))
-		return;
+		return false;
 
 	ebf = mt7996_is_ebf_supported(phy, link_conf, link_sta, false);
 	if (!ebf && !dev->ibf)
-		return;
+		return false;
 
 	tlv = mt76_connac_mcu_add_tlv(skb, STA_REC_BF, sizeof(*bf));
 	bf = (struct sta_rec_bf *)tlv;
+	/* the firmware keeps this id where it allocates no profile, and a
+	 * release frees the id that the entry holds
+	 */
+	bf->pfmu = cpu_to_le16(MT7996_BF_PFMU_NONE);
 
 	/* he/eht: eBF only, except mt7992 that has 5T on 5GHz also supports iBF
 	 * vht: support eBF and iBF
@@ -3321,7 +3325,7 @@ mt7996_mcu_sta_bfer_tlv(struct mt7996_dev *dev, struct sk_buff *skb,
 	else if (link_sta->ht_cap.ht_supported)
 		mt7996_mcu_sta_bfer_ht(link_sta, phy, bf, ebf);
 	else
-		return;
+		return true;
 
 	bf->bf_cap = ebf ? EBF_MODE : (dev->ibf ? IBF_MODE : 0);
 	tx_ant = hweight16(phy->mt76->chainmask) - 1;
@@ -3348,6 +3352,8 @@ mt7996_mcu_sta_bfer_tlv(struct mt7996_dev *dev, struct sk_buff *skb,
 			bf->mem_20m = bf->nrow < BF_MAT_ORDER ?
 				      matrix[bf->nrow][bf->ncol] : 0;
 	}
+
+	return true;
 }
 
 static void
@@ -4772,8 +4778,9 @@ int mt7996_mcu_add_sta(struct mt7996_dev *dev,
 		mt7996_mcu_sta_hdrt_tlv(dev, skb, 1);
 		if (conn_state == CONN_STATE_CONNECT) {
 			/* starec bfer */
-			mt7996_mcu_sta_bfer_tlv(dev, skb, link_conf, link_sta,
-						link);
+			if (mt7996_mcu_sta_bfer_tlv(dev, skb, link_conf,
+						    link_sta, link))
+				msta_link->bf_active = true;
 			/* starec bfee */
 			mt7996_mcu_sta_bfee_tlv(dev, skb, link_conf, link_sta,
 						link);
@@ -4859,6 +4866,46 @@ int mt7996_mcu_sta_rec_check(struct mt7996_dev *dev,
 	return ret == -EEXIST ? -ENOENT : ret;
 }
 
+int mt7996_mcu_sta_bf_release(struct mt7996_dev *dev,
+			      struct mt7996_vif_link *link,
+			      struct mt7996_sta_link *msta_link)
+{
+	struct sta_rec_bf *bf;
+	struct sk_buff *skb;
+	struct tlv *tlv;
+	int ret;
+
+	if (!msta_link->bf_active)
+		return 0;
+
+	/* a release after the record is freed can hit the profile that
+	 * another station took, so a lost release is not sent again
+	 */
+	msta_link->bf_active = false;
+
+	skb = __mt76_connac_mcu_alloc_sta_req(&dev->mt76, &link->mt76,
+					      &msta_link->wcid,
+					      MT7996_STA_UPDATE_MAX_SIZE);
+	if (IS_ERR(skb)) {
+		ret = PTR_ERR(skb);
+		goto out;
+	}
+
+	tlv = mt76_connac_mcu_add_tlv(skb, STA_REC_BF, sizeof(*bf));
+	bf = (struct sta_rec_bf *)tlv;
+	bf->pfmu = cpu_to_le16(MT7996_BF_PFMU_NONE);
+	bf->bf_cap = MT7996_BF_CAP_RELEASE;
+
+	ret = mt76_mcu_skb_send_msg(&dev->mt76, skb,
+				    MCU_WMWA_UNI_CMD(STA_REC_UPDATE), true);
+out:
+	if (ret)
+		dev_warn(dev->mt76.dev, "wcid %d: BF release not sent: %d\n",
+			 msta_link->wcid.idx, ret);
+
+	return ret;
+}
+
 int mt7996_mcu_update_mld_sta(struct mt7996_dev *dev,
 			      struct ieee80211_vif *vif,
 			      struct ieee80211_sta *sta,
@@ -4920,7 +4967,8 @@ void mt7996_mcu_update_sta_rec_bw(void *data, struct ieee80211_sta *sta)
 	if (IS_ERR(skb))
 		return;
 
-	mt7996_mcu_sta_bfer_tlv(dev, skb, link_conf, link_sta, link);
+	if (mt7996_mcu_sta_bfer_tlv(dev, skb, link_conf, link_sta, link))
+		msta_link->bf_active = true;
 	mt7996_mcu_sta_rate_ctrl_tlv(skb, dev, vif, link_conf, link_sta, link);
 
 	mt76_mcu_skb_send_msg(&dev->mt76, skb,

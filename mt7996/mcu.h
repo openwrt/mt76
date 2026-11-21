@@ -41,6 +41,9 @@ struct mt7996_mcu_uni_event {
  */
 #define MT7996_MCU_STATUS_BCN_LOST		0xc000009b
 
+#define MT7996_BF_CAP_RELEASE			BIT(4)
+#define MT7996_BF_PFMU_NONE			0xffff
+
 struct mt7996_mcu_thermal_ctrl {
 	u8 ctrl_id;
 	u8 band_idx;

@@ -2108,6 +2108,16 @@ mt7996_mac_sta_rec_teardown(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	if (!active)
 		return;
 
+	/* the disconnect and the MLD_OFF keep the BF state of the firmware,
+	 * and a release after them can hit the profile of the next owner
+	 */
+	for_each_set_bit(link_id, &active, IEEE80211_MLD_MAX_NUM_LINKS) {
+		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
+		link = mt7996_vif_link(dev, vif, link_id) ?: rec_vif_link;
+		if (link)
+			mt7996_mcu_sta_bf_release(dev, link, msta_link);
+	}
+
 	if (rec_link && sta->mlo)
 		err = mt7996_mcu_teardown_mld_sta(dev, rec_vif_link, rec_link);
 	sent = mt7996_mcu_cmd_answered(err);
