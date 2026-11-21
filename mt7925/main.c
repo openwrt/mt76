@@ -1078,6 +1078,12 @@ mt7925_get_rates_table(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 static void mt7925_nan_sta_wcids_init(struct mt792x_sta *msta);
 
+static bool
+mt7925_sta_link_idx_kept(struct mt792x_sta *msta, struct mt792x_link_sta *mlink)
+{
+	return mlink == &msta->deflink && msta->deflink_idx_kept;
+}
+
 static int mt7925_mac_link_sta_add(struct mt76_dev *mdev,
 				   struct ieee80211_vif *vif,
 				   struct ieee80211_link_sta *link_sta,
@@ -1100,7 +1106,10 @@ static int mt7925_mac_link_sta_add(struct mt76_dev *mdev,
 	if (WARN_ON_ONCE(!mlink))
 		return -EINVAL;
 
-	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT792x_WTBL_STA - 1);
+	if (mt7925_sta_link_idx_kept(msta, mlink))
+		idx = mlink->wcid.idx;
+	else
+		idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT792x_WTBL_STA - 1);
 	if (idx < 0)
 		return -ENOSPC;
 
@@ -1213,7 +1222,8 @@ out_wcid:
 
 		rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
 		mt76_wcid_cleanup(mdev, wcid);
-		mt76_wcid_mask_clear(mdev->wcid_mask, wcid->idx);
+		if (!mt7925_sta_link_idx_kept(msta, mlink))
+			mt76_wcid_mask_clear(mdev->wcid_mask, wcid->idx);
 	}
 	return ret;
 }
@@ -1250,7 +1260,8 @@ mt7925_mac_sta_unwind_links_host(struct mt792x_dev *dev,
 		idx = mlink->wcid.idx;
 		rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
 		mt76_wcid_cleanup(&dev->mt76, &mlink->wcid);
-		mt76_wcid_mask_clear(dev->mt76.wcid_mask, idx);
+		if (!mt7925_sta_link_idx_kept(msta, mlink))
+			mt76_wcid_mask_clear(dev->mt76.wcid_mask, idx);
 
 		if (mlink != &msta->deflink)
 			kfree_rcu(mlink, rcu_head);
@@ -1293,8 +1304,10 @@ mt7925_mac_sta_add_links(struct mt792x_dev *dev, struct ieee80211_vif *vif,
 			break;
 		}
 
-		if (is_deflink)
+		if (is_deflink) {
 			msta->deflink_id = link_id;
+			mt76_sta_txq_wcid_set(sta, mlink->wcid.idx);
+		}
 
 		rcu_assign_pointer(msta->link[link_id], mlink);
 		msta->valid_links |= BIT(link_id);
@@ -1320,6 +1333,8 @@ int mt7925_mac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 
 	if (vif->type == NL80211_IFTYPE_STATION)
 		mvif->wep_sta = msta;
+
+	msta->deflink_idx_kept = false;
 
 	if (ieee80211_vif_is_mld(vif)) {
 		msta->deflink_id = IEEE80211_LINK_UNSPECIFIED;
@@ -1497,6 +1512,7 @@ static void mt7925_mac_link_sta_remove(struct mt76_dev *mdev,
 				       struct ieee80211_link_sta *link_sta,
 				       struct mt792x_link_sta *mlink)
 {
+	struct mt792x_sta *msta = (struct mt792x_sta *)link_sta->sta->drv_priv;
 	struct mt792x_dev *dev = container_of(mdev, struct mt792x_dev, mt76);
 	struct mt76_wcid *wcid = &mlink->wcid;
 	struct ieee80211_bss_conf *link_conf;
@@ -1534,7 +1550,11 @@ static void mt7925_mac_link_sta_remove(struct mt76_dev *mdev,
 
 	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
 	mt76_wcid_cleanup(mdev, wcid);
-	mt76_wcid_mask_clear(mdev->wcid_mask, idx);
+	/* __mt76_sta_remove() frees the index of the embedded wcid */
+	if (mlink == &msta->deflink)
+		msta->deflink_idx_kept = true;
+	else
+		mt76_wcid_mask_clear(mdev->wcid_mask, idx);
 
 	if (vif->type == NL80211_IFTYPE_NAN || vif->type == NL80211_IFTYPE_NAN_DATA)
 		mt7925_nan_peer_wcids_free(mdev, vif, link_sta->sta);

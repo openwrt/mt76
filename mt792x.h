@@ -151,6 +151,7 @@ struct mt792x_sta {
 	u16 valid_links;
 	u8 deflink_id;
 	u8 seclink_id;
+	bool deflink_idx_kept;
 
 	/* NAN peer schedule */
 	struct mt792x_sta_nan_sched nan_sched;
