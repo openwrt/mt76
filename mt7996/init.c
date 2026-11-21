@@ -907,10 +907,6 @@ void mt7996_rro_hw_init(struct mt7996_dev *dev)
 	if (!mt7996_has_hwrro(dev))
 		return;
 
-	INIT_LIST_HEAD(&dev->wed_rro.page_cache);
-	for (i = 0; i < ARRAY_SIZE(dev->wed_rro.page_map); i++)
-		INIT_LIST_HEAD(&dev->wed_rro.page_map[i]);
-
 	if (!is_mt7996(&dev->mt76)) {
 		reg = MT_RRO_MSDU_PG_SEG_ADDR0;
 
@@ -1302,9 +1298,30 @@ int mt7996_global_wcid_init(struct mt7996_dev *dev)
 	return 0;
 }
 
+static void mt7996_stop_hardware(struct mt7996_dev *dev)
+{
+	int i;
+
+	cancel_work_sync(&dev->dump_work);
+	cancel_work_sync(&dev->reset_work);
+	for (i = 0; i < ARRAY_SIZE(dev->mt76.napi); i++) {
+		if (dev->mt76.napi[i].dev)
+			napi_disable(&dev->mt76.napi[i]);
+	}
+	mt7996_mcu_exit(dev);
+	cancel_work_sync(&dev->reconf_work);
+	mt7996_tx_token_put(dev);
+	mt7996_dma_cleanup(dev);
+	if (mt7996_has_hwrro(dev) &&
+	    !mtk_wed_device_active(&dev->mt76.mmio.wed))
+		mt7996_rro_msdu_page_map_free(dev);
+	tasklet_disable(&dev->mt76.irq_tasklet);
+	mt7996_wed_rro_free(dev);
+}
+
 static int mt7996_init_hardware(struct mt7996_dev *dev)
 {
-	int ret;
+	int i, ret;
 
 	mt76_wr(dev, MT_INT_SOURCE_CSR, ~0);
 	if (is_mt7992(&dev->mt76)) {
@@ -1315,6 +1332,9 @@ static int mt7996_init_hardware(struct mt7996_dev *dev)
 	INIT_WORK(&dev->init_work, mt7996_init_work);
 	INIT_WORK(&dev->wed_rro.work, mt7996_wed_rro_work);
 	INIT_LIST_HEAD(&dev->wed_rro.poll_list);
+	INIT_LIST_HEAD(&dev->wed_rro.page_cache);
+	for (i = 0; i < ARRAY_SIZE(dev->wed_rro.page_map); i++)
+		INIT_LIST_HEAD(&dev->wed_rro.page_map[i]);
 	spin_lock_init(&dev->wed_rro.lock);
 
 	ret = mt7996_variant_type_init(dev);
@@ -1329,21 +1349,30 @@ static int mt7996_init_hardware(struct mt7996_dev *dev)
 
 	ret = mt7996_mcu_init(dev);
 	if (ret)
-		return ret;
+		goto error;
 
 	ret = mt7996_wed_rro_init(dev);
 	if (ret)
-		return ret;
+		goto error;
 
 	ret = mt7996_variant_fem_init(dev);
 	if (ret)
-		return ret;
+		goto error;
 
 	ret = mt7996_eeprom_init(dev);
 	if (ret < 0)
-		return ret;
+		goto error;
 
-	return mt7996_global_wcid_init(dev);
+	ret = mt7996_global_wcid_init(dev);
+	if (ret)
+		goto error;
+
+	return 0;
+
+error:
+	mt7996_stop_hardware(dev);
+
+	return ret;
 }
 
 void mt7996_set_stream_vht_txbf_caps(struct mt7996_phy *phy)
@@ -1801,22 +1830,22 @@ int mt7996_register_device(struct mt7996_dev *dev)
 
 	ret = mt7996_register_phy(dev, MT_BAND1);
 	if (ret)
-		return ret;
+		goto stop_hw;
 
 	ret = mt7996_register_phy(dev, MT_BAND2);
 	if (ret)
-		return ret;
+		goto stop_hw;
 
 	ret = mt7996_npu_hw_init(dev);
 	if (ret)
-		return ret;
+		goto stop_hw;
 
 	mt7996_dma_rro_start(dev);
 
 	ret = mt76_register_device(&dev->mt76, true, mt76_rates,
 				   ARRAY_SIZE(mt76_rates));
 	if (ret)
-		return ret;
+		goto stop_hw;
 
 	mt7996_for_each_phy(dev, phy)
 		mt7996_thermal_init(phy);
@@ -1827,24 +1856,28 @@ int mt7996_register_device(struct mt7996_dev *dev)
 
 	ret = mt7996_init_debugfs(dev);
 	if (ret)
-		goto error;
+		goto unregister;
 
 	ret = mt7996_coredump_register(dev);
 	if (ret)
-		goto error;
+		goto unregister;
 
 	return 0;
 
-error:
+unregister:
+	dev->recovery.hw_init_done = false;
 	cancel_work_sync(&dev->init_work);
+	mt7996_for_each_phy(dev, phy)
+		mt7996_unregister_thermal(phy);
+	mt76_unregister_device(&dev->mt76);
+stop_hw:
+	mt7996_stop_hardware(dev);
 
 	return ret;
 }
 
 void mt7996_unregister_device(struct mt7996_dev *dev)
 {
-	int i;
-
 	cancel_work_sync(&dev->dump_work);
 	cancel_work_sync(&dev->wed_rro.work);
 	cancel_work_sync(&dev->reset_work);
@@ -1854,19 +1887,7 @@ void mt7996_unregister_device(struct mt7996_dev *dev)
 	mt7996_unregister_thermal(&dev->phy);
 	mt7996_coredump_unregister(dev);
 	mt76_unregister_device(&dev->mt76);
-	mt7996_wed_rro_free(dev);
-	for (i = 0; i < ARRAY_SIZE(dev->mt76.napi); i++) {
-		if (dev->mt76.napi[i].dev)
-			napi_disable(&dev->mt76.napi[i]);
-	}
-	mt7996_mcu_exit(dev);
-	cancel_work_sync(&dev->reconf_work);
-	mt7996_tx_token_put(dev);
-	mt7996_dma_cleanup(dev);
-	if (mt7996_has_hwrro(dev) &&
-	    !mtk_wed_device_active(&dev->mt76.mmio.wed))
-		mt7996_rro_msdu_page_map_free(dev);
-	tasklet_disable(&dev->mt76.irq_tasklet);
+	mt7996_stop_hardware(dev);
 
 	mt76_free_device(&dev->mt76);
 }
