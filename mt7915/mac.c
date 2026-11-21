@@ -1467,6 +1467,9 @@ mt7915_mac_full_reset(struct mt7915_dev *dev)
 	if (i == 10)
 		dev_err(dev->mt76.dev, "chip full reset failed\n");
 
+	if (dev->rdd2_phy)
+		cfg80211_background_cac_abort(dev->rdd2_phy->mt76->hw->wiphy);
+
 	dev->phy.omac_mask = 0;
 	if (phy2)
 		phy2->omac_mask = 0;
