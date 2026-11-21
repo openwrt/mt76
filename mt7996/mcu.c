@@ -4967,8 +4967,13 @@ void mt7996_mcu_update_sta_rec_bw(void *data, struct ieee80211_sta *sta)
 	if (IS_ERR(skb))
 		return;
 
-	if (mt7996_mcu_sta_bfer_tlv(dev, skb, link_conf, link_sta, link))
+	/* each explicit STA_REC_BF takes one more sounding slot of the wcid,
+	 * and the release frees those of the active list
+	 */
+	if (mt7996_mcu_sta_bfer_tlv(dev, skb, link_conf, link_sta, link)) {
+		mt7996_mcu_sta_bf_release(dev, link, msta_link);
 		msta_link->bf_active = true;
+	}
 	mt7996_mcu_sta_rate_ctrl_tlv(skb, dev, vif, link_conf, link_sta, link);
 
 	mt76_mcu_skb_send_msg(&dev->mt76, skb,
