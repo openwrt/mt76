@@ -2428,6 +2428,7 @@ static void mt7996_tx(struct ieee80211_hw *hw,
 	u8 deflink_id = IEEE80211_LINK_UNSPECIFIED;
 	u8 link_id = u32_get_bits(info->control.flags,
 				  IEEE80211_TX_CTRL_MLO_LINK);
+	bool any_link = false;
 
 	rcu_read_lock();
 
@@ -2449,36 +2450,19 @@ static void mt7996_tx(struct ieee80211_hw *hw,
 		if (msta)
 			link_id = mt7996_sta_tx_enabled_link_get(msta, link_id,
 								 skb_get_queue_mapping(skb));
-		if (msta && !mt7996_tx_mgmt_any_link(vif, sta, skb))
+		any_link = mt7996_tx_any_link(vif, sta, skb);
+		if (msta && !any_link)
 			u32p_replace_bits(&info->control.flags, link_id,
 					  IEEE80211_TX_CTRL_MLO_LINK);
 	}
 
+	/* a Null frame for any link keeps the MLD addresses: the hardware
+	 * gives it A1 and A2 of the link that sends it
+	 */
 	if (vif && ieee80211_vif_is_mld(vif) &&
-	    !(info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP)) {
-		struct ieee80211_bss_conf *link_conf;
-
-		if (msta) {
-			struct ieee80211_link_sta *link_sta;
-
-			link_sta = rcu_dereference(sta->link[link_id]);
-			if (!link_sta)
-				link_sta = rcu_dereference(sta->link[deflink_id]);
-
-			if (link_sta) {
-				memcpy(hdr->addr1, link_sta->addr, ETH_ALEN);
-				if (ether_addr_equal(sta->addr, hdr->addr3))
-					memcpy(hdr->addr3, link_sta->addr, ETH_ALEN);
-			}
-		}
-
-		link_conf = rcu_dereference(vif->link_conf[link_id]);
-		if (link_conf) {
-			memcpy(hdr->addr2, link_conf->addr, ETH_ALEN);
-			if (ether_addr_equal(vif->addr, hdr->addr3))
-				memcpy(hdr->addr3, link_conf->addr, ETH_ALEN);
-		}
-	}
+	    !(info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP) &&
+	    !(any_link && ieee80211_is_any_nullfunc(hdr->frame_control)))
+		mt7996_tx_link_addr_set(vif, sta, hdr, link_id, deflink_id);
 
 	if (mvif) {
 		struct mt76_vif_link *mlink, *roc_link;
