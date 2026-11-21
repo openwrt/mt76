@@ -4677,6 +4677,8 @@ int mt7996_mcu_set_chan_info(struct mt7996_phy *phy, u16 tag)
 	struct cfg80211_chan_def *chandef = &phy->mt76->chandef;
 	int freq1 = chandef->center_freq1;
 	u8 band_idx = phy->mt76->band_idx;
+	bool scan;
+	int ret;
 	struct {
 		/* fixed field */
 		u8 __rsv[4];
@@ -4731,8 +4733,19 @@ int mt7996_mcu_set_chan_info(struct mt7996_phy *phy, u16 tag)
 		req.center_ch2 = ieee80211_frequency_to_channel(freq2);
 	}
 
-	return mt76_mcu_send_msg(&dev->mt76, MCU_WMWA_UNI_CMD(CHANNEL_SWITCH),
-				 &req, sizeof(req), true);
+	/* the firmware stops the station queues of the band at a scan switch
+	 * and starts them again only at a normal or DFS switch
+	 */
+	scan = req.switch_reason == CH_SWITCH_SCAN_BYPASS_DPD;
+	if (tag == UNI_CHANNEL_SWITCH && scan)
+		phy->fw_offchannel = true;
+
+	ret = mt76_mcu_send_msg(&dev->mt76, MCU_WMWA_UNI_CMD(CHANNEL_SWITCH),
+				&req, sizeof(req), true);
+	if (!ret && tag == UNI_CHANNEL_SWITCH && !scan)
+		phy->fw_offchannel = false;
+
+	return ret;
 }
 
 int mt7996_mcu_set_punct(struct mt7996_phy *phy)

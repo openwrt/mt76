@@ -2282,19 +2282,50 @@ void mt7996_mac_update_beacons(struct mt7996_phy *phy)
 }
 
 static void
-mt7996_update_beacons(struct mt7996_dev *dev)
+mt7996_update_band_beacons(struct mt7996_phy *phy, unsigned long skip)
+{
+	if (!test_bit(phy->mt76->band_idx, &skip))
+		mt7996_mac_update_beacons(phy);
+}
+
+static void
+mt7996_update_beacons(struct mt7996_dev *dev, unsigned long skip)
 {
 	struct mt76_phy *phy2, *phy3;
 
-	mt7996_mac_update_beacons(&dev->phy);
+	mt7996_update_band_beacons(&dev->phy, skip);
 
 	phy2 = dev->mt76.phys[MT_BAND1];
 	if (phy2)
-		mt7996_mac_update_beacons(phy2->priv);
+		mt7996_update_band_beacons(phy2->priv, skip);
 
 	phy3 = dev->mt76.phys[MT_BAND2];
 	if (phy3)
-		mt7996_mac_update_beacons(phy3->priv);
+		mt7996_update_band_beacons(phy3->priv, skip);
+}
+
+static bool
+mt7996_mac_reset_channel_restore(struct mt7996_phy *phy)
+{
+	bool bcn_stopped = phy->offchan_bcn_stopped;
+	bool offchannel = phy->fw_offchannel;
+	struct mt76_phy *mphy = phy->mt76;
+
+	if (!mphy->chanctx)
+		return false;
+
+	if (!offchannel &&
+	    (mt7996_get_rdd_idx(phy, false) < 0 ||
+	     mphy->dfs_state == mt76_phy_dfs_state(mphy)))
+		return false;
+
+	if (__mt76_set_channel(mphy, &mphy->main_chandef, false))
+		return false;
+
+	if (offchannel)
+		mt76_offchannel_notify(mphy, false);
+
+	return bcn_stopped;
 }
 
 void mt7996_tx_token_put(struct mt7996_dev *dev)
@@ -2598,6 +2629,7 @@ mt7996_mac_full_reset(struct mt7996_dev *dev)
 
 void mt7996_mac_reset_work(struct work_struct *work)
 {
+	unsigned long bcn_restored = 0;
 	struct ieee80211_hw *hw;
 	struct mt7996_dev *dev;
 	struct mt7996_phy *phy;
@@ -2743,8 +2775,12 @@ void mt7996_mac_reset_work(struct work_struct *work)
 	napi_schedule(&dev->mt76.tx_napi);
 	local_bh_enable();
 
+	mt7996_for_each_phy(dev, phy)
+		if (mt7996_mac_reset_channel_restore(phy))
+			bcn_restored |= BIT(phy->mt76->band_idx);
+
 	ieee80211_wake_queues(hw);
-	mt7996_update_beacons(dev);
+	mt7996_update_beacons(dev, bcn_restored);
 
 	mutex_unlock(&dev->mt76.mutex);
 
