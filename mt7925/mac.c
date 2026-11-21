@@ -804,8 +804,8 @@ mt7925_mac_write_txwi(struct mt76_dev *dev, __le32 *txwi,
 					 BSS_CHANGED_FILS_DISCOVERY));
 	struct mt792x_bss_conf *mconf;
 
-	mconf = vif ? mt792x_vif_to_link((struct mt792x_vif *)vif->drv_priv,
-					 wcid->link_id) : NULL;
+	mconf = vif ? mt792x_vif_to_link_rcu((struct mt792x_vif *)vif->drv_priv,
+					     wcid->link_id) : NULL;
 	mvif = mconf ? (struct mt76_vif_link *)&mconf->mt76 : NULL;
 
 	if (mvif) {

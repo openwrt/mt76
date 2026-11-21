@@ -434,16 +434,23 @@ struct mt792x_dev {
 	} cached_cal;
 };
 
-static inline struct mt792x_bss_conf *
-mt792x_vif_to_link(struct mt792x_vif *mvif, u8 link_id)
+static inline bool
+mt792x_vif_is_mld_link(struct mt792x_vif *mvif, u8 link_id)
 {
 	struct ieee80211_vif *vif;
-	struct mt792x_bss_conf *bss_conf;
 
 	vif = container_of((void *)mvif, struct ieee80211_vif, drv_priv);
 
-	if (!ieee80211_vif_is_mld(vif) ||
-	    link_id >= IEEE80211_LINK_UNSPECIFIED)
+	return ieee80211_vif_is_mld(vif) &&
+	       link_id < IEEE80211_LINK_UNSPECIFIED;
+}
+
+static inline struct mt792x_bss_conf *
+mt792x_vif_to_link(struct mt792x_vif *mvif, u8 link_id)
+{
+	struct mt792x_bss_conf *bss_conf;
+
+	if (!mt792x_vif_is_mld_link(mvif, link_id))
 		return &mvif->bss_conf;
 
 	bss_conf = rcu_dereference_protected(mvif->link_conf[link_id],
@@ -452,19 +459,36 @@ mt792x_vif_to_link(struct mt792x_vif *mvif, u8 link_id)
 	return bss_conf ? bss_conf : &mvif->bss_conf;
 }
 
+static inline struct mt792x_bss_conf *
+mt792x_vif_to_link_rcu(struct mt792x_vif *mvif, u8 link_id)
+{
+	struct mt792x_bss_conf *bss_conf;
+
+	if (!mt792x_vif_is_mld_link(mvif, link_id))
+		return &mvif->bss_conf;
+
+	bss_conf = rcu_dereference(mvif->link_conf[link_id]);
+
+	return bss_conf ? bss_conf : &mvif->bss_conf;
+}
+
 static inline struct mt792x_link_sta *
 mt792x_sta_to_link(struct mt792x_sta *msta, u8 link_id)
 {
-	struct ieee80211_vif *vif;
-
-	vif = container_of((void *)msta->vif, struct ieee80211_vif, drv_priv);
-
-	if (!ieee80211_vif_is_mld(vif) ||
-	    link_id >= IEEE80211_LINK_UNSPECIFIED)
+	if (!mt792x_vif_is_mld_link(msta->vif, link_id))
 		return &msta->deflink;
 
 	return rcu_dereference_protected(msta->link[link_id],
 		lockdep_is_held(&msta->vif->phy->dev->mt76.mutex));
+}
+
+static inline struct mt792x_link_sta *
+mt792x_sta_to_link_rcu(struct mt792x_sta *msta, u8 link_id)
+{
+	if (!mt792x_vif_is_mld_link(msta->vif, link_id))
+		return &msta->deflink;
+
+	return rcu_dereference(msta->link[link_id]);
 }
 
 static inline struct mt792x_bss_conf *
