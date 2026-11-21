@@ -309,6 +309,66 @@ mt7996_key_iter(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	WARN_ON(mt7996_set_hw_key(hw, it->cmd, vif, sta, it->link_id, key));
 }
 
+static bool
+mt7996_mcu_cmd_answered(int err)
+{
+	return !err || err == -EREMOTEIO;
+}
+
+static bool mt7996_vif_link_bmc_probe(struct mt7996_dev *dev,
+				      struct mt7996_vif_link *link)
+{
+	int err;
+
+	if (!link->bmc_sta_unknown)
+		return true;
+
+	err = mt7996_mcu_sta_rec_check(dev, link, NULL);
+	if (err && err != -ENOENT)
+		return false;
+
+	link->bmc_sta_unknown = false;
+	link->bmc_sta_added = !err;
+
+	return true;
+}
+
+static void mt7996_vif_link_bmc_add(struct mt7996_dev *dev,
+				    struct ieee80211_bss_conf *link_conf,
+				    struct mt7996_vif_link *link, bool newly)
+{
+	int err;
+
+	err = mt7996_mcu_add_sta(dev, link_conf, NULL, link, NULL,
+				 CONN_STATE_PORT_SECURE, newly);
+	if (!err) {
+		link->bmc_sta_added = true;
+		link->bmc_sta_unknown = false;
+	} else if (!mt7996_mcu_cmd_answered(err)) {
+		link->bmc_sta_unknown = true;
+	}
+}
+
+static void mt7996_vif_link_bmc_remove(struct mt7996_dev *dev,
+				       struct ieee80211_bss_conf *link_conf,
+				       struct mt7996_vif_link *link)
+{
+	int err;
+
+	if (!mt7996_vif_link_bmc_probe(dev, link) || !link->bmc_sta_added)
+		return;
+
+	err = mt7996_mcu_add_sta(dev, link_conf, NULL, link, NULL,
+				 CONN_STATE_DISCONNECT, false);
+	if (!mt7996_mcu_cmd_answered(err)) {
+		link->bmc_sta_unknown = true;
+		return;
+	}
+
+	link->bmc_sta_added = false;
+	eth_zero_addr(link->bmc_bssid);
+}
+
 static void mt7996_vif_link_teardown(struct mt7996_phy *phy,
 				     struct mt7996_vif_link *link,
 				     struct ieee80211_vif *vif,
@@ -324,9 +384,7 @@ static void mt7996_vif_link_teardown(struct mt7996_phy *phy,
 	if (!link_conf)
 		link_conf = &vif->bss_conf;
 
-	if (link->bmc_sta_added)
-		mt7996_mcu_add_sta(dev, link_conf, NULL, link, NULL,
-				   CONN_STATE_DISCONNECT, false);
+	mt7996_vif_link_bmc_remove(dev, link_conf, link);
 	mt7996_mcu_add_bss_info(phy, vif, link_conf, mlink, msta_link, false);
 	mt7996_mcu_add_dev_info(phy, vif, link_conf, mlink, false);
 
@@ -429,6 +487,7 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 
 	link->mld_idx = mld_idx;
 	link->bmc_sta_added = false;
+	link->bmc_sta_unknown = false;
 	link->csa_bcn_uploaded = false;
 	link->bcn_cntdwn = false;
 	link->bpcc = 0;
@@ -478,10 +537,8 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	/* defer the first STA_REC of BMC entry to BSS_CHANGED_BSSID for STA
 	 * interface, since firmware only records BSSID when the entry is new
 	 */
-	if (vif->type != NL80211_IFTYPE_STATION &&
-	    !mt7996_mcu_add_sta(dev, link_conf, NULL, link, NULL,
-				CONN_STATE_PORT_SECURE, true))
-		link->bmc_sta_added = true;
+	if (vif->type != NL80211_IFTYPE_STATION)
+		mt7996_vif_link_bmc_add(dev, link_conf, link, true);
 	rcu_assign_pointer(dev->mt76.wcid[idx], &msta_link->wcid);
 
 	if (!mlink->wcid->offchannel)
@@ -1079,22 +1136,47 @@ mt7996_update_mu_group(struct ieee80211_hw *hw, struct mt7996_vif_link *link,
 	mt76_wr(dev, MT_WF_PHYRX_BAND_GID_TAB_POS3(band), mu[3]);
 }
 
+static bool
+mt7996_vif_link_bmc_prepare(struct mt7996_dev *dev,
+			    struct ieee80211_bss_conf *link_conf,
+			    struct mt7996_vif_link *link, bool *newly)
+{
+	if (!mt7996_vif_link_bmc_probe(dev, link))
+		return false;
+
+	*newly = !link->bmc_sta_added ||
+		 !ether_addr_equal_unaligned(link->bmc_bssid, link_conf->bssid);
+	/* the firmware writes the peer address of a STA_REC only when it
+	 * allocates the record
+	 */
+	if (*newly)
+		mt7996_vif_link_bmc_remove(dev, link_conf, link);
+
+	/* a CONNECT to a record of unknown state leaves its address unknown */
+	if (link->bmc_sta_unknown)
+		return false;
+
+	if (!link->bmc_sta_added)
+		memcpy(link->bmc_bssid, link_conf->bssid, ETH_ALEN);
+
+	return true;
+}
+
 static void
 mt7996_vif_link_bss_add(struct mt7996_phy *phy, struct ieee80211_vif *vif,
 			struct ieee80211_bss_conf *link_conf,
 			struct mt7996_vif_link *link, bool newly)
 {
-	if (vif->type == NL80211_IFTYPE_STATION) {
-		newly = !ether_addr_equal_unaligned(link->bmc_bssid,
-						    link_conf->bssid);
-		memcpy(link->bmc_bssid, link_conf->bssid, ETH_ALEN);
-	}
+	bool sta_rec = true;
+
+	if (vif->type == NL80211_IFTYPE_STATION)
+		sta_rec = mt7996_vif_link_bmc_prepare(phy->dev, link_conf, link,
+						      &newly);
 
 	mt7996_mcu_add_bss_info(phy, vif, link_conf, &link->mt76,
 				&link->msta_link, true);
-	if (!mt7996_mcu_add_sta(phy->dev, link_conf, NULL, link, NULL,
-				CONN_STATE_PORT_SECURE, newly))
-		link->bmc_sta_added = true;
+	if (sta_rec)
+		mt7996_vif_link_bmc_add(phy->dev, link_conf, link, newly);
 }
 
 static void
@@ -1201,8 +1283,6 @@ mt7996_link_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	    (changed & BSS_CHANGED_BEACON_ENABLED && info->enable_beacon))
 		mt7996_vif_link_bss_add(phy, vif, info, link,
 					!!(changed & BSS_CHANGED_BSSID));
-	else if (changed & BSS_CHANGED_BSSID)
-		eth_zero_addr(link->bmc_bssid);
 
 	if (changed & BSS_CHANGED_HT || changed & BSS_CHANGED_ERP_CTS_PROT)
 		mt7996_mcu_set_protection(phy, link, info->ht_operation_mode,
@@ -1697,12 +1777,6 @@ mt7996_mac_sta_add(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	mutex_unlock(&dev->mt76.mutex);
 
 	return err;
-}
-
-static bool
-mt7996_mcu_cmd_answered(int err)
-{
-	return !err || err == -EREMOTEIO;
 }
 
 static int
