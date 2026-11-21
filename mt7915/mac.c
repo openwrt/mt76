@@ -306,7 +306,7 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 		return -EINVAL;
 
 	hdr_trans = rxd2 & MT_RXD2_NORMAL_HDR_TRANS;
-	if (hdr_trans && (rxd1 & MT_RXD1_NORMAL_CM))
+	if (hdr_trans && (rxd1 & (MT_RXD1_NORMAL_CM | MT_RXD1_NORMAL_CLM)))
 		return -EINVAL;
 
 	/* ICV error or CCMP/BIP/WPI MIC error */
