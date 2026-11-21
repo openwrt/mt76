@@ -391,7 +391,7 @@ mt7996_mac_fill_rx(struct mt7996_dev *dev, enum mt76_rxq_id q,
 		return -EINVAL;
 
 	hdr_trans = rxd2 & MT_RXD2_NORMAL_HDR_TRANS;
-	if (hdr_trans && (rxd1 & MT_RXD1_NORMAL_CM))
+	if (hdr_trans && (rxd1 & (MT_RXD1_NORMAL_CM | MT_RXD1_NORMAL_CLM)))
 		return -EINVAL;
 
 	/* ICV error or CCMP/BIP/WPI MIC error */
