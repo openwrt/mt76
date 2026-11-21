@@ -337,6 +337,15 @@ mt7996_mcu_send_message(struct mt76_dev *mdev, struct sk_buff *skb,
 	else
 		qid = MT_MCUQ_WM;
 
+	/* WA drops a longer command without an answer and loses its buffer */
+	if (qid == MT_MCUQ_WA &&
+	    skb->len - MT_TXD_SIZE > MT7996_MCU_WA_LEN_MAX) {
+		dev_warn(mdev->dev, "Message %08x of %u octets above the WA limit\n",
+			 cmd, skb->len - MT_TXD_SIZE);
+		dev_kfree_skb(skb);
+		return -EMSGSIZE;
+	}
+
 	val = FIELD_PREP(MT_TXD0_TX_BYTES, skb->len) |
 	      FIELD_PREP(MT_TXD0_PKT_FMT, MT_TX_TYPE_CMD) |
 	      FIELD_PREP(MT_TXD0_Q_IDX, MT_TX_MCU_PORT_RX_Q0);

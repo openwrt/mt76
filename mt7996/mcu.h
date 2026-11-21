@@ -8,6 +8,9 @@
 
 #include "../mt76_connac_mcu.h"
 
+/* the largest len field of a command header that WA takes */
+#define MT7996_MCU_WA_LEN_MAX		0x7e0
+
 struct mt7996_mcu_rxd {
 	__le32 rxd[8];
 
@@ -1198,10 +1201,9 @@ enum {
 					 sizeof(struct bss_bcn_ml_reconf_offset) * \
 					 __MT_MAX_BAND +			\
 					 sizeof(struct bss_bcn_attlm_offset_tlv))
-/* WA drops a command whose UNI header length, 16 octets of the header and
- * this part, is above 2016
- */
-#define MT7996_MAX_BSS_OFFLOAD_SIZE	2000
+#define MT7996_MAX_BSS_OFFLOAD_SIZE	(MT7996_MCU_WA_LEN_MAX -		\
+					 (sizeof(struct mt76_connac2_mcu_uni_txd) - \
+					  MT_TXD_SIZE))
 #define MT7996_MAX_BEACON_SIZE		(MT7996_MAX_BSS_OFFLOAD_SIZE - \
 					 MT7996_BEACON_UPDATE_SIZE)
 /* the firmware buffer of the in-band discovery frame of a band, which the
