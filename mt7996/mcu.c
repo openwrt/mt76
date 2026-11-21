@@ -3089,11 +3089,11 @@ mt7996_mcu_sta_mld_setup_tlv(struct mt7996_dev *dev, struct sk_buff *skb,
 {
 	unsigned long links = mt7996_mcu_sta_mld_setup_links(dev, vif, sta);
 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	u8 seclink_id = mt7996_sta_seclink_get(dev, msta);
 	unsigned int nlinks = hweight16(links);
 	struct mld_setup_link *mld_setup_link;
 	struct sta_rec_mld_setup *mld_setup;
 	struct mt7996_sta_link *msta_link;
-	u8 seclink_id = msta->deflink_id;
 	unsigned int link_id;
 	struct tlv *tlv;
 
@@ -3114,8 +3114,8 @@ mt7996_mcu_sta_mld_setup_tlv(struct mt7996_dev *dev, struct sk_buff *skb,
 		mld_setup->setup_wcid = cpu_to_le16(msta->fw_mld_idx);
 	mld_setup->primary_id = mld_setup->setup_wcid;
 
-	if (links & BIT(msta->seclink_id))
-		seclink_id = msta->seclink_id;
+	if (!(links & BIT(seclink_id)))
+		seclink_id = msta->deflink_id;
 	msta_link = mt7996_sta_link_protected(dev, msta, seclink_id);
 	mld_setup->seconed_id = cpu_to_le16(msta_link->wcid.idx);
 	mld_setup->link_num = nlinks;
