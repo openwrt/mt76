@@ -1166,10 +1166,18 @@ mt7996_mcu_wed_rro_event(struct mt7996_dev *dev, struct sk_buff *skb)
 static void
 mt7996_mcu_ps_transition(struct mt7996_dev *dev, u16 wcid_idx, bool ps)
 {
+	struct mt7996_sta_link *msta_link;
 	struct mt76_wcid *wcid;
 
 	wcid = mt76_wcid_ptr(dev, wcid_idx);
 	if (!wcid || !wcid_to_sta(wcid))
+		return;
+
+	/* the firmware can deliver an enter that it stored before the
+	 * first TWT agreement of the station
+	 */
+	msta_link = container_of(wcid, struct mt7996_sta_link, wcid);
+	if (ps && READ_ONCE(msta_link->twt.flowid_mask))
 		return;
 
 	mt76_sta_ps_transition(&dev->mt76, wcid, ps);
@@ -1202,12 +1210,16 @@ mt7996_mcu_rx_ps_sync(struct mt7996_dev *dev, struct sk_buff *skb)
 		case UNI_PS_CLIENT_INFO: {
 			struct mt7996_mcu_ps_client_info *info = (void *)tlv;
 
-			if (tag_len < sizeof(*info))
+			/* the TWT state of a station, not its PS state: the
+			 * firmware gates the air time of a station in TWT
+			 * operation and reports no PS change of it
+			 */
+			if (tag_len < sizeof(*info) || !info->ps_bit)
 				break;
 
 			mt7996_mcu_ps_transition(dev,
 						 le16_to_cpu(info->wlan_idx),
-						 info->ps_bit);
+						 false);
 			break;
 		}
 		case UNI_PS_MULTI_CLIENT_INFO: {
