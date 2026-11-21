@@ -327,6 +327,19 @@ mt7996_wed_check_ppe(struct mt7996_dev *dev, struct mt76_queue *q,
 				 msta_link->wcid.idx);
 }
 
+/* a data frame of a station to its AP never has a group address as RA */
+static bool
+mt7996_rx_sta_of_ap(struct mt7996_sta *msta)
+{
+	struct ieee80211_vif *vif;
+
+	if (!msta || !msta->vif)
+		return false;
+
+	vif = container_of((void *)msta->vif, struct ieee80211_vif, drv_priv);
+	return vif->type == NL80211_IFTYPE_AP;
+}
+
 static int
 mt7996_mac_fill_rx(struct mt7996_dev *dev, enum mt76_rxq_id q,
 		   struct sk_buff *skb, u32 *info)
@@ -610,6 +623,10 @@ mt7996_mac_fill_rx(struct mt7996_dev *dev, enum mt76_rxq_id q,
 		}
 		skb_set_mac_header(skb, (unsigned char *)hdr - skb->data);
 	} else {
+		if ((unicast || mt7996_rx_sta_of_ap(msta)) &&
+		    mt76_rx_unprotected_keyed(skb))
+			return -EINVAL;
+
 		status->flag |= RX_FLAG_8023;
 		mt7996_wed_check_ppe(dev, &dev->mt76.q_rx[q], msta, skb,
 				     *info);
