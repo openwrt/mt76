@@ -422,6 +422,9 @@ mt7921_mac_fill_rx(struct mt792x_dev *dev, struct sk_buff *skb)
 			qos_ctl = *ieee80211_get_qos_ctl(hdr);
 		}
 	} else {
+		if (unicast && mt76_rx_unprotected_keyed(skb))
+			return -EINVAL;
+
 		status->flag |= RX_FLAG_8023;
 	}
 
