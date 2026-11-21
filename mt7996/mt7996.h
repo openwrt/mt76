@@ -296,6 +296,7 @@ struct mt7996_sta_link {
 	struct mt7996_sta *sta;
 	bool connected;
 	bool sta_rec_active;
+	bool sta_rec_reserved;
 
 	struct list_head rc_list;
 

@@ -1548,7 +1548,7 @@ void mt7996_mac_sta_remove_link(struct mt7996_dev *dev,
 			phy->mt76->num_sta--;
 
 		/* a full reset frees an index whose STA_REC was not torn down */
-		if (msta_link->sta_rec_active)
+		if (msta_link->sta_rec_active || msta_link->sta_rec_reserved)
 			dev_warn(dev->mt76.dev,
 				 "wcid %d kept: its STA_REC was not torn down\n",
 				 msta_link->wcid.idx);
@@ -1705,6 +1705,49 @@ mt7996_mcu_cmd_answered(int err)
 }
 
 static int
+mt7996_mac_sta_link_connect(struct mt7996_dev *dev,
+			    struct ieee80211_bss_conf *link_conf,
+			    struct ieee80211_link_sta *link_sta,
+			    struct mt7996_vif_link *link,
+			    struct mt7996_sta_link *msta_link)
+{
+	int err;
+
+	err = mt7996_mcu_add_sta(dev, link_conf, link_sta, link, msta_link,
+				 CONN_STATE_CONNECT, true);
+	if (err != -EREMOTEIO)
+		return err;
+
+	err = mt7996_mcu_sta_rec_check(dev, link, msta_link);
+	if (!err) {
+		msta_link->sta_rec_active = true;
+		dev_warn(dev->mt76.dev,
+			 "wcid %d: STA_REC refused at connect, in use\n",
+			 msta_link->wcid.idx);
+		return -EREMOTEIO;
+	}
+
+	if (err != -ENOENT) {
+		msta_link->sta_rec_active = true;
+		dev_warn(dev->mt76.dev,
+			 "wcid %d: STA_REC refused at connect, check failed: %d\n",
+			 msta_link->wcid.idx, err);
+	} else if (link_sta->sta->mlo) {
+		dev_warn(dev->mt76.dev,
+			 "wcid %d: STA_REC refused at connect, not in use\n",
+			 msta_link->wcid.idx);
+	}
+
+	/* the MLD setup of a refused CONNECT can leave a group slot that
+	 * names the wcid, and no command frees a slot alone
+	 */
+	if (link_sta->sta->mlo)
+		msta_link->sta_rec_reserved = true;
+
+	return -EREMOTEIO;
+}
+
+static int
 mt7996_mac_sta_rec_finish(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			  struct ieee80211_sta *sta,
 			  struct mt7996_sta_link *msta_link)
@@ -1824,9 +1867,9 @@ mt7996_mac_sta_links_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			msta_link->wcid.sta = 1;
 			msta_link->wcid.sta_disabled = 0;
 
-			err = mt7996_mcu_add_sta(dev, link_conf, link_sta,
-						 link, msta_link,
-						 CONN_STATE_CONNECT, true);
+			err = mt7996_mac_sta_link_connect(dev, link_conf,
+							  link_sta, link,
+							  msta_link);
 			if (err)
 				return err;
 
