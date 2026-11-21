@@ -3852,6 +3852,30 @@ mt7996_adv_ttlm_cancel(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	mt7996_mcu_mld_adv_ttlm_cancel(mt7996_hw_dev(hw), vif, cookie);
 }
 
+/* A per-TID pause has no pause reason, so the next pause or resume of the
+ * station replaces it. Support value 1 holds for both directions.
+ */
+static bool
+mt7996_ttlm_map_uniform(const u16 *map, u16 valid_links)
+{
+	u16 links = map[0] & valid_links;
+	int tid;
+
+	for (tid = 1; tid < IEEE80211_TTLM_NUM_TIDS; tid++)
+		if ((map[tid] & valid_links) != links)
+			return false;
+
+	return true;
+}
+
+static bool
+mt7996_sta_ttlm_links_uniform(struct ieee80211_sta *sta,
+			      const struct ieee80211_neg_ttlm *ttlm)
+{
+	return mt7996_ttlm_map_uniform(ttlm->downlink, sta->valid_links) &&
+	       mt7996_ttlm_map_uniform(ttlm->uplink, sta->valid_links);
+}
+
 static int
 mt7996_set_sta_ttlm(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		    struct ieee80211_sta *sta,
@@ -3860,6 +3884,9 @@ mt7996_set_sta_ttlm(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
 	int ret, tid;
+
+	if (!mt7996_sta_ttlm_links_uniform(sta, ttlm))
+		return -EOPNOTSUPP;
 
 	mutex_lock(&dev->mt76.mutex);
 	ret = mt7996_mcu_peer_mld_ttlm_req(dev, vif, sta, ttlm);
