@@ -4899,17 +4899,17 @@ mt7996_mcu_mld_reconf_count(const struct ieee80211_bss_conf *link_conf,
 	return mt7996_mcu_mld_reconf_per_sec(link_conf) * to_sec;
 }
 
-/* the end rounds up to a TBTT, so the count stays at or above the true one */
+/* the TBTTs from the next one to the removal TBTT, both in one TSF */
 static u16
-mt7996_mcu_mld_reconf_left(u64 tsf, u32 bi_us, s64 left_us)
+mt7996_mcu_mld_reconf_left(u64 tsf, u32 bi_us, u64 tbtt_tsf)
 {
 	u64 next, end;
 
-	if (!bi_us || left_us <= 0)
+	if (!bi_us)
 		return 0;
 
 	next = div_u64(tsf, bi_us) + 1;
-	end = div_u64(tsf + left_us + bi_us - 1, bi_us);
+	end = div_u64(tbtt_tsf, bi_us);
 
 	return end > next ? min_t(u64, end - next, U16_MAX) : 0;
 }
@@ -5017,27 +5017,31 @@ mt7996_mcu_beacon_reconf_start(struct mt7996_dev *dev,
  * sends the time that is left first, and carries no removal entry where none
  * is left. The firmware starts no count for a link that the last timer did
  * not name with a BSS, so a change of those links also sends the timer again.
+ * The firmware offsets the TSF of each band, so the time left counts the
+ * TBTTs of the link whose TSF gave the removal TBTT.
  */
 static void
 mt7996_mcu_beacon_reconf_resume(struct mt7996_dev *dev,
 				struct ieee80211_vif *vif,
 				struct ieee80211_bss_conf *link_conf,
-				struct mt7996_vif_link *link,
 				struct mt7996_mcu_ml_reconf *reconf)
 {
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
 	struct mt7996_mcu_ml_reconf left = {};
 	unsigned int link_id = link_conf->link_id;
+	struct ieee80211_bss_conf *ref_conf;
+	struct mt7996_vif_link *ref;
 	bool counted, armed, named;
-	s64 left_us;
+	unsigned int ref_id;
+	u64 tbtt_tsf, tsf;
 	u16 to_sec;
-	u64 tbtt, tsf;
 
 	spin_lock_bh(&dev->mt76.lock);
 	counted = mvif->reconf_bcn_links & BIT(link_id);
 	armed = mvif->reconf_tbtt_links & reconf->links;
 	named = mvif->reconf_cmd_links == mt7996_mcu_mld_reconf_bss_links(vif);
-	tbtt = mvif->reconf_tbtt_boottime;
+	tbtt_tsf = mvif->reconf_tbtt_tsf;
+	ref_id = mvif->reconf_tbtt_link;
 	spin_unlock_bh(&dev->mt76.lock);
 
 	if (counted || !reconf->links)
@@ -5045,19 +5049,21 @@ mt7996_mcu_beacon_reconf_resume(struct mt7996_dev *dev,
 
 	to_sec = reconf->to_sec;
 	if (armed) {
-		tsf = __mt7996_get_tsf(mt76_hw(dev), link);
-		left_us = div_s64((s64)(tbtt - ktime_get_boottime_ns()),
-				  NSEC_PER_USEC);
-		left.count[link_id] =
-			mt7996_mcu_mld_reconf_left(tsf,
-						   link_conf->beacon_int * 1024,
-						   left_us);
-		if (!left.count[link_id]) {
+		ref_conf = link_conf_dereference_protected(vif, ref_id);
+		ref = mt7996_vif_link(dev, vif, ref_id);
+		if (ref_conf && ref) {
+			tsf = __mt7996_get_tsf(mt76_hw(dev), ref);
+			left.count[ref_id] =
+				mt7996_mcu_mld_reconf_left(tsf,
+							   ref_conf->beacon_int * 1024,
+							   tbtt_tsf);
+		}
+		if (!left.count[ref_id]) {
 			reconf->links = 0;
 			return;
 		}
 
-		to_sec = mt7996_mcu_mld_reconf_to_sec(vif, BIT(link_id), &left);
+		to_sec = mt7996_mcu_mld_reconf_to_sec(vif, BIT(ref_id), &left);
 	}
 
 	if ((to_sec != reconf->to_sec || !named) &&
@@ -5197,6 +5203,8 @@ mt7996_mcu_beacon_reconf_arm(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	mvif->reconf_tbtt_links = links;
 	mvif->reconf_timer_links = links;
 	mvif->reconf_tbtt_boottime = tbtt;
+	mvif->reconf_tbtt_tsf = tbtt_tsf;
+	mvif->reconf_tbtt_link = link_id;
 	spin_unlock_bh(&dev->mt76.lock);
 
 	hrtimer_start(&mvif->reconf_timer,
@@ -5585,8 +5593,7 @@ __mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	if (started)
 		upload_tsf = mt7996_mcu_beacon_reconf_align(dev, vif, started);
 	if (!started)
-		mt7996_mcu_beacon_reconf_resume(dev, vif, link_conf, link,
-						&reconf);
+		mt7996_mcu_beacon_reconf_resume(dev, vif, link_conf, &reconf);
 	reconf_len = rskb->len;
 	mt7996_mcu_beacon_ml_reconf_tlv(rskb, link, &reconf);
 	mt7996_mcu_beacon_reconf_count_set(link_conf, &reconf,
