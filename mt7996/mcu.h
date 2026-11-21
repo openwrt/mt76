@@ -1198,7 +1198,10 @@ enum {
 					 sizeof(struct bss_bcn_ml_reconf_offset) * \
 					 __MT_MAX_BAND +			\
 					 sizeof(struct bss_bcn_attlm_offset_tlv))
-#define MT7996_MAX_BSS_OFFLOAD_SIZE	2048
+/* WA drops a command whose UNI header length, 16 octets of the header and
+ * this part, is above 2016
+ */
+#define MT7996_MAX_BSS_OFFLOAD_SIZE	2000
 #define MT7996_MAX_BEACON_SIZE		(MT7996_MAX_BSS_OFFLOAD_SIZE - \
 					 MT7996_BEACON_UPDATE_SIZE)
 
