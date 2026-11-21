@@ -190,7 +190,6 @@ static int mt7925u_probe(struct usb_interface *usb_intf,
 		.write_copy = mt792xu_copy,
 		.type = MT76_BUS_USB,
 	};
-	struct usb_device *udev = interface_to_usbdev(usb_intf);
 	struct ieee80211_ops *ops;
 	struct ieee80211_hw *hw;
 	struct mt792x_dev *dev;
@@ -213,8 +212,6 @@ static int mt7925u_probe(struct usb_interface *usb_intf,
 	dev->fw_features = features;
 	dev->hif_ops = &hif_ops;
 	mt792xu_reset_work_init(dev);
-
-	usb_reset_device(udev);
 
 	usb_set_intfdata(usb_intf, dev);
 
