@@ -647,6 +647,9 @@ mt7925_mac_fill_rx(struct mt792x_dev *dev, struct sk_buff *skb)
 		}
 		skb_set_mac_header(skb, (unsigned char *)hdr - skb->data);
 	} else {
+		if (unicast && mt76_rx_unprotected_keyed(skb))
+			return -EINVAL;
+
 		status->flag |= RX_FLAG_8023;
 	}
 
