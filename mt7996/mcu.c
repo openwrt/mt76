@@ -5762,7 +5762,7 @@ int mt7996_mcu_beacon_inband_discov(struct mt7996_dev *dev,
 		return -EINVAL;
 	}
 
-	if (skb->len > MT7996_MAX_BEACON_SIZE) {
+	if (skb->len > MT7996_MAX_INBAND_FRAME_SIZE) {
 		dev_err(dev->mt76.dev, "inband discovery size limit exceed\n");
 		dev_kfree_skb(rskb);
 		dev_kfree_skb(skb);

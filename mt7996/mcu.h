@@ -1204,6 +1204,10 @@ enum {
 #define MT7996_MAX_BSS_OFFLOAD_SIZE	2000
 #define MT7996_MAX_BEACON_SIZE		(MT7996_MAX_BSS_OFFLOAD_SIZE - \
 					 MT7996_BEACON_UPDATE_SIZE)
+/* the firmware buffer of the in-band discovery frame of a band, which the
+ * firmware fills without a length check
+ */
+#define MT7996_MAX_INBAND_FRAME_SIZE	1520
 
 enum {
 	UNI_BAND_CONFIG_RADIO_ENABLE,
