@@ -193,7 +193,8 @@ out:
 	tasklet_enable(&dev->mt76.pre_tbtt_tasklet);
 
 	if (failed)
-		mt7603_mac_work(&dev->mphy.mac_work.work);
+		ieee80211_queue_delayed_work(mt76_hw(dev),
+					     &dev->mphy.mac_work, 0);
 
 	return ret;
 }
