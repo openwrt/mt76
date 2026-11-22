@@ -24,6 +24,7 @@
 #define MT7996_RESET_TIMEOUT		(30 * HZ)
 #define MT7996_TSF_READ_TRIES		3
 #define MT7996_TSF_READ_SPAN_US		1000
+#define MT7996_TSF_WRITE_TRIES		2
 
 #define to_rssi(field, rcpi)		((FIELD_GET(field, rcpi) - 220) / 2)
 
