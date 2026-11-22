@@ -3836,6 +3836,8 @@ int mt7996_mcu_set_vow_drr_ctrl(struct mt7996_dev *dev, u8 band_idx,
 	case VOW_DRR_CTRL_STA_ALL:
 		val |= FIELD_PREP(VOW_DRR_STA_BSS_GRP_MASK,
 				  mt7996_vow_sta_bss_grp(mvif));
+		/* the firmware replaces the whole station entry */
+		val |= FIELD_PREP(VOW_DRR_STA_WMM_SET_MASK, mvif->wmm_idx);
 		val |= FIELD_PREP(VOW_DRR_STA_AC0_QNTM_MASK,
 				  mt76_connac_vow_dwrr_quantum(weight, IEEE80211_AC_BK));
 		val |= FIELD_PREP(VOW_DRR_STA_AC1_QNTM_MASK,
