@@ -615,7 +615,7 @@ mt7915_init_led_mux(struct mt7915_dev *dev)
 			mt76_rmw_field(dev, MT_LED_GPIO_MUX0,
 				       GENMASK(11, 8), 1);
 			break;
-		case 0x7916:
+		case 0x7906:
 			mt76_rmw_field(dev, MT_LED_GPIO_MUX1,
 				       GENMASK(27, 24), 3);
 			mt76_rmw_field(dev, MT_LED_GPIO_MUX1,
@@ -634,7 +634,7 @@ mt7915_init_led_mux(struct mt7915_dev *dev)
 			mt76_rmw_field(dev, MT_LED_GPIO_MUX0,
 				       GENMASK(11, 8), 1);
 			break;
-		case 0x7916:
+		case 0x7906:
 			mt76_rmw_field(dev, MT_LED_GPIO_MUX1,
 				       GENMASK(31, 28), 3);
 			break;
@@ -651,7 +651,7 @@ mt7915_init_led_mux(struct mt7915_dev *dev)
 			mt76_rmw_field(dev, MT_LED_GPIO_MUX0,
 				       GENMASK(7, 4), 1);
 			break;
-		case 0x7916:
+		case 0x7906:
 			mt76_rmw_field(dev, MT_LED_GPIO_MUX1,
 				       GENMASK(27, 24), 3);
 			break;
