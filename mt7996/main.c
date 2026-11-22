@@ -560,6 +560,10 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 			mtxq->wcid = idx;
 		}
 		mvif->mt76.valid_links |= BIT(link_conf->link_id);
+
+		spin_lock_bh(&dev->mt76.lock);
+		mvif->reconf_chan_seen_links |= BIT(link_conf->link_id);
+		spin_unlock_bh(&dev->mt76.lock);
 	}
 
 	if (vif->type == NL80211_IFTYPE_STATION) {

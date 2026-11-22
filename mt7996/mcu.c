@@ -5579,6 +5579,8 @@ mt7996_mcu_beacon_attlm(struct sk_buff *rskb, struct sk_buff *skb,
 
 struct mt7996_mcu_ml_reconf {
 	u16 links;
+	u16 off_air;
+	u16 gone;
 	u16 to_sec;
 	u16 offs[IEEE80211_MLD_MAX_NUM_LINKS];
 	u16 count[IEEE80211_MLD_MAX_NUM_LINKS];
@@ -5718,15 +5720,24 @@ mt7996_mcu_beacon_ml_reconf(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			    struct ieee80211_mutable_offsets *offs,
 			    struct mt7996_mcu_ml_reconf *reconf)
 {
+	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
 	const struct element *elem, *sub;
 	unsigned int link_id;
+	bool countable;
+	u16 chanless;
 
-	if (!ieee80211_vif_is_mld(vif) || !mt7996_mcu_mld_reconf_countable(vif))
+	if (!ieee80211_vif_is_mld(vif))
 		return;
 
 	elem = mt7996_mcu_beacon_ml_reconf_elem(skb, offs);
 	if (!elem)
 		return;
+
+	countable = mt7996_mcu_mld_reconf_countable(vif);
+
+	spin_lock_bh(&dev->mt76.lock);
+	chanless = vif->valid_links & ~mvif->reconf_chan_seen_links;
+	spin_unlock_bh(&dev->mt76.lock);
 
 	for_each_mle_subelement(sub, elem->data + 1, elem->datalen - 1) {
 		const struct ieee80211_mle_per_sta_profile *prof =
@@ -5746,8 +5757,23 @@ mt7996_mcu_beacon_ml_reconf(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		    u16_get_bits(control,
 				 IEEE80211_MLE_STA_RECONF_CONTROL_OPERATION_TYPE) !=
 		    IEEE80211_MLE_STA_RECONF_CONTROL_OPERATION_TYPE_AP_REM ||
-		    link_id >= IEEE80211_MLD_MAX_NUM_LINKS ||
-		    !mt7996_vif_link(dev, vif, link_id) ||
+		    link_id >= IEEE80211_MLD_MAX_NUM_LINKS)
+			continue;
+
+		if (!(vif->valid_links & BIT(link_id))) {
+			reconf->gone |= BIT(link_id);
+			continue;
+		}
+
+		if (chanless & BIT(link_id)) {
+			reconf->off_air |= BIT(link_id);
+			continue;
+		}
+
+		/* a full reset drops the driver link of a link that had a
+		 * channel until the restart assigns its channel again
+		 */
+		if (!mt7996_vif_link(dev, vif, link_id) || !countable ||
 		    hweight16(reconf->links) >= __MT_MAX_BAND)
 			continue;
 
@@ -6116,11 +6142,13 @@ mt7996_mcu_beacon_reconf_wait(struct mt7996_dev *dev,
 			      HRTIMER_MODE_ABS_SOFT);
 }
 
-/* A removed link without a channel sends no Beacon frames and has no TSF that
- * a removal TBTT could count in, so its removal ends at once, and the template
- * goes up with no removal entry for it. The templates of the other links name
- * it until user space drops it, so its end, or the expiry before it, is
- * reported once.
+/* A removed link without a channel, now or ever, sends no Beacon frames and
+ * has no TSF that a removal TBTT could count in, so its removal ends at once,
+ * and the template goes up with no removal entry for it. The templates of the
+ * other links name it until user space drops it, so its end, or the expiry
+ * before it, is reported once. A link that left the vif holds no mark, so that
+ * a link with its id starts clean, and its end is reported with each template
+ * that still names it.
  */
 static void
 mt7996_mcu_beacon_reconf_off_air(struct mt7996_dev *dev,
@@ -6129,7 +6157,7 @@ mt7996_mcu_beacon_reconf_off_air(struct mt7996_dev *dev,
 {
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
 	unsigned long links = reconf->links;
-	u16 ended = 0, reported;
+	u16 ended = reconf->off_air, reported;
 	unsigned int link_id;
 
 	for_each_set_bit(link_id, &links, IEEE80211_MLD_MAX_NUM_LINKS) {
@@ -6140,7 +6168,7 @@ mt7996_mcu_beacon_reconf_off_air(struct mt7996_dev *dev,
 			ended |= BIT(link_id);
 	}
 
-	if (!ended)
+	if (!ended && !reconf->gone)
 		return;
 
 	reconf->links &= ~ended;
@@ -6150,7 +6178,7 @@ mt7996_mcu_beacon_reconf_off_air(struct mt7996_dev *dev,
 	mvif->reconf_off_air_links |= ended;
 	spin_unlock_bh(&dev->mt76.lock);
 
-	ended &= ~reported;
+	ended = (ended & ~reported) | reconf->gone;
 	if (ended)
 		ieee80211_links_removed(vif, ended);
 }
@@ -6166,6 +6194,7 @@ void mt7996_mcu_beacon_reconf_gone(struct mt7996_dev *dev,
 	spin_lock_bh(&dev->mt76.lock);
 	mvif->reconf_done_links &= ~links;
 	mvif->reconf_off_air_links &= ~links;
+	mvif->reconf_chan_seen_links &= ~links;
 	spin_unlock_bh(&dev->mt76.lock);
 }
 
@@ -6753,12 +6782,13 @@ __mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	mt7996_mcu_beacon_ml_reconf(dev, vif, skb, &offs, &reconf);
 	if (mt7996_mcu_beacon_crit_update_held(dev, link_conf, link, crit_update,
 					       offs.crit_update_id, cntdwn,
-					       strip_links | reconf.links)) {
+					       strip_links | reconf.links |
+					       reconf.off_air | reconf.gone)) {
 		dev_kfree_skb(skb);
 		dev_kfree_skb(rskb);
 		return 0;
 	}
-	if (reconf.links)
+	if (reconf.links || reconf.off_air || reconf.gone)
 		mt7996_mcu_beacon_reconf_off_air(dev, vif, &reconf);
 	if (reconf.links &&
 	    mt7996_mcu_beacon_reconf_waits(dev, vif, link_conf->link_id,
