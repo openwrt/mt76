@@ -435,7 +435,7 @@ static int mt7915_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	}
 
 	mt76_wcid_key_setup(&dev->mt76, wcid, key);
-	err = mt76_connac_mcu_add_key(&dev->mt76, vif, &msta->bip,
+	err = mt76_connac_mcu_add_key(&dev->mt76, vif, NULL,
 				      key, MCU_EXT_CMD(STA_REC_UPDATE),
 				      &msta->wcid, cmd);
 out:
@@ -1336,13 +1336,11 @@ mt7915_sta_wds_key_iter(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 {
 	struct mt7915_dev *dev = mt7915_hw_dev(hw);
 	struct mt7915_wds_key_data *kd = data;
-	struct mt7915_sta *msta;
 
 	if (sta != kd->sta || key->keyidx != kd->wcid->hw_key_idx)
 		return;
 
-	msta = (struct mt7915_sta *)sta->drv_priv;
-	mt76_connac_mcu_add_key(&dev->mt76, vif, &msta->bip, key,
+	mt76_connac_mcu_add_key(&dev->mt76, vif, NULL, key,
 				MCU_EXT_CMD(STA_REC_UPDATE), kd->wcid, SET_KEY);
 }
 

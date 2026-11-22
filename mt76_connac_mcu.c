@@ -2786,7 +2786,7 @@ mt76_connac_mcu_sta_key_tlv(struct mt76_connac_sta_key_conf *sta_key_conf,
 		sec_key = &sec->key[0];
 		sec_key->cipher_len = sizeof(*sec_key);
 
-		if (cipher == MCU_CIPHER_BIP_CMAC_128) {
+		if (cipher == MCU_CIPHER_BIP_CMAC_128 && sta_key_conf) {
 			sec_key->cipher_id = MCU_CIPHER_AES_CCMP;
 			sec_key->key_id = sta_key_conf->keyidx;
 			sec_key->key_len = 16;
@@ -2811,7 +2811,7 @@ mt76_connac_mcu_sta_key_tlv(struct mt76_connac_sta_key_conf *sta_key_conf,
 			}
 
 			/* store key_conf for BIP batch update */
-			if (cipher == MCU_CIPHER_AES_CCMP) {
+			if (cipher == MCU_CIPHER_AES_CCMP && sta_key_conf) {
 				memcpy(sta_key_conf->key, key->key, key->keylen);
 				sta_key_conf->keyidx = key->keyidx;
 			}
