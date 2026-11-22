@@ -1810,7 +1810,7 @@ mt7996_sta_scs_tid_links(struct mt7996_sta *msta,
 {
 	u8 tid = mt7996_qos_char_tid((void *)stream->qos_char);
 
-	if (!msta->neg_ttlm.valid || tid >= IEEE80211_TTLM_NUM_TIDS)
+	if (!msta->neg_ttlm.valid)
 		return U16_MAX;
 
 	return msta->neg_ttlm.uplink[tid];
@@ -3332,6 +3332,16 @@ static u16 mt7996_sta_scs_update(struct mt7996_dev *dev,
 	if (ieee80211_qos_char_direction(desc->qos_char) !=
 	    IEEE80211_QOS_CHAR_DIR_UPLINK ||
 	    desc->qos_char_len > MT7996_SCS_QOS_CHAR_LEN)
+		return WLAN_STATUS_REQUEST_DECLINED;
+
+	/* The firmware maps only the eight user priority TIDs to an AC, and
+	 * keeps an unlinked record for a service interval that is shorter
+	 * than 1 ms or whose maximum is below its minimum.
+	 */
+	if (mt7996_qos_char_tid(desc->qos_char) >= IEEE80211_FIRST_TSPEC_TSID ||
+	    le32_to_cpu(desc->qos_char->min_service_interval) < USEC_PER_MSEC ||
+	    le32_to_cpu(desc->qos_char->max_service_interval) <
+	    le32_to_cpu(desc->qos_char->min_service_interval))
 		return WLAN_STATUS_REQUEST_DECLINED;
 
 	/* the firmware keys a stream entry by the wcid, the TID and the
