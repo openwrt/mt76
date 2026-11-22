@@ -83,6 +83,53 @@ enum {
 	REPEATER_BSSID_MAX = 0x3f,
 };
 
+enum vow_drr_ctrl_id {
+	VOW_DRR_CTRL_STA_ALL = 0x00,
+	VOW_DRR_CTRL_AIRTIME_DEFICIT_BOUND = 0x10,
+	VOW_DRR_CTRL_AIRTIME_QUANTUM_ALL = 0x28,
+	VOW_DRR_CTRL_STA_PAUSE = 0x30,
+};
+
+enum {
+	VOW_SEARCH_AC_FIRST,
+	VOW_SEARCH_WMM_FIRST,
+};
+
+enum {
+	VOW_SCH_TYPE_FOLLOW_POLICY,
+	VOW_SCH_TYPE_FOLLOW_HW,
+};
+
+enum {
+	VOW_SCH_POLICY_SRR, /* Shared Round-Robin */
+	VOW_SCH_POLICY_WRR, /* Weighted Round-Robin */
+};
+
+/* VOW feature control word fields. The apply mask (DW0) and the control word
+ * (DW5) share these bit positions.
+ */
+#define VOW_FEATURE_APPLY_REFILL_PERIOD		BIT(0)
+#define VOW_FEATURE_REFILL_PERIOD		GENMASK(2, 0)
+#define VOW_FEATURE_BAND1_SEARCH_RULE		BIT(4)
+#define VOW_FEATURE_BAND0_SEARCH_RULE		BIT(5)
+#define VOW_FEATURE_WATF_EN			BIT(9)
+#define VOW_FEATURE_GRP_NO_CHANGE_IN_TXOP	BIT(12)
+#define VOW_FEATURE_ATF_EN			BIT(13)
+#define VOW_FEATURE_BWC_TOKEN_REFILL_EN		BIT(14)
+#define VOW_FEATURE_BWC_EN			BIT(15)
+
+/* ATF control word (DW8) */
+#define VOW_ATF_APPLY_KEEP_QUANTUM		BIT(2)
+#define VOW_ATF_KEEP_QUANTUM			BIT(3)
+#define VOW_ATF_APPLY_VOW_CTRL			BIT(24)
+#define VOW_ATF_VOW_CTRL_VAL			BIT(25)
+#define VOW_ATF_VOW_CTRL_BIT			GENMASK(30, 26)
+
+/* Scheduler control word (DW9) */
+#define VOW_SCH_APPLY_CTRL			BIT(6)
+#define VOW_SCH_TYPE				GENMASK(8, 7)
+#define VOW_SCH_POLICY				GENMASK(10, 9)
+
 #define VOW_DRR_QUANTUM_NUM	8
 
 /* Per-level DRR airtime quantum (unit: 256us). Halved from the hardware's
@@ -389,6 +436,43 @@ static inline u8 mt76_connac_vow_dwrr_quantum(u16 weight, u8 ac)
 		  ilog2(IEEE80211_DEFAULT_AIRTIME_WEIGHT);
 
 	return clamp(idx, 0, VOW_DRR_QUANTUM_NUM - 1);
+}
+
+struct mt76_connac_vow_feature {
+	u16 apply;
+	u16 ctrl;
+	u32 atf_ctrl;
+	u32 sch_ctrl;
+};
+
+static inline struct mt76_connac_vow_feature
+mt76_connac_vow_feature_get(bool atf_en)
+{
+	struct mt76_connac_vow_feature f = {
+		/* apply every field this command configures */
+		.apply = VOW_FEATURE_APPLY_REFILL_PERIOD |
+			 VOW_FEATURE_BAND1_SEARCH_RULE |
+			 VOW_FEATURE_BAND0_SEARCH_RULE | VOW_FEATURE_WATF_EN |
+			 VOW_FEATURE_GRP_NO_CHANGE_IN_TXOP | VOW_FEATURE_ATF_EN |
+			 VOW_FEATURE_BWC_TOKEN_REFILL_EN | VOW_FEATURE_BWC_EN,
+		.ctrl = FIELD_PREP(VOW_FEATURE_REFILL_PERIOD, VOW_REFILL_PERIOD_32US) |
+			FIELD_PREP(VOW_FEATURE_BAND1_SEARCH_RULE, VOW_SEARCH_WMM_FIRST) |
+			FIELD_PREP(VOW_FEATURE_BAND0_SEARCH_RULE, VOW_SEARCH_WMM_FIRST) |
+			VOW_FEATURE_GRP_NO_CHANGE_IN_TXOP |
+			VOW_FEATURE_BWC_TOKEN_REFILL_EN,
+		.atf_ctrl = VOW_ATF_APPLY_KEEP_QUANTUM | VOW_ATF_KEEP_QUANTUM |
+			    VOW_ATF_APPLY_VOW_CTRL | VOW_ATF_VOW_CTRL_VAL |
+			    /* reset the DRR table when SER occurs */
+			    FIELD_PREP(VOW_ATF_VOW_CTRL_BIT, 26),
+		.sch_ctrl = VOW_SCH_APPLY_CTRL |
+			    FIELD_PREP(VOW_SCH_TYPE, VOW_SCH_TYPE_FOLLOW_POLICY) |
+			    FIELD_PREP(VOW_SCH_POLICY, VOW_SCH_POLICY_SRR),
+	};
+
+	if (atf_en)
+		f.ctrl |= VOW_FEATURE_WATF_EN | VOW_FEATURE_ATF_EN;
+
+	return f;
 }
 
 static inline void *

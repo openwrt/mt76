@@ -3859,38 +3859,38 @@ int mt7915_mcu_set_vow_drr_ctrl(struct mt7915_dev *dev, struct mt7915_sta *msta,
 
 int mt7915_mcu_set_vow_feature_ctrl(struct mt7915_dev *dev)
 {
-	u16 value = 0;
-	struct vow_feature_ctrl {
-		__le16 bss_flag;
-		__le16 vow_ctrl_flag;
-		__le16 bss_value[9];
-		__le16 vow_ctrl_val;
-		__le16 time_token_value[2];
-		__le16 length_token_value[2];
-		__le32 tx_ctrl;
+	struct mt76_connac_vow_feature f =
+		mt76_connac_vow_feature_get(dev->vow_atf_en);
+	struct {
+		__le16 apply_bwc_enable_per_grp;
+		__le16 apply;
+		__le16 apply_bwc_check_time_token_per_grp;
+		__le16 __rsv1;
+		__le16 apply_bwc_check_len_token_per_grp;
+		__le16 __rsv2;
+		__le32 __rsv3[2];
+		__le16 bwc_enable_per_grp;
+		__le16 ctrl;
+		__le16 bwc_check_time_token_per_grp;
+		__le16 __rsv4;
+		__le16 bwc_check_len_token_per_grp;
+		__le16 __rsv5;
+		__le32 atf_ctrl;
 		__le32 sch_ctrl;
 	} __packed req = {
-		.bss_flag = cpu_to_le16(0xffff),
-		.vow_ctrl_flag = cpu_to_le16(0xf231),
-		.bss_value[0] = cpu_to_le16(0xffff),
-		.bss_value[2] = cpu_to_le16(0xffff),
-		.bss_value[8] = cpu_to_le16(0xffff),
-		.time_token_value[0] = cpu_to_le16(0xffff),
+		.apply_bwc_enable_per_grp = cpu_to_le16(0xffff),
+		.apply = cpu_to_le16(f.apply),
+		.apply_bwc_check_time_token_per_grp = cpu_to_le16(0xffff),
+		.apply_bwc_check_len_token_per_grp = cpu_to_le16(0xffff),
+		.bwc_enable_per_grp = cpu_to_le16(0xffff),
+		.ctrl = cpu_to_le16(f.ctrl),
+		.bwc_check_time_token_per_grp = cpu_to_le16(0xffff),
+		.sch_ctrl = cpu_to_le32(f.sch_ctrl),
 	};
 
-	value |= VOW_REFILL_PERIOD_32US;
-	value |= 1 << 4;
-	value |= 1 << 5;
-	value |= dev->vow_atf_en << 9;	/* WATF enable */
-	value |= 1 << 12;
-	value |= dev->vow_atf_en << 13;	/* ATF enable */
-	value |= 1 << 14;
-	req.vow_ctrl_val = cpu_to_le16(value);
-
 	if (dev->vow_atf_en)
-		req.tx_ctrl = cpu_to_le32(0x6bf69e1f);
-
-	req.sch_ctrl = cpu_to_le32(1 << 6);
+		req.atf_ctrl = cpu_to_le32(f.atf_ctrl |
+					   MT7915_VOW_ATF_CTRL_VENDOR);
 
 	return mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD(SET_FEATURE_CTRL),
 				 &req, sizeof(req), false);

@@ -134,12 +134,8 @@ struct mt7915_twt_flow {
 
 DECLARE_EWMA(avg_signal, 10, 8)
 
-enum vow_drr_ctrl_id {
-	VOW_DRR_CTRL_STA_ALL = 0x00,
-	VOW_DRR_CTRL_AIRTIME_DEFICIT_BOUND = 0x10,
-	VOW_DRR_CTRL_AIRTIME_QUANTUM_ALL = 0x28,
-	VOW_DRR_CTRL_STA_PAUSE = 0x30,
-};
+/* set in the ATF control word by the vendor driver, without a known name */
+#define MT7915_VOW_ATF_CTRL_VENDOR		0x00f69e13
 
 struct mt7915_sta {
 	struct mt76_wcid wcid; /* must be first */

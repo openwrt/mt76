@@ -3937,9 +3937,8 @@ int mt7996_mcu_set_vow_drr_ctrl(struct mt7996_dev *dev, u8 band_idx,
 
 int mt7996_mcu_set_vow_feature_ctrl(struct mt7996_phy *phy)
 {
-	bool atf_en = phy->dev->vow_atf_en;
-	u16 apply, ctrl;
-	u32 atf_ctrl, sch_ctrl;
+	struct mt76_connac_vow_feature f =
+		mt76_connac_vow_feature_get(phy->dev->vow_atf_en);
 	struct {
 		u8 __rsv1[4];
 
@@ -3992,32 +3991,10 @@ int mt7996_mcu_set_vow_feature_ctrl(struct mt7996_phy *phy)
 		.bwc_enable_per_grp = cpu_to_le16(0xffff),
 	};
 
-	/* apply every field this command configures */
-	apply = VOW_FEATURE_APPLY_REFILL_PERIOD | VOW_FEATURE_BAND1_SEARCH_RULE |
-		VOW_FEATURE_BAND0_SEARCH_RULE | VOW_FEATURE_WATF_EN |
-		VOW_FEATURE_GRP_NO_CHANGE_IN_TXOP | VOW_FEATURE_ATF_EN |
-		VOW_FEATURE_BWC_TOKEN_REFILL_EN | VOW_FEATURE_BWC_EN;
-
-	ctrl = FIELD_PREP(VOW_FEATURE_REFILL_PERIOD, VOW_REFILL_PERIOD_32US) |
-	       FIELD_PREP(VOW_FEATURE_BAND1_SEARCH_RULE, VOW_SEARCH_WMM_FIRST) |
-	       FIELD_PREP(VOW_FEATURE_BAND0_SEARCH_RULE, VOW_SEARCH_WMM_FIRST) |
-	       VOW_FEATURE_GRP_NO_CHANGE_IN_TXOP | VOW_FEATURE_BWC_TOKEN_REFILL_EN;
-	if (atf_en)
-		ctrl |= VOW_FEATURE_WATF_EN | VOW_FEATURE_ATF_EN;
-
-	atf_ctrl = VOW_ATF_APPLY_KEEP_QUANTUM | VOW_ATF_KEEP_QUANTUM |
-		   VOW_ATF_APPLY_VOW_CTRL | VOW_ATF_VOW_CTRL_VAL |
-		   /* reset the DRR table when SER occurs */
-		   FIELD_PREP(VOW_ATF_VOW_CTRL_BIT, 26);
-
-	sch_ctrl = VOW_SCH_APPLY_CTRL |
-		   FIELD_PREP(VOW_SCH_TYPE, VOW_SCH_TYPE_FOLLOW_POLICY) |
-		   FIELD_PREP(VOW_SCH_POLICY, VOW_SCH_POLICY_SRR);
-
-	req.apply = cpu_to_le16(apply);
-	req.ctrl = cpu_to_le16(ctrl);
-	req.atf_ctrl = cpu_to_le32(atf_ctrl);
-	req.sch_ctrl = cpu_to_le32(sch_ctrl);
+	req.apply = cpu_to_le16(f.apply);
+	req.ctrl = cpu_to_le16(f.ctrl);
+	req.atf_ctrl = cpu_to_le32(f.atf_ctrl);
+	req.sch_ctrl = cpu_to_le32(f.sch_ctrl);
 
 	return mt76_mcu_send_msg(&phy->dev->mt76, MCU_WM_UNI_CMD(VOW), &req,
 				 sizeof(req), true);
