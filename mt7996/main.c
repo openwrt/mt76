@@ -457,6 +457,9 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	int mld_idx, idx, ret;
 	bool moved = false;
 
+	if (vif->type == NL80211_IFTYPE_AP && !mlink->offchannel)
+		mt7996_mcu_beacon_reconf_on_air(dev, vif, link_conf->link_id);
+
 	if ((mvif->mt76.valid_links & BIT(link_conf->link_id)) &&
 	    !mlink->offchannel) {
 		struct mt7996_phy *old_phy;

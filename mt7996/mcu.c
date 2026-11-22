@@ -5753,6 +5753,55 @@ mt7996_mcu_beacon_reconf_wait(struct mt7996_dev *dev,
 			      HRTIMER_MODE_ABS_SOFT);
 }
 
+/* A removed link without a channel sends no Beacon frames and has no TSF that
+ * a removal TBTT could count in, so its removal ends at once, and the template
+ * goes up with no removal entry for it. The templates of the other links name
+ * it until user space drops it, so its end is reported once.
+ */
+static void
+mt7996_mcu_beacon_reconf_off_air(struct mt7996_dev *dev,
+				 struct ieee80211_vif *vif,
+				 struct mt7996_mcu_ml_reconf *reconf)
+{
+	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+	unsigned long links = reconf->links;
+	u16 ended = 0, reported;
+	unsigned int link_id;
+
+	for_each_set_bit(link_id, &links, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct mt7996_vif_link *link = mt7996_vif_link(dev, vif, link_id);
+
+		if (link && (!link_conf_dereference_protected(vif, link_id) ||
+			     !mt7996_vif_link_phy(link)))
+			ended |= BIT(link_id);
+	}
+
+	if (!ended)
+		return;
+
+	reconf->links &= ~ended;
+
+	spin_lock_bh(&dev->mt76.lock);
+	reported = mvif->reconf_off_air_links;
+	mvif->reconf_off_air_links |= ended;
+	spin_unlock_bh(&dev->mt76.lock);
+
+	ended &= ~reported;
+	if (ended)
+		ieee80211_links_removed(vif, ended);
+}
+
+void mt7996_mcu_beacon_reconf_on_air(struct mt7996_dev *dev,
+				     struct ieee80211_vif *vif,
+				     unsigned int link_id)
+{
+	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+
+	spin_lock_bh(&dev->mt76.lock);
+	mvif->reconf_off_air_links &= ~BIT(link_id);
+	spin_unlock_bh(&dev->mt76.lock);
+}
+
 /* Returns true for a template that waits. A template that would start a
  * removal outside the window waits for the next window, and so do the
  * templates of the other links that come before it.
@@ -5955,6 +6004,7 @@ void mt7996_mcu_beacon_reconf_stop(struct mt7996_dev *dev,
 	if (removed) {
 		mvif->reconf_stop_links &= ~BIT(link_id);
 		mvif->reconf_done_links &= ~BIT(link_id);
+		mvif->reconf_off_air_links &= ~BIT(link_id);
 		mvif->reconf_tbtt_links &= ~BIT(link_id);
 		timer = mvif->reconf_timer_links & BIT(link_id);
 		mvif->reconf_timer_links &= ~BIT(link_id);
@@ -6285,6 +6335,8 @@ __mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		dev_kfree_skb(rskb);
 		return 0;
 	}
+	if (reconf.links)
+		mt7996_mcu_beacon_reconf_off_air(dev, vif, &reconf);
 	if (reconf.links &&
 	    mt7996_mcu_beacon_reconf_waits(dev, vif, link_conf->link_id,
 					   &reconf)) {
