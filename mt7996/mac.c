@@ -2337,11 +2337,12 @@ mt7996_wait_reset_state(struct mt7996_dev *dev, u32 state)
 	bool ret;
 
 	ret = wait_event_timeout(dev->reset_wait,
-				 (READ_ONCE(dev->recovery.state) & state),
+				 (READ_ONCE(dev->recovery.state) & state) ||
+				 dev->recovery.restart,
 				 MT7996_RESET_TIMEOUT);
 
 	WARN(!ret, "Timeout waiting for MCU reset state %x\n", state);
-	return ret;
+	return ret && !dev->recovery.restart;
 }
 
 static void
@@ -2819,6 +2820,53 @@ mt7996_mac_reset_reconf_iter(void *data, u8 *mac, struct ieee80211_vif *vif)
 		mt7996_mcu_beacon_reconf_stop(dev, vif, link_id, false);
 }
 
+static void
+mt7996_mac_reset_napi_enable(struct mt7996_dev *dev)
+{
+	int i;
+
+	mt76_for_each_q_rx(&dev->mt76, i) {
+		if (mtk_wed_device_active(&dev->mt76.mmio.wed) &&
+		    mt76_queue_is_wed_rro(&dev->mt76.q_rx[i]))
+			continue;
+
+		if (mt76_npu_device_active(&dev->mt76) &&
+		    mt76_queue_is_wed_rro(&dev->mt76.q_rx[i]))
+			continue;
+
+		if (mt76_queue_is_npu_txfree(&dev->mt76.q_rx[i]))
+			continue;
+
+		napi_enable(&dev->mt76.napi[i]);
+		local_bh_disable();
+		napi_schedule(&dev->mt76.napi[i]);
+		local_bh_enable();
+	}
+
+	tasklet_schedule(&dev->mt76.irq_tasklet);
+
+	mt76_worker_enable(&dev->mt76.tx_worker);
+
+	napi_enable(&dev->mt76.tx_napi);
+	local_bh_disable();
+	napi_schedule(&dev->mt76.tx_napi);
+	local_bh_enable();
+}
+
+/* the firmware has no timeout of its own in an L1 state, and
+ * mt7996_mac_restart() disables NAPI and the TX worker again
+ */
+static void
+mt7996_mac_reset_l1_abort(struct mt7996_dev *dev)
+{
+	__mt7996_npu_hw_init(dev);
+	mt7996_mac_reset_napi_enable(dev);
+	mutex_unlock(&dev->mt76.mutex);
+
+	dev->recovery.restart = true;
+	queue_work(dev->mt76.wq, &dev->reset_work);
+}
+
 void mt7996_mac_reset_work(struct work_struct *work)
 {
 	unsigned long bcn_restored = 0;
@@ -2897,19 +2945,22 @@ void mt7996_mac_reset_work(struct work_struct *work)
 	napi_disable(&dev->mt76.tx_napi);
 
 	mt76_wr(dev, MT_MCU_INT_EVENT, MT_MCU_INT_EVENT_DMA_STOPPED);
+	if (!mt7996_wait_reset_state(dev, MT_MCU_CMD_RESET_DONE))
+		goto abort;
 
-	if (mt7996_wait_reset_state(dev, MT_MCU_CMD_RESET_DONE)) {
-		mt7996_dma_reset(dev, false);
+	mt7996_dma_reset(dev, false);
 
-		mt7996_tx_token_put(dev);
-		idr_init(&dev->mt76.token);
+	mt7996_tx_token_put(dev);
+	idr_init(&dev->mt76.token);
 
-		mt76_wr(dev, MT_MCU_INT_EVENT, MT_MCU_INT_EVENT_DMA_INIT);
-		mt7996_wait_reset_state(dev, MT_MCU_CMD_RECOVERY_DONE);
-	}
+	mt76_wr(dev, MT_MCU_INT_EVENT, MT_MCU_INT_EVENT_DMA_INIT);
+	if (!mt7996_wait_reset_state(dev, MT_MCU_CMD_RECOVERY_DONE))
+		goto abort;
 
 	mt76_wr(dev, MT_MCU_INT_EVENT, MT_MCU_INT_EVENT_RESET_DONE);
-	mt7996_wait_reset_state(dev, MT_MCU_CMD_NORMAL_STATE);
+	if (!mt7996_wait_reset_state(dev, MT_MCU_CMD_NORMAL_STATE))
+		goto abort;
+
 	mt7996_mac_reset_sta_ps(dev);
 
 	/* enable DMA Rx/Tx and interrupt */
@@ -2941,32 +2992,7 @@ void mt7996_mac_reset_work(struct work_struct *work)
 	mt7996_for_each_phy(dev, phy)
 		clear_bit(MT76_RESET, &phy->mt76->state);
 
-	mt76_for_each_q_rx(&dev->mt76, i) {
-		if (mtk_wed_device_active(&dev->mt76.mmio.wed) &&
-		    mt76_queue_is_wed_rro(&dev->mt76.q_rx[i]))
-			continue;
-
-		if (mt76_npu_device_active(&dev->mt76) &&
-		    mt76_queue_is_wed_rro(&dev->mt76.q_rx[i]))
-			continue;
-
-		if (mt76_queue_is_npu_txfree(&dev->mt76.q_rx[i]))
-			continue;
-
-		napi_enable(&dev->mt76.napi[i]);
-		local_bh_disable();
-		napi_schedule(&dev->mt76.napi[i]);
-		local_bh_enable();
-	}
-
-	tasklet_schedule(&dev->mt76.irq_tasklet);
-
-	mt76_worker_enable(&dev->mt76.tx_worker);
-
-	napi_enable(&dev->mt76.tx_napi);
-	local_bh_disable();
-	napi_schedule(&dev->mt76.tx_napi);
-	local_bh_enable();
+	mt7996_mac_reset_napi_enable(dev);
 
 	ieee80211_iterate_active_interfaces_atomic(hw,
 						   IEEE80211_IFACE_ITER_RESUME_ALL,
@@ -2988,6 +3014,10 @@ void mt7996_mac_reset_work(struct work_struct *work)
 					     MT7996_WATCHDOG_TIME);
 	dev_info(dev->mt76.dev,"\n%s L1 SER recovery completed.",
 		 wiphy_name(dev->mt76.hw->wiphy));
+	return;
+
+abort:
+	mt7996_mac_reset_l1_abort(dev);
 }
 
 /* firmware coredump */
@@ -3075,7 +3105,10 @@ void mt7996_reset(struct mt7996_dev *dev)
 			 wiphy_name(dev->mt76.hw->wiphy));
 
 		mt7996_irq_disable(dev, MT_INT_MCU_CMD);
+		/* dump before the reload, mt7996_mac_dump_work() queues the reset */
+		cancel_work(&dev->reset_work);
 		queue_work(dev->mt76.wq, &dev->dump_work);
+		wake_up(&dev->reset_wait);
 		return;
 	}
 
