@@ -278,9 +278,7 @@ mt76_tx_check_non_aql(struct mt76_dev *dev, struct mt76_wcid *wcid,
 		      struct sk_buff *skb)
 {
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	struct ieee80211_sta *sta;
 	int pending;
-	int i;
 
 	if (!wcid || info->tx_time_est)
 		return;
@@ -291,16 +289,8 @@ mt76_tx_check_non_aql(struct mt76_dev *dev, struct mt76_wcid *wcid,
 	if (pending < 0)
 		atomic_cmpxchg(&wcid->non_aql_packets, pending, 0);
 
-	sta = wcid_to_sta(wcid);
-	if (!sta || pending != MT_MAX_NON_AQL_PKT - 1)
-		return;
-
-	for (i = 0; i < ARRAY_SIZE(sta->txq); i++) {
-		if (!sta->txq[i])
-			continue;
-
-		ieee80211_schedule_txq(dev->hw, sta->txq[i]);
-	}
+	if (pending == MT_MAX_NON_AQL_PKT - 1)
+		mt76_sta_txq_schedule(dev, wcid);
 }
 
 void __mt76_tx_complete_skb(struct mt76_dev *dev, u16 wcid_idx, struct sk_buff *skb,
