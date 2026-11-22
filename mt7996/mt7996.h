@@ -329,11 +329,16 @@ struct mt7996_sta_ba {
 
 #define MT7996_SCS_QOS_CHAR_LEN	44
 #define MT7996_SCS_CTRL_TID	GENMASK(5, 2)
+#define MT7996_SCS_START_LEN	4
+#define MT7996_SCS_LINK_ID	GENMASK(3, 0)
+/* the firmware gives an SCS record only to a wcid with a large MU record */
+#define MT7996_SCS_WCID_MAX	277
 
 struct mt7996_scs_stream {
 	struct list_head list;
 	u8 id;
 	u8 fw_id;
+	u8 link_id;
 	u8 len;
 	u8 qos_char[MT7996_SCS_QOS_CHAR_LEN];
 };
@@ -342,6 +347,23 @@ static inline u8
 mt7996_qos_char_tid(const struct ieee80211_qos_char_elem *qc)
 {
 	return u32_get_bits(le32_to_cpu(qc->control), MT7996_SCS_CTRL_TID);
+}
+
+static inline int
+mt7996_scs_stream_link_offset(const struct mt7996_scs_stream *stream)
+{
+	const struct ieee80211_qos_char_elem *qc = (void *)stream->qos_char;
+	int offset = sizeof(*qc) + MT7996_SCS_START_LEN;
+	u16 present = ieee80211_qos_char_presence(qc);
+
+	/* cfg80211 checked the element with ieee80211_qos_char_size_ok() */
+	if (!(present & IEEE80211_QOS_CHAR_PRES_SERVICE_START_LINK_ID))
+		return 0;
+
+	if (present & IEEE80211_QOS_CHAR_PRES_MAX_MSDU_SIZE)
+		offset += 2;
+
+	return offset;
 }
 
 struct mt7996_sta {
@@ -984,7 +1006,8 @@ int mt7996_mcu_set_fixed_rate_ctrl(struct mt7996_dev *dev,
 				   void *data, u16 version);
 int mt7996_mcu_set_fixed_field(struct mt7996_dev *dev, struct mt7996_sta *msta,
 			       void *data, u8 link_id, u32 field);
-int mt7996_mcu_set_scs(struct mt7996_dev *dev, u16 wlan_idx,
+int mt7996_mcu_set_scs(struct mt7996_dev *dev,
+		       struct mt7996_sta_link *msta_link,
 		       const struct mt7996_scs_stream *stream, bool del);
 int mt7996_mcu_set_eeprom(struct mt7996_dev *dev);
 int mt7996_mcu_get_eeprom(struct mt7996_dev *dev, u32 offset, u8 *buf, u32 buf_len,

@@ -3656,7 +3656,41 @@ int mt7996_mcu_set_vow_feature_ctrl(struct mt7996_phy *phy)
 				 sizeof(req), true);
 }
 
-int mt7996_mcu_set_scs(struct mt7996_dev *dev, u16 wlan_idx,
+/* The firmware reads the Service Start Time LinkID as the band of the
+ * link whose wcid takes the SCS record, and counts the Service Start Time
+ * in the TSF of the link of the record. A stream on another link than the
+ * named one goes without both.
+ */
+static void
+mt7996_mcu_scs_link_set(struct ieee80211_qos_char_elem *qc,
+			const struct mt7996_scs_stream *stream,
+			struct mt7996_sta_link *msta_link)
+{
+	int offset = mt7996_scs_stream_link_offset(stream);
+	int start = offset - MT7996_SCS_START_LEN;
+	int len = MT7996_SCS_START_LEN + 1;
+	u8 *data = (u8 *)qc;
+
+	if (!offset)
+		return;
+
+	if ((stream->qos_char[offset] & MT7996_SCS_LINK_ID) ==
+	    msta_link->wcid.link_id) {
+		data[offset] = msta_link->wcid.phy_idx;
+		return;
+	}
+
+	memmove(&data[start], &data[start + len], stream->len - start - len);
+	memset(&data[stream->len - len], 0, len);
+	qc->length -= len;
+	qc->control &=
+		~cpu_to_le32(u32_encode_bits(IEEE80211_QOS_CHAR_PRES_SERVICE_START_TIME |
+					     IEEE80211_QOS_CHAR_PRES_SERVICE_START_LINK_ID,
+					     IEEE80211_QOS_CHAR_CTRL_PRESENCE));
+}
+
+int mt7996_mcu_set_scs(struct mt7996_dev *dev,
+		       struct mt7996_sta_link *msta_link,
 		       const struct mt7996_scs_stream *stream, bool del)
 {
 	const struct ieee80211_qos_char_elem *qc = (void *)stream->qos_char;
@@ -3678,7 +3712,7 @@ int mt7996_mcu_set_scs(struct mt7996_dev *dev, u16 wlan_idx,
 	} __packed req = {
 		.tag = cpu_to_le16(UNI_CMD_MURU_SET_QOS_CFG),
 		.len = cpu_to_le16(sizeof(req) - 4),
-		.wlan_idx = cpu_to_le16(wlan_idx),
+		.wlan_idx = cpu_to_le16(msta_link->wcid.idx),
 		/* the firmware stores the TID as the AC of a stream entry and
 		 * finds the entry by this field
 		 */
@@ -3692,6 +3726,7 @@ int mt7996_mcu_set_scs(struct mt7996_dev *dev, u16 wlan_idx,
 		req.qos_flag = cpu_to_le32(MURU_QOS_FLAG_UPDATE);
 		req.dir = ieee80211_qos_char_direction(qc);
 		memcpy(req.qos_ie, stream->qos_char, stream->len);
+		mt7996_mcu_scs_link_set((void *)req.qos_ie, stream, msta_link);
 	}
 
 	return mt76_mcu_send_msg(&dev->mt76, MCU_WMWA_UNI_CMD(MURU), &req,

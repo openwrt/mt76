@@ -1804,50 +1804,116 @@ mt7996_sta_scs_tid_busy(struct mt7996_sta *msta, u8 id, u8 tid)
 	return false;
 }
 
-/* SCS streams belong to the MLD, firmware streams to a link */
-static int
-mt7996_sta_scs_set(struct mt7996_dev *dev, struct mt7996_sta *msta,
-		   const struct mt7996_scs_stream *stream, bool del)
+static u16
+mt7996_sta_scs_tid_links(struct mt7996_sta *msta,
+			 const struct mt7996_scs_stream *stream)
 {
-	bool any = false;
-	int i, ret = 0;
+	u8 tid = mt7996_qos_char_tid((void *)stream->qos_char);
+
+	if (!msta->neg_ttlm.valid || tid >= IEEE80211_TTLM_NUM_TIDS)
+		return U16_MAX;
+
+	return msta->neg_ttlm.uplink[tid];
+}
+
+static bool
+mt7996_sta_scs_link_ok(struct mt7996_dev *dev, struct ieee80211_sta *sta,
+		       unsigned int link_id, u16 links)
+{
+	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	struct mt7996_sta_link *msta_link;
+
+	if (!(links & BIT(link_id)))
+		return false;
+
+	msta_link = mt7996_sta_link_protected(dev, msta, link_id);
+
+	return msta_link && msta_link->connected &&
+	       (!sta->valid_links || msta_link->wcid.link_valid);
+}
+
+/* The firmware keeps one SCS record per SCSID and schedules it on the
+ * wcid of that record, so a stream goes to one link that carries its TID:
+ * the link of its Service Start Time where given, else the primary link,
+ * else any link.
+ */
+static u8
+mt7996_sta_scs_link(struct mt7996_dev *dev, struct ieee80211_sta *sta,
+		    const struct mt7996_scs_stream *stream)
+{
+	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	int offset = mt7996_scs_stream_link_offset(stream);
+	u16 links = mt7996_sta_scs_tid_links(msta, stream);
+	unsigned int link_id;
 
 	if (msta->conn_state != CONN_STATE_PORT_SECURE)
-		return -EIO;
+		return IEEE80211_LINK_UNSPECIFIED;
 
-	for (i = 0; i < ARRAY_SIZE(msta->link); i++) {
-		struct mt7996_sta_link *msta_link;
-
-		msta_link = mt7996_sta_link_protected(dev, msta, i);
-		if (!msta_link || !msta_link->connected)
-			continue;
-
-		any = true;
-		if (mt7996_mcu_set_scs(dev, msta_link->wcid.idx, stream, del))
-			ret = -EIO;
+	if (offset) {
+		link_id = stream->qos_char[offset] & MT7996_SCS_LINK_ID;
+		if (mt7996_sta_scs_link_ok(dev, sta, link_id, links))
+			return link_id;
 	}
 
-	return any ? ret : -EIO;
-}
+	if (mt7996_sta_scs_link_ok(dev, sta, msta->deflink_id, links))
+		return msta->deflink_id;
 
-/* A stream only adds scheduling, so a failure does not fail the link */
-static void
-mt7996_sta_link_scs_add(struct mt7996_dev *dev,
-			struct mt7996_sta_link *msta_link)
-{
-	struct mt7996_scs_stream *stream;
+	for (link_id = 0; link_id < IEEE80211_MLD_MAX_NUM_LINKS; link_id++)
+		if (mt7996_sta_scs_link_ok(dev, sta, link_id, links))
+			return link_id;
 
-	list_for_each_entry(stream, &msta_link->sta->scs_list, list)
-		mt7996_mcu_set_scs(dev, msta_link->wcid.idx, stream, false);
+	return IEEE80211_LINK_UNSPECIFIED;
 }
 
 static void
-mt7996_sta_scs_del(struct mt7996_dev *dev, struct mt7996_sta *msta)
+mt7996_sta_scs_unset(struct mt7996_dev *dev, struct mt7996_sta *msta,
+		     struct mt7996_scs_stream *stream)
 {
+	struct mt7996_sta_link *msta_link;
+
+	if (stream->link_id == IEEE80211_LINK_UNSPECIFIED)
+		return;
+
+	msta_link = mt7996_sta_link_protected(dev, msta, stream->link_id);
+	if (msta_link)
+		mt7996_mcu_set_scs(dev, msta_link, stream, true);
+	stream->link_id = IEEE80211_LINK_UNSPECIFIED;
+}
+
+static int
+mt7996_sta_scs_set(struct mt7996_dev *dev, struct ieee80211_sta *sta,
+		   struct mt7996_scs_stream *stream)
+{
+	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	u8 link_id = mt7996_sta_scs_link(dev, sta, stream);
+	struct mt7996_sta_link *msta_link;
+
+	if (link_id != IEEE80211_LINK_UNSPECIFIED &&
+	    link_id == stream->link_id)
+		return 0;
+
+	mt7996_sta_scs_unset(dev, msta, stream);
+	if (link_id == IEEE80211_LINK_UNSPECIFIED)
+		return -ENOLINK;
+
+	msta_link = mt7996_sta_link_protected(dev, msta, link_id);
+	if (msta_link->wcid.idx > MT7996_SCS_WCID_MAX)
+		return -ENOSPC;
+
+	stream->link_id = link_id;
+
+	return mt7996_mcu_set_scs(dev, msta_link, stream, false);
+}
+
+/* A stream only adds scheduling, so a failure does not fail a link */
+static void
+mt7996_sta_scs_sync(struct mt7996_dev *dev, struct ieee80211_sta *sta)
+{
+	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
 	struct mt7996_scs_stream *stream;
 
 	list_for_each_entry(stream, &msta->scs_list, list)
-		mt7996_sta_scs_set(dev, msta, stream, true);
+		mt7996_sta_scs_set(dev, sta, stream);
 }
 
 static void
@@ -2071,8 +2137,6 @@ mt7996_mac_sta_links_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 						 CONN_STATE_PORT_SECURE, false);
 			if (err)
 				return err;
-
-			mt7996_sta_link_scs_add(dev, msta_link);
 			break;
 		case MT76_STA_EVENT_DISASSOC:
 			for (i = 0; i < ARRAY_SIZE(msta_link->twt.flow); i++)
@@ -2154,6 +2218,7 @@ mt7996_mac_sta_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		break;
 	case MT76_STA_EVENT_AUTHORIZE:
 		msta->conn_state = CONN_STATE_PORT_SECURE;
+		mt7996_sta_scs_sync(dev, sta);
 		break;
 	case MT76_STA_EVENT_DISASSOC:
 		msta->conn_state = CONN_STATE_DISCONNECT;
@@ -2461,6 +2526,7 @@ mt7996_mac_sta_change_links(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	}
 
 out:
+	mt7996_sta_scs_sync(dev, sta);
 	mutex_unlock(&dev->mt76.mutex);
 
 	return ret;
@@ -2555,8 +2621,8 @@ mt7996_sta_state(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
 
 		mutex_lock(&dev->mt76.mutex);
-		mt7996_sta_scs_del(dev, msta);
 		msta->conn_state = CONN_STATE_CONNECT;
+		mt7996_sta_scs_sync(dev, sta);
 		mutex_unlock(&dev->mt76.mutex);
 
 		return 0;
@@ -3244,15 +3310,17 @@ static void mt7996_sta_set_4addr(struct ieee80211_hw *hw,
 }
 
 static u16 mt7996_sta_scs_update(struct mt7996_dev *dev,
-				 struct mt7996_sta *msta,
+				 struct ieee80211_sta *sta,
 				 const struct cfg80211_scs_desc *desc)
 {
+	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
 	struct mt7996_scs_stream *old, *new;
+	int ret;
 
 	old = mt7996_sta_scs_find(msta, desc->id);
 	if (desc->req_type == NL80211_SCS_REQ_REMOVE || !desc->qos_char) {
 		if (old) {
-			mt7996_sta_scs_set(dev, msta, old, true);
+			mt7996_sta_scs_unset(dev, msta, old);
 			list_del(&old->list);
 			mt7996_scs_stream_free(dev, old);
 		}
@@ -3288,22 +3356,28 @@ static u16 mt7996_sta_scs_update(struct mt7996_dev *dev,
 	}
 
 	new->id = desc->id;
+	new->link_id = IEEE80211_LINK_UNSPECIFIED;
 	new->len = desc->qos_char_len;
 	memcpy(new->qos_char, desc->qos_char, desc->qos_char_len);
 
 	/* the add of a new TID finds no firmware entry of the old one */
 	if (old)
-		mt7996_sta_scs_set(dev, msta, old, true);
+		mt7996_sta_scs_unset(dev, msta, old);
 
-	if (mt7996_sta_scs_set(dev, msta, new, false)) {
-		mt7996_sta_scs_set(dev, msta, new, true);
+	ret = mt7996_sta_scs_set(dev, sta, new);
+	if (ret) {
+		mt7996_sta_scs_unset(dev, msta, new);
 		if (old)
-			mt7996_sta_scs_set(dev, msta, old, false);
+			mt7996_sta_scs_set(dev, sta, old);
 
 		if (old)
 			kfree(new);
 		else
 			mt7996_scs_stream_free(dev, new);
+
+		if (ret == -ENOSPC)
+			return WLAN_STATUS_INSUFFICIENT_TCLAS_PROCESSING_RESOURCES;
+
 		return WLAN_STATUS_REQUEST_DECLINED;
 	}
 
@@ -3323,14 +3397,13 @@ static int mt7996_sta_set_scs(struct ieee80211_hw *hw,
 			      struct cfg80211_scs_desc * const *desc,
 			      struct cfg80211_scs_result *res, u8 n_desc)
 {
-	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
 	u8 i;
 
 	mutex_lock(&dev->mt76.mutex);
 
 	for (i = 0; i < n_desc; i++)
-		res[i].status = mt7996_sta_scs_update(dev, msta, desc[i]);
+		res[i].status = mt7996_sta_scs_update(dev, sta, desc[i]);
 
 	mutex_unlock(&dev->mt76.mutex);
 
@@ -4056,6 +4129,7 @@ mt7996_set_sta_ttlm(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		WRITE_ONCE(msta->neg_ttlm.uplink[tid], ttlm->uplink[tid]);
 	}
 	WRITE_ONCE(msta->neg_ttlm.valid, ttlm->valid);
+	mt7996_sta_scs_sync(dev, sta);
 
 out:
 	mutex_unlock(&dev->mt76.mutex);
