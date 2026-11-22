@@ -119,32 +119,6 @@ enum {
 #define VOW_DRR_STA_AC2_QNTM_MASK	GENMASK(18, 16)
 #define VOW_DRR_STA_AC3_QNTM_MASK	GENMASK(22, 20)
 
-/* A station references one of the global DWRR quantum levels per AC. The
- * mac80211 airtime weight spans a wider, finer range than the eight hardware
- * levels and differs from them by orders of magnitude, so map it onto a quantum
- * index logarithmically, centring the default weight (256) on index 3. Voice
- * and video are biased down by two and one octaves respectively, giving
- * latency-sensitive traffic smaller, more frequently refilled quanta.
- */
-static inline u8 mt76_connac_vow_dwrr_quantum(u16 weight, u8 ac)
-{
-	u32 w = weight;
-	int idx;
-
-	switch (ac) {
-	case IEEE80211_AC_VO:
-		w /= 4;
-		break;
-	case IEEE80211_AC_VI:
-		w /= 2;
-		break;
-	}
-
-	idx = 3 + ilog2(w) - ilog2(IEEE80211_DEFAULT_AIRTIME_WEIGHT);
-
-	return clamp(idx, 0, VOW_DRR_QUANTUM_NUM - 1);
-}
-
 struct mt76_connac_reg_map {
 	u32 phys;
 	u32 maps;
@@ -401,6 +375,20 @@ static inline u8 mt76_connac_lmac_mapping(u8 ac)
 {
 	/* LMAC uses the reverse order of mac80211 AC indexes */
 	return 3 - ac;
+}
+
+/* A station references one of the global DWRR quantum levels per AC. The
+ * mac80211 airtime weight spans a wider, finer range than the eight hardware
+ * levels, so map it onto a quantum index logarithmically: the default weight
+ * (256) gives the firmware's default levels, BK 0, BE 1, VI 2 and VO 3, and
+ * each doubling of the weight adds one level.
+ */
+static inline u8 mt76_connac_vow_dwrr_quantum(u16 weight, u8 ac)
+{
+	int idx = mt76_connac_lmac_mapping(ac) + ilog2(weight) -
+		  ilog2(IEEE80211_DEFAULT_AIRTIME_WEIGHT);
+
+	return clamp(idx, 0, VOW_DRR_QUANTUM_NUM - 1);
 }
 
 static inline void *
