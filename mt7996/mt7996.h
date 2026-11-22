@@ -440,6 +440,14 @@ struct mt7996_vif {
 	u64 attlm_tbtt_boottime;
 	u64 attlm_end_boottime;
 	bool attlm_ttlm_resend;
+	bool attlm_cancelled;
+	/* the firmware copies the index of the newest request into each
+	 * event, and the events of a request come before its response is read
+	 */
+	u8 attlm_idx;
+	bool attlm_requesting;
+	bool attlm_early_switch;
+	bool attlm_early_end;
 	u16 attlm_links;
 	u16 attlm_stop_links;
 	u16 attlm_bcn_links;
@@ -1113,6 +1121,8 @@ void mt7996_mcu_mld_adv_ttlm_cancel(struct mt7996_dev *dev,
 				    struct ieee80211_vif *vif, u64 cookie);
 void mt7996_mcu_mld_adv_ttlm_reset(struct mt7996_dev *dev,
 				   struct ieee80211_vif *vif);
+void mt7996_mcu_mld_adv_ttlm_end(struct mt7996_dev *dev,
+				 struct ieee80211_vif *vif, gfp_t gfp);
 
 static inline bool mt7996_has_hwrro(struct mt7996_dev *dev)
 {

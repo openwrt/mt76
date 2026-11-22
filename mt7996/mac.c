@@ -2723,6 +2723,8 @@ mt7996_mac_reset_vif_iter(void *data, u8 *mac, struct ieee80211_vif *vif)
 	hrtimer_cancel(&priv->attlm_end_timer);
 	hrtimer_cancel(&priv->attlm_cntdwn_timer);
 	mt7996_mcu_mld_attlm_cntdwn_reset(dev, priv, U16_MAX);
+	/* the reloaded firmware has no mapping, and the restart can fail */
+	mt7996_mcu_mld_adv_ttlm_end(dev, vif, GFP_ATOMIC);
 
 	rcu_read_lock();
 	for (i = 0; i < ARRAY_SIZE(mvif->link); i++) {
