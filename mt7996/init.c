@@ -1797,6 +1797,16 @@ void mt7996_set_stream_he_eht_caps(struct mt7996_phy *phy)
 						NL80211_BAND_6GHZ);
 }
 
+static void mt7996_set_hw_init_done(struct mt7996_dev *dev, bool done)
+{
+	/* every reset source reads the flag and queues its work under the
+	 * lock, so a cancel after the clear catches each queued work
+	 */
+	spin_lock_bh(&dev->mt76.lock);
+	dev->recovery.hw_init_done = done;
+	spin_unlock_bh(&dev->mt76.lock);
+}
+
 int mt7996_register_device(struct mt7996_dev *dev)
 {
 	struct ieee80211_hw *hw = mt76_hw(dev);
@@ -1849,7 +1859,7 @@ int mt7996_register_device(struct mt7996_dev *dev)
 
 	ieee80211_queue_work(mt76_hw(dev), &dev->init_work);
 
-	dev->recovery.hw_init_done = true;
+	mt7996_set_hw_init_done(dev, true);
 
 	ret = mt7996_init_debugfs(dev);
 	if (ret)
@@ -1875,6 +1885,7 @@ stop_hw:
 
 void mt7996_unregister_device(struct mt7996_dev *dev)
 {
+	mt7996_set_hw_init_done(dev, false);
 	cancel_work_sync(&dev->dump_work);
 	cancel_work_sync(&dev->wed_rro.work);
 	cancel_work_sync(&dev->reset_work);

@@ -230,6 +230,7 @@ mt7996_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 		dev_err(mdev->dev, "Message %08x (seq %d) timeout\n",
 			cmd, seq);
 
+		spin_lock_bh(&dev->mt76.lock);
 		if (dev->recovery.hw_init_done &&
 		    !test_and_set_bit(MT76_MCU_RESET, &dev->mphy.state)) {
 			dev->recovery.restart = true;
@@ -237,6 +238,7 @@ mt7996_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 			queue_work(dev->mt76.wq, &dev->reset_work);
 			wake_up(&dev->reset_wait);
 		}
+		spin_unlock_bh(&dev->mt76.lock);
 
 		return -ETIMEDOUT;
 	}
