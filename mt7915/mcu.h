@@ -60,7 +60,7 @@ struct mt7915_mcu_ps_notify {
 	u8 wtbl_lower;
 	u8 ps_bit;
 	u8 wtbl_higher;
-	u8 rsv;
+	u8 path;
 } __packed;
 
 struct mt7915_mcu_ps_notify_v2 {
@@ -68,10 +68,19 @@ struct mt7915_mcu_ps_notify_v2 {
 
 	__le16 wtbl_lower;
 	__le16 wtbl_higher;
-	__le16 rsv;
+	__le16 path;
 	u8 ps_bit;
-	u8 rsv2;
+	u8 rsv;
 } __packed;
+
+/* the path of a PS sync event from the TWT agreement code; the mt7986 and
+ * mt7981 firmware send MANY at an add while three or more stations hold
+ * agreements
+ */
+enum {
+	MT7915_PS_SYNC_TWT_MANY = 0x08,
+	MT7915_PS_SYNC_TWT = 0x80,
+};
 
 struct mt7915_mcu_rdd_report {
 	struct mt76_connac2_mcu_rxd_hdr rxd;
