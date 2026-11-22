@@ -445,7 +445,9 @@ struct mt7996_vif {
 	 * the links whose TX it stopped, until they go; the removal TBTT of
 	 * the removed links, with the links whose TX stop is still due, also
 	 * in the TSF of the link that it was taken from; the links that the
-	 * last timer command named with a BSS
+	 * last timer command named with a BSS; the links whose template that
+	 * starts a removal waits for the next TBTT of the removed link, with
+	 * the link whose template goes up first
 	 */
 	u16 reconf_links;
 	u16 reconf_to_sec;
@@ -455,10 +457,13 @@ struct mt7996_vif {
 	u16 reconf_done_links;
 	u16 reconf_tbtt_links;
 	u16 reconf_timer_links;
+	u16 reconf_wait_links;
+	u8 reconf_wait_link;
 	u64 reconf_tbtt_boottime;
 	u64 reconf_tbtt_tsf;
 	u8 reconf_tbtt_link;
 	struct hrtimer reconf_timer;
+	struct hrtimer reconf_start_timer;
 	struct mt7996_dev *reconf_dev;
 };
 
@@ -1071,6 +1076,7 @@ int mt7996_mcu_mld_reconf_stop_link(struct mt7996_dev *dev,
 void mt7996_mcu_mld_reconf_work(struct work_struct *work);
 void mt7996_mcu_mld_attlm_end_work(struct work_struct *work);
 enum hrtimer_restart mt7996_mcu_mld_reconf_tbtt(struct hrtimer *timer);
+enum hrtimer_restart mt7996_mcu_mld_reconf_window(struct hrtimer *timer);
 int mt7996_mcu_mld_link_oper(struct mt7996_dev *dev,
 			     struct ieee80211_bss_conf *link_conf,
 			     struct mt7996_vif_link *link, bool add);

@@ -2700,6 +2700,7 @@ mt7996_mac_reset_vif_iter(void *data, u8 *mac, struct ieee80211_vif *vif)
 
 	/* a restart that fails calls no remove_interface for the interface */
 	hrtimer_cancel(&priv->reconf_timer);
+	hrtimer_cancel(&priv->reconf_start_timer);
 
 	rcu_read_lock();
 	for (i = 0; i < ARRAY_SIZE(mvif->link); i++) {

@@ -1644,6 +1644,66 @@ mt7996_mcu_mld_reconf_tx_stop(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	return true;
 }
 
+static void
+mt7996_mcu_mld_reconf_links_stop(struct mt7996_dev *dev,
+				 struct ieee80211_vif *vif)
+{
+	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+	u16 links, reported;
+
+	spin_lock_bh(&dev->mt76.lock);
+	links = mvif->reconf_stop_links & vif->valid_links;
+	mvif->reconf_stop_links = 0;
+	reported = mvif->reconf_done_links;
+	spin_unlock_bh(&dev->mt76.lock);
+
+	if (!links)
+		return;
+
+	if (!mt7996_mcu_mld_reconf_tx_stop(dev, vif, links)) {
+		spin_lock_bh(&dev->mt76.lock);
+		mvif->reconf_stop_links |= links;
+		spin_unlock_bh(&dev->mt76.lock);
+		return;
+	}
+
+	/* a full reset stops the stopped links again */
+	links &= ~reported;
+	if (links)
+		ieee80211_links_removed(vif, links);
+}
+
+/* the template that started the wait goes up first, so that the templates of
+ * the other links of the removal follow it in the same interval
+ */
+static void
+mt7996_mcu_mld_reconf_links_start(struct mt7996_dev *dev,
+				  struct ieee80211_vif *vif)
+{
+	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+	struct ieee80211_hw *hw = mt76_hw(dev);
+	unsigned int first;
+	u16 links;
+
+	spin_lock_bh(&dev->mt76.lock);
+	links = mvif->reconf_wait_links & vif->valid_links;
+	first = mvif->reconf_wait_link;
+	mvif->reconf_wait_links = 0;
+	spin_unlock_bh(&dev->mt76.lock);
+
+	mutex_lock(&dev->mt76.mutex);
+	while (links) {
+		unsigned int link_id = links & BIT(first) ? first : __ffs(links);
+		struct ieee80211_bss_conf *link_conf;
+
+		links &= ~BIT(link_id);
+		link_conf = link_conf_dereference_protected(vif, link_id);
+		if (link_conf && link_conf->enable_beacon)
+			mt7996_mcu_add_beacon(hw, vif, link_conf, true);
+	}
+	mutex_unlock(&dev->mt76.mutex);
+}
+
 void mt7996_mcu_mld_reconf_work(struct work_struct *work)
 {
 	struct mt7996_dev *dev = container_of(work, struct mt7996_dev,
@@ -1653,34 +1713,23 @@ void mt7996_mcu_mld_reconf_work(struct work_struct *work)
 
 	wiphy_lock(hw->wiphy);
 	for_each_active_interface(vif, hw) {
-		struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
-		u16 links, reported;
-
 		if (vif->type != NL80211_IFTYPE_AP || !ieee80211_vif_is_mld(vif))
 			continue;
 
-		spin_lock_bh(&dev->mt76.lock);
-		links = mvif->reconf_stop_links & vif->valid_links;
-		mvif->reconf_stop_links = 0;
-		reported = mvif->reconf_done_links;
-		spin_unlock_bh(&dev->mt76.lock);
-
-		if (!links)
-			continue;
-
-		if (!mt7996_mcu_mld_reconf_tx_stop(dev, vif, links)) {
-			spin_lock_bh(&dev->mt76.lock);
-			mvif->reconf_stop_links |= links;
-			spin_unlock_bh(&dev->mt76.lock);
-			continue;
-		}
-
-		/* a full reset stops the stopped links again */
-		links &= ~reported;
-		if (links)
-			ieee80211_links_removed(vif, links);
+		mt7996_mcu_mld_reconf_links_stop(dev, vif);
+		mt7996_mcu_mld_reconf_links_start(dev, vif);
 	}
 	wiphy_unlock(hw->wiphy);
+}
+
+enum hrtimer_restart mt7996_mcu_mld_reconf_window(struct hrtimer *timer)
+{
+	struct mt7996_vif *mvif = container_of(timer, struct mt7996_vif,
+					       reconf_start_timer);
+
+	queue_work(system_highpri_wq, &mvif->reconf_dev->reconf_work);
+
+	return HRTIMER_NORESTART;
 }
 
 static void
@@ -4877,8 +4926,87 @@ mt7996_mcu_mld_reconf_per_sec(const struct ieee80211_bss_conf *link_conf)
 	return 1000 / link_conf->beacon_int;
 }
 
+/* the firmware starts the count of a template at its pre-TBTT pass, this
+ * long before a TBTT of the link
+ */
+#define MT7996_PRE_TBTT_US	8192
+
+/* At a beacon interval of 100 TU, a template that went up 63 ms or more before
+ * a TBTT was on air at that TBTT in every run. Sends 41.8 and 50.5 ms before a
+ * TBTT were on air at that TBTT, and one 48.7 ms before it at the next TBTT, as
+ * were sends 32.9 and 13.4 ms before it.
+ */
+#define MT7996_RECONF_TAKE_US	63000
+#define MT7996_RECONF_MISS_US	32900
+
+/* The template that starts a removal goes up in a window where no TBTT of the
+ * removed link lies between MT7996_RECONF_MISS_US and MT7996_RECONF_TAKE_US
+ * ahead, so that the TBTT of the start is known. The delay of the upload lies
+ * before the firmware handles it, so the window keeps that time to each TBTT,
+ * whatever the beacon interval. The firmware also delays a template that
+ * reaches it from the pre-TBTT pass to about 3 ms after the TBTT, and the
+ * partner templates queue behind it, so the window keeps clear of that time.
+ */
+#define MT7996_RECONF_ALIGN_US		4000
+#define MT7996_RECONF_WINDOW_US		10000
+#define MT7996_RECONF_WINDOW_MIN_US	1000
+
+/* the first time from a TBTT, at or after @from_us, that keeps clear of both,
+ * and the length of the window from it
+ */
+static u32
+mt7996_mcu_beacon_reconf_gap(u32 bi_us, u32 from_us, u32 *start_us)
+{
+	u32 t = from_us, defer, take;
+
+	while (t < from_us + bi_us) {
+		defer = ((t - MT7996_RECONF_ALIGN_US) / bi_us + 1) * bi_us;
+		take = ((t + MT7996_RECONF_MISS_US) / bi_us + 1) * bi_us;
+		if (t + MT7996_PRE_TBTT_US >= defer) {
+			t = defer + MT7996_RECONF_ALIGN_US;
+		} else if (t + MT7996_RECONF_TAKE_US > take) {
+			t = take - MT7996_RECONF_MISS_US;
+		} else {
+			*start_us = t;
+			return min(defer - MT7996_PRE_TBTT_US - 1,
+				   take - MT7996_RECONF_TAKE_US) - t;
+		}
+	}
+
+	*start_us = t;
+	return 0;
+}
+
+/* The first window of MT7996_RECONF_WINDOW_US from MT7996_RECONF_ALIGN_US
+ * after a TBTT on, or the first of the longest ones where none is that long.
+ * Returns its length, with its start after a TBTT in @start_us, or 0 where
+ * no window of MT7996_RECONF_WINDOW_MIN_US is left.
+ */
+static u32
+mt7996_mcu_beacon_reconf_window(u32 bi_us, u32 *start_us)
+{
+	u32 from, start, len, best = 0;
+
+	*start_us = 0;
+	for (from = MT7996_RECONF_ALIGN_US;
+	     from < MT7996_RECONF_ALIGN_US + bi_us; from = start + len + 1) {
+		len = mt7996_mcu_beacon_reconf_gap(bi_us, from, &start);
+		if (len >= MT7996_RECONF_WINDOW_US) {
+			*start_us = start % bi_us;
+			return MT7996_RECONF_WINDOW_US;
+		}
+		if (len > best) {
+			best = len;
+			*start_us = start % bi_us;
+		}
+	}
+
+	return best < MT7996_RECONF_WINDOW_MIN_US ? 0 : best;
+}
+
 /* the firmware gives each removal entry of a template the count of the
- * template's link, from the last timer of the AP MLD
+ * template's link, from the last timer of the AP MLD, and a start needs a
+ * window after a TBTT of the removed link
  */
 static bool
 mt7996_mcu_mld_reconf_countable(struct ieee80211_vif *vif)
@@ -4888,9 +5016,14 @@ mt7996_mcu_mld_reconf_countable(struct ieee80211_vif *vif)
 
 	for_each_set_bit(link_id, &valid_links, IEEE80211_MLD_MAX_NUM_LINKS) {
 		struct ieee80211_bss_conf *link_conf;
+		u32 start;
 
 		link_conf = link_conf_dereference_protected(vif, link_id);
-		if (link_conf && !mt7996_mcu_mld_reconf_per_sec(link_conf))
+		if (!link_conf)
+			continue;
+		if (!mt7996_mcu_mld_reconf_per_sec(link_conf) ||
+		    !mt7996_mcu_beacon_reconf_window(link_conf->beacon_int * 1024,
+						     &start))
 			return false;
 	}
 
@@ -5023,11 +5156,6 @@ mt7996_mcu_mld_reconf_count(const struct ieee80211_bss_conf *link_conf,
 	return mt7996_mcu_mld_reconf_per_sec(link_conf) * to_sec;
 }
 
-/* the firmware starts the count of a template at its pre-TBTT pass, this
- * long before a TBTT of the link
- */
-#define MT7996_PRE_TBTT_US	8192
-
 /* The TBTTs of the reference link from the first one that the firmware
  * counts on the link of the template to the removal TBTT. A TBTT of the link
  * counts from the reference TBTT at or before it, so an unequal beacon
@@ -5102,12 +5230,20 @@ mt7996_mcu_mld_reconf_bss_links(struct ieee80211_vif *vif)
 	return vif->valid_links & mvif->mt76.valid_links;
 }
 
+/* a link whose TX stop is due or done has ended its removal */
+static u16
+mt7996_mcu_beacon_reconf_new(const struct mt7996_vif *mvif, u16 links)
+{
+	return links & ~(mvif->reconf_links | mvif->reconf_stop_links |
+			 mvif->reconf_done_links);
+}
+
 /* The first template that names a removed link starts its timer, and each
- * template of the removal takes the time of that timer. A link whose TX stop
- * is due or done has ended its removal. A full reset drops the links until
- * the restart adds them again. The firmware counts each removal entry of a
- * template from the last timer of the AP MLD, so the template keeps only the
- * entries of the running removal and of the links that it starts.
+ * template of the removal takes the time of that timer. A full reset drops
+ * the links until the restart adds them again. The firmware counts each
+ * removal entry of a template from the last timer of the AP MLD, so the
+ * template keeps only the entries of the running removal and of the links
+ * that it starts.
  */
 static u16
 mt7996_mcu_beacon_reconf_start(struct mt7996_dev *dev,
@@ -5119,8 +5255,7 @@ mt7996_mcu_beacon_reconf_start(struct mt7996_dev *dev,
 
 	spin_lock_bh(&dev->mt76.lock);
 	running = reconf->links & mvif->reconf_links;
-	links = reconf->links & ~(mvif->reconf_links | mvif->reconf_stop_links |
-				  mvif->reconf_done_links);
+	links = mt7996_mcu_beacon_reconf_new(mvif, reconf->links);
 	if (mvif->reconf_links)
 		reconf->to_sec = mvif->reconf_to_sec;
 	spin_unlock_bh(&dev->mt76.lock);
@@ -5236,37 +5371,90 @@ mt7996_mcu_beacon_reconf_count_set(const struct ieee80211_bss_conf *link_conf,
 		put_unaligned_le16(count, frame + reconf->offs[link_id]);
 }
 
-/* The firmware takes a template at the first TBTT after it has handled the
- * upload, which can take more than half a beacon interval, so the template
- * that starts a removal goes up just after a TBTT of the removed link and
- * starts its count at the next one. With one BSS on the band the firmware
- * delays a template that reaches it up to about 3 ms after a TBTT, and the
- * partner templates queue behind it. Returns the TSF of that link at the
- * upload.
+/* the time from the last window start of the first removed link, with the
+ * TSF of that link and its beacon interval; a beacon interval of 0 for no
+ * link and for a link without a channel, which has no TSF
  */
-#define MT7996_RECONF_ALIGN_US	4000
-
-static u64
-mt7996_mcu_beacon_reconf_align(struct mt7996_dev *dev,
-			       struct ieee80211_vif *vif, u16 links)
+static u32
+mt7996_mcu_beacon_reconf_phase(struct mt7996_dev *dev,
+			       struct ieee80211_vif *vif, u16 links, u64 *tsf,
+			       u32 *bi_us)
 {
 	unsigned int link_id = ffs(links) - 1;
 	struct ieee80211_bss_conf *link_conf;
 	struct mt7996_vif_link *link;
-	u32 bi_us, wait_us;
-	u64 tsf;
+	u64 pos;
+	u32 start;
 
+	*tsf = 0;
+	*bi_us = 0;
 	link_conf = link_conf_dereference_protected(vif, link_id);
 	link = mt7996_vif_link(dev, vif, link_id);
-	if (!link_conf || !link || !link_conf->beacon_int)
+	if (!link_conf || !link || !link_conf->beacon_int ||
+	    !mt7996_vif_link_phy(link))
 		return 0;
 
-	bi_us = link_conf->beacon_int * 1024;
-	tsf = __mt7996_get_tsf(mt76_hw(dev), link);
-	wait_us = bi_us - do_div(tsf, bi_us) + MT7996_RECONF_ALIGN_US;
-	usleep_range(wait_us, wait_us + 200);
+	*bi_us = link_conf->beacon_int * 1024;
+	mt7996_mcu_beacon_reconf_window(*bi_us, &start);
+	*tsf = __mt7996_get_tsf(mt76_hw(dev), link);
+	pos = *tsf + *bi_us - start;
 
-	return __mt7996_get_tsf(mt76_hw(dev), link);
+	return do_div(pos, *bi_us);
+}
+
+static void
+mt7996_mcu_beacon_reconf_wait(struct mt7996_dev *dev,
+			      struct ieee80211_vif *vif, unsigned int link_id,
+			      u32 wait_us)
+{
+	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+
+	spin_lock_bh(&dev->mt76.lock);
+	if (!mvif->reconf_wait_links)
+		mvif->reconf_wait_link = link_id;
+	mvif->reconf_wait_links |= BIT(link_id);
+	spin_unlock_bh(&dev->mt76.lock);
+
+	if (wait_us)
+		hrtimer_start(&mvif->reconf_start_timer,
+			      ns_to_ktime(ktime_get_boottime_ns() +
+					  (u64)wait_us * NSEC_PER_USEC),
+			      HRTIMER_MODE_ABS_SOFT);
+}
+
+/* Returns true for a template that waits. A template that would start a
+ * removal outside the window waits for the next window, and so do the
+ * templates of the other links that come before it.
+ */
+static bool
+mt7996_mcu_beacon_reconf_waits(struct mt7996_dev *dev,
+			       struct ieee80211_vif *vif, unsigned int link_id,
+			       const struct mt7996_mcu_ml_reconf *reconf)
+{
+	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+	u32 phase, bi_us, start;
+	u16 links, waiting;
+	u64 tsf;
+
+	spin_lock_bh(&dev->mt76.lock);
+	links = mt7996_mcu_beacon_reconf_new(mvif, reconf->links);
+	waiting = mvif->reconf_wait_links;
+	spin_unlock_bh(&dev->mt76.lock);
+
+	if (!links || (links & ~mvif->mt76.valid_links))
+		return false;
+
+	if (waiting) {
+		mt7996_mcu_beacon_reconf_wait(dev, vif, link_id, 0);
+		return true;
+	}
+
+	phase = mt7996_mcu_beacon_reconf_phase(dev, vif, links, &tsf, &bi_us);
+	if (!bi_us || phase <= mt7996_mcu_beacon_reconf_window(bi_us, &start))
+		return false;
+
+	mt7996_mcu_beacon_reconf_wait(dev, vif, link_id, bi_us - phase);
+	return true;
 }
 
 /* one timer stops the TX of all links that a template starts, at the
@@ -5327,7 +5515,7 @@ mt7996_mcu_beacon_reconf_arm(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 
 	bi_us = link_conf->beacon_int * 1024;
 	count = mt7996_mcu_mld_reconf_count(link_conf, reconf->to_sec);
-	t0 = div_u64(upload_tsf, bi_us) + 1;
+	t0 = div_u64(upload_tsf + MT7996_RECONF_TAKE_US + bi_us - 1, bi_us);
 	tbtt_tsf = (t0 + count) * bi_us;
 
 	ref_tsf = __mt7996_get_tsf(mt76_hw(dev), link);
@@ -5405,6 +5593,7 @@ void mt7996_mcu_beacon_reconf_stop(struct mt7996_dev *dev,
 		mvif->reconf_timer_links &= ~BIT(link_id);
 	}
 	mvif->reconf_bcn_links &= ~BIT(link_id);
+	mvif->reconf_wait_links &= ~BIT(link_id);
 	spin_unlock_bh(&dev->mt76.lock);
 
 	if (timer)
@@ -5422,6 +5611,7 @@ void mt7996_mcu_beacon_reconf_reset(struct mt7996_dev *dev,
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
 
 	hrtimer_cancel(&mvif->reconf_timer);
+	hrtimer_cancel(&mvif->reconf_start_timer);
 
 	spin_lock_bh(&dev->mt76.lock);
 	mvif->reconf_stop_links |= mvif->reconf_done_links;
@@ -5429,6 +5619,7 @@ void mt7996_mcu_beacon_reconf_reset(struct mt7996_dev *dev,
 	mvif->reconf_bcn_links = 0;
 	mvif->reconf_tbtt_links = 0;
 	mvif->reconf_timer_links = 0;
+	mvif->reconf_wait_links = 0;
 	spin_unlock_bh(&dev->mt76.lock);
 }
 
@@ -5663,6 +5854,7 @@ __mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	unsigned int reconf_len;
 	u64 upload_tsf = 0;
 	u16 started = 0;
+	u32 bi_us;
 
 	/* a later CSA needs a new template, also after a failed upload */
 	if (!link_conf->csa_active)
@@ -5721,10 +5913,21 @@ __mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		dev_kfree_skb(rskb);
 		return 0;
 	}
+	if (reconf.links &&
+	    mt7996_mcu_beacon_reconf_waits(dev, vif, link_conf->link_id,
+					   &reconf)) {
+		dev_kfree_skb(skb);
+		dev_kfree_skb(rskb);
+		return 0;
+	}
 	if (reconf.links)
 		started = mt7996_mcu_beacon_reconf_start(dev, vif, &reconf);
+	/* the timer command takes time, so the TSF that the start counts from
+	 * comes after it
+	 */
 	if (started)
-		upload_tsf = mt7996_mcu_beacon_reconf_align(dev, vif, started);
+		mt7996_mcu_beacon_reconf_phase(dev, vif, started, &upload_tsf,
+					       &bi_us);
 	if (!started)
 		mt7996_mcu_beacon_reconf_resume(dev, vif, link_conf, link,
 						&reconf);

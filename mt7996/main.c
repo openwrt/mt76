@@ -776,6 +776,9 @@ static int mt7996_add_interface(struct ieee80211_hw *hw,
 		mvif->reconf_dev = dev;
 		hrtimer_setup(&mvif->reconf_timer, mt7996_mcu_mld_reconf_tbtt,
 			      CLOCK_BOOTTIME, HRTIMER_MODE_ABS_SOFT);
+		hrtimer_setup(&mvif->reconf_start_timer,
+			      mt7996_mcu_mld_reconf_window, CLOCK_BOOTTIME,
+			      HRTIMER_MODE_ABS_SOFT);
 	}
 
 out:
@@ -820,6 +823,7 @@ static void mt7996_remove_interface(struct ieee80211_hw *hw,
 	int i;
 
 	hrtimer_cancel(&mvif->reconf_timer);
+	hrtimer_cancel(&mvif->reconf_start_timer);
 
 	mutex_lock(&dev->mt76.mutex);
 	mt7996_vif_links_destroy(dev, vif, mvif->mt76.valid_links, NULL);
