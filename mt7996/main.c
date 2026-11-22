@@ -1836,18 +1836,33 @@ mt7996_sta_scs_link_ok(struct mt7996_dev *dev, struct ieee80211_sta *sta,
 	       (!sta->valid_links || msta_link->wcid.link_valid);
 }
 
+static u16
+mt7996_sta_scs_wcid_links(struct mt7996_dev *dev, struct mt7996_sta *msta)
+{
+	struct mt7996_sta_link *msta_link;
+	unsigned int link_id;
+	u16 links = 0;
+
+	for (link_id = 0; link_id < IEEE80211_MLD_MAX_NUM_LINKS; link_id++) {
+		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
+		if (msta_link && msta_link->wcid.idx <= MT7996_SCS_WCID_MAX)
+			links |= BIT(link_id);
+	}
+
+	return links;
+}
+
 /* The firmware keeps one SCS record per SCSID and schedules it on the
- * wcid of that record, so a stream goes to one link that carries its TID:
- * the link of its Service Start Time where given, else the primary link,
+ * wcid of that record, so a stream goes to one of the given links: the
+ * link of its Service Start Time where given, else the primary link,
  * else any link.
  */
 static u8
 mt7996_sta_scs_link(struct mt7996_dev *dev, struct ieee80211_sta *sta,
-		    const struct mt7996_scs_stream *stream)
+		    const struct mt7996_scs_stream *stream, u16 links)
 {
 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
 	int offset = mt7996_scs_stream_link_offset(stream);
-	u16 links = mt7996_sta_scs_tid_links(msta, stream);
 	unsigned int link_id;
 
 	if (msta->conn_state != CONN_STATE_PORT_SECURE)
@@ -1889,21 +1904,26 @@ mt7996_sta_scs_set(struct mt7996_dev *dev, struct ieee80211_sta *sta,
 		   struct mt7996_scs_stream *stream)
 {
 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
-	u8 link_id = mt7996_sta_scs_link(dev, sta, stream);
+	u16 wcid_links = mt7996_sta_scs_wcid_links(dev, msta);
+	u16 links = mt7996_sta_scs_tid_links(msta, stream);
 	struct mt7996_sta_link *msta_link;
+	u8 link_id;
 
+	link_id = mt7996_sta_scs_link(dev, sta, stream, links & wcid_links);
 	if (link_id != IEEE80211_LINK_UNSPECIFIED &&
 	    link_id == stream->link_id)
 		return 0;
 
 	mt7996_sta_scs_unset(dev, msta, stream);
-	if (link_id == IEEE80211_LINK_UNSPECIFIED)
+	if (link_id == IEEE80211_LINK_UNSPECIFIED) {
+		if (mt7996_sta_scs_link(dev, sta, stream, links) !=
+		    IEEE80211_LINK_UNSPECIFIED)
+			return -ENOSPC;
+
 		return -ENOLINK;
+	}
 
 	msta_link = mt7996_sta_link_protected(dev, msta, link_id);
-	if (msta_link->wcid.idx > MT7996_SCS_WCID_MAX)
-		return -ENOSPC;
-
 	stream->link_id = link_id;
 
 	return mt7996_mcu_set_scs(dev, msta_link, stream, false);
