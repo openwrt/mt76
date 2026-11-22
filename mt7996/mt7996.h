@@ -473,8 +473,9 @@ struct mt7996_vif {
 	 * whose TX stop is still due, also in the TSF of the link that it was
 	 * taken from; the links that the last timer command named with a BSS;
 	 * the links whose template that starts a removal waits for the next
-	 * TBTT of the removed link, with the link whose template goes up first,
-	 * and the failed uploads of that start
+	 * TBTT of the removed link, with the removed links of that start, the
+	 * link whose template goes up first, and the failed uploads of that
+	 * start
 	 */
 	u16 reconf_links;
 	u16 reconf_to_sec;
@@ -486,6 +487,7 @@ struct mt7996_vif {
 	u16 reconf_tbtt_links;
 	u16 reconf_timer_links;
 	u16 reconf_wait_links;
+	u16 reconf_wait_removed;
 	u8 reconf_wait_link;
 	u8 reconf_start_tries;
 	u64 reconf_tbtt_boottime;

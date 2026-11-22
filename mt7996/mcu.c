@@ -5593,6 +5593,7 @@ mt7996_mcu_beacon_reconf_start(struct mt7996_dev *dev,
 
 	spin_lock_bh(&dev->mt76.lock);
 	mvif->reconf_links |= links;
+	mvif->reconf_wait_removed &= ~links;
 	mvif->reconf_to_sec = to_sec;
 	mvif->reconf_cmd_links = mt7996_mcu_mld_reconf_bss_links(vif);
 	spin_unlock_bh(&dev->mt76.lock);
@@ -5736,7 +5737,7 @@ mt7996_mcu_beacon_reconf_outside(u32 phase, u32 bi_us)
 static void
 mt7996_mcu_beacon_reconf_wait(struct mt7996_dev *dev,
 			      struct ieee80211_vif *vif, unsigned int link_id,
-			      u32 wait_us)
+			      u16 removed, u32 wait_us)
 {
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
 
@@ -5744,6 +5745,7 @@ mt7996_mcu_beacon_reconf_wait(struct mt7996_dev *dev,
 	if (!mvif->reconf_wait_links)
 		mvif->reconf_wait_link = link_id;
 	mvif->reconf_wait_links |= BIT(link_id);
+	mvif->reconf_wait_removed |= removed;
 	spin_unlock_bh(&dev->mt76.lock);
 
 	if (wait_us)
@@ -5825,7 +5827,7 @@ mt7996_mcu_beacon_reconf_waits(struct mt7996_dev *dev,
 		return false;
 
 	if (waiting) {
-		mt7996_mcu_beacon_reconf_wait(dev, vif, link_id, 0);
+		mt7996_mcu_beacon_reconf_wait(dev, vif, link_id, links, 0);
 		return true;
 	}
 
@@ -5833,7 +5835,7 @@ mt7996_mcu_beacon_reconf_waits(struct mt7996_dev *dev,
 	if (!mt7996_mcu_beacon_reconf_outside(phase, bi_us))
 		return false;
 
-	mt7996_mcu_beacon_reconf_wait(dev, vif, link_id, bi_us - phase);
+	mt7996_mcu_beacon_reconf_wait(dev, vif, link_id, links, bi_us - phase);
 	return true;
 }
 
@@ -5867,7 +5869,8 @@ mt7996_mcu_beacon_reconf_retry(struct mt7996_dev *dev,
 		mvif->reconf_bcn_links = 0;
 	spin_unlock_bh(&dev->mt76.lock);
 
-	mt7996_mcu_beacon_reconf_wait(dev, vif, link_id, bi_us - phase);
+	mt7996_mcu_beacon_reconf_wait(dev, vif, link_id, started,
+				      bi_us - phase);
 	return true;
 }
 
@@ -5992,10 +5995,20 @@ void mt7996_mcu_beacon_reconf_stop(struct mt7996_dev *dev,
 				   unsigned int link_id, bool removed)
 {
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
-	bool timer = false;
+	bool timer = false, ended = false, wait_ended = false;
+	u16 waiting;
 
 	spin_lock_bh(&dev->mt76.lock);
-	/* a removed link that goes ends its removal before its expiry */
+	/* A removed link that stops ends its removal before its expiry, also
+	 * a removal whose start waits. The link sends no Beacon frames from
+	 * now on, so the removal ends at once.
+	 */
+	if (removed) {
+		ended = (mvif->reconf_links | mvif->reconf_stop_links |
+			 mvif->reconf_wait_removed) & BIT(link_id);
+		wait_ended = mvif->reconf_wait_removed == BIT(link_id);
+		mvif->reconf_wait_removed &= ~BIT(link_id);
+	}
 	if (removed && (mvif->reconf_links & BIT(link_id))) {
 		mvif->reconf_links &= ~BIT(link_id);
 		if (!mvif->reconf_links)
@@ -6004,7 +6017,10 @@ void mt7996_mcu_beacon_reconf_stop(struct mt7996_dev *dev,
 	if (removed) {
 		mvif->reconf_stop_links &= ~BIT(link_id);
 		mvif->reconf_done_links &= ~BIT(link_id);
-		mvif->reconf_off_air_links &= ~BIT(link_id);
+		if (ended)
+			mvif->reconf_off_air_links |= BIT(link_id);
+		else
+			mvif->reconf_off_air_links &= ~BIT(link_id);
 		mvif->reconf_tbtt_links &= ~BIT(link_id);
 		timer = mvif->reconf_timer_links & BIT(link_id);
 		mvif->reconf_timer_links &= ~BIT(link_id);
@@ -6015,10 +6031,22 @@ void mt7996_mcu_beacon_reconf_stop(struct mt7996_dev *dev,
 	mvif->reconf_wait_links &= ~BIT(link_id);
 	if (!mvif->reconf_wait_links)
 		mvif->reconf_start_tries = 0;
+	waiting = mvif->reconf_wait_links;
 	spin_unlock_bh(&dev->mt76.lock);
 
 	if (timer)
 		hrtimer_cancel(&mvif->reconf_timer);
+
+	if (!ended)
+		return;
+
+	/* the templates that waited for the start start nothing now */
+	if (wait_ended) {
+		hrtimer_cancel(&mvif->reconf_start_timer);
+		if (waiting)
+			queue_work(system_highpri_wq, &dev->reconf_work);
+	}
+	ieee80211_links_removed(vif, BIT(link_id));
 }
 
 /* The reset firmware holds no removal timer, so the templates of the restart
@@ -6041,6 +6069,7 @@ void mt7996_mcu_beacon_reconf_reset(struct mt7996_dev *dev,
 	mvif->reconf_tbtt_links = 0;
 	mvif->reconf_timer_links = 0;
 	mvif->reconf_wait_links = 0;
+	mvif->reconf_wait_removed = 0;
 	mvif->reconf_start_tries = 0;
 	spin_unlock_bh(&dev->mt76.lock);
 }
