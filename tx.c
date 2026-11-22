@@ -568,7 +568,7 @@ mt76_txq_send_burst(struct mt76_phy *phy, struct mt76_queue *q,
 	spin_lock(&q->lock);
 	idx = __mt76_tx_queue_skb(phy, qid, skb, wcid, txq->sta, &stop);
 	spin_unlock(&q->lock);
-	if (idx < 0)
+	if (idx < 0 && idx != MT76_TX_DROPPED)
 		return idx;
 
 	if (test_bit(MT_WCID_FLAG_PS, &wcid->flags))
@@ -593,7 +593,7 @@ mt76_txq_send_burst(struct mt76_phy *phy, struct mt76_queue *q,
 		spin_lock(&q->lock);
 		idx = __mt76_tx_queue_skb(phy, qid, skb, wcid, txq->sta, &stop);
 		spin_unlock(&q->lock);
-		if (idx < 0)
+		if (idx < 0 && idx != MT76_TX_DROPPED)
 			break;
 
 		n_frames++;

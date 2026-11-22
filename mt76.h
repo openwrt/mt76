@@ -559,6 +559,11 @@ struct mt76_hw_cap {
 #define MT_DRV_HW_PS_BUFFERING		BIT(7)
 #define MT_DRV_KEEP_REPLAYED_STA	BIT(8)
 
+/* tx_prepare_skb returns it for a frame that the driver does not send. The
+ * queue frees the frame as for an error, and the TX burst goes on.
+ */
+#define MT76_TX_DROPPED		(-ECANCELED)
+
 struct mt76_driver_ops {
 	u32 drv_flags;
 	u32 survey_flags;
