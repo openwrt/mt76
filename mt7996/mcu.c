@@ -4723,9 +4723,6 @@ int mt7996_mcu_set_peer_mld(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	u16 fw_mld_idx;
 	int len, ret;
 
-	if (!(links & BIT(msta->deflink_id)))
-		return 0;
-
 	len = sizeof(*hdr) + sizeof(*info) + nlinks * sizeof(*link_info) +
 	      sizeof(*cap) + 2 * sizeof(*cap_entry);
 	skb = mt76_mcu_msg_alloc(&dev->mt76, NULL, len);

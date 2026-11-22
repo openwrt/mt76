@@ -2238,6 +2238,38 @@ mt7996_mac_sta_clear_connected(struct mt7996_dev *dev, struct mt7996_sta *msta)
 }
 
 static int
+mt7996_mac_sta_peer_mld(struct mt7996_dev *dev, struct ieee80211_vif *vif,
+			struct ieee80211_sta *sta)
+{
+	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	unsigned long links = mt7996_mac_sta_links(dev, vif, sta);
+	unsigned int link_id;
+	int err;
+
+	if (!(links & BIT(msta->deflink_id)))
+		return 0;
+
+	err = mt7996_mcu_set_peer_mld(dev, vif, sta);
+	if (!mt7996_mcu_cmd_answered(err) && err != -ETIMEDOUT)
+		return err;
+
+	/* the firmware reserves a STA_REC for each listed link, and only
+	 * the teardown frees one that no CONNECT took
+	 */
+	for_each_set_bit(link_id, &links, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct mt7996_sta_link *msta_link;
+
+		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
+		msta_link->sta_rec_active = true;
+		/* as for a CONNECT whose answer an L1 SER dropped */
+		if (err == -ETIMEDOUT)
+			msta_link->sta_rec_reserved = true;
+	}
+
+	return err;
+}
+
+static int
 mt7996_mac_sta_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		     struct ieee80211_sta *sta, enum mt76_sta_event ev)
 {
@@ -2247,7 +2279,7 @@ mt7996_mac_sta_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	mutex_lock(&dev->mt76.mutex);
 
 	if (ev == MT76_STA_EVENT_ASSOC && sta->mlo) {
-		err = mt7996_mcu_set_peer_mld(dev, vif, sta);
+		err = mt7996_mac_sta_peer_mld(dev, vif, sta);
 		if (err)
 			goto out;
 	}
