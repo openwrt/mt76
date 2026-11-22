@@ -5607,10 +5607,11 @@ void mt7996_mcu_beacon_reconf_stop(struct mt7996_dev *dev,
 	bool timer = false;
 
 	spin_lock_bh(&dev->mt76.lock);
-	/* a removed link that goes ends the removal before its expiry */
+	/* a removed link that goes ends its removal before its expiry */
 	if (removed && (mvif->reconf_links & BIT(link_id))) {
-		mvif->reconf_links = 0;
-		mvif->reconf_bcn_links = 0;
+		mvif->reconf_links &= ~BIT(link_id);
+		if (!mvif->reconf_links)
+			mvif->reconf_bcn_links = 0;
 	}
 	if (removed) {
 		mvif->reconf_stop_links &= ~BIT(link_id);
@@ -5618,6 +5619,8 @@ void mt7996_mcu_beacon_reconf_stop(struct mt7996_dev *dev,
 		mvif->reconf_tbtt_links &= ~BIT(link_id);
 		timer = mvif->reconf_timer_links & BIT(link_id);
 		mvif->reconf_timer_links &= ~BIT(link_id);
+		if (mvif->reconf_timer_links)
+			timer = false;
 	}
 	mvif->reconf_bcn_links &= ~BIT(link_id);
 	mvif->reconf_wait_links &= ~BIT(link_id);
