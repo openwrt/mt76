@@ -647,6 +647,8 @@ void mt7915_mac_work(struct work_struct *work);
 void mt7915_mac_reset_work(struct work_struct *work);
 void mt7915_mac_dump_work(struct work_struct *work);
 void mt7915_mac_sta_rc_work(struct work_struct *work);
+void mt7915_mac_sta_ps_transition(struct mt7915_dev *dev,
+				  struct mt76_wcid *wcid, bool ps);
 void mt7915_mac_update_stats(struct mt7915_phy *phy);
 void mt7915_mac_twt_teardown_flow(struct mt7915_dev *dev,
 				  struct mt7915_sta *msta,
