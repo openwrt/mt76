@@ -2186,10 +2186,10 @@ mt7996_mac_sta_link_resume(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	if (err)
 		return err;
 
-	return mt7996_mcu_set_vow_drr_ctrl(dev, link->mt76.band_idx,
-					   &msta_link->wcid, &link->mt76,
-					   VOW_DRR_CTRL_STA_ALL,
-					   mt7996_sta_airtime_weight(msta_link->sta));
+	mt7996_mcu_sta_init_vow(dev, &link->mt76, &msta_link->wcid,
+				mt7996_sta_airtime_weight(msta_link->sta));
+
+	return 0;
 }
 
 static int

@@ -972,6 +972,8 @@ int mt7996_mcu_set_txbf(struct mt7996_dev *dev, u8 action);
 int mt7996_mcu_set_vow_drr_ctrl(struct mt7996_dev *dev, u8 band_idx,
 				struct mt76_wcid *wcid, struct mt76_vif_link *mvif,
 				enum vow_drr_ctrl_id id, u16 weight);
+int mt7996_mcu_sta_init_vow(struct mt7996_dev *dev, struct mt76_vif_link *mvif,
+			    struct mt76_wcid *wcid, u16 weight);
 int mt7996_mcu_set_vow_feature_ctrl(struct mt7996_phy *phy);
 void mt7996_vow_init(struct mt7996_phy *phy);
 int mt7996_mcu_set_fcc5_lpn(struct mt7996_dev *dev, int val);

@@ -3695,9 +3695,8 @@ int mt7996_mcu_set_scs(struct mt7996_dev *dev, u16 wlan_idx,
 				 sizeof(req), true);
 }
 
-static int
-mt7996_mcu_sta_init_vow(struct mt7996_dev *dev, struct mt76_vif_link *mvif,
-			struct mt76_wcid *wcid, u16 weight)
+int mt7996_mcu_sta_init_vow(struct mt7996_dev *dev, struct mt76_vif_link *mvif,
+			    struct mt76_wcid *wcid, u16 weight)
 {
 	int ret;
 
