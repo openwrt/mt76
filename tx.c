@@ -237,6 +237,43 @@ mt76_tx_status_check(struct mt76_dev *dev, bool flush)
 EXPORT_SYMBOL_GPL(mt76_tx_status_check);
 
 static void
+mt76_sta_txq_schedule(struct mt76_dev *dev, struct mt76_wcid *wcid)
+{
+	struct ieee80211_sta *sta = wcid_to_sta(wcid);
+	struct ieee80211_hw *hw;
+	int i;
+
+	if (!sta)
+		return;
+
+	hw = mt76_phy_hw(dev, wcid->phy_idx);
+	for (i = 0; i < ARRAY_SIZE(sta->txq); i++)
+		if (sta->txq[i])
+			ieee80211_schedule_txq(hw, sta->txq[i]);
+	mt76_worker_schedule(&dev->tx_worker);
+}
+
+static void
+mt76_tx_check_inflight(struct mt76_dev *dev, struct mt76_wcid *wcid)
+{
+	int pending;
+	u16 limit;
+
+	if (!wcid || !(dev->drv->drv_flags & MT_DRV_TX_INFLIGHT_LIMIT))
+		return;
+
+	wcid = mt76_wcid_primary(wcid);
+
+	pending = atomic_dec_return(&wcid->tx_inflight);
+	if (pending < 0)
+		atomic_cmpxchg(&wcid->tx_inflight, pending, 0);
+
+	limit = READ_ONCE(wcid->tx_inflight_limit);
+	if (limit && pending == limit - 1)
+		mt76_sta_txq_schedule(dev, wcid);
+}
+
+static void
 mt76_tx_check_non_aql(struct mt76_dev *dev, struct mt76_wcid *wcid,
 		      struct sk_buff *skb)
 {
@@ -282,21 +319,11 @@ void __mt76_tx_complete_skb(struct mt76_dev *dev, u16 wcid_idx, struct sk_buff *
 
 	wcid = __mt76_wcid_ptr(dev, wcid_idx);
 	mt76_tx_check_non_aql(dev, wcid, skb);
+	mt76_tx_check_inflight(dev, wcid);
 
 	if (wcid && (dev->drv->drv_flags & MT_DRV_HW_PS_BUFFERING) &&
-	    test_bit(MT_WCID_FLAG_PS, &wcid->flags)) {
-		struct ieee80211_sta *sta = wcid_to_sta(wcid);
-
-		if (sta) {
-			struct ieee80211_hw *hw = mt76_phy_hw(dev, wcid->phy_idx);
-			int i;
-
-			for (i = 0; i < ARRAY_SIZE(sta->txq); i++)
-				if (sta->txq[i])
-					ieee80211_schedule_txq(hw, sta->txq[i]);
-			mt76_worker_schedule(&dev->tx_worker);
-		}
-	}
+	    test_bit(MT_WCID_FLAG_PS, &wcid->flags))
+		mt76_sta_txq_schedule(dev, wcid);
 
 #ifdef CONFIG_NL80211_TESTMODE
 	if (mt76_is_testmode_skb(dev, skb, &hw)) {
@@ -346,8 +373,10 @@ __mt76_tx_queue_skb(struct mt76_phy *phy, int qid, struct sk_buff *skb,
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct mt76_queue *q = phy->q_tx[qid];
 	struct mt76_dev *dev = phy->dev;
+	struct mt76_wcid *primary;
 	bool non_aql;
 	int pending;
+	u16 limit;
 	int idx;
 
 	non_aql = !info->tx_time_est;
@@ -357,11 +386,20 @@ __mt76_tx_queue_skb(struct mt76_phy *phy, int qid, struct sk_buff *skb,
 
 	q->entry[idx].wcid = wcid->idx;
 
+	/* the hardware can report the completion on a different link */
+	primary = mt76_wcid_primary(wcid);
+
+	if (dev->drv->drv_flags & MT_DRV_TX_INFLIGHT_LIMIT) {
+		pending = atomic_inc_return(&primary->tx_inflight);
+		limit = READ_ONCE(primary->tx_inflight_limit);
+		if (stop && limit && pending >= limit)
+			*stop = true;
+	}
+
 	if (!non_aql)
 		return idx;
 
-	/* the hardware can report the completion on a different link */
-	pending = atomic_inc_return(&mt76_wcid_primary(wcid)->non_aql_packets);
+	pending = atomic_inc_return(&primary->non_aql_packets);
 	if (stop && pending >= MT_MAX_NON_AQL_PKT)
 		*stop = true;
 
@@ -532,6 +570,19 @@ mt76_txq_stopped(struct mt76_queue *q)
 	       q->queued + MT_TXQ_FREE_THR >= q->ndesc;
 }
 
+static bool
+mt76_wcid_tx_held(struct mt76_wcid *wcid)
+{
+	u16 limit;
+
+	wcid = mt76_wcid_primary(wcid);
+	if (atomic_read(&wcid->non_aql_packets) >= MT_MAX_NON_AQL_PKT)
+		return true;
+
+	limit = READ_ONCE(wcid->tx_inflight_limit);
+	return limit && atomic_read(&wcid->tx_inflight) >= limit;
+}
+
 static int
 mt76_txq_send_burst(struct mt76_phy *phy, struct mt76_queue *q,
 		    struct mt76_txq *mtxq, struct mt76_wcid *wcid)
@@ -552,8 +603,7 @@ mt76_txq_send_burst(struct mt76_phy *phy, struct mt76_queue *q,
 			return 0;
 	}
 
-	if (atomic_read(&mt76_wcid_primary(wcid)->non_aql_packets) >=
-	    MT_MAX_NON_AQL_PKT)
+	if (mt76_wcid_tx_held(wcid))
 		return 0;
 
 	skb = mt76_txq_dequeue(phy, mtxq);
@@ -653,8 +703,7 @@ mt76_txq_schedule_list(struct mt76_phy *phy, enum mt76_txq_id qid)
 			continue;
 		}
 
-		if (atomic_read(&mt76_wcid_primary(wcid)->non_aql_packets) >=
-		    MT_MAX_NON_AQL_PKT)
+		if (mt76_wcid_tx_held(wcid))
 			continue;
 		if (dev->queue_ops->tx_cleanup &&
 		    q->queued + 2 * MT_TXQ_FREE_THR >= q->ndesc) {
@@ -912,10 +961,6 @@ EXPORT_SYMBOL_GPL(mt76_stop_tx_queues);
 void mt76_sta_ps_transition(struct mt76_dev *dev, struct mt76_wcid *wcid,
 			    bool ps)
 {
-	struct ieee80211_sta *sta;
-	struct ieee80211_hw *hw;
-	int i;
-
 	if (ps) {
 		set_bit(MT_WCID_FLAG_PS, &wcid->flags);
 		mt76_worker_schedule(&dev->tx_worker);
@@ -923,18 +968,23 @@ void mt76_sta_ps_transition(struct mt76_dev *dev, struct mt76_wcid *wcid,
 	}
 
 	clear_bit(MT_WCID_FLAG_PS, &wcid->flags);
-
-	sta = wcid_to_sta(wcid);
-	if (!sta)
-		return;
-
-	hw = mt76_phy_hw(dev, wcid->phy_idx);
-	for (i = 0; i < ARRAY_SIZE(sta->txq); i++)
-		if (sta->txq[i])
-			ieee80211_schedule_txq(hw, sta->txq[i]);
-	mt76_worker_schedule(&dev->tx_worker);
+	mt76_sta_txq_schedule(dev, wcid);
 }
 EXPORT_SYMBOL_GPL(mt76_sta_ps_transition);
+
+void mt76_wcid_tx_limit_set(struct mt76_dev *dev, struct mt76_wcid *wcid,
+			    u16 limit)
+{
+	u16 prev;
+
+	wcid = mt76_wcid_primary(wcid);
+	prev = READ_ONCE(wcid->tx_inflight_limit);
+	WRITE_ONCE(wcid->tx_inflight_limit, limit);
+
+	if (prev && (!limit || limit > prev))
+		mt76_sta_txq_schedule(dev, wcid);
+}
+EXPORT_SYMBOL_GPL(mt76_wcid_tx_limit_set);
 
 void mt76_wake_tx_queue(struct ieee80211_hw *hw, struct ieee80211_txq *txq)
 {

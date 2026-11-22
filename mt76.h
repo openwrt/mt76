@@ -396,6 +396,7 @@ struct mt76_wcid {
 	struct mt76_rx_tid __rcu *aggr[IEEE80211_NUM_TIDS];
 
 	atomic_t non_aql_packets;
+	atomic_t tx_inflight;
 	unsigned long flags;
 
 	struct ewma_signal rssi;
@@ -421,6 +422,7 @@ struct mt76_wcid {
 	u8 rx_key_pn[IEEE80211_NUM_TIDS + 1][6];
 	struct mt76_rx_group_pn *rx_group_pn;
 	u16 cipher;
+	u16 tx_inflight_limit;
 
 	u32 tx_info;
 	bool sw_iv;
@@ -558,6 +560,7 @@ struct mt76_hw_cap {
 #define MT_DRV_IGNORE_TXS_FAILED	BIT(6)
 #define MT_DRV_HW_PS_BUFFERING		BIT(7)
 #define MT_DRV_KEEP_REPLAYED_STA	BIT(8)
+#define MT_DRV_TX_INFLIGHT_LIMIT	BIT(9)
 
 /* tx_prepare_skb returns it for a frame that the driver does not send. The
  * queue frees the frame as for an error, and the TX burst goes on.
@@ -1667,6 +1670,8 @@ void mt76_release_buffered_frames(struct ieee80211_hw *hw,
 				  bool more_data);
 void mt76_sta_ps_transition(struct mt76_dev *dev, struct mt76_wcid *wcid,
 			    bool ps);
+void mt76_wcid_tx_limit_set(struct mt76_dev *dev, struct mt76_wcid *wcid,
+			    u16 limit);
 bool mt76_has_tx_pending(struct mt76_phy *phy);
 int mt76_update_channel(struct mt76_phy *phy);
 void mt76_update_survey(struct mt76_phy *phy);
