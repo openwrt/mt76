@@ -134,8 +134,6 @@ struct mt7915_twt_flow {
 
 DECLARE_EWMA(avg_signal, 10, 8)
 
-#define UMAC_BWC_GROUP_MIN	40
-
 enum vow_drr_ctrl_id {
 	VOW_DRR_CTRL_STA_ALL = 0x00,
 	VOW_DRR_CTRL_AIRTIME_DEFICIT_BOUND = 0x10,

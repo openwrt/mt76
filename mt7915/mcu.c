@@ -3832,7 +3832,6 @@ int mt7915_mcu_set_vow_drr_ctrl(struct mt7915_dev *dev, struct mt7915_sta *msta,
 				      mt76_connac_vow_dwrr_quantum(weight, IEEE80211_AC_VI));
 		setting |= FIELD_PREP(VOW_DRR_STA_AC3_QNTM_MASK,
 				      mt76_connac_vow_dwrr_quantum(weight, IEEE80211_AC_VO));
-		setting |= UMAC_BWC_GROUP_MIN << 24;
 		req.air_time_ctrl.com_value = cpu_to_le32(setting);
 		break;
 	case VOW_DRR_CTRL_STA_PAUSE:
