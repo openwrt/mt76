@@ -3683,7 +3683,7 @@ int mt7996_mcu_set_scs(struct mt7996_dev *dev, u16 wlan_idx,
 		 * finds the entry by this field
 		 */
 		.ac = mt7996_qos_char_tid(qc),
-		.scs_id = stream->id,
+		.scs_id = stream->fw_id,
 	};
 
 	if (del) {

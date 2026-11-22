@@ -1850,13 +1850,21 @@ mt7996_sta_scs_del(struct mt7996_dev *dev, struct mt7996_sta *msta)
 		mt7996_sta_scs_set(dev, msta, stream, true);
 }
 
-void mt7996_sta_scs_free(struct mt7996_sta *msta)
+static void
+mt7996_scs_stream_free(struct mt7996_dev *dev,
+		       struct mt7996_scs_stream *stream)
+{
+	dev->scs_id_mask &= ~BIT_ULL(stream->fw_id);
+	kfree(stream);
+}
+
+void mt7996_sta_scs_free(struct mt7996_dev *dev, struct mt7996_sta *msta)
 {
 	struct mt7996_scs_stream *stream, *tmp;
 
 	list_for_each_entry_safe(stream, tmp, &msta->scs_list, list) {
 		list_del(&stream->list);
-		kfree(stream);
+		mt7996_scs_stream_free(dev, stream);
 	}
 }
 
@@ -2480,7 +2488,7 @@ mt7996_mac_sta_remove(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	mt7996_mac_sta_rec_teardown(dev, vif, sta);
 	for (i = 0; i < ARRAY_SIZE(msta->link); i++)
 		mt7996_mac_sta_remove_link(dev, sta, i, true);
-	mt7996_sta_scs_free(msta);
+	mt7996_sta_scs_free(dev, msta);
 	mutex_unlock(&dev->mt76.mutex);
 }
 
@@ -3246,7 +3254,7 @@ static u16 mt7996_sta_scs_update(struct mt7996_dev *dev,
 		if (old) {
 			mt7996_sta_scs_set(dev, msta, old, true);
 			list_del(&old->list);
-			kfree(old);
+			mt7996_scs_stream_free(dev, old);
 		}
 
 		return WLAN_STATUS_SUCCESS;
@@ -3265,9 +3273,19 @@ static u16 mt7996_sta_scs_update(struct mt7996_dev *dev,
 				    mt7996_qos_char_tid(desc->qos_char)))
 		return WLAN_STATUS_REQUEST_DECLINED;
 
+	if (!old && !~dev->scs_id_mask)
+		return WLAN_STATUS_INSUFFICIENT_TCLAS_PROCESSING_RESOURCES;
+
 	new = kzalloc_obj(*new);
 	if (!new)
 		return WLAN_STATUS_REQUEST_DECLINED;
+
+	if (old) {
+		new->fw_id = old->fw_id;
+	} else {
+		new->fw_id = __ffs64(~dev->scs_id_mask);
+		dev->scs_id_mask |= BIT_ULL(new->fw_id);
+	}
 
 	new->id = desc->id;
 	new->len = desc->qos_char_len;
@@ -3282,7 +3300,10 @@ static u16 mt7996_sta_scs_update(struct mt7996_dev *dev,
 		if (old)
 			mt7996_sta_scs_set(dev, msta, old, false);
 
-		kfree(new);
+		if (old)
+			kfree(new);
+		else
+			mt7996_scs_stream_free(dev, new);
 		return WLAN_STATUS_REQUEST_DECLINED;
 	}
 

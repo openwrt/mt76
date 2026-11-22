@@ -333,6 +333,7 @@ struct mt7996_sta_ba {
 struct mt7996_scs_stream {
 	struct list_head list;
 	u8 id;
+	u8 fw_id;
 	u8 len;
 	u8 qos_char[MT7996_SCS_QOS_CHAR_LEN];
 };
@@ -667,6 +668,9 @@ struct mt7996_dev {
 		u16 table_mask;
 		u8 n_agrt;
 	} twt;
+
+	/* the firmware keys an SCS record by its SCSID alone */
+	u64 scs_id_mask;
 
 	spinlock_t reg_lock;
 
@@ -1148,7 +1152,7 @@ void mt7996_mac_twt_teardown_flow(struct mt7996_dev *dev,
 void mt7996_mac_sta_remove_link(struct mt7996_dev *dev,
 				struct ieee80211_sta *sta,
 				unsigned int link_id, bool flush);
-void mt7996_sta_scs_free(struct mt7996_sta *msta);
+void mt7996_sta_scs_free(struct mt7996_dev *dev, struct mt7996_sta *msta);
 u16 mt7996_mac_sta_links(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			 struct ieee80211_sta *sta);
 void mt7996_sta_tx_links_release(struct mt7996_dev *dev,
