@@ -1534,7 +1534,7 @@ mt7996_mcu_mld_attlm_notify(void *priv, u8 *mac, struct ieee80211_vif *vif)
 {
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
 	struct mt7996_mld_attlm_data *data = priv;
-	bool match, early;
+	bool match, early, stale_end;
 
 	if (vif->type != NL80211_IFTYPE_AP || !ieee80211_vif_is_mld(vif) ||
 	    !ether_addr_equal(vif->addr, data->mld_addr))
@@ -1547,7 +1547,16 @@ mt7996_mcu_mld_attlm_notify(void *priv, u8 *mac, struct ieee80211_vif *vif)
 		mvif->attlm_early_switch = true;
 	if (early && data->cmd == NL80211_CMD_ADV_TTLM_ENDED)
 		mvif->attlm_early_end = true;
+	/* the end timer can end a mapping before the firmware lifts the
+	 * pause of its negotiated mappings
+	 */
+	stale_end = !match && data->cmd == NL80211_CMD_ADV_TTLM_ENDED;
+	if (stale_end)
+		mvif->attlm_ttlm_resend = true;
 	spin_unlock_bh(&data->dev->mt76.lock);
+
+	if (stale_end)
+		queue_work(system_highpri_wq, &data->dev->attlm_work);
 
 	if (match && !early)
 		mt7996_mcu_mld_attlm_step(data->dev, vif, data->cmd);
