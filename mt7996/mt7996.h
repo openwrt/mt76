@@ -22,6 +22,8 @@
 #define MT7996_WATCHDOG_TIME		(HZ / 10)
 #define MT7996_AIRTIME_MISSED_MAX	4
 #define MT7996_RESET_TIMEOUT		(30 * HZ)
+#define MT7996_TSF_READ_TRIES		3
+#define MT7996_TSF_READ_SPAN_US		1000
 
 #define to_rssi(field, rcpi)		((FIELD_GET(field, rcpi) - 220) / 2)
 

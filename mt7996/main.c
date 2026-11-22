@@ -2709,15 +2709,29 @@ mt7996_get_stats(struct ieee80211_hw *hw,
 	return 0;
 }
 
-u64 __mt7996_get_tsf(struct ieee80211_hw *hw, struct mt7996_vif_link *link)
+static u64 mt7996_tsf_latch(struct mt7996_dev *dev, u8 band, u16 n)
 {
-	struct mt7996_phy *phy = mt7996_vif_link_phy(link);
-	struct mt7996_dev *dev = mt7996_hw_dev(hw);
 	union {
 		u64 t64;
 		u32 t32[2];
 	} tsf;
+
+	mt76_rmw(dev, MT_LPON_TCR(band, n), MT_LPON_TCR_SW_MODE,
+		 MT_LPON_TCR_SW_READ);
+	tsf.t32[0] = mt76_rr(dev, MT_LPON_UTTR0(band));
+	tsf.t32[1] = mt76_rr(dev, MT_LPON_UTTR1(band));
+
+	return tsf.t64;
+}
+
+u64 __mt7996_get_tsf(struct ieee80211_hw *hw, struct mt7996_vif_link *link)
+{
+	struct mt7996_phy *phy = mt7996_vif_link_phy(link);
+	struct mt7996_dev *dev = mt7996_hw_dev(hw);
+	u64 first = 0, tsf = 0;
+	u8 band;
 	u16 n;
+	int i;
 
 	if (!phy)
 		return 0;
@@ -2726,13 +2740,24 @@ u64 __mt7996_get_tsf(struct ieee80211_hw *hw, struct mt7996_vif_link *link)
 
 	n = link->mt76.omac_idx > HW_BSSID_MAX ? HW_BSSID_0
 					       : link->mt76.omac_idx;
-	/* TSF software read */
-	mt76_rmw(dev, MT_LPON_TCR(phy->mt76->band_idx, n), MT_LPON_TCR_SW_MODE,
-		 MT_LPON_TCR_SW_READ);
-	tsf.t32[0] = mt76_rr(dev, MT_LPON_UTTR0(phy->mt76->band_idx));
-	tsf.t32[1] = mt76_rr(dev, MT_LPON_UTTR1(phy->mt76->band_idx));
+	band = phy->mt76->band_idx;
 
-	return tsf.t64;
+	/* The firmware latches its own TSF reads into the same UTTR pair
+	 * without a lock, so a value counts only where a second read follows
+	 * it closely.
+	 */
+	for (i = 0; i < MT7996_TSF_READ_TRIES; i++) {
+		first = mt7996_tsf_latch(dev, band, n);
+		tsf = mt7996_tsf_latch(dev, band, n);
+		if (tsf - first <= MT7996_TSF_READ_SPAN_US)
+			return tsf;
+	}
+
+	dev_warn_once(dev->mt76.dev,
+		      "TSF reads of band %u do not agree: %llu, %llu\n",
+		      band, first, tsf);
+
+	return tsf;
 }
 
 static u64
