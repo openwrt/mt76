@@ -4102,43 +4102,67 @@ static int
 mt7996_mcu_mld_attlm_started(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			     struct sk_buff *skb,
 			     struct cfg80211_adv_ttlm_params *params,
-			     struct mt7996_vif_link *ref, u16 stop_links,
-			     u16 disc_links)
+			     struct mt7996_vif_link *ref,
+			     struct ieee80211_bss_conf *ref_conf,
+			     u16 stop_links, u16 disc_links)
 {
 	unsigned int hdr_len = sizeof(struct mt7996_mcu_mld_event) -
 			       sizeof(struct mt7996_mcu_rxd);
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+	u64 ref_bi = (u64)ref_conf->beacon_int * 1024, rem;
 	struct mt7996_mcu_mld_attlm_resp_event *resp;
 	unsigned long valid_links = vif->valid_links;
 	u64 switch_tsf, end_tsf, ref_tsf, ref_boottime;
 	struct ieee80211_hw *hw = mt76_hw(dev);
 	unsigned int link_id;
 	u64 switch_boottime, end_boottime;
+	bool generic;
 
-	if (skb->len < hdr_len + sizeof(*resp))
-		return -EIO;
+	/* where the firmware has no buffer for the response, the generic
+	 * result of the command alone answers the request
+	 */
+	generic = skb->len == sizeof(struct mt7996_mcu_uni_event);
+	if (!generic) {
+		if (skb->len < hdr_len + sizeof(*resp))
+			return -EIO;
 
-	resp = (struct mt7996_mcu_mld_attlm_resp_event *)(skb->data + hdr_len);
-	if (le16_to_cpu(resp->tag) != UNI_EVENT_MLD_ATTLM_RES_RSP ||
-	    le16_to_cpu(resp->len) < sizeof(*resp))
-		return -EIO;
+		resp = (struct mt7996_mcu_mld_attlm_resp_event *)(skb->data +
+								  hdr_len);
+		if (le16_to_cpu(resp->tag) != UNI_EVENT_MLD_ATTLM_RES_RSP ||
+		    le16_to_cpu(resp->len) < sizeof(*resp))
+			return -EIO;
 
-	if (resp->status) {
-		dev_warn(dev->mt76.dev, "A-TTLM request failed: status %u\n",
-			 resp->status);
-		return -EIO;
+		if (resp->status) {
+			dev_warn(dev->mt76.dev,
+				 "A-TTLM request failed: status %u\n",
+				 resp->status);
+			return -EIO;
+		}
+
+		switch_tsf = le32_to_cpu(resp->switch_time_tsf[0]) |
+			     (u64)le32_to_cpu(resp->switch_time_tsf[1]) << 32;
+		end_tsf = le32_to_cpu(resp->end_tsf[0]) |
+			  (u64)le32_to_cpu(resp->end_tsf[1]) << 32;
 	}
-
-	switch_tsf = le32_to_cpu(resp->switch_time_tsf[0]) |
-		     (u64)le32_to_cpu(resp->switch_time_tsf[1]) << 32;
-	end_tsf = le32_to_cpu(resp->end_tsf[0]) |
-		  (u64)le32_to_cpu(resp->end_tsf[1]) << 32;
 
 	/* the events of the firmware carry no time, so the TSF of the switch
 	 * gives the CLOCK_BOOTTIME of its TBTT
 	 */
 	ref_tsf = __mt7996_get_tsf(hw, ref);
 	ref_boottime = ktime_get_boottime_ns();
+
+	/* the firmware switches at the next TBTT of the BSS of the request
+	 * plus the switch time, rounded up to a beacon interval
+	 */
+	if (generic) {
+		u64 switch_us = (u64)params->switch_time * 1024;
+
+		div64_u64_rem(ref_tsf, ref_bi, &rem);
+		switch_tsf = ref_tsf - rem + ref_bi;
+		div64_u64_rem(switch_us, ref_bi, &rem);
+		switch_tsf += switch_us + (rem ? ref_bi - rem : 0);
+		end_tsf = switch_tsf + (u64)params->duration * 1024;
+	}
 	switch_boottime = mt7996_tsf_to_boottime(switch_tsf, ref_tsf,
 						 ref_boottime);
 	end_boottime = mt7996_tsf_to_boottime(end_tsf, ref_tsf, ref_boottime);
@@ -4225,6 +4249,7 @@ int mt7996_mcu_mld_adv_ttlm(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	u64 duration_us = (u64)params->duration * 1024;
 	u64 switch_us = (u64)params->switch_time * 1024;
 	struct mld_req_hdr hdr = { .mld_idx = 0xff };
+	struct ieee80211_bss_conf *ref_conf = NULL;
 	struct mt7996_vif_link *ref = NULL;
 	struct mld_attlm_req *req;
 	struct sk_buff *skb, *rskb;
@@ -4280,6 +4305,7 @@ int mt7996_mcu_mld_adv_ttlm(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		if (!ref && link_conf && link_conf->enable_beacon &&
 		    !(stopped & BIT(link_id))) {
 			ref = link;
+			ref_conf = link_conf;
 			req->bss_idx = link->mt76.idx;
 			disc_links = BIT(link_id);
 		} else {
@@ -4303,7 +4329,8 @@ int mt7996_mcu_mld_adv_ttlm(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 					    MCU_WM_UNI_CMD(MLD), true, &rskb);
 	if (!ret) {
 		ret = mt7996_mcu_mld_attlm_started(dev, vif, rskb, params, ref,
-						   stop_links, disc_links);
+						   ref_conf, stop_links,
+						   disc_links);
 		dev_kfree_skb(rskb);
 	}
 
