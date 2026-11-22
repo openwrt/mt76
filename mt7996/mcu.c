@@ -3720,6 +3720,25 @@ int mt7996_mcu_set_scs(struct mt7996_dev *dev,
 		.scs_id = stream->fw_id,
 	};
 
+	if (del && req.ac >= IEEE80211_NUM_ACS) {
+		struct ieee80211_qos_char_elem *entry_qc = (void *)req.qos_ie;
+
+		/* The firmware deletes no stream entry whose AC is above 3.
+		 * An add under the key of the entry stores TID 0 in it, and
+		 * the add of a downlink stream leaves the SCS record alone.
+		 */
+		req.qos_flag = cpu_to_le32(MURU_QOS_FLAG_UPDATE);
+		entry_qc->element_id = WLAN_EID_EXTENSION;
+		entry_qc->length = sizeof(*entry_qc) - 2;
+		entry_qc->element_id_ext = WLAN_EID_EXT_QOS_CHARACTERISTICS;
+		entry_qc->control =
+			cpu_to_le32(u32_encode_bits(IEEE80211_QOS_CHAR_DIR_DOWNLINK,
+						    IEEE80211_QOS_CHAR_CTRL_DIRECTION));
+		mt76_mcu_send_msg(&dev->mt76, MCU_WMWA_UNI_CMD(MURU), &req,
+				  sizeof(req), true);
+		memset(req.qos_ie, 0, sizeof(req.qos_ie));
+	}
+
 	if (del) {
 		req.qos_flag = cpu_to_le32(MURU_QOS_FLAG_DELETE);
 	} else {
