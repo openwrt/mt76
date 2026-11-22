@@ -1306,6 +1306,8 @@ static void mt7996_stop_hardware(struct mt7996_dev *dev)
 	mt7996_mcu_exit(dev);
 	cancel_work_sync(&dev->reconf_work);
 	cancel_work_sync(&dev->attlm_work);
+	hrtimer_cancel(&dev->cntdwn_timer);
+	cancel_work_sync(&dev->cntdwn_work);
 	mt7996_tx_token_put(dev);
 	mt7996_dma_cleanup(dev);
 	if (mt7996_has_hwrro(dev) &&
@@ -1826,6 +1828,9 @@ int mt7996_register_device(struct mt7996_dev *dev)
 	INIT_WORK(&dev->dump_work, mt7996_mac_dump_work);
 	INIT_WORK(&dev->reconf_work, mt7996_mcu_mld_reconf_work);
 	INIT_WORK(&dev->attlm_work, mt7996_mcu_mld_attlm_work);
+	INIT_WORK(&dev->cntdwn_work, mt7996_mcu_beacon_cntdwn_work);
+	hrtimer_setup(&dev->cntdwn_timer, mt7996_mcu_beacon_cntdwn_timer,
+		      CLOCK_BOOTTIME, HRTIMER_MODE_ABS_SOFT);
 	mutex_init(&dev->dump_mutex);
 	dev->vow_atf_en = true;
 

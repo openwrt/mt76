@@ -376,6 +376,8 @@ struct mt7996_vif_link {
 
 struct mt7996_vif_link_info {
 	struct ieee80211_tx_queue_params queue_params[IEEE80211_NUM_ACS];
+	/* kept across a full reset, which frees the links of an MLD */
+	struct mt76_cntdwn cntdwn;
 };
 
 struct mt7996_vif {
@@ -609,6 +611,8 @@ struct mt7996_dev {
 	struct work_struct reset_work;
 	struct work_struct reconf_work;
 	struct work_struct attlm_work;
+	struct work_struct cntdwn_work;
+	struct hrtimer cntdwn_timer;
 	wait_queue_head_t reset_wait;
 	struct {
 		u32 state;
@@ -1076,6 +1080,8 @@ int mt7996_mcu_mld_reconf_stop_link(struct mt7996_dev *dev,
 				    u16 removed_links);
 void mt7996_mcu_mld_reconf_work(struct work_struct *work);
 void mt7996_mcu_mld_attlm_work(struct work_struct *work);
+void mt7996_mcu_beacon_cntdwn_work(struct work_struct *work);
+enum hrtimer_restart mt7996_mcu_beacon_cntdwn_timer(struct hrtimer *timer);
 enum hrtimer_restart mt7996_mcu_mld_attlm_end(struct hrtimer *timer);
 enum hrtimer_restart mt7996_mcu_mld_attlm_cntdwn_end(struct hrtimer *timer);
 void mt7996_mcu_mld_attlm_cntdwn_reset(struct mt7996_dev *dev,

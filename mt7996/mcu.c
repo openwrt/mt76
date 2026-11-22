@@ -508,6 +508,9 @@ mt7996_mcu_csa_finish(void *priv, u8 *mac, struct ieee80211_vif *vif)
 	if (!link_conf || !link_conf->csa_active)
 		return;
 
+	if (!mt76_cntdwn_finish_take(&mvif->link_info[link_id].cntdwn))
+		return;
+
 	ieee80211_csa_finish(vif, link_conf->link_id);
 }
 
@@ -535,6 +538,9 @@ mt7996_mcu_cca_finish(void *priv, u8 *mac, struct ieee80211_vif *vif)
 	}
 
 	if (!link_conf || !link_conf->color_change_active)
+		return;
+
+	if (!mt76_cntdwn_finish_take(&mvif->link_info[link_id].cntdwn))
 		return;
 
 	ieee80211_color_change_finish(vif, link_conf->link_id);
@@ -1434,6 +1440,10 @@ enum hrtimer_restart mt7996_mcu_mld_attlm_cntdwn_end(struct hrtimer *timer)
 
 		link_conf = rcu_dereference(vif->link_conf[link_id]);
 		if (!link_conf)
+			continue;
+
+		if ((link_conf->csa_active || link_conf->color_change_active) &&
+		    !mt76_cntdwn_finish_take(&mvif->link_info[link_id].cntdwn))
 			continue;
 
 		if (link_conf->csa_active)
@@ -5172,13 +5182,13 @@ int mt7996_mcu_add_dev_info(struct mt7996_phy *phy, struct ieee80211_vif *vif,
 static void
 mt7996_mcu_beacon_cntdwn(struct sk_buff *rskb, struct sk_buff *skb,
 			 struct ieee80211_mutable_offsets *offs,
-			 bool csa)
+			 bool csa, int cnt)
 {
 	struct bss_bcn_cntdwn_tlv *info;
 	struct tlv *tlv;
 	u16 tag;
 
-	if (!offs->cntdwn_counter_offs[0])
+	if (!offs->cntdwn_counter_offs[0] || cnt < 0)
 		return;
 
 	tag = csa ? UNI_BSS_INFO_BCN_CSA : UNI_BSS_INFO_BCN_BCC;
@@ -5186,7 +5196,17 @@ mt7996_mcu_beacon_cntdwn(struct sk_buff *rskb, struct sk_buff *skb,
 	tlv = mt7996_mcu_add_uni_tlv(rskb, tag, sizeof(*info));
 
 	info = (struct bss_bcn_cntdwn_tlv *)tlv;
-	info->cnt = skb->data[offs->cntdwn_counter_offs[0]];
+	info->cnt = cnt;
+
+	/* a count of 0 leaves a countdown that the firmware still counts
+	 * running; the abort ends it in every state with no event
+	 */
+	if (!cnt) {
+		if (csa)
+			info->csa.abort = true;
+		else
+			info->cca.abort = true;
+	}
 
 	/* abort the CCA countdown when starting CSA countdown */
 	if (csa) {
@@ -5197,6 +5217,169 @@ mt7996_mcu_beacon_cntdwn(struct sk_buff *rskb, struct sk_buff *skb,
 		cca_info = (struct bss_bcn_cntdwn_tlv *)tlv;
 		cca_info->cca.abort = true;
 	}
+}
+
+static struct mt76_cntdwn *
+mt7996_mcu_cntdwn_get(struct ieee80211_vif *vif,
+		      struct ieee80211_bss_conf *link_conf)
+{
+	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+
+	return &mvif->link_info[link_conf->link_id].cntdwn;
+}
+
+static void
+mt7996_mcu_beacon_cntdwn_end(struct ieee80211_vif *vif,
+			     struct ieee80211_bss_conf *link_conf)
+{
+	if (!mt76_cntdwn_finish_take(mt7996_mcu_cntdwn_get(vif, link_conf)))
+		return;
+
+	if (link_conf->csa_active)
+		ieee80211_csa_finish(vif, link_conf->link_id);
+	else
+		ieee80211_color_change_finish(vif, link_conf->link_id);
+}
+
+/* Returns false where the upload waits until no pass is near. The count of
+ * a running countdown goes into mac80211 before it builds the template. A
+ * CSA pass writes the stored count into the template before it counts down,
+ * so the template of a CSA holds one more than the count left; a BCC pass
+ * counts down first.
+ */
+static bool
+mt7996_mcu_beacon_cntdwn_prepare(struct mt7996_dev *dev,
+				 struct ieee80211_vif *vif,
+				 struct ieee80211_bss_conf *link_conf,
+				 struct mt7996_vif_link *link, bool enabled,
+				 u64 now)
+{
+	struct mt76_cntdwn *cd = mt7996_mcu_cntdwn_get(vif, link_conf);
+	u8 type = mt76_cntdwn_type(link_conf);
+	unsigned int passes;
+	u64 wait;
+
+	if (!type) {
+		mt76_cntdwn_clear(cd);
+		return true;
+	}
+
+	if (!enabled) {
+		cd->wait = false;
+		return true;
+	}
+
+	if (mt76_cntdwn_begins(cd, type)) {
+		mt76_cntdwn_clear(cd);
+		return true;
+	}
+
+	if (test_bit(MT76_CNTDWN_PHASE_LOST, &cd->state)) {
+		u64 tsf = __mt7996_get_tsf(mt76_hw(dev), link);
+
+		now = ktime_get_boottime_ns();
+		mt76_cntdwn_rephase(cd, MT7996_PRE_TBTT_US, tsf, now);
+	}
+
+	wait = mt76_cntdwn_wait(cd, now);
+	if (wait) {
+		mt76_cntdwn_defer(&dev->cntdwn_timer, cd, now + wait);
+		return false;
+	}
+
+	passes = mt76_cntdwn_passes(cd, now);
+	if (type == MT76_CNTDWN_CSA && passes)
+		passes--;
+	mt76_cntdwn_counter_sync(vif, link_conf->link_id, cd, passes);
+
+	return true;
+}
+
+/* Returns false where a countdown that this template starts waits until no
+ * pass is near; @cnt is the count of the countdown sub-tag, -1 for none.
+ */
+static bool
+mt7996_mcu_beacon_cntdwn_count(struct mt7996_dev *dev,
+			       struct ieee80211_vif *vif,
+			       struct ieee80211_bss_conf *link_conf,
+			       struct mt7996_vif_link *link, struct sk_buff *skb,
+			       struct ieee80211_mutable_offsets *offs, u64 now,
+			       int *cnt)
+{
+	struct mt76_cntdwn *cd = mt7996_mcu_cntdwn_get(vif, link_conf);
+	u8 type = mt76_cntdwn_type(link_conf);
+
+	*cnt = -1;
+	if (!offs->cntdwn_counter_offs[0] || !type)
+		return true;
+
+	if (type != cd->type) {
+		u64 tsf = __mt7996_get_tsf(mt76_hw(dev), link), wait;
+
+		now = ktime_get_boottime_ns();
+		mt76_cntdwn_start(cd, type, skb->data[offs->cntdwn_counter_offs[0]],
+				  link_conf->beacon_int * 1024,
+				  MT7996_PRE_TBTT_US, tsf, now);
+		wait = mt76_cntdwn_wait(cd, now);
+		if (wait) {
+			mt76_cntdwn_clear(cd);
+			mt76_cntdwn_defer(&dev->cntdwn_timer, cd, now + wait);
+			return false;
+		}
+	}
+
+	/* The firmware sends no end event for a countdown that it holds no
+	 * longer, so the driver ends one whose last pass has gone.
+	 */
+	*cnt = max(mt76_cntdwn_left(cd, now), 0);
+	if (!*cnt)
+		mt7996_mcu_beacon_cntdwn_end(vif, link_conf);
+
+	return true;
+}
+
+void mt7996_mcu_beacon_cntdwn_work(struct work_struct *work)
+{
+	struct mt7996_dev *dev = container_of(work, struct mt7996_dev,
+					      cntdwn_work);
+	struct ieee80211_hw *hw = mt76_hw(dev);
+	struct ieee80211_vif *vif;
+
+	wiphy_lock(hw->wiphy);
+	mutex_lock(&dev->mt76.mutex);
+	for_each_active_interface(vif, hw) {
+		struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+		unsigned long valid_links = vif->valid_links ?: BIT(0);
+		unsigned int link_id;
+
+		for_each_set_bit(link_id, &valid_links,
+				 IEEE80211_MLD_MAX_NUM_LINKS) {
+			struct mt76_cntdwn *cd = &mvif->link_info[link_id].cntdwn;
+			struct ieee80211_bss_conf *link_conf;
+
+			if (!cd->wait)
+				continue;
+
+			cd->wait = false;
+			link_conf = link_conf_dereference_protected(vif,
+								    link_id);
+			if (link_conf)
+				mt7996_mcu_add_beacon(hw, vif, link_conf,
+						      link_conf->enable_beacon);
+		}
+	}
+	mutex_unlock(&dev->mt76.mutex);
+	wiphy_unlock(hw->wiphy);
+}
+
+enum hrtimer_restart mt7996_mcu_beacon_cntdwn_timer(struct hrtimer *timer)
+{
+	struct mt7996_dev *dev = container_of(timer, struct mt7996_dev,
+					      cntdwn_timer);
+
+	queue_work(system_highpri_wq, &dev->cntdwn_work);
+
+	return HRTIMER_NORESTART;
 }
 
 static void
@@ -6500,9 +6683,9 @@ __mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct tlv *tlv;
 	struct bss_bcn_content_tlv *bcn;
 	bool crit_update = false, cntdwn = false, ambiguous;
-	int len, extra_len = 0, ret;
+	int len, extra_len = 0, ret, cnt;
+	u64 upload_tsf = 0, now = ktime_get_boottime_ns();
 	unsigned int reconf_len;
-	u64 upload_tsf = 0;
 	u16 started = 0;
 	u32 phase, bi_us;
 
@@ -6512,6 +6695,10 @@ __mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	if (mphy && mphy->offchannel)
 		enabled = false;
+
+	if (!mt7996_mcu_beacon_cntdwn_prepare(dev, vif, link_conf, link,
+					      enabled, now))
+		return 0;
 
 	rskb = __mt7996_mcu_alloc_bss_req(&dev->mt76, mlink,
 					  MT7996_MAX_BSS_OFFLOAD_SIZE);
@@ -6545,13 +6732,20 @@ __mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	if (!bcn->enable)
 		goto out;
 
+	if (!mt7996_mcu_beacon_cntdwn_count(dev, vif, link_conf, link, skb,
+					    &offs, now, &cnt)) {
+		dev_kfree_skb(skb);
+		dev_kfree_skb(rskb);
+		return 0;
+	}
+
 	info = IEEE80211_SKB_CB(skb);
 	info->hw_queue |= FIELD_PREP(MT_TX_HW_QUEUE_PHY, mlink->band_idx);
 
 	mt7996_mcu_beacon_cont(dev, link_conf, link, rskb, skb, bcn, &offs);
 	if (link_conf->bssid_indicator)
 		mt7996_mcu_beacon_mbss(rskb, skb, bcn, &offs);
-	mt7996_mcu_beacon_cntdwn(rskb, skb, &offs, link_conf->csa_active);
+	mt7996_mcu_beacon_cntdwn(rskb, skb, &offs, link_conf->csa_active, cnt);
 	cntdwn = !!offs.cntdwn_counter_offs[0];
 	crit_update = mt7996_mcu_beacon_crit_update(rskb, skb, vif, &offs);
 	mt7996_mcu_beacon_attlm(rskb, skb, vif, &offs);

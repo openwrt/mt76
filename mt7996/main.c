@@ -631,6 +631,7 @@ void mt7996_vif_link_remove(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	if (mlink->wcid->offchannel) {
 		mt7996_vif_link_destroy(phy, link, vif, link_conf);
 	} else {
+		mt76_cntdwn_clear(&mvif->link_info[link_id].cntdwn);
 		if (vif->type == NL80211_IFTYPE_AP)
 			mt7996_mcu_beacon_reconf_stop(phy->dev, vif, link_id,
 						      true);
