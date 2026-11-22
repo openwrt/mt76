@@ -1734,11 +1734,13 @@ skip_coredump:
 
 void mt7915_reset(struct mt7915_dev *dev)
 {
+	spin_lock_bh(&dev->mt76.lock);
+
 	if (!dev->recovery.hw_init_done)
-		return;
+		goto out;
 
 	if (dev->recovery.hw_full_reset)
-		return;
+		goto out;
 
 	/* wm/wa exception: do full recovery */
 	if (READ_ONCE(dev->recovery.state) & MT_MCU_CMD_WDT_MASK) {
@@ -1749,7 +1751,7 @@ void mt7915_reset(struct mt7915_dev *dev)
 
 		mt7915_irq_disable(dev, MT_INT_MCU_CMD);
 		queue_work(dev->mt76.wq, &dev->dump_work);
-		return;
+		goto out;
 	}
 
 	if ((READ_ONCE(dev->recovery.state) & MT_MCU_CMD_STOP_DMA)) {
@@ -1759,6 +1761,8 @@ void mt7915_reset(struct mt7915_dev *dev)
 
 	queue_work(dev->mt76.wq, &dev->reset_work);
 	wake_up(&dev->reset_wait);
+out:
+	spin_unlock_bh(&dev->mt76.lock);
 }
 
 void mt7915_mac_update_stats(struct mt7915_phy *phy)
