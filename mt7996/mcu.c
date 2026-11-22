@@ -1495,32 +1495,25 @@ mt7996_mcu_mld_reconf_notify(void *priv, u8 *mac, struct ieee80211_vif *vif)
 {
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
 	struct mt7996_mld_reconf_data *data = priv;
-	u16 links, unarmed;
 	s64 lead_us;
+	u16 links;
 	u64 tbtt;
 
 	if (vif->type != NL80211_IFTYPE_AP || !ieee80211_vif_is_mld(vif) ||
 	    !ether_addr_equal(vif->addr, data->mld_addr))
 		return;
 
-	/* a removal without a known TBTT stops at the expiry event */
 	spin_lock_bh(&data->dev->mt76.lock);
 	links = data->links & mvif->reconf_tbtt_links;
-	unarmed = data->links & mvif->reconf_links & ~mvif->reconf_tbtt_links;
-	mvif->reconf_links &= ~unarmed;
-	if (!mvif->reconf_links)
-		mvif->reconf_bcn_links = 0;
-	mvif->reconf_stop_links |= unarmed;
 	tbtt = mvif->reconf_tbtt_boottime;
 	spin_unlock_bh(&data->dev->mt76.lock);
 
-	if (unarmed)
-		schedule_work(&data->dev->reconf_work);
 	if (!links)
 		return;
 
-	/* the firmware's timer runs in seconds from the timer command, so its
-	 * event only checks the removal TBTT that the driver derived
+	/* The firmware's timer runs in seconds from the timer command, and its
+	 * event names a link id of 0 to 7 alone, so the event only checks the
+	 * removal TBTT that the driver derived.
 	 */
 	lead_us = div_s64((s64)(tbtt - ktime_get_boottime_ns()), NSEC_PER_USEC);
 	if (lead_us < 20 * USEC_PER_MSEC || lead_us > 130 * USEC_PER_MSEC)
@@ -5457,6 +5450,39 @@ mt7996_mcu_beacon_reconf_waits(struct mt7996_dev *dev,
 	return true;
 }
 
+/* A start whose template did not go up waits for the next window. After the
+ * last try the removal counts from the upload all the same, so that the TX
+ * of the removed links stops in any case.
+ */
+#define MT7996_RECONF_START_TRIES	3
+
+static bool
+mt7996_mcu_beacon_reconf_retry(struct mt7996_dev *dev,
+			       struct ieee80211_vif *vif, unsigned int link_id,
+			       u16 started)
+{
+	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+	u32 phase, bi_us;
+	u64 tsf;
+
+	phase = mt7996_mcu_beacon_reconf_phase(dev, vif, started, &tsf, &bi_us);
+	if (!bi_us)
+		return false;
+
+	spin_lock_bh(&dev->mt76.lock);
+	if (++mvif->reconf_start_tries >= MT7996_RECONF_START_TRIES) {
+		spin_unlock_bh(&dev->mt76.lock);
+		return false;
+	}
+	mvif->reconf_links &= ~started;
+	if (!mvif->reconf_links)
+		mvif->reconf_bcn_links = 0;
+	spin_unlock_bh(&dev->mt76.lock);
+
+	mt7996_mcu_beacon_reconf_wait(dev, vif, link_id, bi_us - phase);
+	return true;
+}
+
 /* one timer stops the TX of all links that a template starts, at the
  * removal TBTT of the first one, so each link reports that time
  */
@@ -5528,6 +5554,7 @@ mt7996_mcu_beacon_reconf_arm(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	mvif->reconf_tbtt_boottime = tbtt;
 	mvif->reconf_tbtt_tsf = tbtt_tsf;
 	mvif->reconf_tbtt_link = link_id;
+	mvif->reconf_start_tries = 0;
 	spin_unlock_bh(&dev->mt76.lock);
 
 	hrtimer_start(&mvif->reconf_timer,
@@ -5594,6 +5621,8 @@ void mt7996_mcu_beacon_reconf_stop(struct mt7996_dev *dev,
 	}
 	mvif->reconf_bcn_links &= ~BIT(link_id);
 	mvif->reconf_wait_links &= ~BIT(link_id);
+	if (!mvif->reconf_wait_links)
+		mvif->reconf_start_tries = 0;
 	spin_unlock_bh(&dev->mt76.lock);
 
 	if (timer)
@@ -5620,6 +5649,7 @@ void mt7996_mcu_beacon_reconf_reset(struct mt7996_dev *dev,
 	mvif->reconf_tbtt_links = 0;
 	mvif->reconf_timer_links = 0;
 	mvif->reconf_wait_links = 0;
+	mvif->reconf_start_tries = 0;
 	spin_unlock_bh(&dev->mt76.lock);
 }
 
@@ -5967,7 +5997,11 @@ out:
 	link->csa_bcn_uploaded = !ret && enabled && link_conf->csa_active;
 	if (!ret)
 		link->bcn_cntdwn = cntdwn;
-	if (!ret && started)
+	if (ret && started &&
+	    mt7996_mcu_beacon_reconf_retry(dev, vif, link_conf->link_id,
+					   started))
+		started = 0;
+	if (started)
 		mt7996_mcu_beacon_reconf_arm(dev, vif, started, &reconf,
 					     upload_tsf);
 	if (!ret && reconf.links)
