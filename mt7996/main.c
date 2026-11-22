@@ -1769,6 +1769,7 @@ mt7996_mac_sta_add(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	msta->ba_tx_mask = 0;
 	msta->ba_rx_mask = 0;
 	msta->vif = mvif;
+	INIT_LIST_HEAD(&msta->scs_list);
 	err = mt7996_mac_sta_add_links(dev, vif, sta, links);
 	if (!err)
 		msta->seclink_id = mt7996_sta_seclink_get(dev, msta);
@@ -1776,6 +1777,74 @@ mt7996_mac_sta_add(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	mutex_unlock(&dev->mt76.mutex);
 
 	return err;
+}
+
+static struct mt7996_scs_stream *
+mt7996_sta_scs_find(struct mt7996_sta *msta, u8 id)
+{
+	struct mt7996_scs_stream *stream;
+
+	list_for_each_entry(stream, &msta->scs_list, list)
+		if (stream->id == id)
+			return stream;
+
+	return NULL;
+}
+
+/* SCS streams belong to the MLD, firmware streams to a link */
+static int
+mt7996_sta_scs_set(struct mt7996_dev *dev, struct mt7996_sta *msta,
+		   const struct mt7996_scs_stream *stream, bool del)
+{
+	bool any = false;
+	int i, ret = 0;
+
+	if (msta->conn_state != CONN_STATE_PORT_SECURE)
+		return -EIO;
+
+	for (i = 0; i < ARRAY_SIZE(msta->link); i++) {
+		struct mt7996_sta_link *msta_link;
+
+		msta_link = mt7996_sta_link_protected(dev, msta, i);
+		if (!msta_link || !msta_link->connected)
+			continue;
+
+		any = true;
+		if (mt7996_mcu_set_scs(dev, msta_link->wcid.idx, stream, del))
+			ret = -EIO;
+	}
+
+	return any ? ret : -EIO;
+}
+
+/* A stream only adds scheduling, so a failure does not fail the link */
+static void
+mt7996_sta_link_scs_add(struct mt7996_dev *dev,
+			struct mt7996_sta_link *msta_link)
+{
+	struct mt7996_scs_stream *stream;
+
+	list_for_each_entry(stream, &msta_link->sta->scs_list, list)
+		mt7996_mcu_set_scs(dev, msta_link->wcid.idx, stream, false);
+}
+
+static void
+mt7996_sta_scs_del(struct mt7996_dev *dev, struct mt7996_sta *msta)
+{
+	struct mt7996_scs_stream *stream;
+
+	list_for_each_entry(stream, &msta->scs_list, list)
+		mt7996_sta_scs_set(dev, msta, stream, true);
+}
+
+void mt7996_sta_scs_free(struct mt7996_sta *msta)
+{
+	struct mt7996_scs_stream *stream, *tmp;
+
+	list_for_each_entry_safe(stream, tmp, &msta->scs_list, list) {
+		list_del(&stream->list);
+		kfree(stream);
+	}
 }
 
 static int
@@ -1981,6 +2050,8 @@ mt7996_mac_sta_links_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 						 CONN_STATE_PORT_SECURE, false);
 			if (err)
 				return err;
+
+			mt7996_sta_link_scs_add(dev, msta_link);
 			break;
 		case MT76_STA_EVENT_DISASSOC:
 			for (i = 0; i < ARRAY_SIZE(msta_link->twt.flow); i++)
@@ -2396,6 +2467,7 @@ mt7996_mac_sta_remove(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	mt7996_mac_sta_rec_teardown(dev, vif, sta);
 	for (i = 0; i < ARRAY_SIZE(msta->link); i++)
 		mt7996_mac_sta_remove_link(dev, sta, i, true);
+	mt7996_sta_scs_free(msta);
 	mutex_unlock(&dev->mt76.mutex);
 }
 
@@ -2462,6 +2534,7 @@ mt7996_sta_state(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
 
 		mutex_lock(&dev->mt76.mutex);
+		mt7996_sta_scs_del(dev, msta);
 		msta->conn_state = CONN_STATE_CONNECT;
 		mutex_unlock(&dev->mt76.mutex);
 
@@ -3149,32 +3222,55 @@ static void mt7996_sta_set_4addr(struct ieee80211_hw *hw,
 	mutex_unlock(&dev->mt76.mutex);
 }
 
-/* SCS descriptors belong to the MLD, firmware streams to a link */
-static int mt7996_sta_scs_program(struct mt7996_dev *dev,
-				  struct ieee80211_vif *vif,
-				  struct ieee80211_sta *sta,
-				  const struct cfg80211_scs_desc *desc,
-				  bool del)
+static u16 mt7996_sta_scs_update(struct mt7996_dev *dev,
+				 struct mt7996_sta *msta,
+				 const struct cfg80211_scs_desc *desc)
 {
-	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
-	struct ieee80211_link_sta *link_sta;
-	unsigned int link_id;
-	bool any = false;
-	int ret = 0;
+	struct mt7996_scs_stream *old, *new;
 
-	for_each_sta_active_link(vif, sta, link_sta, link_id) {
-		struct mt7996_sta_link *msta_link;
+	old = mt7996_sta_scs_find(msta, desc->id);
+	if (desc->req_type == NL80211_SCS_REQ_REMOVE || !desc->qos_char) {
+		if (old) {
+			mt7996_sta_scs_set(dev, msta, old, true);
+			list_del(&old->list);
+			kfree(old);
+		}
 
-		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
-		if (!msta_link || !msta_link->wcid.sta)
-			continue;
-
-		any = true;
-		if (mt7996_mcu_set_scs(dev, msta_link->wcid.idx, desc, del))
-			ret = -EIO;
+		return WLAN_STATUS_SUCCESS;
 	}
 
-	return any ? ret : -EIO;
+	/* The firmware only supports uplink streams */
+	if (ieee80211_qos_char_direction(desc->qos_char) !=
+	    IEEE80211_QOS_CHAR_DIR_UPLINK ||
+	    desc->qos_char_len > MT7996_SCS_QOS_CHAR_LEN)
+		return WLAN_STATUS_REQUEST_DECLINED;
+
+	new = kzalloc_obj(*new);
+	if (!new)
+		return WLAN_STATUS_REQUEST_DECLINED;
+
+	new->id = desc->id;
+	new->len = desc->qos_char_len;
+	memcpy(new->qos_char, desc->qos_char, desc->qos_char_len);
+
+	if (mt7996_sta_scs_set(dev, msta, new, false)) {
+		if (old)
+			mt7996_sta_scs_set(dev, msta, old, false);
+		else
+			mt7996_sta_scs_set(dev, msta, new, true);
+
+		kfree(new);
+		return WLAN_STATUS_REQUEST_DECLINED;
+	}
+
+	if (old) {
+		list_replace(&old->list, &new->list);
+		kfree(old);
+	} else {
+		list_add_tail(&new->list, &msta->scs_list);
+	}
+
+	return WLAN_STATUS_SUCCESS;
 }
 
 static int mt7996_sta_set_scs(struct ieee80211_hw *hw,
@@ -3183,29 +3279,14 @@ static int mt7996_sta_set_scs(struct ieee80211_hw *hw,
 			      struct cfg80211_scs_desc * const *desc,
 			      struct cfg80211_scs_result *res, u8 n_desc)
 {
+	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
 	u8 i;
 
 	mutex_lock(&dev->mt76.mutex);
 
-	for (i = 0; i < n_desc; i++) {
-		const struct cfg80211_scs_desc *d = desc[i];
-		bool del = d->req_type == NL80211_SCS_REQ_REMOVE ||
-			   !d->qos_char;
-
-		/* The firmware only supports uplink streams */
-		if (!del && ieee80211_qos_char_direction(d->qos_char) !=
-			    IEEE80211_QOS_CHAR_DIR_UPLINK) {
-			res[i].status = WLAN_STATUS_REQUEST_DECLINED;
-			continue;
-		}
-
-		if (!mt7996_sta_scs_program(dev, vif, sta, d, del) || del)
-			continue;
-
-		mt7996_sta_scs_program(dev, vif, sta, d, true);
-		res[i].status = WLAN_STATUS_REQUEST_DECLINED;
-	}
+	for (i = 0; i < n_desc; i++)
+		res[i].status = mt7996_sta_scs_update(dev, msta, desc[i]);
 
 	mutex_unlock(&dev->mt76.mutex);
 

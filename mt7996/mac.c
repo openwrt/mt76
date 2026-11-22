@@ -2663,6 +2663,9 @@ mt7996_mac_reset_sta_iter(void *data, struct ieee80211_sta *sta)
 		}
 		mt7996_mac_sta_remove_link(dev, sta, i, true);
 	}
+
+	/* mac80211 programs the streams again after the restart */
+	mt7996_sta_scs_free(msta);
 }
 
 /* an L1 recovery clears the PS state of every station record, and the

@@ -327,6 +327,15 @@ struct mt7996_sta_ba {
 	bool amsdu;
 };
 
+#define MT7996_SCS_QOS_CHAR_LEN	44
+
+struct mt7996_scs_stream {
+	struct list_head list;
+	u8 id;
+	u8 len;
+	u8 qos_char[MT7996_SCS_QOS_CHAR_LEN];
+};
+
 struct mt7996_sta {
 	struct mt7996_sta_link deflink; /* must be first */
 	struct mt7996_sta_link __rcu *link[IEEE80211_MLD_MAX_NUM_LINKS];
@@ -349,6 +358,8 @@ struct mt7996_sta {
 	u16 ba_rx_mask;
 	struct mt7996_sta_ba ba_tx[IEEE80211_NUM_TIDS];
 	struct mt7996_sta_ba ba_rx[IEEE80211_NUM_TIDS];
+
+	struct list_head scs_list;
 
 	struct ieee80211_neg_ttlm neg_ttlm;
 
@@ -963,7 +974,7 @@ int mt7996_mcu_set_fixed_rate_ctrl(struct mt7996_dev *dev,
 int mt7996_mcu_set_fixed_field(struct mt7996_dev *dev, struct mt7996_sta *msta,
 			       void *data, u8 link_id, u32 field);
 int mt7996_mcu_set_scs(struct mt7996_dev *dev, u16 wlan_idx,
-		       const struct cfg80211_scs_desc *desc, bool del);
+		       const struct mt7996_scs_stream *stream, bool del);
 int mt7996_mcu_set_eeprom(struct mt7996_dev *dev);
 int mt7996_mcu_get_eeprom(struct mt7996_dev *dev, u32 offset, u8 *buf, u32 buf_len,
 			  enum mt7996_eeprom_mode mode);
@@ -1130,6 +1141,7 @@ void mt7996_mac_twt_teardown_flow(struct mt7996_dev *dev,
 void mt7996_mac_sta_remove_link(struct mt7996_dev *dev,
 				struct ieee80211_sta *sta,
 				unsigned int link_id, bool flush);
+void mt7996_sta_scs_free(struct mt7996_sta *msta);
 u16 mt7996_mac_sta_links(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			 struct ieee80211_sta *sta);
 void mt7996_sta_tx_links_release(struct mt7996_dev *dev,

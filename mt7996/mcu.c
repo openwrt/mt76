@@ -3657,8 +3657,9 @@ int mt7996_mcu_set_vow_feature_ctrl(struct mt7996_phy *phy)
 }
 
 int mt7996_mcu_set_scs(struct mt7996_dev *dev, u16 wlan_idx,
-		       const struct cfg80211_scs_desc *desc, bool del)
+		       const struct mt7996_scs_stream *stream, bool del)
 {
+	const struct ieee80211_qos_char_elem *qc = (void *)stream->qos_char;
 #define MURU_QOS_FLAG_UPDATE	20
 #define MURU_QOS_FLAG_DELETE	21
 	struct {
@@ -3672,23 +3673,20 @@ int mt7996_mcu_set_scs(struct mt7996_dev *dev, u16 wlan_idx,
 		u8 dir;
 		u8 __rsv3[4];
 		u8 scs_id;
-		u8 qos_ie[44];
+		u8 qos_ie[MT7996_SCS_QOS_CHAR_LEN];
 	} __packed req = {
 		.tag = cpu_to_le16(UNI_CMD_MURU_SET_QOS_CFG),
 		.len = cpu_to_le16(sizeof(req) - 4),
 		.wlan_idx = cpu_to_le16(wlan_idx),
-		.scs_id = desc->id,
+		.scs_id = stream->id,
 	};
 
 	if (del) {
 		req.qos_flag = cpu_to_le32(MURU_QOS_FLAG_DELETE);
 	} else {
-		if (desc->qos_char_len > sizeof(req.qos_ie))
-			return -EINVAL;
-
 		req.qos_flag = cpu_to_le32(MURU_QOS_FLAG_UPDATE);
-		req.dir = ieee80211_qos_char_direction(desc->qos_char);
-		memcpy(req.qos_ie, desc->qos_char, desc->qos_char_len);
+		req.dir = ieee80211_qos_char_direction(qc);
+		memcpy(req.qos_ie, stream->qos_char, stream->len);
 	}
 
 	return mt76_mcu_send_msg(&dev->mt76, MCU_WMWA_UNI_CMD(MURU), &req,
