@@ -5687,7 +5687,8 @@ mt7996_mcu_beacon_reconf_window(u32 bi_us, u32 *start_us)
 
 /* the firmware gives each removal entry of a template the count of the
  * template's link, from the last timer of the AP MLD, and a start needs a
- * window after a TBTT of the removed link
+ * window after a TBTT of the removed link. A link whose AP did not start has
+ * no beacon interval and no count.
  */
 static bool
 mt7996_mcu_mld_reconf_countable(struct ieee80211_vif *vif)
@@ -5700,7 +5701,7 @@ mt7996_mcu_mld_reconf_countable(struct ieee80211_vif *vif)
 		u32 start;
 
 		link_conf = link_conf_dereference_protected(vif, link_id);
-		if (!link_conf)
+		if (!link_conf || !link_conf->beacon_int)
 			continue;
 		if (!mt7996_mcu_mld_reconf_per_sec(link_conf) ||
 		    !mt7996_mcu_beacon_reconf_window(link_conf->beacon_int * 1024,
