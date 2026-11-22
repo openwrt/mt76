@@ -475,14 +475,21 @@ mt7915_mcu_rx_ps_sync(struct mt7915_dev *dev, struct sk_buff *skb)
 
 	/* the TWT state of a station, not its PS state: the firmware gates
 	 * the air time of a station in TWT operation and reports no PS
-	 * enter of it
+	 * enter of it. From an add, the WA of the v2 layout drops the frames
+	 * of the station above the word of the event in flight, until the
+	 * delete of the last TWT flow, a PS leave, a STA_REC_BASIC or an L1
+	 * recovery.
 	 */
 	if (path == MT7915_PS_SYNC_TWT || path == MT7915_PS_SYNC_TWT_MANY) {
+		if (v2)
+			mt76_wcid_tx_limit_set(&dev->mt76, wcid, ps ? path : 0);
 		if (ps)
 			mt7915_mac_sta_ps_transition(dev, wcid, false);
 		return;
 	}
 
+	if (!ps)
+		mt76_wcid_tx_limit_set(&dev->mt76, wcid, 0);
 	mt7915_mac_sta_ps_transition(dev, wcid, ps);
 }
 
@@ -1864,8 +1871,16 @@ out:
 
 	ret = mt76_mcu_skb_send_msg(&dev->mt76, skb,
 				    MCU_EXT_CMD(STA_REC_UPDATE), true);
-	if (ret || conn_state == CONN_STATE_DISCONNECT)
+	if (ret)
 		return ret;
+
+	/* WA ends its frame limit at a STA_REC_BASIC; wcid can be a copy of
+	 * the entry of the station
+	 */
+	mt76_wcid_tx_limit_set(&dev->mt76, &msta->wcid, 0);
+
+	if (conn_state == CONN_STATE_DISCONNECT)
+		return 0;
 
 	mt7915_mcu_add_group(dev, vif, wcid);
 

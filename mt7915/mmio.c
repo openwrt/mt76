@@ -922,7 +922,8 @@ struct mt7915_dev *mt7915_mmio_probe(struct device *pdev,
 		.txwi_size = MT_TXD_SIZE + sizeof(struct mt76_connac_fw_txp),
 		.drv_flags = MT_DRV_TXWI_NO_FREE | MT_DRV_HW_MGMT_TXQ |
 			     MT_DRV_AMSDU_OFFLOAD |
-			     MT_DRV_HW_PS_BUFFERING,
+			     MT_DRV_HW_PS_BUFFERING |
+			     MT_DRV_TX_INFLIGHT_LIMIT,
 		.survey_flags = SURVEY_INFO_TIME_TX |
 				SURVEY_INFO_TIME_RX |
 				SURVEY_INFO_TIME_BSS_RX,

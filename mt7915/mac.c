@@ -1533,7 +1533,8 @@ mt7915_mac_full_reset(struct mt7915_dev *dev)
 }
 
 /* an L1 recovery can clear the PS state of the firmware records with no
- * event; a station that still sleeps gets a new enter
+ * event; a station that still sleeps gets a new enter. WA ends its frame
+ * limit of every station there too.
  */
 static void
 mt7915_mac_reset_sta_ps(struct mt7915_dev *dev)
@@ -1544,8 +1545,11 @@ mt7915_mac_reset_sta_ps(struct mt7915_dev *dev)
 	for (i = 0; i < ARRAY_SIZE(dev->mt76.wcid); i++) {
 		struct mt76_wcid *wcid = mt76_wcid_ptr(dev, i);
 
-		if (!wcid_to_sta(wcid) ||
-		    !test_bit(MT_WCID_FLAG_PS, &wcid->flags))
+		if (!wcid_to_sta(wcid))
+			continue;
+
+		mt76_wcid_tx_limit_set(&dev->mt76, wcid, 0);
+		if (!test_bit(MT_WCID_FLAG_PS, &wcid->flags))
 			continue;
 
 		mt7915_mac_sta_ps_transition(dev, wcid, false);
