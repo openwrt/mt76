@@ -5613,6 +5613,14 @@ mt7996_mcu_beacon_reconf_phase(struct mt7996_dev *dev,
 	return do_div(pos, *bi_us);
 }
 
+static bool
+mt7996_mcu_beacon_reconf_outside(u32 phase, u32 bi_us)
+{
+	u32 start;
+
+	return bi_us && phase > mt7996_mcu_beacon_reconf_window(bi_us, &start);
+}
+
 static void
 mt7996_mcu_beacon_reconf_wait(struct mt7996_dev *dev,
 			      struct ieee80211_vif *vif, unsigned int link_id,
@@ -5643,7 +5651,7 @@ mt7996_mcu_beacon_reconf_waits(struct mt7996_dev *dev,
 			       const struct mt7996_mcu_ml_reconf *reconf)
 {
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
-	u32 phase, bi_us, start;
+	u32 phase, bi_us;
 	u16 links, waiting;
 	u64 tsf;
 
@@ -5661,16 +5669,17 @@ mt7996_mcu_beacon_reconf_waits(struct mt7996_dev *dev,
 	}
 
 	phase = mt7996_mcu_beacon_reconf_phase(dev, vif, links, &tsf, &bi_us);
-	if (!bi_us || phase <= mt7996_mcu_beacon_reconf_window(bi_us, &start))
+	if (!mt7996_mcu_beacon_reconf_outside(phase, bi_us))
 		return false;
 
 	mt7996_mcu_beacon_reconf_wait(dev, vif, link_id, bi_us - phase);
 	return true;
 }
 
-/* A start whose template did not go up waits for the next window. After the
- * last try the removal counts from the upload all the same, so that the TX
- * of the removed links stops in any case.
+/* A start whose template did not go up, or whose timer command ended after
+ * the window, waits for the next window. After the last try the removal counts
+ * from the upload all the same, so that the TX of the removed links stops in
+ * any case.
  */
 #define MT7996_RECONF_START_TRIES	3
 
@@ -6105,7 +6114,7 @@ __mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	unsigned int reconf_len;
 	u64 upload_tsf = 0;
 	u16 started = 0;
-	u32 bi_us;
+	u32 phase, bi_us;
 
 	/* a later CSA needs a new template, also after a failed upload */
 	if (!link_conf->csa_active)
@@ -6174,11 +6183,19 @@ __mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	if (reconf.links)
 		started = mt7996_mcu_beacon_reconf_start(dev, vif, &reconf);
 	/* the timer command takes time, so the TSF that the start counts from
-	 * comes after it
+	 * comes after it, and must still lie in the window
 	 */
-	if (started)
-		mt7996_mcu_beacon_reconf_phase(dev, vif, started, &upload_tsf,
-					       &bi_us);
+	if (started) {
+		phase = mt7996_mcu_beacon_reconf_phase(dev, vif, started,
+						       &upload_tsf, &bi_us);
+		if (mt7996_mcu_beacon_reconf_outside(phase, bi_us) &&
+		    mt7996_mcu_beacon_reconf_retry(dev, vif, link_conf->link_id,
+						   started)) {
+			dev_kfree_skb(skb);
+			dev_kfree_skb(rskb);
+			return 0;
+		}
+	}
 	if (!started)
 		mt7996_mcu_beacon_reconf_resume(dev, vif, link_conf, link,
 						&reconf);
