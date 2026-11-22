@@ -4026,7 +4026,6 @@ int mt7996_mcu_mld_adv_ttlm(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	req->mst_timer_adv_time = cpu_to_le16(50);
 	req->mst_duration = cpu_to_le32(switch_us);
 	req->e_duration = cpu_to_le32(duration_us);
-	req->disabled_link_bitmap = cpu_to_le16(disabled);
 	req->bss_idx = 0xff;
 
 	for_each_set_bit(link_id, &disabled, IEEE80211_MLD_MAX_NUM_LINKS) {
@@ -4037,6 +4036,7 @@ int mt7996_mcu_mld_adv_ttlm(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 
 		if (req->bss_idx == 0xff)
 			req->bss_idx = link->mt76.idx;
+		req->disabled_link_bitmap |= cpu_to_le16(BIT(link_id));
 		req->disabled_bss_idx[link_id] = link->mt76.idx;
 	}
 
