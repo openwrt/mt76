@@ -1490,12 +1490,28 @@ struct mt7996_mld_reconf_data {
 	u16 links;
 };
 
+/* the firmware starts the count of a template at its pre-TBTT pass, this
+ * long before a TBTT of the link
+ */
+#define MT7996_PRE_TBTT_US	8192
+
+/* slack for the conversion of the removal TBTT to boot time */
+#define MT7996_RECONF_EVENT_MARGIN_US	20000
+
+/* The firmware raises the expiry event at the pre-TBTT pass one beacon
+ * interval before the removal TBTT, so a longer lead marks a removal TBTT one
+ * interval late. A removal TBTT one interval early gives no event, since the
+ * TX stop ends the count first. A lead below the pass means an event more
+ * than one interval after its raise, or a TX stop more than 11.8 ms late.
+ */
 static void
 mt7996_mcu_mld_reconf_notify(void *priv, u8 *mac, struct ieee80211_vif *vif)
 {
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
 	struct mt7996_mld_reconf_data *data = priv;
-	s64 lead_us;
+	struct ieee80211_bss_conf *link_conf;
+	unsigned int link_id;
+	s64 lead_us, max_us;
 	u16 links;
 	u64 tbtt;
 
@@ -1511,12 +1527,19 @@ mt7996_mcu_mld_reconf_notify(void *priv, u8 *mac, struct ieee80211_vif *vif)
 	if (!links)
 		return;
 
+	link_id = __ffs(links);
+	link_conf = rcu_dereference(vif->link_conf[link_id]);
+	if (!link_conf || !link_conf->beacon_int)
+		return;
+
 	/* The firmware's timer runs in seconds from the timer command, and its
 	 * event names a link id of 0 to 7 alone, so the event only checks the
 	 * removal TBTT that the driver derived.
 	 */
+	max_us = link_conf->beacon_int * 1024 + MT7996_PRE_TBTT_US +
+		 MT7996_RECONF_EVENT_MARGIN_US;
 	lead_us = div_s64((s64)(tbtt - ktime_get_boottime_ns()), NSEC_PER_USEC);
-	if (lead_us < 20 * USEC_PER_MSEC || lead_us > 130 * USEC_PER_MSEC)
+	if (lead_us < MT7996_PRE_TBTT_US || lead_us > max_us)
 		dev_warn(data->dev->mt76.dev,
 			 "expiry event of links 0x%x %lld us before the removal TBTT\n",
 			 links, lead_us);
@@ -4918,11 +4941,6 @@ mt7996_mcu_mld_reconf_per_sec(const struct ieee80211_bss_conf *link_conf)
 
 	return 1000 / link_conf->beacon_int;
 }
-
-/* the firmware starts the count of a template at its pre-TBTT pass, this
- * long before a TBTT of the link
- */
-#define MT7996_PRE_TBTT_US	8192
 
 /* At a beacon interval of 100 TU, a template that went up 63 ms or more before
  * a TBTT was on air at that TBTT in every run. Sends 41.8 and 50.5 ms before a
