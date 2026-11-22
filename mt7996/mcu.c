@@ -3669,7 +3669,8 @@ int mt7996_mcu_set_scs(struct mt7996_dev *dev, u16 wlan_idx,
 		__le16 len;
 		__le32 qos_flag;
 		__le16 wlan_idx;
-		u8 __rsv2[12];
+		u8 ac;
+		u8 __rsv2[11];
 		u8 dir;
 		u8 __rsv3[4];
 		u8 scs_id;
@@ -3678,6 +3679,10 @@ int mt7996_mcu_set_scs(struct mt7996_dev *dev, u16 wlan_idx,
 		.tag = cpu_to_le16(UNI_CMD_MURU_SET_QOS_CFG),
 		.len = cpu_to_le16(sizeof(req) - 4),
 		.wlan_idx = cpu_to_le16(wlan_idx),
+		/* the firmware stores the TID as the AC of a stream entry and
+		 * finds the entry by this field
+		 */
+		.ac = mt7996_qos_char_tid(qc),
 		.scs_id = stream->id,
 	};
 

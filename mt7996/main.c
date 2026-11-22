@@ -1791,6 +1791,19 @@ mt7996_sta_scs_find(struct mt7996_sta *msta, u8 id)
 	return NULL;
 }
 
+static bool
+mt7996_sta_scs_tid_busy(struct mt7996_sta *msta, u8 id, u8 tid)
+{
+	struct mt7996_scs_stream *stream;
+
+	list_for_each_entry(stream, &msta->scs_list, list)
+		if (stream->id != id &&
+		    mt7996_qos_char_tid((void *)stream->qos_char) == tid)
+			return true;
+
+	return false;
+}
+
 /* SCS streams belong to the MLD, firmware streams to a link */
 static int
 mt7996_sta_scs_set(struct mt7996_dev *dev, struct mt7996_sta *msta,
@@ -3245,6 +3258,13 @@ static u16 mt7996_sta_scs_update(struct mt7996_dev *dev,
 	    desc->qos_char_len > MT7996_SCS_QOS_CHAR_LEN)
 		return WLAN_STATUS_REQUEST_DECLINED;
 
+	/* the firmware keys a stream entry by the wcid, the TID and the
+	 * direction, and a stream can move to any link of the station
+	 */
+	if (mt7996_sta_scs_tid_busy(msta, desc->id,
+				    mt7996_qos_char_tid(desc->qos_char)))
+		return WLAN_STATUS_REQUEST_DECLINED;
+
 	new = kzalloc_obj(*new);
 	if (!new)
 		return WLAN_STATUS_REQUEST_DECLINED;
@@ -3253,11 +3273,14 @@ static u16 mt7996_sta_scs_update(struct mt7996_dev *dev,
 	new->len = desc->qos_char_len;
 	memcpy(new->qos_char, desc->qos_char, desc->qos_char_len);
 
+	/* the add of a new TID finds no firmware entry of the old one */
+	if (old)
+		mt7996_sta_scs_set(dev, msta, old, true);
+
 	if (mt7996_sta_scs_set(dev, msta, new, false)) {
+		mt7996_sta_scs_set(dev, msta, new, true);
 		if (old)
 			mt7996_sta_scs_set(dev, msta, old, false);
-		else
-			mt7996_sta_scs_set(dev, msta, new, true);
 
 		kfree(new);
 		return WLAN_STATUS_REQUEST_DECLINED;

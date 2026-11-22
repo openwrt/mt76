@@ -328,6 +328,7 @@ struct mt7996_sta_ba {
 };
 
 #define MT7996_SCS_QOS_CHAR_LEN	44
+#define MT7996_SCS_CTRL_TID	GENMASK(5, 2)
 
 struct mt7996_scs_stream {
 	struct list_head list;
@@ -335,6 +336,12 @@ struct mt7996_scs_stream {
 	u8 len;
 	u8 qos_char[MT7996_SCS_QOS_CHAR_LEN];
 };
+
+static inline u8
+mt7996_qos_char_tid(const struct ieee80211_qos_char_elem *qc)
+{
+	return u32_get_bits(le32_to_cpu(qc->control), MT7996_SCS_CTRL_TID);
+}
 
 struct mt7996_sta {
 	struct mt7996_sta_link deflink; /* must be first */
