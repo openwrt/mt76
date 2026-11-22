@@ -2121,6 +2121,215 @@ void mt76_csa_check(struct mt76_dev *dev)
 }
 EXPORT_SYMBOL_GPL(mt76_csa_check);
 
+/* an assumed bound of the time from the send of a beacon command to its
+ * handling in the firmware, and of the latency of a pre-TBTT pass after its
+ * interrupt; no record holds a measured value
+ */
+#define MT76_CNTDWN_CMD_US	5000
+
+u8 mt76_cntdwn_type(struct ieee80211_bss_conf *link_conf)
+{
+	if (link_conf->csa_active)
+		return MT76_CNTDWN_CSA;
+	if (link_conf->color_change_active)
+		return MT76_CNTDWN_BCC;
+
+	return MT76_CNTDWN_NONE;
+}
+EXPORT_SYMBOL_GPL(mt76_cntdwn_type);
+
+void mt76_cntdwn_clear(struct mt76_cntdwn *cd)
+{
+	cd->type = MT76_CNTDWN_NONE;
+	cd->wait = false;
+	clear_bit(MT76_CNTDWN_FINISHED, &cd->state);
+	clear_bit(MT76_CNTDWN_PHASE_LOST, &cd->state);
+	clear_bit(MT76_CNTDWN_LATE_UPLOAD, &cd->state);
+}
+EXPORT_SYMBOL_GPL(mt76_cntdwn_clear);
+
+/* A record holds one countdown. An upload with a countdown begins a new one
+ * where the record holds none, one of the other kind, or one that has ended,
+ * but not for the upload that an end event after that end asks for.
+ */
+bool mt76_cntdwn_begins(const struct mt76_cntdwn *cd, u8 type)
+{
+	if (cd->type != type)
+		return true;
+
+	return test_bit(MT76_CNTDWN_FINISHED, &cd->state) &&
+	       !test_bit(MT76_CNTDWN_LATE_UPLOAD, &cd->state);
+}
+EXPORT_SYMBOL_GPL(mt76_cntdwn_begins);
+
+/* The firmware counts a countdown down at the pre-TBTT pass of each TBTT,
+ * lead_us before it, and forgets it where a beacon disable or an L1 recovery
+ * frees the template; it takes the count of a later sub-tag in that state.
+ * The TBTTs lie where the TSF is a multiple of the beacon interval, so one
+ * TSF read places each pass in boot time, also across an off channel time.
+ */
+static void mt76_cntdwn_phase(struct mt76_cntdwn *cd, u32 lead_us, u64 tsf,
+			      u64 now)
+{
+	u32 phase = cd->bi_us ? do_div(tsf, cd->bi_us) : 0;
+
+	cd->start = now;
+	cd->pass_us = cd->bi_us ? (phase + lead_us) % cd->bi_us : 0;
+	clear_bit(MT76_CNTDWN_PHASE_LOST, &cd->state);
+}
+
+void mt76_cntdwn_start(struct mt76_cntdwn *cd, u8 type, u8 count, u32 bi_us,
+		       u32 lead_us, u64 tsf, u64 now)
+{
+	cd->type = type;
+	cd->count = count;
+	cd->passed = 0;
+	cd->synced = 0;
+	cd->bi_us = bi_us;
+	cd->wait = false;
+	clear_bit(MT76_CNTDWN_FINISHED, &cd->state);
+	clear_bit(MT76_CNTDWN_LATE_END, &cd->state);
+	clear_bit(MT76_CNTDWN_LATE_UPLOAD, &cd->state);
+	mt76_cntdwn_phase(cd, lead_us, tsf, now);
+}
+EXPORT_SYMBOL_GPL(mt76_cntdwn_start);
+
+/* a full reset restarts the TSF, so the next upload reads the phase again */
+void mt76_cntdwn_reset(struct mt76_cntdwn *cd)
+{
+	set_bit(MT76_CNTDWN_PHASE_LOST, &cd->state);
+}
+EXPORT_SYMBOL_GPL(mt76_cntdwn_reset);
+
+/* the time from the last pass at or before the start of the phase */
+static u64 mt76_cntdwn_since_pass(const struct mt76_cntdwn *cd, u64 now)
+{
+	return now - cd->start + (u64)cd->pass_us * NSEC_PER_USEC;
+}
+
+static u64 mt76_cntdwn_phase_passes(const struct mt76_cntdwn *cd, u64 now)
+{
+	u64 bi = (u64)cd->bi_us * NSEC_PER_USEC;
+
+	if (!bi || now <= cd->start)
+		return 0;
+
+	return div64_u64(mt76_cntdwn_since_pass(cd, now), bi);
+}
+
+/* Each pass since the start counts, also one that the firmware skipped
+ * while the template was off, so that the switch stays at the TBTT that
+ * the Beacon frames announced. Returns at most one more than the count.
+ */
+unsigned int mt76_cntdwn_passes(const struct mt76_cntdwn *cd, u64 now)
+{
+	u64 passes = cd->passed + mt76_cntdwn_phase_passes(cd, now);
+
+	return min_t(u64, passes, cd->count + 1);
+}
+EXPORT_SYMBOL_GPL(mt76_cntdwn_passes);
+
+/* the passes of the old phase up to @now stay counted */
+void mt76_cntdwn_rephase(struct mt76_cntdwn *cd, u32 lead_us, u64 tsf, u64 now)
+{
+	cd->passed = mt76_cntdwn_passes(cd, now);
+	mt76_cntdwn_phase(cd, lead_us, tsf, now);
+}
+EXPORT_SYMBOL_GPL(mt76_cntdwn_rephase);
+
+int mt76_cntdwn_left(const struct mt76_cntdwn *cd, u64 now)
+{
+	return cd->count - (int)mt76_cntdwn_passes(cd, now);
+}
+EXPORT_SYMBOL_GPL(mt76_cntdwn_left);
+
+static u64 mt76_cntdwn_band(const struct mt76_cntdwn *cd, u64 pass)
+{
+	u64 start = (u64)cd->pass_us * NSEC_PER_USEC;
+	u64 err = pass > start ? div_u64(pass - start, 1000) : 0;
+
+	return err + MT76_CNTDWN_CMD_US * NSEC_PER_USEC;
+}
+
+/* The firmware reports no count, so a command that meets a pass leaves the
+ * count one off. The band of a pass is the command time and 0.1 % of its
+ * time from the start of the phase, which is more than the TSF tolerance
+ * (100 ppm) and the frequency limit of CLOCK_BOOTTIME (500 ppm) together.
+ * Returns the time to wait until no band holds @now, 0 for none, and 0 also
+ * where the bands of two passes leave no gap.
+ */
+u64 mt76_cntdwn_wait(const struct mt76_cntdwn *cd, u64 now)
+{
+	u64 bi = (u64)cd->bi_us * NSEC_PER_USEC, k, total, prev, next, t;
+	u64 band_prev, band_next = 0;
+
+	if (!bi || now < cd->start)
+		return 0;
+
+	k = mt76_cntdwn_phase_passes(cd, now);
+	total = cd->passed + k;
+	if (total > cd->count)
+		return 0;
+
+	prev = k * bi;
+	next = prev + bi;
+	band_prev = mt76_cntdwn_band(cd, prev);
+	if (total < cd->count)
+		band_next = mt76_cntdwn_band(cd, next);
+	if (band_prev + band_next >= bi)
+		return 0;
+
+	t = mt76_cntdwn_since_pass(cd, now);
+	if (t < prev + band_prev)
+		return prev + band_prev - t;
+	if (band_next && t + band_next > next)
+		return next + band_next - t;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt76_cntdwn_wait);
+
+void mt76_cntdwn_defer(struct hrtimer *timer, struct mt76_cntdwn *cd, u64 at)
+{
+	cd->wait = true;
+	if (!hrtimer_is_queued(timer) ||
+	    at < ktime_to_ns(hrtimer_get_expires(timer)))
+		hrtimer_start(timer, ns_to_ktime(at), HRTIMER_MODE_ABS_SOFT);
+}
+EXPORT_SYMBOL_GPL(mt76_cntdwn_defer);
+
+/* mac80211 lowers the counter of the link, which it writes into the template
+ * and the Probe Responses, by one at each call and stops at 1
+ */
+void mt76_cntdwn_counter_sync(struct ieee80211_vif *vif, unsigned int link_id,
+			      struct mt76_cntdwn *cd, unsigned int passes)
+{
+	while (cd->synced < passes && cd->count - cd->synced > 1) {
+		if (!ieee80211_beacon_update_cntdwn(vif, link_id))
+			break;
+		cd->synced++;
+	}
+}
+EXPORT_SYMBOL_GPL(mt76_cntdwn_counter_sync);
+
+/* the end event of the firmware and the driver each end a countdown once */
+bool mt76_cntdwn_finish_take(struct mt76_cntdwn *cd)
+{
+	return !test_and_set_bit(MT76_CNTDWN_FINISHED, &cd->state);
+}
+EXPORT_SYMBOL_GPL(mt76_cntdwn_finish_take);
+
+/* an end event after the end of the countdown asks for one upload */
+bool mt76_cntdwn_late_take(struct mt76_cntdwn *cd)
+{
+	if (test_and_set_bit(MT76_CNTDWN_LATE_END, &cd->state))
+		return false;
+
+	set_bit(MT76_CNTDWN_LATE_UPLOAD, &cd->state);
+	return true;
+}
+EXPORT_SYMBOL_GPL(mt76_cntdwn_late_take);
+
 int
 mt76_set_tim(struct ieee80211_hw *hw, struct ieee80211_sta *sta, bool set)
 {

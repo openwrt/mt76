@@ -858,6 +858,34 @@ struct mt76_testmode_data {
 	} rx_stats;
 };
 
+enum mt76_cntdwn_type {
+	MT76_CNTDWN_NONE,
+	MT76_CNTDWN_CSA,
+	MT76_CNTDWN_BCC,
+};
+
+#define MT76_CNTDWN_FINISHED	0
+#define MT76_CNTDWN_PHASE_LOST	1
+#define MT76_CNTDWN_LATE_END	2
+#define MT76_CNTDWN_LATE_UPLOAD	3
+
+/* A beacon countdown that the firmware runs: the count of its start, the
+ * passes before the current phase, the boot time of the phase and the time
+ * from the last pre-TBTT pass before it, at which passes the firmware counts
+ * down, and the passes that the counter of mac80211 followed
+ */
+struct mt76_cntdwn {
+	u64 start;
+	u32 pass_us;
+	u32 bi_us;
+	u16 passed;
+	u8 type;
+	u8 count;
+	u8 synced;
+	bool wait;
+	unsigned long state;
+};
+
 struct mt76_vif_link {
 	u8 idx;
 	u8 link_idx;
@@ -1753,6 +1781,22 @@ int mt76_get_sar_power(struct mt76_phy *phy,
 
 void mt76_csa_check(struct mt76_dev *dev);
 void mt76_csa_finish(struct mt76_dev *dev);
+
+u8 mt76_cntdwn_type(struct ieee80211_bss_conf *link_conf);
+void mt76_cntdwn_clear(struct mt76_cntdwn *cd);
+bool mt76_cntdwn_begins(const struct mt76_cntdwn *cd, u8 type);
+void mt76_cntdwn_start(struct mt76_cntdwn *cd, u8 type, u8 count, u32 bi_us,
+		       u32 lead_us, u64 tsf, u64 now);
+void mt76_cntdwn_reset(struct mt76_cntdwn *cd);
+void mt76_cntdwn_rephase(struct mt76_cntdwn *cd, u32 lead_us, u64 tsf, u64 now);
+unsigned int mt76_cntdwn_passes(const struct mt76_cntdwn *cd, u64 now);
+int mt76_cntdwn_left(const struct mt76_cntdwn *cd, u64 now);
+u64 mt76_cntdwn_wait(const struct mt76_cntdwn *cd, u64 now);
+void mt76_cntdwn_defer(struct hrtimer *timer, struct mt76_cntdwn *cd, u64 at);
+void mt76_cntdwn_counter_sync(struct ieee80211_vif *vif, unsigned int link_id,
+			      struct mt76_cntdwn *cd, unsigned int passes);
+bool mt76_cntdwn_finish_take(struct mt76_cntdwn *cd);
+bool mt76_cntdwn_late_take(struct mt76_cntdwn *cd);
 
 int mt76_get_antenna(struct ieee80211_hw *hw, int radio_idx, u32 *tx_ant,
 		     u32 *rx_ant);
