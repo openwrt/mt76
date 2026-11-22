@@ -429,8 +429,8 @@ struct mt7996_vif {
 	 * template with the Reconfiguration element the firmware holds, and
 	 * the expired links whose TX mt7996_mcu_mld_reconf_work() stops, and
 	 * the links whose TX it stopped, until they go, and the removed links
-	 * without a channel whose end the driver reported, until they get a
-	 * channel again; the removal TBTT of the removed links, with the links
+	 * without a channel whose end the driver reported, until they go;
+	 * the removal TBTT of the removed links, with the links
 	 * whose TX stop is still due, also in the TSF of the link that it was
 	 * taken from; the links that the last timer command named with a BSS;
 	 * the links whose template that starts a removal waits for the next
@@ -992,9 +992,8 @@ void mt7996_mcu_beacon_reconf_stop(struct mt7996_dev *dev,
 				   unsigned int link_id, bool removed);
 void mt7996_mcu_beacon_reconf_reset(struct mt7996_dev *dev,
 				    struct ieee80211_vif *vif);
-void mt7996_mcu_beacon_reconf_on_air(struct mt7996_dev *dev,
-				     struct ieee80211_vif *vif,
-				     unsigned int link_id);
+void mt7996_mcu_beacon_reconf_gone(struct mt7996_dev *dev,
+				   struct ieee80211_vif *vif, u16 links);
 int mt7996_mcu_beacon_inband_discov(struct mt7996_dev *dev,
 				    struct ieee80211_bss_conf *link_conf,
 				    struct mt7996_vif_link *link);

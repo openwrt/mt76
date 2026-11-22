@@ -5728,12 +5728,14 @@ mt7996_mcu_mld_reconf_bss_links(struct ieee80211_vif *vif)
 	return vif->valid_links & mvif->mt76.valid_links;
 }
 
-/* a link whose TX stop is due or done has ended its removal */
+/* a link whose TX stop is due or done, or whose end off air the driver
+ * reported, has ended its removal
+ */
 static u16
 mt7996_mcu_beacon_reconf_new(const struct mt7996_vif *mvif, u16 links)
 {
 	return links & ~(mvif->reconf_links | mvif->reconf_stop_links |
-			 mvif->reconf_done_links);
+			 mvif->reconf_done_links | mvif->reconf_off_air_links);
 }
 
 /* The first template that names a removed link starts its timer, and each
@@ -5933,7 +5935,8 @@ mt7996_mcu_beacon_reconf_wait(struct mt7996_dev *dev,
 /* A removed link without a channel sends no Beacon frames and has no TSF that
  * a removal TBTT could count in, so its removal ends at once, and the template
  * goes up with no removal entry for it. The templates of the other links name
- * it until user space drops it, so its end is reported once.
+ * it until user space drops it, so its end, or the expiry before it, is
+ * reported once.
  */
 static void
 mt7996_mcu_beacon_reconf_off_air(struct mt7996_dev *dev,
@@ -5959,7 +5962,7 @@ mt7996_mcu_beacon_reconf_off_air(struct mt7996_dev *dev,
 	reconf->links &= ~ended;
 
 	spin_lock_bh(&dev->mt76.lock);
-	reported = mvif->reconf_off_air_links;
+	reported = mvif->reconf_off_air_links | mvif->reconf_done_links;
 	mvif->reconf_off_air_links |= ended;
 	spin_unlock_bh(&dev->mt76.lock);
 
@@ -5968,14 +5971,17 @@ mt7996_mcu_beacon_reconf_off_air(struct mt7996_dev *dev,
 		ieee80211_links_removed(vif, ended);
 }
 
-void mt7996_mcu_beacon_reconf_on_air(struct mt7996_dev *dev,
-				     struct ieee80211_vif *vif,
-				     unsigned int link_id)
+/* mac80211 takes an expired removal that a beacon still announces as no new
+ * one until the link goes
+ */
+void mt7996_mcu_beacon_reconf_gone(struct mt7996_dev *dev,
+				   struct ieee80211_vif *vif, u16 links)
 {
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
 
 	spin_lock_bh(&dev->mt76.lock);
-	mvif->reconf_off_air_links &= ~BIT(link_id);
+	mvif->reconf_done_links &= ~links;
+	mvif->reconf_off_air_links &= ~links;
 	spin_unlock_bh(&dev->mt76.lock);
 }
 
@@ -6191,11 +6197,8 @@ void mt7996_mcu_beacon_reconf_stop(struct mt7996_dev *dev,
 	}
 	if (removed) {
 		mvif->reconf_stop_links &= ~BIT(link_id);
-		mvif->reconf_done_links &= ~BIT(link_id);
 		if (ended)
 			mvif->reconf_off_air_links |= BIT(link_id);
-		else
-			mvif->reconf_off_air_links &= ~BIT(link_id);
 		mvif->reconf_tbtt_links &= ~BIT(link_id);
 		timer = mvif->reconf_timer_links & BIT(link_id);
 		mvif->reconf_timer_links &= ~BIT(link_id);
@@ -6224,10 +6227,29 @@ void mt7996_mcu_beacon_reconf_stop(struct mt7996_dev *dev,
 	ieee80211_links_removed(vif, BIT(link_id));
 }
 
+/* the restart adds the driver link of a link with a channel again */
+static u16
+mt7996_mcu_beacon_reconf_chan_links(struct ieee80211_vif *vif, u16 links)
+{
+	unsigned long candidates = links;
+	unsigned int link_id;
+	u16 chan_links = 0;
+
+	for_each_set_bit(link_id, &candidates, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct ieee80211_bss_conf *link_conf;
+
+		link_conf = link_conf_dereference_protected(vif, link_id);
+		if (link_conf && rcu_access_pointer(link_conf->chanctx_conf))
+			chan_links |= BIT(link_id);
+	}
+
+	return chan_links;
+}
+
 /* The reset firmware holds no removal timer, so the templates of the restart
  * start the removal again. A removal whose TX stop is due keeps it, and so
- * does a removal whose TX stop is done, since the reset firmware sends on the
- * link again.
+ * does a removal whose TX stop is done on a link that has a channel, since
+ * the reset firmware sends on that link again.
  */
 void mt7996_mcu_beacon_reconf_reset(struct mt7996_dev *dev,
 				    struct ieee80211_vif *vif)
@@ -6238,7 +6260,9 @@ void mt7996_mcu_beacon_reconf_reset(struct mt7996_dev *dev,
 	hrtimer_cancel(&mvif->reconf_start_timer);
 
 	spin_lock_bh(&dev->mt76.lock);
-	mvif->reconf_stop_links |= mvif->reconf_done_links;
+	mvif->reconf_stop_links |=
+		mt7996_mcu_beacon_reconf_chan_links(vif,
+						    mvif->reconf_done_links);
 	mvif->reconf_links = 0;
 	mvif->reconf_bcn_links = 0;
 	mvif->reconf_tbtt_links = 0;
