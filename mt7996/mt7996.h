@@ -439,6 +439,13 @@ struct mt7996_vif {
 	u64 attlm_cookie;
 	u64 attlm_tbtt_boottime;
 	u64 attlm_end_boottime;
+	u64 attlm_end_bound;
+	/* the firmware ends a mapping by the TSF of the BSS of its request */
+	u64 attlm_end_tsf;
+	u8 attlm_ref_link;
+	u8 attlm_ref_band;
+	u8 attlm_ref_omac;
+	bool attlm_end_check;
 	bool attlm_ttlm_resend;
 	bool attlm_cancelled;
 	/* the firmware copies the index of the newest request into each

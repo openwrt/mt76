@@ -771,9 +771,6 @@ static int mt7996_add_interface(struct ieee80211_hw *hw,
 		}
 	}
 
-	/* the firmware of a hardware restart lost the mapping */
-	mt7996_mcu_mld_adv_ttlm_reset(dev, vif);
-
 	mt76_vif_init(vif, &mvif->mt76);
 
 	vif->offload_flags |= IEEE80211_OFFLOAD_ENCAP_4ADDR;
@@ -795,6 +792,9 @@ static int mt7996_add_interface(struct ieee80211_hw *hw,
 			      mt7996_mcu_mld_attlm_cntdwn_end,
 			      CLOCK_BOOTTIME, HRTIMER_MODE_ABS_SOFT);
 	}
+
+	/* the firmware of a hardware restart lost the mapping */
+	mt7996_mcu_mld_adv_ttlm_reset(dev, vif);
 
 out:
 	mutex_unlock(&dev->mt76.mutex);
