@@ -1492,6 +1492,25 @@ mt76_wcid_primary(struct mt76_wcid *wcid)
 	return wcid->def_wcid ? wcid->def_wcid : wcid;
 }
 
+/* mac80211 cannot decrypt a frame on its 802.3 RX path. skb->data points
+ * to the Ethernet header.
+ */
+static inline bool
+mt76_rx_unprotected_keyed(struct sk_buff *skb)
+{
+	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
+	struct ethhdr *eth = (struct ethhdr *)skb->data;
+
+	if (status->flag & RX_FLAG_DECRYPTED)
+		return false;
+
+	if (!status->wcid || !mt76_wcid_primary(status->wcid)->rx_check_pn)
+		return false;
+
+	/* a peer can send an EAPOL frame without protection */
+	return skb->len < ETH_HLEN || eth->h_proto != cpu_to_be16(ETH_P_PAE);
+}
+
 static inline struct ieee80211_sta *
 wcid_to_sta(struct mt76_wcid *wcid)
 {
