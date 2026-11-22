@@ -2760,6 +2760,7 @@ mt7996_mac_full_reset(struct mt7996_dev *dev)
 		phy->omac_mask = 0;
 		phy->rxfilter |= MT_WF_RFCR_DROP_OTHER_UC;
 		phy->beacon_rate = -1;
+		phy->inband_discov_link = NULL;
 	}
 	dev->mld_idx_mask = 0;
 	dev->mld_remap_idx_mask = 0;

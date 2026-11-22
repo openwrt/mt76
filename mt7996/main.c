@@ -384,6 +384,9 @@ static void mt7996_vif_link_teardown(struct mt7996_phy *phy,
 	if (!link_conf)
 		link_conf = &vif->bss_conf;
 
+	if (phy->inband_discov_link == link)
+		phy->inband_discov_link = NULL;
+
 	mt7996_vif_link_bmc_remove(dev, link_conf, link);
 	mt7996_mcu_add_bss_info(phy, vif, link_conf, mlink, msta_link, false);
 	mt7996_mcu_add_dev_info(phy, vif, link_conf, mlink, false);
@@ -490,6 +493,7 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	link->bmc_sta_unknown = false;
 	link->csa_bcn_uploaded = false;
 	link->bcn_cntdwn = false;
+	link->bcn_enabled = false;
 	link->crit_update_id = 0;
 	link->crit_update_time = 0;
 	link->crit_update_active = false;
@@ -1333,7 +1337,7 @@ mt7996_link_info_changed(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	if (changed & (BSS_CHANGED_UNSOL_BCAST_PROBE_RESP |
 		       BSS_CHANGED_FILS_DISCOVERY))
-		mt7996_mcu_beacon_inband_discov(dev, info, link, changed);
+		mt7996_mcu_beacon_inband_discov(dev, info, link);
 
 	if (changed & BSS_CHANGED_MU_GROUPS)
 		mt7996_update_mu_group(hw, link, info);

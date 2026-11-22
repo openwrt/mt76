@@ -6019,6 +6019,10 @@ out:
 	link->csa_bcn_uploaded = !ret && enabled && link_conf->csa_active;
 	if (!ret)
 		link->bcn_cntdwn = cntdwn;
+	if (!ret && enabled != link->bcn_enabled) {
+		link->bcn_enabled = enabled;
+		mt7996_mcu_beacon_inband_discov(dev, link_conf, link);
+	}
 	if (ret && started &&
 	    mt7996_mcu_beacon_reconf_retry(dev, vif, link_conf->link_id,
 					   started))
@@ -6077,13 +6081,112 @@ int mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	return __mt7996_mcu_add_beacon(hw, vif, link_conf, link, true, stopped);
 }
 
+struct mt7996_inband_iter_data {
+	struct mt7996_dev *dev;
+	struct mt7996_phy *phy;
+	struct ieee80211_bss_conf *link_conf;
+	struct mt7996_vif_link *link;
+};
+
+static bool
+mt7996_mcu_beacon_inband_on(struct ieee80211_bss_conf *link_conf,
+			    struct mt7996_vif_link *link)
+{
+	return link->bcn_enabled &&
+	       (link_conf->fils_discovery.max_interval ||
+		link_conf->unsol_bcast_probe_resp_interval);
+}
+
+static void
+mt7996_mcu_beacon_inband_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
+{
+	struct mt7996_inband_iter_data *data = priv;
+	struct ieee80211_bss_conf *link_conf;
+	unsigned int link_id;
+
+	if (data->link || vif->type != NL80211_IFTYPE_AP)
+		return;
+
+	for_each_vif_active_link(vif, link_conf, link_id) {
+		struct mt7996_vif_link *link;
+
+		link = mt7996_vif_link(data->dev, vif, link_id);
+		if (!link || link_conf->nontransmitted ||
+		    mt7996_vif_link_phy(link) != data->phy ||
+		    !mt7996_mcu_beacon_inband_on(link_conf, link))
+			continue;
+
+		data->link_conf = link_conf;
+		data->link = link;
+		return;
+	}
+}
+
+static void
+mt7996_mcu_beacon_inband_next(struct mt7996_dev *dev, struct mt7996_phy *phy)
+{
+	struct mt7996_inband_iter_data data = {
+		.dev = dev,
+		.phy = phy,
+	};
+
+	if (phy->mt76->offchannel)
+		return;
+
+	ieee80211_iterate_active_interfaces_atomic(phy->mt76->hw,
+						   IEEE80211_IFACE_ITER_NORMAL,
+						   mt7996_mcu_beacon_inband_iter,
+						   &data);
+	if (data.link)
+		mt7996_mcu_beacon_inband_discov(dev, data.link_conf, data.link);
+}
+
+/* The firmware keeps one in-band discovery frame per band and sends it at
+ * each TBTT of the band, also while the Beacon of its BSS is off. A stop
+ * through any BSS of the band ends the frame of the last upload.
+ */
+static int
+mt7996_mcu_beacon_inband_stop(struct mt7996_dev *dev,
+			      struct mt7996_vif_link *link)
+{
+	struct mt7996_phy *phy = mt7996_vif_link_phy(link);
+	struct bss_inband_discovery_tlv *discov;
+	struct sk_buff *rskb;
+	struct tlv *tlv;
+	int ret;
+
+	if (!phy || phy->inband_discov_link != link)
+		return 0;
+
+	rskb = __mt7996_mcu_alloc_bss_req(&dev->mt76, &link->mt76,
+					  MT7996_BSS_UPDATE_MAX_SIZE);
+	if (IS_ERR(rskb))
+		return PTR_ERR(rskb);
+
+	tlv = mt7996_mcu_add_uni_tlv(rskb, UNI_BSS_INFO_OFFLOAD,
+				     sizeof(*discov));
+	discov = (struct bss_inband_discovery_tlv *)tlv;
+	discov->wcid = cpu_to_le16(MT7996_WTBL_RESERVED);
+
+	ret = mt76_mcu_skb_send_msg(&dev->mt76, rskb,
+				    MCU_WMWA_UNI_CMD(BSS_INFO_UPDATE), true);
+	if (ret)
+		return ret;
+
+	phy->inband_discov_link = NULL;
+	mt7996_mcu_beacon_inband_next(dev, phy);
+
+	return 0;
+}
+
 int mt7996_mcu_beacon_inband_discov(struct mt7996_dev *dev,
 				    struct ieee80211_bss_conf *link_conf,
-				    struct mt7996_vif_link *link, u32 changed)
+				    struct mt7996_vif_link *link)
 {
 #define OFFLOAD_TX_MODE_SU	BIT(0)
 #define OFFLOAD_TX_MODE_MU	BIT(1)
 	struct mt76_phy *mphy = mt76_vif_link_phy(&link->mt76);
+	bool fils = link_conf->fils_discovery.max_interval;
 	struct ieee80211_vif *vif = link_conf->vif;
 	struct ieee80211_hw *hw = mt76_hw(dev);
 	struct mt76_wcid *wcid = &dev->mt76.global_wcid;
@@ -6094,29 +6197,33 @@ int mt7996_mcu_beacon_inband_discov(struct mt7996_dev *dev,
 	enum nl80211_band band;
 	struct tlv *tlv;
 	u8 *buf, interval;
-	int len;
+	u32 changed;
+	int len, ret;
 
 	if (!mphy)
 		return -EINVAL;
 
-	chandef = &mphy->chandef;
-	band = chandef->chan->band;
-
 	if (link_conf->nontransmitted)
 		return 0;
+
+	if (!mt7996_mcu_beacon_inband_on(link_conf, link))
+		return mt7996_mcu_beacon_inband_stop(dev, link);
+
+	chandef = &mphy->chandef;
+	band = chandef->chan->band;
 
 	rskb = __mt7996_mcu_alloc_bss_req(&dev->mt76, &link->mt76,
 					  MT7996_MAX_BSS_OFFLOAD_SIZE);
 	if (IS_ERR(rskb))
 		return PTR_ERR(rskb);
 
-	if (changed & BSS_CHANGED_FILS_DISCOVERY &&
-	    link_conf->fils_discovery.max_interval) {
+	if (fils) {
+		changed = BSS_CHANGED_FILS_DISCOVERY;
 		interval = link_conf->fils_discovery.max_interval;
 		skb = ieee80211_get_fils_discovery_tmpl(hw, vif,
 							link_conf->link_id);
-	} else if (changed & BSS_CHANGED_UNSOL_BCAST_PROBE_RESP &&
-		   link_conf->unsol_bcast_probe_resp_interval) {
+	} else {
+		changed = BSS_CHANGED_UNSOL_BCAST_PROBE_RESP;
 		interval = link_conf->unsol_bcast_probe_resp_interval;
 		skb = ieee80211_get_unsol_bcast_probe_resp_tmpl(hw, vif,
 								link_conf->link_id);
@@ -6160,8 +6267,12 @@ int mt7996_mcu_beacon_inband_discov(struct mt7996_dev *dev,
 
 	dev_kfree_skb(skb);
 
-	return mt76_mcu_skb_send_msg(&dev->mt76, rskb,
-				     MCU_WMWA_UNI_CMD(BSS_INFO_UPDATE), true);
+	ret = mt76_mcu_skb_send_msg(&dev->mt76, rskb,
+				    MCU_WMWA_UNI_CMD(BSS_INFO_UPDATE), true);
+	if (!ret)
+		mt7996_vif_link_phy(link)->inband_discov_link = link;
+
+	return ret;
 }
 
 static int mt7996_driver_own(struct mt7996_dev *dev, u8 band)

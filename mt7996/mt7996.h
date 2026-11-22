@@ -408,6 +408,7 @@ struct mt7996_vif_link {
 	bool bmc_sta_unknown;
 	bool csa_bcn_uploaded;
 	bool bcn_cntdwn;
+	bool bcn_enabled;
 
 	/* critical update of the last template that the firmware accepted,
 	 * under mt76_dev.lock
@@ -560,6 +561,10 @@ struct mt7996_phy {
 	u8 slottime;
 
 	u16 beacon_rate;
+	/* the firmware holds one in-band discovery frame per band, under
+	 * mt76_dev.mutex
+	 */
+	struct mt7996_vif_link *inband_discov_link;
 
 	u32 rx_ampdu_ts;
 	u32 ampdu_ref;
@@ -997,7 +1002,7 @@ void mt7996_mcu_beacon_reconf_reset(struct mt7996_dev *dev,
 				    struct ieee80211_vif *vif);
 int mt7996_mcu_beacon_inband_discov(struct mt7996_dev *dev,
 				    struct ieee80211_bss_conf *link_conf,
-				    struct mt7996_vif_link *link, u32 changed);
+				    struct mt7996_vif_link *link);
 int mt7996_mcu_add_obss_spr(struct mt7996_phy *phy,
 			    struct mt7996_vif_link *link,
 			    struct ieee80211_he_obss_pd *he_obss_pd);
