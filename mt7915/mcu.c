@@ -261,22 +261,39 @@ int mt7915_mcu_wa_cmd(struct mt7915_dev *dev, int cmd, u32 a1, u32 a2, u32 a3)
 	return mt76_mcu_send_msg(&dev->mt76, cmd, &req, sizeof(req), false);
 }
 
+struct mt7915_mcu_cntdwn_data {
+	u8 omac_idx;
+	bool csa;
+};
+
 static void
-mt7915_mcu_csa_finish(void *priv, u8 *mac, struct ieee80211_vif *vif)
+mt7915_mcu_cntdwn_finish(void *priv, u8 *mac, struct ieee80211_vif *vif)
 {
-	if (!vif->bss_conf.csa_active || vif->type == NL80211_IFTYPE_STATION)
+	struct mt7915_vif *mvif = (struct mt7915_vif *)vif->drv_priv;
+	struct mt7915_mcu_cntdwn_data *data = priv;
+
+	if (vif->type == NL80211_IFTYPE_STATION ||
+	    mvif->mt76.omac_idx != data->omac_idx)
 		return;
 
-	ieee80211_csa_finish(vif, 0);
+	if (data->csa && vif->bss_conf.csa_active)
+		ieee80211_csa_finish(vif, 0);
+	else if (!data->csa && vif->bss_conf.color_change_active)
+		ieee80211_color_change_finish(vif, 0);
 }
 
 static void
 mt7915_mcu_rx_csa_notify(struct mt7915_dev *dev, struct sk_buff *skb)
 {
 	struct mt76_phy *mphy = &dev->mt76.phy;
+	struct mt7915_mcu_cntdwn_data data;
 	struct mt7915_mcu_csa_notify *c;
 
 	c = (struct mt7915_mcu_csa_notify *)skb->data;
+	data = (struct mt7915_mcu_cntdwn_data){
+		.omac_idx = c->omac_idx,
+		.csa = true,
+	};
 
 	if (c->band_idx > MT_BAND1)
 		return;
@@ -287,7 +304,7 @@ mt7915_mcu_rx_csa_notify(struct mt7915_dev *dev, struct sk_buff *skb)
 
 	ieee80211_iterate_active_interfaces_atomic(mphy->hw,
 			IEEE80211_IFACE_ITER_RESUME_ALL,
-			mt7915_mcu_csa_finish, mphy->hw);
+			mt7915_mcu_cntdwn_finish, &data);
 }
 
 static void
@@ -383,21 +400,16 @@ mt7915_mcu_rx_log_message(struct mt7915_dev *dev, struct sk_buff *skb)
 }
 
 static void
-mt7915_mcu_cca_finish(void *priv, u8 *mac, struct ieee80211_vif *vif)
-{
-	if (!vif->bss_conf.color_change_active || vif->type == NL80211_IFTYPE_STATION)
-		return;
-
-	ieee80211_color_change_finish(vif, 0);
-}
-
-static void
 mt7915_mcu_rx_bcc_notify(struct mt7915_dev *dev, struct sk_buff *skb)
 {
 	struct mt76_phy *mphy = &dev->mt76.phy;
+	struct mt7915_mcu_cntdwn_data data;
 	struct mt7915_mcu_bcc_notify *b;
 
 	b = (struct mt7915_mcu_bcc_notify *)skb->data;
+	data = (struct mt7915_mcu_cntdwn_data){
+		.omac_idx = b->omac_idx,
+	};
 
 	if (b->band_idx > MT_BAND1)
 		return;
@@ -408,7 +420,7 @@ mt7915_mcu_rx_bcc_notify(struct mt7915_dev *dev, struct sk_buff *skb)
 
 	ieee80211_iterate_active_interfaces_atomic(mphy->hw,
 			IEEE80211_IFACE_ITER_RESUME_ALL,
-			mt7915_mcu_cca_finish, mphy->hw);
+			mt7915_mcu_cntdwn_finish, &data);
 }
 
 static void
