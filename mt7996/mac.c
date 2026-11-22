@@ -1146,6 +1146,22 @@ bool mt7996_tx_any_link(struct ieee80211_vif *vif, struct ieee80211_sta *sta,
 	return !READ_ONCE(msta->neg_ttlm.valid);
 }
 
+/* The firmware stops the group frames of the BSS of an advertised TTLM
+ * alone. A frame of a TXQ gets its link in mt7996_tx_prepare_skb(), not in
+ * mt7996_tx().
+ */
+static bool
+mt7996_tx_group_stopped(struct mt7996_vif *mvif, struct mt76_wcid *wcid)
+{
+	struct mt76_vif_link *mlink;
+
+	if (!mvif || !(READ_ONCE(mvif->attlm_stop_links) & BIT(wcid->link_id)))
+		return false;
+
+	mlink = rcu_dereference(mvif->mt76.link[wcid->link_id]);
+	return mlink && mlink->wcid == wcid;
+}
+
 int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			  enum mt76_txq_id qid, struct mt76_wcid *wcid,
 			  struct ieee80211_sta *sta,
@@ -1245,6 +1261,9 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 				wcid = mlink->wcid;
 		}
 	}
+
+	if (mt7996_tx_group_stopped(mvif, wcid))
+		return MT76_TX_DROPPED;
 
 	t = (struct mt76_txwi_cache *)(txwi + mdev->drv->txwi_size);
 	t->skb = tx_info->skb;
@@ -2701,6 +2720,9 @@ mt7996_mac_reset_vif_iter(void *data, u8 *mac, struct ieee80211_vif *vif)
 	/* a restart that fails calls no remove_interface for the interface */
 	hrtimer_cancel(&priv->reconf_timer);
 	hrtimer_cancel(&priv->reconf_start_timer);
+	hrtimer_cancel(&priv->attlm_end_timer);
+	hrtimer_cancel(&priv->attlm_cntdwn_timer);
+	mt7996_mcu_mld_attlm_cntdwn_reset(dev, priv, U16_MAX);
 
 	rcu_read_lock();
 	for (i = 0; i < ARRAY_SIZE(mvif->link); i++) {

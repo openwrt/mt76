@@ -433,11 +433,27 @@ struct mt7996_vif {
 	u8 mld_group_idx;
 	u8 mld_remap_idx;
 
-	/* advertised TID-to-link mapping, under mt76_dev.lock */
+	/* advertised TID-to-link mapping, under mt76_dev.lock; the TX path
+	 * reads attlm_stop_links without it
+	 */
 	u64 attlm_cookie;
 	u64 attlm_tbtt_boottime;
 	u64 attlm_end_boottime;
 	bool attlm_ttlm_resend;
+	u16 attlm_links;
+	u16 attlm_stop_links;
+	u16 attlm_bcn_links;
+	u16 attlm_disc_links;
+	u16 attlm_disc_off;
+	u16 attlm_disc_sync;
+	struct hrtimer attlm_end_timer;
+	/* the firmware drops the CSA or colour change countdown of a BSS
+	 * whose Beacon is off, so the driver finishes it on a stopped link
+	 */
+	u16 attlm_cntdwn_links;
+	u16 attlm_hold_links;
+	u64 attlm_cntdwn_end[IEEE80211_MLD_MAX_NUM_LINKS];
+	struct hrtimer attlm_cntdwn_timer;
 
 	/* AP Removal Timer that the firmware counts, under mt76_dev.lock:
 	 * the removed links and the time of their timer, and the links whose
@@ -619,7 +635,7 @@ struct mt7996_dev {
 	struct work_struct dump_work;
 	struct work_struct reset_work;
 	struct work_struct reconf_work;
-	struct work_struct attlm_end_work;
+	struct work_struct attlm_work;
 	wait_queue_head_t reset_wait;
 	struct {
 		u32 state;
@@ -1081,7 +1097,11 @@ int mt7996_mcu_mld_reconf_stop_link(struct mt7996_dev *dev,
 				    struct ieee80211_vif *vif,
 				    u16 removed_links);
 void mt7996_mcu_mld_reconf_work(struct work_struct *work);
-void mt7996_mcu_mld_attlm_end_work(struct work_struct *work);
+void mt7996_mcu_mld_attlm_work(struct work_struct *work);
+enum hrtimer_restart mt7996_mcu_mld_attlm_end(struct hrtimer *timer);
+enum hrtimer_restart mt7996_mcu_mld_attlm_cntdwn_end(struct hrtimer *timer);
+void mt7996_mcu_mld_attlm_cntdwn_reset(struct mt7996_dev *dev,
+				       struct mt7996_vif *mvif, u16 links);
 enum hrtimer_restart mt7996_mcu_mld_reconf_tbtt(struct hrtimer *timer);
 enum hrtimer_restart mt7996_mcu_mld_reconf_window(struct hrtimer *timer);
 int mt7996_mcu_mld_link_oper(struct mt7996_dev *dev,

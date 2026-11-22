@@ -493,6 +493,9 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	link->bmc_sta_unknown = false;
 	link->csa_bcn_uploaded = false;
 	link->bcn_cntdwn = false;
+	if (!mlink->offchannel)
+		mt7996_mcu_mld_attlm_cntdwn_reset(dev, mvif,
+						  BIT(link_conf->link_id));
 	link->bcn_enabled = false;
 	link->crit_update_id = 0;
 	link->crit_update_time = 0;
@@ -783,6 +786,11 @@ static int mt7996_add_interface(struct ieee80211_hw *hw,
 		hrtimer_setup(&mvif->reconf_start_timer,
 			      mt7996_mcu_mld_reconf_window, CLOCK_BOOTTIME,
 			      HRTIMER_MODE_ABS_SOFT);
+		hrtimer_setup(&mvif->attlm_end_timer, mt7996_mcu_mld_attlm_end,
+			      CLOCK_BOOTTIME, HRTIMER_MODE_ABS_SOFT);
+		hrtimer_setup(&mvif->attlm_cntdwn_timer,
+			      mt7996_mcu_mld_attlm_cntdwn_end,
+			      CLOCK_BOOTTIME, HRTIMER_MODE_ABS_SOFT);
 	}
 
 out:
@@ -828,6 +836,9 @@ static void mt7996_remove_interface(struct ieee80211_hw *hw,
 
 	hrtimer_cancel(&mvif->reconf_timer);
 	hrtimer_cancel(&mvif->reconf_start_timer);
+	hrtimer_cancel(&mvif->attlm_end_timer);
+	hrtimer_cancel(&mvif->attlm_cntdwn_timer);
+	mt7996_mcu_mld_attlm_cntdwn_reset(dev, mvif, U16_MAX);
 
 	mutex_lock(&dev->mt76.mutex);
 	mt7996_vif_links_destroy(dev, vif, mvif->mt76.valid_links, NULL);
