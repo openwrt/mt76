@@ -2805,6 +2805,20 @@ mt7996_mac_full_reset(struct mt7996_dev *dev)
 	ieee80211_restart_hw(mt76_hw(dev));
 }
 
+/* an L1 recovery frees the beacon templates and the AP Removal Timer counts
+ * of the firmware, as a beacon disable does
+ */
+static void
+mt7996_mac_reset_reconf_iter(void *data, u8 *mac, struct ieee80211_vif *vif)
+{
+	unsigned long valid_links = vif->valid_links;
+	struct mt7996_dev *dev = data;
+	unsigned int link_id;
+
+	for_each_set_bit(link_id, &valid_links, IEEE80211_MLD_MAX_NUM_LINKS)
+		mt7996_mcu_beacon_reconf_stop(dev, vif, link_id, false);
+}
+
 void mt7996_mac_reset_work(struct work_struct *work)
 {
 	unsigned long bcn_restored = 0;
@@ -2953,6 +2967,11 @@ void mt7996_mac_reset_work(struct work_struct *work)
 	local_bh_disable();
 	napi_schedule(&dev->mt76.tx_napi);
 	local_bh_enable();
+
+	ieee80211_iterate_active_interfaces_atomic(hw,
+						   IEEE80211_IFACE_ITER_RESUME_ALL,
+						   mt7996_mac_reset_reconf_iter,
+						   dev);
 
 	mt7996_for_each_phy(dev, phy)
 		if (mt7996_mac_reset_channel_restore(phy))
