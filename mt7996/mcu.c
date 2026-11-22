@@ -4640,44 +4640,18 @@ mt7996_mcu_beacon_mbss(struct sk_buff *rskb, struct sk_buff *skb,
 	}
 }
 
-static int
-mt7996_mcu_beacon_bpcc(struct sk_buff *skb, u16 tail_offset)
-{
-	const struct element *elem;
-
-	for_each_element_extid(elem, WLAN_EID_EXT_EHT_MULTI_LINK,
-			       skb->data + tail_offset,
-			       skb->len - tail_offset) {
-		if (!ieee80211_mle_type_ok(elem->data + 1,
-					   IEEE80211_ML_CONTROL_TYPE_BASIC,
-					   elem->datalen - 1))
-			continue;
-
-		return ieee80211_mle_get_bss_param_ch_cnt(elem->data + 1);
-	}
-
-	return -1;
-}
-
 static bool
 mt7996_mcu_beacon_crit_update(struct sk_buff *rskb, struct sk_buff *skb,
 			      struct ieee80211_vif *vif,
-			      struct mt7996_vif_link *link,
-			      struct ieee80211_mutable_offsets *offs, int *bpcc)
+			      struct ieee80211_mutable_offsets *offs)
 {
 	struct ieee80211_mgmt *mgmt = (struct ieee80211_mgmt *)skb->data;
 	struct bss_bcn_crit_update_tlv *crit;
-	bool bpcc_changed;
 	struct tlv *tlv;
 
 	if (!ieee80211_vif_is_mld(vif))
 		return false;
 
-	/* a critical update compares with the last template that the
-	 * firmware accepted
-	 */
-	*bpcc = mt7996_mcu_beacon_bpcc(skb, offs->tim_offset);
-	bpcc_changed = *bpcc >= 0 && *bpcc != link->bpcc;
 	if (!(mgmt->u.beacon.capab_info &
 	      cpu_to_le16(WLAN_CAPABILITY_CRITICAL_UPDATE)))
 		return false;
@@ -4686,11 +4660,8 @@ mt7996_mcu_beacon_crit_update(struct sk_buff *rskb, struct sk_buff *skb,
 				     sizeof(*crit));
 	crit = (struct bss_bcn_crit_update_tlv *)tlv;
 	crit->bss_bitmap = cpu_to_le32(BIT(0));
-	/* the Beacon frame of the link whose parameters changed goes out
-	 * before those of its partner links
-	 */
-	if (!bpcc_changed)
-		crit->bypass_seq_bitmap = cpu_to_le32(BIT(0));
+	/* no link of the MLD waits for the Beacon frame of another band */
+	crit->bypass_seq_bitmap = cpu_to_le32(BIT(0));
 	crit->tim_ie_pos[0] = cpu_to_le16(offs->tim_offset);
 	crit->cap_info_ie_pos[0] =
 		cpu_to_le16(offsetof(struct ieee80211_mgmt,
@@ -5635,7 +5606,6 @@ __mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	unsigned int reconf_len;
 	u64 upload_tsf = 0;
 	u16 started = 0;
-	int bpcc = -1;
 
 	/* a later CSA needs a new template, also after a failed upload */
 	if (!link_conf->csa_active)
@@ -5684,8 +5654,7 @@ __mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		mt7996_mcu_beacon_mbss(rskb, skb, bcn, &offs);
 	mt7996_mcu_beacon_cntdwn(rskb, skb, &offs, link_conf->csa_active);
 	cntdwn = !!offs.cntdwn_counter_offs[0];
-	crit_update = mt7996_mcu_beacon_crit_update(rskb, skb, vif, link, &offs,
-						    &bpcc);
+	crit_update = mt7996_mcu_beacon_crit_update(rskb, skb, vif, &offs);
 	mt7996_mcu_beacon_attlm(rskb, skb, vif, &offs);
 	mt7996_mcu_beacon_ml_reconf(dev, vif, skb, &offs, &reconf);
 	if (mt7996_mcu_beacon_crit_update_held(dev, link_conf, link, crit_update,
@@ -5738,8 +5707,6 @@ out:
 	link->csa_bcn_uploaded = !ret && enabled && link_conf->csa_active;
 	if (!ret)
 		link->bcn_cntdwn = cntdwn;
-	if (!ret && !ambiguous && bpcc >= 0)
-		link->bpcc = bpcc;
 	if (!ret && started)
 		mt7996_mcu_beacon_reconf_arm(dev, vif, started, &reconf,
 					     upload_tsf);

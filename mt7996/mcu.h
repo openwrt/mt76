@@ -607,8 +607,8 @@ struct bss_bcn_crit_update_tlv {
 	__le16 tag;
 	__le16 len;
 	__le32 bss_bitmap;
-	/* the firmware does not order the Beacon frame of a BSS in this bitmap
-	 * after those of the BSS whose parameters changed
+	/* a BSS in this bitmap takes no part in the order in which the
+	 * bands set the Critical Update flag
 	 */
 	__le32 bypass_seq_bitmap;
 	__le16 tim_ie_pos[MAX_BEACON_NUM];

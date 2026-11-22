@@ -364,7 +364,6 @@ struct mt7996_vif_link {
 	bool bmc_sta_unknown;
 	bool csa_bcn_uploaded;
 	bool bcn_cntdwn;
-	u8 bpcc;
 
 	/* critical update of the last template that the firmware accepted,
 	 * under mt76_dev.lock

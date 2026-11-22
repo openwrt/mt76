@@ -490,7 +490,6 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	link->bmc_sta_unknown = false;
 	link->csa_bcn_uploaded = false;
 	link->bcn_cntdwn = false;
-	link->bpcc = 0;
 	link->crit_update_id = 0;
 	link->crit_update_time = 0;
 	link->crit_update_active = false;
