@@ -1326,6 +1326,9 @@ int mt7915_register_device(struct mt7915_dev *dev)
 	init_waitqueue_head(&dev->reset_wait);
 	INIT_WORK(&dev->reset_work, mt7915_mac_reset_work);
 	INIT_WORK(&dev->dump_work, mt7915_mac_dump_work);
+	INIT_WORK(&dev->cntdwn_work, mt7915_mcu_beacon_cntdwn_work);
+	hrtimer_setup(&dev->cntdwn_timer, mt7915_mcu_beacon_cntdwn_timer,
+		      CLOCK_BOOTTIME, HRTIMER_MODE_ABS_SOFT);
 	mutex_init(&dev->dump_mutex);
 
 	dev->dbdc_support = mt7915_band_config(dev);
@@ -1401,6 +1404,8 @@ void mt7915_unregister_device(struct mt7915_dev *dev)
 	cancel_work_sync(&dev->dump_work);
 	cancel_work_sync(&dev->reset_work);
 	cancel_work_sync(&dev->rc_work);
+	hrtimer_cancel(&dev->cntdwn_timer);
+	cancel_work_sync(&dev->cntdwn_work);
 	mt7915_unregister_ext_phy(dev);
 	mt7915_coredump_unregister(dev);
 	mt7915_unregister_thermal(&dev->phy);

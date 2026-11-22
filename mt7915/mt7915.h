@@ -86,6 +86,12 @@
 
 #define MT7915_RTS_LEN_THRES		0x92b
 
+/* the firmware's lead of the pre-TBTT pass of an AP BSS: 79 units of 64 us */
+#define MT7915_PRE_TBTT_US		5056
+
+#define MT7915_TSF_READ_TRIES		3
+#define MT7915_TSF_READ_SPAN_US		1000
+
 struct mt7915_vif;
 struct mt7915_sta;
 struct mt7915_dfs_pulse;
@@ -181,6 +187,9 @@ struct mt7915_vif {
 
 	struct ieee80211_tx_queue_params queue_params[IEEE80211_NUM_ACS];
 	struct cfg80211_bitrate_mask bitrate_mask;
+
+	/* kept across a hardware restart, which adds the vif with no remove */
+	struct mt76_cntdwn cntdwn;
 };
 
 /* crash-dump */
@@ -277,6 +286,8 @@ struct mt7915_dev {
 	struct work_struct rc_work;
 	struct work_struct dump_work;
 	struct work_struct reset_work;
+	struct work_struct cntdwn_work;
+	struct hrtimer cntdwn_timer;
 	wait_queue_head_t reset_wait;
 
 	struct {
@@ -511,6 +522,8 @@ int mt7915_mcu_add_inband_discov(struct mt7915_dev *dev, struct ieee80211_vif *v
 				 u32 changed);
 int mt7915_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			  int enable, u32 changed);
+void mt7915_mcu_beacon_cntdwn_work(struct work_struct *work);
+enum hrtimer_restart mt7915_mcu_beacon_cntdwn_timer(struct hrtimer *timer);
 int mt7915_mcu_set_protection(struct mt7915_phy *phy, struct ieee80211_vif *vif,
 			      u8 ht_mode, bool use_cts_prot);
 int mt7915_mcu_add_obss_spr(struct mt7915_phy *phy, struct ieee80211_vif *vif,

@@ -1445,6 +1445,14 @@ out:
 }
 
 static void
+mt7915_mac_reset_cntdwn_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
+{
+	struct mt7915_vif *mvif = (struct mt7915_vif *)vif->drv_priv;
+
+	mt76_cntdwn_reset(&mvif->cntdwn);
+}
+
+static void
 mt7915_mac_full_reset(struct mt7915_dev *dev)
 {
 	struct mt7915_twt_flow *flow, *tmp;
@@ -1486,6 +1494,14 @@ mt7915_mac_full_reset(struct mt7915_dev *dev)
 		phy2->omac_mask = 0;
 
 	mt76_reset_device(&dev->mt76);
+	ieee80211_iterate_active_interfaces_atomic(mt76_hw(dev),
+						   IEEE80211_IFACE_SKIP_SDATA_NOT_IN_DRIVER,
+						   mt7915_mac_reset_cntdwn_iter, NULL);
+	if (ext_phy)
+		ieee80211_iterate_active_interfaces_atomic(ext_phy->hw,
+							   IEEE80211_IFACE_SKIP_SDATA_NOT_IN_DRIVER,
+							   mt7915_mac_reset_cntdwn_iter,
+							   NULL);
 
 	spin_lock_bh(&dev->mt76.sta_poll_lock);
 	while (!list_empty(&dev->sta_rc_list))
@@ -1650,9 +1666,10 @@ void mt7915_mac_reset_work(struct work_struct *work)
 	if (ext_phy)
 		ieee80211_wake_queues(ext_phy->hw);
 
-	mutex_unlock(&dev->mt76.mutex);
-
+	/* a template that starts a countdown reads the TSF */
 	mt7915_update_beacons(dev);
+
+	mutex_unlock(&dev->mt76.mutex);
 
 	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->mphy.mac_work,
 				     MT7915_WATCHDOG_TIME);

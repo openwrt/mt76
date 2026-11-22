@@ -262,24 +262,42 @@ int mt7915_mcu_wa_cmd(struct mt7915_dev *dev, int cmd, u32 a1, u32 a2, u32 a3)
 }
 
 struct mt7915_mcu_cntdwn_data {
+	struct mt7915_dev *dev;
 	u8 omac_idx;
 	bool csa;
 };
 
+/* A countdown that the driver ended while the firmware still counted runs on
+ * to its end event, and the firmware then holds the Beacon frames until an
+ * upload.
+ */
 static void
 mt7915_mcu_cntdwn_finish(void *priv, u8 *mac, struct ieee80211_vif *vif)
 {
 	struct mt7915_vif *mvif = (struct mt7915_vif *)vif->drv_priv;
 	struct mt7915_mcu_cntdwn_data *data = priv;
+	struct mt76_cntdwn *cd = &mvif->cntdwn;
+	bool active;
 
 	if (vif->type == NL80211_IFTYPE_STATION ||
 	    mvif->mt76.omac_idx != data->omac_idx)
 		return;
 
-	if (data->csa && vif->bss_conf.csa_active)
-		ieee80211_csa_finish(vif, 0);
-	else if (!data->csa && vif->bss_conf.color_change_active)
-		ieee80211_color_change_finish(vif, 0);
+	active = data->csa ? vif->bss_conf.csa_active :
+			     vif->bss_conf.color_change_active;
+	if (active && mt76_cntdwn_finish_take(cd)) {
+		if (data->csa)
+			ieee80211_csa_finish(vif, 0);
+		else
+			ieee80211_color_change_finish(vif, 0);
+		return;
+	}
+
+	if (!mt76_cntdwn_late_take(cd))
+		return;
+
+	cd->wait = true;
+	queue_work(system_highpri_wq, &data->dev->cntdwn_work);
 }
 
 static void
@@ -291,6 +309,7 @@ mt7915_mcu_rx_csa_notify(struct mt7915_dev *dev, struct sk_buff *skb)
 
 	c = (struct mt7915_mcu_csa_notify *)skb->data;
 	data = (struct mt7915_mcu_cntdwn_data){
+		.dev = dev,
 		.omac_idx = c->omac_idx,
 		.csa = true,
 	};
@@ -408,6 +427,7 @@ mt7915_mcu_rx_bcc_notify(struct mt7915_dev *dev, struct sk_buff *skb)
 
 	b = (struct mt7915_mcu_bcc_notify *)skb->data;
 	data = (struct mt7915_mcu_cntdwn_data){
+		.dev = dev,
 		.omac_idx = b->omac_idx,
 	};
 
@@ -1913,23 +1933,181 @@ int mt7915_mcu_add_dev_info(struct mt7915_phy *phy,
 				 &data, sizeof(data), true);
 }
 
-static void
-mt7915_mcu_beacon_cntdwn(struct ieee80211_vif *vif, struct sk_buff *rskb,
-			 struct sk_buff *skb, struct bss_info_bcn *bcn,
-			 struct ieee80211_mutable_offsets *offs)
+static u64
+mt7915_mcu_beacon_tsf(struct ieee80211_hw *hw, struct mt7915_vif *mvif)
 {
-	struct bss_info_bcn_cntdwn *info;
-	struct tlv *tlv;
-	int sub_tag;
+	u64 first, tsf = 0;
+	int i;
 
-	if (!offs->cntdwn_counter_offs[0])
+	/* The firmware latches its own TSF reads into the same transfer
+	 * registers without a lock, so take the second of two reads where it
+	 * lies at most 1 ms after the first, or the last read after the last
+	 * try.
+	 */
+	for (i = 0; i < MT7915_TSF_READ_TRIES; i++) {
+		first = __mt7915_get_tsf(hw, mvif);
+		tsf = __mt7915_get_tsf(hw, mvif);
+		if (tsf - first <= MT7915_TSF_READ_SPAN_US)
+			break;
+	}
+
+	return tsf;
+}
+
+static void
+mt7915_mcu_beacon_cntdwn_end(struct ieee80211_vif *vif)
+{
+	struct mt7915_vif *mvif = (struct mt7915_vif *)vif->drv_priv;
+
+	if (!mt76_cntdwn_finish_take(&mvif->cntdwn))
 		return;
 
-	sub_tag = vif->bss_conf.csa_active ? BSS_INFO_BCN_CSA : BSS_INFO_BCN_BCC;
+	if (vif->bss_conf.csa_active)
+		ieee80211_csa_finish(vif, 0);
+	else
+		ieee80211_color_change_finish(vif, 0);
+}
+
+/* Returns false where the upload waits until no pass is near. The count of
+ * a running countdown goes into mac80211 before it builds the template.
+ */
+static bool
+mt7915_mcu_beacon_cntdwn_prepare(struct mt7915_dev *dev,
+				 struct ieee80211_hw *hw,
+				 struct ieee80211_vif *vif, int en, u64 now)
+{
+	struct mt7915_vif *mvif = (struct mt7915_vif *)vif->drv_priv;
+	struct mt76_cntdwn *cd = &mvif->cntdwn;
+	u8 type = mt76_cntdwn_type(&vif->bss_conf);
+	u64 wait;
+
+	if (!type) {
+		mt76_cntdwn_clear(cd);
+		return true;
+	}
+
+	if (!en) {
+		cd->wait = false;
+		return true;
+	}
+
+	if (mt76_cntdwn_begins(cd, type)) {
+		mt76_cntdwn_clear(cd);
+		return true;
+	}
+
+	if (test_bit(MT76_CNTDWN_PHASE_LOST, &cd->state)) {
+		u64 tsf = mt7915_mcu_beacon_tsf(hw, mvif);
+
+		now = ktime_get_boottime_ns();
+		mt76_cntdwn_rephase(cd, MT7915_PRE_TBTT_US, tsf, now);
+	}
+
+	wait = mt76_cntdwn_wait(cd, now);
+	if (wait) {
+		mt76_cntdwn_defer(&dev->cntdwn_timer, cd, now + wait);
+		return false;
+	}
+
+	clear_bit(MT76_CNTDWN_LATE_UPLOAD, &cd->state);
+	mt76_cntdwn_counter_sync(vif, 0, cd, mt76_cntdwn_passes(cd, now));
+
+	return true;
+}
+
+/* Returns false where a countdown that this template starts waits until no
+ * pass is near.
+ */
+static bool
+mt7915_mcu_beacon_cntdwn(struct mt7915_dev *dev, struct ieee80211_hw *hw,
+			 struct ieee80211_vif *vif, struct sk_buff *rskb,
+			 struct sk_buff *skb, struct bss_info_bcn *bcn,
+			 struct ieee80211_mutable_offsets *offs, u64 now)
+{
+	struct mt7915_vif *mvif = (struct mt7915_vif *)vif->drv_priv;
+	struct mt76_cntdwn *cd = &mvif->cntdwn;
+	u8 type = mt76_cntdwn_type(&vif->bss_conf);
+	struct bss_info_bcn_cntdwn *info;
+	struct tlv *tlv;
+	int sub_tag, left;
+
+	if (!offs->cntdwn_counter_offs[0] || !type)
+		return true;
+
+	if (type != cd->type) {
+		u64 tsf = mt7915_mcu_beacon_tsf(hw, mvif), wait;
+
+		now = ktime_get_boottime_ns();
+		mt76_cntdwn_start(cd, type, skb->data[offs->cntdwn_counter_offs[0]],
+				  vif->bss_conf.beacon_int * 1024,
+				  MT7915_PRE_TBTT_US, tsf, now);
+		wait = mt76_cntdwn_wait(cd, now);
+		if (wait) {
+			mt76_cntdwn_clear(cd);
+			mt76_cntdwn_defer(&dev->cntdwn_timer, cd, now + wait);
+			return false;
+		}
+	}
+
+	/* The firmware sends no end event for a countdown that it holds no
+	 * longer, so the driver ends one whose last pass has gone. A count of
+	 * 0 sets the firmware idle with no event, but where it still counts it
+	 * runs on to its end event, which mt7915_mcu_cntdwn_finish() answers.
+	 */
+	left = max(mt76_cntdwn_left(cd, now), 0);
+	if (!left)
+		mt7915_mcu_beacon_cntdwn_end(vif);
+
+	sub_tag = type == MT76_CNTDWN_CSA ? BSS_INFO_BCN_CSA : BSS_INFO_BCN_BCC;
 	tlv = mt7915_mcu_add_nested_subtlv(rskb, sub_tag, sizeof(*info),
 					   &bcn->sub_ntlv, &bcn->len);
 	info = (struct bss_info_bcn_cntdwn *)tlv;
-	info->cnt = skb->data[offs->cntdwn_counter_offs[0]];
+	info->cnt = left;
+
+	return true;
+}
+
+static void
+mt7915_mcu_beacon_cntdwn_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
+{
+	struct mt7915_vif *mvif = (struct mt7915_vif *)vif->drv_priv;
+	struct ieee80211_hw *hw = priv;
+
+	if (!mvif->cntdwn.wait)
+		return;
+
+	mvif->cntdwn.wait = false;
+	mt7915_mcu_add_beacon(hw, vif, vif->bss_conf.enable_beacon,
+			      BSS_CHANGED_BEACON);
+}
+
+void mt7915_mcu_beacon_cntdwn_work(struct work_struct *work)
+{
+	struct mt7915_dev *dev = container_of(work, struct mt7915_dev,
+					      cntdwn_work);
+	struct mt76_phy *ext_phy = dev->mt76.phys[MT_BAND1];
+
+	mutex_lock(&dev->mt76.mutex);
+	ieee80211_iterate_active_interfaces(dev->mt76.hw,
+					    IEEE80211_IFACE_ITER_RESUME_ALL,
+					    mt7915_mcu_beacon_cntdwn_iter,
+					    dev->mt76.hw);
+	if (ext_phy)
+		ieee80211_iterate_active_interfaces(ext_phy->hw,
+						    IEEE80211_IFACE_ITER_RESUME_ALL,
+						    mt7915_mcu_beacon_cntdwn_iter,
+						    ext_phy->hw);
+	mutex_unlock(&dev->mt76.mutex);
+}
+
+enum hrtimer_restart mt7915_mcu_beacon_cntdwn_timer(struct hrtimer *timer)
+{
+	struct mt7915_dev *dev = container_of(timer, struct mt7915_dev,
+					      cntdwn_timer);
+
+	queue_work(system_highpri_wq, &dev->cntdwn_work);
+
+	return HRTIMER_NORESTART;
 }
 
 static void
@@ -2118,9 +2296,13 @@ int mt7915_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct tlv *tlv;
 	struct bss_info_bcn *bcn;
 	int len = MT7915_MAX_BSS_OFFLOAD_SIZE;
+	u64 now = ktime_get_boottime_ns();
 	bool ext_phy = phy != &dev->phy;
 
 	if (vif->bss_conf.nontransmitted)
+		return 0;
+
+	if (!mt7915_mcu_beacon_cntdwn_prepare(dev, hw, vif, en, now))
 		return 0;
 
 	rskb = __mt76_connac_mcu_alloc_sta_req(&dev->mt76, &mvif->mt76,
@@ -2151,7 +2333,12 @@ int mt7915_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	info = IEEE80211_SKB_CB(skb);
 	info->hw_queue = FIELD_PREP(MT_TX_HW_QUEUE_PHY, ext_phy);
 
-	mt7915_mcu_beacon_cntdwn(vif, rskb, skb, bcn, &offs);
+	if (!mt7915_mcu_beacon_cntdwn(dev, hw, vif, rskb, skb, bcn, &offs,
+				      now)) {
+		dev_kfree_skb(rskb);
+		dev_kfree_skb(skb);
+		return 0;
+	}
 	mt7915_mcu_beacon_mbss(rskb, skb, vif, bcn, &offs);
 	mt7915_mcu_beacon_cont(dev, vif, rskb, skb, bcn, &offs);
 	dev_kfree_skb(skb);
