@@ -195,9 +195,7 @@ mt7915_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 		return -EINVAL;
 
 	rxd = (struct mt76_connac2_mcu_rxd *)skb->data;
-	if (seq != rxd->seq &&
-	    !(rxd->eid == MCU_CMD_EXT_CID &&
-	      rxd->ext_eid == MCU_EXT_EVENT_WA_TX_STAT))
+	if (seq != rxd->seq)
 		return -EAGAIN;
 
 	if (cmd == MCU_CMD(PATCH_SEM_CONTROL)) {
@@ -508,6 +506,41 @@ mt7915_mcu_rx_ps_sync(struct mt7915_dev *dev, struct sk_buff *skb)
 }
 
 static void
+mt7915_mcu_rx_wa_tx_stat(struct mt7915_dev *dev, struct sk_buff *skb)
+{
+	struct mt7915_mcu_wa_tx_stat {
+		__le16 wcid;
+		u8 __rsv2[2];
+
+		/* tx_bytes is deprecated since WA byte counter uses u32,
+		 * which easily leads to overflow.
+		 */
+		__le32 tx_bytes;
+		__le32 tx_packets;
+	} __packed *res;
+	int offset = sizeof(struct mt76_connac2_mcu_rxd);
+	struct mt76_wcid *wcid;
+	u16 wlan_idx;
+
+	if (!is_mt7915(&dev->mt76))
+		offset += 4;
+
+	if (skb->len < offset + sizeof(*res))
+		return;
+
+	res = (struct mt7915_mcu_wa_tx_stat *)(skb->data + offset);
+	wlan_idx = le16_to_cpu(res->wcid);
+	if (is_mt7915(&dev->mt76))
+		wlan_idx &= 0xff;
+
+	rcu_read_lock();
+	wcid = mt76_wcid_ptr(dev, wlan_idx);
+	if (wcid)
+		wcid->stats.tx_packets += le32_to_cpu(res->tx_packets);
+	rcu_read_unlock();
+}
+
+static void
 mt7915_mcu_rx_ext_event(struct mt7915_dev *dev, struct sk_buff *skb)
 {
 	struct mt76_connac2_mcu_rxd *rxd;
@@ -531,6 +564,9 @@ mt7915_mcu_rx_ext_event(struct mt7915_dev *dev, struct sk_buff *skb)
 		break;
 	case MCU_EXT_EVENT_PS_SYNC:
 		mt7915_mcu_rx_ps_sync(dev, skb);
+		break;
+	case MCU_EXT_EVENT_WA_TX_STAT:
+		mt7915_mcu_rx_wa_tx_stat(dev, skb);
 		break;
 	default:
 		break;
@@ -558,14 +594,12 @@ void mt7915_mcu_rx_event(struct mt7915_dev *dev, struct sk_buff *skb)
 	struct mt76_connac2_mcu_rxd *rxd;
 
 	rxd = (struct mt76_connac2_mcu_rxd *)skb->data;
-	if ((rxd->ext_eid == MCU_EXT_EVENT_THERMAL_PROTECT ||
-	     rxd->ext_eid == MCU_EXT_EVENT_FW_LOG_2_HOST ||
-	     rxd->ext_eid == MCU_EXT_EVENT_ASSERT_DUMP ||
-	     rxd->ext_eid == MCU_EXT_EVENT_PS_SYNC ||
-	     rxd->ext_eid == MCU_EXT_EVENT_BCC_NOTIFY ||
-	     !rxd->seq) &&
-	     !(rxd->eid == MCU_CMD_EXT_CID &&
-	       rxd->ext_eid == MCU_EXT_EVENT_WA_TX_STAT))
+	if (rxd->ext_eid == MCU_EXT_EVENT_THERMAL_PROTECT ||
+	    rxd->ext_eid == MCU_EXT_EVENT_FW_LOG_2_HOST ||
+	    rxd->ext_eid == MCU_EXT_EVENT_ASSERT_DUMP ||
+	    rxd->ext_eid == MCU_EXT_EVENT_PS_SYNC ||
+	    rxd->ext_eid == MCU_EXT_EVENT_BCC_NOTIFY ||
+	    !rxd->seq)
 		mt7915_mcu_rx_unsolicited_event(dev, skb);
 	else
 		mt76_mcu_rx_event(&dev->mt76, skb);
@@ -4669,22 +4703,13 @@ int mt7915_mcu_wed_wa_tx_stats(struct mt7915_dev *dev, u16 wlan_idx)
 	} __packed req = {
 		.cmd = cpu_to_le32(0x15),
 	};
-	struct mt7915_mcu_wa_tx_stat {
-		__le16 wcid;
-		u8 __rsv2[2];
-
-		/* tx_bytes is deprecated since WA byte counter uses u32,
-		 * which easily leads to overflow.
-		 */
-		__le32 tx_bytes;
-		__le32 tx_packets;
-	} __packed *res;
-	struct mt76_wcid *wcid;
-	struct sk_buff *skb;
-	int ret, len, offset;
-	u16 ret_wcid;
+	int len;
 
 	if (is_mt7915(&dev->mt76)) {
+		/* the answer names the low byte of the index alone */
+		if (wlan_idx > 0xff)
+			return -EINVAL;
+
 		req.arg0 = cpu_to_le32(wlan_idx);
 		len = sizeof(req) - sizeof(req.arg2);
 	} else {
@@ -4693,44 +4718,8 @@ int mt7915_mcu_wed_wa_tx_stats(struct mt7915_dev *dev, u16 wlan_idx)
 		len = sizeof(req);
 	}
 
-	ret = mt76_mcu_send_and_get_msg(&dev->mt76, MCU_WA_PARAM_CMD(QUERY) |
-					MT76_MCU_CMD_READ,
-					&req, len, true, &skb);
-	if (ret)
-		return ret;
-
-	offset = is_mt7915(&dev->mt76) ? 0 : 4;
-	if (skb->len < offset + sizeof(*res)) {
-		dev_kfree_skb(skb);
-		return -EINVAL;
-	}
-
-	skb_pull(skb, offset);
-
-	res = (struct mt7915_mcu_wa_tx_stat *)skb->data;
-
-	ret_wcid = le16_to_cpu(res->wcid);
-	if (is_mt7915(&dev->mt76))
-		ret_wcid &= 0xff;
-
-	if (ret_wcid != wlan_idx) {
-		ret = -EINVAL;
-		goto out;
-	}
-
-	rcu_read_lock();
-
-	wcid = mt76_wcid_ptr(dev, wlan_idx);
-	if (wcid)
-		wcid->stats.tx_packets += le32_to_cpu(res->tx_packets);
-	else
-		ret = -EINVAL;
-
-	rcu_read_unlock();
-out:
-	dev_kfree_skb(skb);
-
-	return ret;
+	return mt76_mcu_send_msg(&dev->mt76, MCU_WA_PARAM_CMD(QUERY) |
+				 MT76_MCU_CMD_READ, &req, len, false);
 }
 
 int mt7915_mcu_rf_regval(struct mt7915_dev *dev, u32 regidx, u32 *val, bool set)

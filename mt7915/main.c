@@ -1243,6 +1243,7 @@ static void mt7915_sta_statistics(struct ieee80211_hw *hw,
 		sinfo->tx_bytes = msta->wcid.stats.tx_bytes;
 		sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_BYTES64);
 
+		/* the answer of this query counts at the next dump */
 		if (!mt7915_mcu_wed_wa_tx_stats(phy->dev, msta->wcid.idx)) {
 			sinfo->tx_packets = msta->wcid.stats.tx_packets;
 			sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_PACKETS);
