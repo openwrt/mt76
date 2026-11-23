@@ -631,10 +631,6 @@ void mt7996_mac_init(struct mt7996_dev *dev)
 
 	mt76_clear(dev, MT_MDP_DCR2, MT_MDP_DCR2_RX_TRANS_SHORT);
 
-	for (i = 0; i < mt7996_wtbl_size(dev); i++)
-		mt7996_mac_wtbl_update(dev, i,
-				       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
-
 	if (IS_ENABLED(CONFIG_MT76_LEDS)) {
 		i = dev->mphy.leds.pin ? MT_LED_GPIO_MUX3 : MT_LED_GPIO_MUX2;
 		mt76_rmw_field(dev, i, MT_LED_GPIO_SEL_MASK, 4);
