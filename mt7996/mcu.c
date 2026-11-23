@@ -3991,7 +3991,7 @@ mt7996_mcu_sta_rate_ctrl_tlv(struct sk_buff *skb, struct mt7996_dev *dev,
 
 int mt7996_mcu_add_rate_ctrl(struct mt7996_dev *dev, struct mt7996_sta *msta,
 			     struct ieee80211_vif *vif, u8 link_id,
-			     bool changed)
+			     u32 changed)
 {
 	struct ieee80211_bss_conf *link_conf;
 	struct ieee80211_link_sta *link_sta;
@@ -4034,6 +4034,12 @@ int mt7996_mcu_add_rate_ctrl(struct mt7996_dev *dev, struct mt7996_sta *msta,
 	 */
 	if (changed)
 		mt7996_mcu_sta_he_tlv(skb, link_conf, link_sta, link);
+
+	/* the firmware takes the streams of an EHT rate entry from the
+	 * EHT maps of sta_rec_eht
+	 */
+	if (changed & IEEE80211_RC_NSS_CHANGED)
+		mt7996_mcu_sta_eht_tlv(dev, skb, link_sta);
 
 	/* sta_rec_ra accommodates BW, NSS and only MCS range format
 	 * i.e 0-{7,8,9} for VHT.

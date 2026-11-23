@@ -3392,7 +3392,7 @@ void mt7996_mac_sta_rc_work(struct work_struct *work)
 			       IEEE80211_RC_BW_CHANGED))
 			mt7996_mcu_add_rate_ctrl(dev, msta_link->sta, vif,
 						 msta_link->wcid.link_id,
-						 true);
+						 changed);
 
 		if (changed & IEEE80211_RC_SMPS_CHANGED)
 			mt7996_mcu_set_fixed_field(dev, msta_link->sta, NULL,

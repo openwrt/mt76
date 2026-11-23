@@ -2270,7 +2270,7 @@ mt7996_mac_sta_links_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			msta_link->sta_rec_active = true;
 			msta_link->connected = true;
 			err = mt7996_mcu_add_rate_ctrl(dev, msta_link->sta, vif,
-						       link_id, false);
+						       link_id, 0);
 			if (err)
 				return err;
 
@@ -2598,7 +2598,7 @@ mt7996_mac_sta_links_sync(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 				return err;
 		}
 
-		err = mt7996_mcu_add_rate_ctrl(dev, msta, vif, link_id, false);
+		err = mt7996_mcu_add_rate_ctrl(dev, msta, vif, link_id, 0);
 		if (err)
 			return err;
 
