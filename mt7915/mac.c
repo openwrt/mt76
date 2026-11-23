@@ -2381,13 +2381,12 @@ void mt7915_mac_add_twt_setup(struct ieee80211_hw *hw,
 	if (sta_setup_cmd == TWT_SETUP_CMD_REQUEST ||
 	    sta_setup_cmd == TWT_SETUP_CMD_SUGGEST) {
 		u64 interval = (u64)le16_to_cpu(twt_agrt->mantissa) << exp;
-		u64 flow_tsf, curr_tsf;
-		u32 rem;
+		u64 flow_tsf, curr_tsf, rem;
 
 		flow->sched = true;
 		flow->start_tsf = mt7915_mac_twt_sched_list_add(dev, flow);
 		curr_tsf = __mt7915_get_tsf(hw, msta->vif);
-		div_u64_rem(curr_tsf - flow->start_tsf, interval, &rem);
+		div64_u64_rem(curr_tsf - flow->start_tsf, interval, &rem);
 		flow_tsf = curr_tsf + interval - rem;
 		twt_agrt->twt = cpu_to_le64(flow_tsf);
 	} else {
