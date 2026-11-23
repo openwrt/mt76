@@ -259,9 +259,7 @@ mt7996_set_hw_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 						&link->mt76, msta_link, true);
 	}
 
-	if (cmd == SET_KEY)
-		*wcid_keyidx = idx;
-	else if (idx == *wcid_keyidx)
+	if (cmd != SET_KEY && idx == *wcid_keyidx)
 		*wcid_keyidx = -1;
 
 	/* only do remove key for BIGTK */
@@ -277,6 +275,8 @@ mt7996_set_hw_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	err = mt7996_mcu_add_key(&dev->mt76, link, key,
 				 MCU_WMWA_UNI_CMD(STA_REC_UPDATE),
 				 &msta_link->wcid, cmd);
+	if (!err && cmd == SET_KEY)
+		*wcid_keyidx = idx;
 
 	/* remove and add beacon in order to enable beacon protection */
 	if (cmd == SET_KEY && is_bigtk && link_conf->enable_beacon) {
