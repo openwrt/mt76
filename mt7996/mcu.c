@@ -2855,6 +2855,7 @@ int mt7996_mcu_add_rx_ba(struct mt7996_dev *dev,
 
 static void
 mt7996_mcu_sta_he_tlv(struct sk_buff *skb,
+		      struct ieee80211_bss_conf *link_conf,
 		      struct ieee80211_link_sta *link_sta,
 		      struct mt7996_vif_link *link)
 {
@@ -2875,6 +2876,9 @@ mt7996_mcu_sta_he_tlv(struct sk_buff *skb,
 			he->he_mac_cap[i] = elem->mac_cap_info[i];
 		he->he_phy_cap[i] = elem->phy_cap_info[i];
 	}
+
+	if (link_conf->vif->type == NL80211_IFTYPE_AP && !link_conf->he_ldpc)
+		he->he_phy_cap[1] &= ~IEEE80211_HE_PHY_CAP1_LDPC_CODING_IN_PAYLOAD;
 
 	mcs_map = link_sta->he_cap.he_mcs_nss_supp;
 	switch (link_sta->bandwidth) {
@@ -2982,18 +2986,23 @@ mt7996_mcu_sta_eht_tlv(struct mt7996_dev *dev, struct sk_buff *skb,
 }
 
 static void
-mt7996_mcu_sta_ht_tlv(struct sk_buff *skb, struct ieee80211_link_sta *link_sta)
+mt7996_mcu_sta_ht_tlv(struct sk_buff *skb, struct ieee80211_bss_conf *link_conf,
+		      struct ieee80211_link_sta *link_sta)
 {
+	u16 cap = link_sta->ht_cap.cap;
 	struct sta_rec_ht_uni *ht;
 	struct tlv *tlv;
 
 	if (!link_sta->ht_cap.ht_supported)
 		return;
 
+	if (link_conf->vif->type == NL80211_IFTYPE_AP && !link_conf->ht_ldpc)
+		cap &= ~IEEE80211_HT_CAP_LDPC_CODING;
+
 	tlv = mt76_connac_mcu_add_tlv(skb, STA_REC_HT, sizeof(*ht));
 
 	ht = (struct sta_rec_ht_uni *)tlv;
-	ht->ht_cap = cpu_to_le16(link_sta->ht_cap.cap);
+	ht->ht_cap = cpu_to_le16(cap);
 	ht->ampdu_param = u8_encode_bits(link_sta->ht_cap.ampdu_factor,
 					 IEEE80211_HT_AMPDU_PARM_FACTOR) |
 			  u8_encode_bits(link_sta->ht_cap.ampdu_density,
@@ -3001,8 +3010,10 @@ mt7996_mcu_sta_ht_tlv(struct sk_buff *skb, struct ieee80211_link_sta *link_sta)
 }
 
 static void
-mt7996_mcu_sta_vht_tlv(struct sk_buff *skb, struct ieee80211_link_sta *link_sta)
+mt7996_mcu_sta_vht_tlv(struct sk_buff *skb, struct ieee80211_bss_conf *link_conf,
+		       struct ieee80211_link_sta *link_sta)
 {
+	u32 cap = link_sta->vht_cap.cap;
 	struct sta_rec_vht *vht;
 	struct tlv *tlv;
 
@@ -3010,10 +3021,13 @@ mt7996_mcu_sta_vht_tlv(struct sk_buff *skb, struct ieee80211_link_sta *link_sta)
 	if (!link_sta->he_6ghz_capa.capa && !link_sta->vht_cap.vht_supported)
 		return;
 
+	if (link_conf->vif->type == NL80211_IFTYPE_AP && !link_conf->vht_ldpc)
+		cap &= ~IEEE80211_VHT_CAP_RXLDPC;
+
 	tlv = mt76_connac_mcu_add_tlv(skb, STA_REC_VHT, sizeof(*vht));
 
 	vht = (struct sta_rec_vht *)tlv;
-	vht->vht_cap = cpu_to_le32(link_sta->vht_cap.cap);
+	vht->vht_cap = cpu_to_le32(cap);
 	vht->vht_rx_mcs_map = link_sta->vht_cap.vht_mcs.rx_mcs_map;
 	vht->vht_tx_mcs_map = link_sta->vht_cap.vht_mcs.tx_mcs_map;
 }
@@ -3998,7 +4012,7 @@ int mt7996_mcu_add_rate_ctrl(struct mt7996_dev *dev, struct mt7996_sta *msta,
 	 * update sta_rec_he here.
 	 */
 	if (changed)
-		mt7996_mcu_sta_he_tlv(skb, link_sta, link);
+		mt7996_mcu_sta_he_tlv(skb, link_conf, link_sta, link);
 
 	/* sta_rec_ra accommodates BW, NSS and only MCS range format
 	 * i.e 0-{7,8,9} for VHT.
@@ -4945,16 +4959,16 @@ int mt7996_mcu_add_sta(struct mt7996_dev *dev,
 						link);
 		}
 		/* starec ht */
-		mt7996_mcu_sta_ht_tlv(skb, link_sta);
+		mt7996_mcu_sta_ht_tlv(skb, link_conf, link_sta);
 		/* starec vht */
-		mt7996_mcu_sta_vht_tlv(skb, link_sta);
+		mt7996_mcu_sta_vht_tlv(skb, link_conf, link_sta);
 		/* starec uapsd */
 		mt76_connac_mcu_sta_uapsd(skb, link_conf->vif, sta);
 		/* starec amsdu */
 		mt7996_mcu_sta_amsdu_tlv(dev, skb, link_conf->vif, link_sta,
 					 msta_link);
 		/* starec he */
-		mt7996_mcu_sta_he_tlv(skb, link_sta, link);
+		mt7996_mcu_sta_he_tlv(skb, link_conf, link_sta, link);
 		/* starec he 6g*/
 		mt7996_mcu_sta_he_6g_tlv(skb, link_sta);
 		/* starec eht */
