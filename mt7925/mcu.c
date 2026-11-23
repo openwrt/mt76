@@ -1940,7 +1940,7 @@ mt7925_mcu_sta_he_tlv(struct sk_buff *skb, struct ieee80211_link_sta *link_sta)
 	if (!link_sta->he_cap.has_he)
 		return;
 
-	mt76_connac_mcu_sta_he_tlv_v2(skb, link_sta->sta);
+	mt76_connac_mcu_sta_he_tlv_v2(skb, link_sta);
 }
 
 static void
