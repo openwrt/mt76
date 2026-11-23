@@ -243,6 +243,21 @@ mt7996_mcu_set_sta_ht_mcs(struct ieee80211_link_sta *link_sta,
 		ht_mcs[nss] = link_sta->ht_cap.mcs.rx_mask[nss] & mask[nss];
 }
 
+/* only the firmware load gives a known state again */
+static void
+mt7996_mcu_cmd_lost(struct mt76_dev *mdev, int cmd)
+{
+	struct mt7996_dev *dev = container_of(mdev, struct mt7996_dev, mt76);
+
+	if (cmd & MT7996_MCU_CMD_BCN_TEMPLATE)
+		return;
+
+	spin_lock_bh(&dev->mt76.lock);
+	if (dev->recovery.hw_init_done && !dev->recovery.restart)
+		mt7996_mac_full_reset_queue(dev);
+	spin_unlock_bh(&dev->mt76.lock);
+}
+
 static int
 mt7996_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 			  struct sk_buff *skb, int seq)
@@ -260,12 +275,8 @@ mt7996_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 
 		spin_lock_bh(&dev->mt76.lock);
 		if (dev->recovery.hw_init_done &&
-		    !test_and_set_bit(MT76_MCU_RESET, &dev->mphy.state)) {
-			dev->recovery.restart = true;
-			wake_up(&dev->mt76.mcu.wait);
-			queue_work(dev->mt76.wq, &dev->reset_work);
-			wake_up(&dev->reset_wait);
-		}
+		    !test_and_set_bit(MT76_MCU_RESET, &dev->mphy.state))
+			mt7996_mac_full_reset_queue(dev);
 		spin_unlock_bh(&dev->mt76.lock);
 
 		return -ETIMEDOUT;
@@ -5644,7 +5655,8 @@ mt7996_mcu_beacon_send(struct mt7996_dev *dev, struct mt7996_vif_link *link,
 	spin_unlock_bh(&dev->mt76.lock);
 
 	ret = mt76_mcu_skb_send_msg(&dev->mt76, rskb,
-				    MCU_WMWA_UNI_CMD(BSS_INFO_UPDATE), wait);
+				    MCU_WMWA_UNI_CMD(BSS_INFO_UPDATE) |
+				    MT7996_MCU_CMD_BCN_TEMPLATE, wait);
 	if (ret)
 		dev_warn_ratelimited(dev->mt76.dev,
 				     "beacon upload of link %u (bss_idx %u) failed: %d\n",
@@ -7847,6 +7859,7 @@ int mt7996_mcu_init(struct mt7996_dev *dev)
 		.headroom = sizeof(struct mt76_connac2_mcu_txd), /* reuse */
 		.mcu_skb_send_msg = mt7996_mcu_send_message,
 		.mcu_parse_response = mt7996_mcu_parse_response,
+		.mcu_cmd_lost = mt7996_mcu_cmd_lost,
 	};
 
 	dev->mt76.mcu_ops = &mt7996_mcu_ops;

@@ -943,6 +943,7 @@ int mt7996_init_tx_queues(struct mt7996_phy *phy, int idx,
 void mt7996_init_txpower(struct mt7996_phy *phy);
 int mt7996_txbf_init(struct mt7996_dev *dev);
 void mt7996_reset(struct mt7996_dev *dev);
+void mt7996_mac_full_reset_queue(struct mt7996_dev *dev);
 int mt7996_run(struct mt7996_phy *phy);
 int mt7996_mcu_init(struct mt7996_dev *dev);
 int mt7996_mcu_init_firmware(struct mt7996_dev *dev);
