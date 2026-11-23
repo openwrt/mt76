@@ -411,16 +411,32 @@ mt7915_mcu_rx_bcc_notify(struct mt7915_dev *dev, struct sk_buff *skb)
 static void
 mt7915_mcu_rx_ps_sync(struct mt7915_dev *dev, struct sk_buff *skb)
 {
+	struct mt7915_mcu_ps_notify_v2 *p2 = (void *)skb->data;
 	struct mt7915_mcu_ps_notify *p = (void *)skb->data;
 	struct mt76_wcid *wcid;
 	u16 wcid_idx;
+	bool v2, ps;
 
-	wcid_idx = p->wtbl_lower | (p->wtbl_higher << 8);
+	/* the mt7986 and mt7981 firmware send the longer v2 layout */
+	v2 = le16_to_cpu(p->rxd.len) >=
+	     sizeof(*p2) - offsetof(struct mt76_connac2_mcu_rxd_hdr, len);
+	if (skb->len < (v2 ? sizeof(*p2) : sizeof(*p)))
+		return;
+
+	if (v2) {
+		wcid_idx = le16_to_cpu(p2->wtbl_lower) |
+			   (le16_to_cpu(p2->wtbl_higher) << 8);
+		ps = p2->ps_bit;
+	} else {
+		wcid_idx = p->wtbl_lower | (p->wtbl_higher << 8);
+		ps = p->ps_bit;
+	}
+
 	wcid = mt76_wcid_ptr(dev, wcid_idx);
 	if (!wcid || !wcid_to_sta(wcid))
 		return;
 
-	mt76_sta_ps_transition(&dev->mt76, wcid, !!p->ps_bit);
+	mt76_sta_ps_transition(&dev->mt76, wcid, ps);
 }
 
 static void

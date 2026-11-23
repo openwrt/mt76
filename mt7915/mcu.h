@@ -63,6 +63,16 @@ struct mt7915_mcu_ps_notify {
 	u8 rsv;
 } __packed;
 
+struct mt7915_mcu_ps_notify_v2 {
+	struct mt76_connac2_mcu_rxd_hdr rxd;
+
+	__le16 wtbl_lower;
+	__le16 wtbl_higher;
+	__le16 rsv;
+	u8 ps_bit;
+	u8 rsv2;
+} __packed;
+
 struct mt7915_mcu_rdd_report {
 	struct mt76_connac2_mcu_rxd_hdr rxd;
 
