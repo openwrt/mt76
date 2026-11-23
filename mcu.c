@@ -59,7 +59,8 @@ int mt76_mcu_send_and_get_msg(struct mt76_dev *dev, int cmd, const void *data,
 	struct sk_buff *skb;
 
 	if (dev->mcu_ops->mcu_send_msg)
-		return dev->mcu_ops->mcu_send_msg(dev, cmd, data, len, wait_resp);
+		return dev->mcu_ops->mcu_send_msg(dev, cmd & ~MT76_MCU_CMD_READ,
+						  data, len, wait_resp);
 
 	skb = mt76_mcu_msg_alloc(dev, data, len);
 	if (!skb)
@@ -77,6 +78,8 @@ int mt76_mcu_skb_send_and_get_msg(struct mt76_dev *dev, struct sk_buff *skb,
 	struct sk_buff *orig_skb = NULL;
 	unsigned long expires;
 	int ret, seq;
+
+	cmd &= ~MT76_MCU_CMD_READ;
 
 	if (ret_skb)
 		*ret_skb = NULL;

@@ -276,6 +276,11 @@ struct mt76_queue {
 	struct page_pool *page_pool;
 };
 
+/* cmd flag of a command that changes no firmware state; the core strips it
+ * before it calls an mcu_ops function
+ */
+#define MT76_MCU_CMD_READ	BIT(30)
+
 struct mt76_mcu_ops {
 	unsigned int max_retry;
 	u32 headroom;
