@@ -2751,6 +2751,8 @@ mt7996_mac_full_reset(struct mt7996_dev *dev)
 
 	wiphy_lock(hw->wiphy);
 	mt76_abort_scan(&dev->mt76);
+	mt7996_for_each_phy(dev, phy)
+		mt76_abort_roc(phy->mt76);
 	wiphy_unlock(hw->wiphy);
 
 	mutex_lock(&dev->mt76.mutex);
