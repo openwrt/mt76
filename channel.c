@@ -394,14 +394,14 @@ mt76_vif_roc_phy(struct mt76_dev *dev, struct ieee80211_vif *vif)
 
 void mt76_roc_complete(struct mt76_phy *phy)
 {
-	struct mt76_vif_link *mlink = phy->roc_link;
+	struct mt76_vif_link *mlink = mt76_dereference(phy->roc_link, phy->dev);
 	struct mt76_dev *dev = phy->dev;
 
 	if (!phy->roc_vif)
 		return;
 
 	if (mlink && mlink->mvif->roc_phy == phy)
-		mlink->mvif->roc_phy = NULL;
+		WRITE_ONCE(mlink->mvif->roc_phy, NULL);
 	if (phy->chanctx && phy->main_chandef.chan && phy->offchannel &&
 	    !test_bit(MT76_MCU_RESET, &dev->phy.state)) {
 		__mt76_set_channel(phy, &phy->main_chandef, false);
@@ -409,7 +409,7 @@ void mt76_roc_complete(struct mt76_phy *phy)
 	} else {
 		phy->offchannel = false;
 	}
-	phy->roc_link = NULL;
+	rcu_assign_pointer(phy->roc_link, NULL);
 	mt76_put_vif_phy_link(phy, phy->roc_vif, mlink);
 	phy->roc_vif = NULL;
 	if (!test_bit(MT76_RESTART, &dev->phy.state))
@@ -475,18 +475,18 @@ int mt76_remain_on_channel(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		goto restart_mac_work;
 	}
 
-	mlink->mvif->roc_phy = phy;
+	WRITE_ONCE(mlink->mvif->roc_phy, phy);
 	phy->roc_vif = vif;
-	phy->roc_link = mlink;
+	rcu_assign_pointer(phy->roc_link, mlink);
 
 	offchannel = mt76_offchannel_chandef(phy, chan, &chandef);
 	if (offchannel)
 		mt76_offchannel_notify(phy, true);
 	ret = __mt76_set_channel(phy, &chandef, offchannel);
 	if (ret) {
-		mlink->mvif->roc_phy = NULL;
+		WRITE_ONCE(mlink->mvif->roc_phy, NULL);
 		phy->roc_vif = NULL;
-		phy->roc_link = NULL;
+		rcu_assign_pointer(phy->roc_link, NULL);
 		mt76_put_vif_phy_link(phy, vif, mlink);
 		goto out;
 	}

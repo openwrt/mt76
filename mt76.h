@@ -896,7 +896,7 @@ struct mt76_phy {
 
 	struct delayed_work roc_work;
 	struct ieee80211_vif *roc_vif;
-	struct mt76_vif_link *roc_link;
+	struct mt76_vif_link __rcu *roc_link;
 
 	struct delayed_work scan_work;
 	struct {

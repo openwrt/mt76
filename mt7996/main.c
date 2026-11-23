@@ -2165,17 +2165,19 @@ static void mt7996_tx(struct ieee80211_hw *hw,
 	}
 
 	if (mvif) {
-		struct mt76_vif_link *mlink;
+		struct mt76_vif_link *mlink, *roc_link;
+		struct mt76_phy *roc_phy;
 
 		mlink = rcu_dereference(mvif->mt76.link[link_id]);
 		if (mlink && mlink->wcid)
 			wcid = mlink->wcid;
 
-		if (mvif->mt76.roc_phy &&
-		    (info->flags & IEEE80211_TX_CTL_TX_OFFCHAN)) {
-			mphy = mvif->mt76.roc_phy;
-			if (mphy->roc_link)
-				wcid = mphy->roc_link->wcid;
+		roc_phy = READ_ONCE(mvif->mt76.roc_phy);
+		if (roc_phy && (info->flags & IEEE80211_TX_CTL_TX_OFFCHAN)) {
+			mphy = roc_phy;
+			roc_link = rcu_dereference(roc_phy->roc_link);
+			if (roc_link && roc_link->mvif == &mvif->mt76)
+				wcid = roc_link->wcid;
 		} else if (mlink) {
 			mphy = mt76_vif_link_phy(mlink);
 		}
@@ -3326,7 +3328,7 @@ static void
 mt7996_vif_link_roc_abort(struct mt7996_dev *dev, struct ieee80211_vif *vif)
 {
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
-	struct mt76_phy *phy = mvif->mt76.roc_phy;
+	struct mt76_phy *phy = READ_ONCE(mvif->mt76.roc_phy);
 	struct mt76_vif_link *mlink;
 	bool abort;
 
@@ -3334,7 +3336,7 @@ mt7996_vif_link_roc_abort(struct mt7996_dev *dev, struct ieee80211_vif *vif)
 		return;
 
 	mutex_lock(&dev->mt76.mutex);
-	mlink = phy->roc_link;
+	mlink = mt76_dereference(phy->roc_link, &dev->mt76);
 	abort = phy->roc_vif == vif && mlink && !mlink->offchannel;
 	mutex_unlock(&dev->mt76.mutex);
 
