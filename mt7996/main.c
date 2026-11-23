@@ -392,38 +392,13 @@ mt7996_mcu_cmd_answered(int err)
 	return !err || err == -EREMOTEIO;
 }
 
-static bool mt7996_vif_link_bmc_probe(struct mt7996_dev *dev,
-				      struct mt7996_vif_link *link)
-{
-	int err;
-
-	if (!link->bmc_sta_unknown)
-		return true;
-
-	err = mt7996_mcu_sta_rec_check(dev, link, NULL);
-	if (err && err != -ENOENT)
-		return false;
-
-	link->bmc_sta_unknown = false;
-	link->bmc_sta_added = !err;
-
-	return true;
-}
-
 static void mt7996_vif_link_bmc_add(struct mt7996_dev *dev,
 				    struct ieee80211_bss_conf *link_conf,
 				    struct mt7996_vif_link *link, bool newly)
 {
-	int err;
-
-	err = mt7996_mcu_add_sta(dev, link_conf, NULL, link, NULL,
-				 CONN_STATE_PORT_SECURE, newly);
-	if (!err) {
+	if (!mt7996_mcu_add_sta(dev, link_conf, NULL, link, NULL,
+				CONN_STATE_PORT_SECURE, newly))
 		link->bmc_sta_added = true;
-		link->bmc_sta_unknown = false;
-	} else if (!mt7996_mcu_cmd_answered(err)) {
-		link->bmc_sta_unknown = true;
-	}
 }
 
 static void mt7996_vif_link_bmc_remove(struct mt7996_dev *dev,
@@ -432,15 +407,13 @@ static void mt7996_vif_link_bmc_remove(struct mt7996_dev *dev,
 {
 	int err;
 
-	if (!mt7996_vif_link_bmc_probe(dev, link) || !link->bmc_sta_added)
+	if (!link->bmc_sta_added)
 		return;
 
 	err = mt7996_mcu_add_sta(dev, link_conf, NULL, link, NULL,
 				 CONN_STATE_DISCONNECT, false);
-	if (!mt7996_mcu_cmd_answered(err)) {
-		link->bmc_sta_unknown = true;
+	if (!mt7996_mcu_cmd_answered(err))
 		return;
-	}
 
 	link->bmc_sta_added = false;
 	eth_zero_addr(link->bmc_bssid);
@@ -584,7 +557,6 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 
 	link->mld_idx = mld_idx;
 	link->bmc_sta_added = false;
-	link->bmc_sta_unknown = false;
 	link->csa_bcn_uploaded = false;
 	link->bcn_cntdwn = false;
 	if (!mlink->offchannel)
@@ -1257,9 +1229,6 @@ mt7996_vif_link_bmc_prepare(struct mt7996_dev *dev,
 			    struct ieee80211_bss_conf *link_conf,
 			    struct mt7996_vif_link *link, bool *newly)
 {
-	if (!mt7996_vif_link_bmc_probe(dev, link))
-		return false;
-
 	*newly = !link->bmc_sta_added ||
 		 !ether_addr_equal_unaligned(link->bmc_bssid, link_conf->bssid);
 	/* the firmware writes the peer address of a STA_REC only when it
@@ -1268,8 +1237,8 @@ mt7996_vif_link_bmc_prepare(struct mt7996_dev *dev,
 	if (*newly)
 		mt7996_vif_link_bmc_remove(dev, link_conf, link);
 
-	/* a CONNECT to a record of unknown state leaves its address unknown */
-	if (link->bmc_sta_unknown)
+	/* a record that the remove left in use keeps the old address */
+	if (*newly && link->bmc_sta_added)
 		return false;
 
 	if (!link->bmc_sta_added)

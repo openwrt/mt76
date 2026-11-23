@@ -3618,8 +3618,7 @@ mt7996_mcu_sta_tx_proc_tlv(struct sk_buff *skb)
 }
 
 static void
-mt7996_mcu_sta_hdrt_tlv(struct mt7996_dev *dev, struct sk_buff *skb,
-			u8 hdrt_mode)
+mt7996_mcu_sta_hdrt_tlv(struct mt7996_dev *dev, struct sk_buff *skb)
 {
 	struct sta_rec_hdrt *hdrt;
 	struct tlv *tlv;
@@ -3627,7 +3626,7 @@ mt7996_mcu_sta_hdrt_tlv(struct mt7996_dev *dev, struct sk_buff *skb,
 	tlv = mt76_connac_mcu_add_tlv(skb, STA_REC_HDRT, sizeof(*hdrt));
 
 	hdrt = (struct sta_rec_hdrt *)tlv;
-	hdrt->hdrt_mode = hdrt_mode;
+	hdrt->hdrt_mode = 1;
 }
 
 static void
@@ -4989,7 +4988,7 @@ int mt7996_mcu_add_sta(struct mt7996_dev *dev,
 	/* tag order is in accordance with firmware dependency. */
 	if (link_sta) {
 		/* starec hdrt mode */
-		mt7996_mcu_sta_hdrt_tlv(dev, skb, 1);
+		mt7996_mcu_sta_hdrt_tlv(dev, skb);
 		if (conn_state == CONN_STATE_CONNECT) {
 			/* starec bfer */
 			if (mt7996_mcu_sta_bfer_tlv(dev, skb, link_conf,
@@ -5090,21 +5089,20 @@ int mt7996_mcu_sta_rec_check(struct mt7996_dev *dev,
 			     struct mt7996_vif_link *link,
 			     struct mt7996_sta_link *msta_link)
 {
-	struct mt76_wcid *wcid = msta_link ? &msta_link->wcid : link->mt76.wcid;
 	struct sk_buff *skb;
 	int ret;
 
-	skb = __mt76_connac_mcu_alloc_sta_req(&dev->mt76, &link->mt76, wcid,
+	skb = __mt76_connac_mcu_alloc_sta_req(&dev->mt76, &link->mt76,
+					      &msta_link->wcid,
 					      MT7996_STA_UPDATE_MAX_SIZE);
 	if (IS_ERR(skb))
 		return PTR_ERR(skb);
 
 	/* the firmware refuses HDRT with 0x10003 only for a record not in use,
-	 * and on a record in use HDRT writes the given mode, so the mode is
-	 * the one the CONNECT of the record sets: 1 for a peer, none (0) for
-	 * the BMC record
+	 * and on a record in use HDRT sets only the HDRT state that a complete
+	 * CONNECT sets
 	 */
-	mt7996_mcu_sta_hdrt_tlv(dev, skb, !!msta_link);
+	mt7996_mcu_sta_hdrt_tlv(dev, skb);
 
 	ret = mt76_mcu_skb_send_msg(&dev->mt76, skb,
 				    MCU_WMWA_UNI_CMD(STA_REC_UPDATE) |

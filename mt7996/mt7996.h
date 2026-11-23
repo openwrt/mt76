@@ -360,7 +360,6 @@ struct mt7996_vif_link {
 	u8 mld_idx;
 	u8 bmc_bssid[ETH_ALEN];
 	bool bmc_sta_added;
-	bool bmc_sta_unknown;
 	bool csa_bcn_uploaded;
 	bool bcn_cntdwn;
 	bool bcn_enabled;

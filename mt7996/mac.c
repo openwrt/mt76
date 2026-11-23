@@ -2789,7 +2789,6 @@ mt7996_mac_reset_vif_iter(void *data, u8 *mac, struct ieee80211_vif *vif)
 	rcu_read_unlock();
 
 	priv->deflink.bmc_sta_added = false;
-	priv->deflink.bmc_sta_unknown = false;
 	eth_zero_addr(priv->deflink.bmc_bssid);
 }
 
