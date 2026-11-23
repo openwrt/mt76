@@ -2121,6 +2121,19 @@ void mt76_sw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		  const u8 *mac)
 {
 	struct mt76_phy *phy = hw->priv;
+	struct mt76_dev *dev = phy->dev;
+
+	mutex_lock(&dev->mutex);
+	mt76_update_survey(phy);
+	if (phy->main_chandef.chan) {
+		struct mt76_channel_state *state;
+
+		state = mt76_channel_state(phy, phy->main_chandef.chan);
+		spin_lock_bh(&dev->cc_lock);
+		memset(state, 0, sizeof(*state));
+		spin_unlock_bh(&dev->cc_lock);
+	}
+	mutex_unlock(&dev->mutex);
 
 	set_bit(MT76_SCANNING, &phy->state);
 }
