@@ -421,6 +421,20 @@ static void mt7996_vif_link_free(struct mt7996_vif_link *link,
 	kfree_rcu(mlink, rcu_head);
 }
 
+static void mt7996_vif_deflink_init(struct ieee80211_vif *vif,
+				    struct mt7996_vif_link *link)
+{
+	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+	struct mt76_txq *mtxq;
+
+	if (!vif->txq || mvif->mt76.deflink_id != IEEE80211_LINK_UNSPECIFIED)
+		return;
+
+	mtxq = (struct mt76_txq *)vif->txq->drv_priv;
+	mvif->mt76.deflink_id = link->msta_link.wcid.link_id;
+	mtxq->wcid = link->msta_link.wcid.idx;
+}
+
 static int mt7996_vif_link_reuse(struct mt7996_phy *phy,
 				 struct ieee80211_vif *vif,
 				 struct ieee80211_bss_conf *link_conf,
@@ -434,10 +448,16 @@ static int mt7996_vif_link_reuse(struct mt7996_phy *phy,
 		return ret;
 
 	if (vif->type == NL80211_IFTYPE_AP && ieee80211_vif_is_mld(vif))
-		return mt7996_mcu_mld_link_oper(phy->dev, link_conf, link, true);
+		ret = mt7996_mcu_mld_link_oper(phy->dev, link_conf, link, true);
+	else
+		ret = mt7996_mcu_add_bss_info(phy, vif, link_conf, mlink,
+					      &link->msta_link, true);
+	if (ret)
+		return ret;
 
-	return mt7996_mcu_add_bss_info(phy, vif, link_conf, mlink,
-				       &link->msta_link, true);
+	mt7996_vif_deflink_init(vif, link);
+
+	return 0;
 }
 
 int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
@@ -551,14 +571,7 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 		ieee80211_iter_keys(mphy->hw, vif, mt7996_key_iter, &it);
 
 	if (!mlink->wcid->offchannel) {
-		if (vif->txq &&
-		    mvif->mt76.deflink_id == IEEE80211_LINK_UNSPECIFIED) {
-			struct mt76_txq *mtxq;
-
-			mtxq = (struct mt76_txq *)vif->txq->drv_priv;
-			mvif->mt76.deflink_id = link_conf->link_id;
-			mtxq->wcid = idx;
-		}
+		mt7996_vif_deflink_init(vif, link);
 		mvif->mt76.valid_links |= BIT(link_conf->link_id);
 	}
 
@@ -645,10 +658,8 @@ void mt7996_vif_link_remove(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 
 		if (vif->txq && mvif->mt76.deflink_id == link_id) {
 			struct ieee80211_bss_conf *iter;
-			struct mt76_txq *mtxq;
 
 			mvif->mt76.deflink_id = IEEE80211_LINK_UNSPECIFIED;
-			mtxq = (struct mt76_txq *)vif->txq->drv_priv;
 			/* Primary link will be removed, look for a new one */
 			for_each_vif_active_link(vif, iter, link_id) {
 				if (link_id == msta_link->wcid.link_id)
@@ -658,8 +669,7 @@ void mt7996_vif_link_remove(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 				if (!link)
 					continue;
 
-				mtxq->wcid = link->msta_link.wcid.idx;
-				mvif->mt76.deflink_id = link_id;
+				mt7996_vif_deflink_init(vif, link);
 				break;
 			}
 		}
