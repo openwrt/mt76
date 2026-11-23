@@ -1639,7 +1639,7 @@ mt7996_mcu_mld_attlm_timeout(struct mt7996_dev *dev, const u8 *mld_addr,
 			mt7996_mcu_mld_attlm_notify, &data);
 }
 
-struct mt7996_mld_attlm_end_data {
+struct mt7996_mld_attlm_eht_data {
 	struct mt7996_dev *dev;
 	struct ieee80211_vif *vif;
 	unsigned long eht_links;
@@ -1650,7 +1650,7 @@ static void
 mt7996_mcu_mld_attlm_eht_sta_iter(void *priv, struct ieee80211_sta *sta)
 {
 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
-	struct mt7996_mld_attlm_end_data *data = priv;
+	struct mt7996_mld_attlm_eht_data *data = priv;
 
 	if (msta->vif != (struct mt7996_vif *)data->vif->drv_priv ||
 	    !sta->mlo)
@@ -1776,7 +1776,7 @@ void mt7996_mcu_mld_attlm_work(struct work_struct *work)
 {
 	struct mt7996_dev *dev = container_of(work, struct mt7996_dev,
 					      attlm_work);
-	struct mt7996_mld_attlm_end_data data = {
+	struct mt7996_mld_attlm_eht_data data = {
 		.dev = dev,
 	};
 	struct ieee80211_hw *hw = mt76_hw(dev);
