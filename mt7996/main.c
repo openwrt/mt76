@@ -2332,7 +2332,7 @@ mt7996_mac_sta_peer_mld(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		return 0;
 
 	err = mt7996_mcu_set_peer_mld(dev, vif, sta);
-	if (!mt7996_mcu_cmd_answered(err) && err != -ETIMEDOUT)
+	if (!mt7996_mcu_cmd_answered(err))
 		return err;
 
 	/* the firmware reserves a STA_REC for each listed link, and only
@@ -2343,9 +2343,6 @@ mt7996_mac_sta_peer_mld(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 
 		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
 		msta_link->sta_rec_active = true;
-		/* as for a CONNECT whose answer an L1 SER dropped */
-		if (err == -ETIMEDOUT)
-			msta_link->sta_rec_reserved = true;
 	}
 
 	return err;
