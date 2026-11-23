@@ -412,6 +412,7 @@ mt7996_regd_notifier(struct wiphy *wiphy,
 
 		mt7996_init_txpower(phy);
 		phy->mt76->dfs_state = MT_DFS_STATE_UNKNOWN;
+		mt7996_dfs_set_radar_required(phy);
 		mt7996_dfs_init_radar_detector(phy);
 	}
 }

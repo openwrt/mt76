@@ -3521,16 +3521,19 @@ static int mt7996_dfs_start_radar_detector(struct mt7996_phy *phy)
 	return err;
 }
 
+void mt7996_dfs_set_radar_required(struct mt7996_phy *phy)
+{
+	WRITE_ONCE(phy->radar_required,
+		   cfg80211_chandef_dfs_required(phy->mt76->hw->wiphy,
+						 &phy->mt76->chandef,
+						 NL80211_IFTYPE_AP) > 0);
+}
+
 int mt7996_dfs_init_radar_detector(struct mt7996_phy *phy)
 {
 	struct mt7996_dev *dev = phy->dev;
 	enum mt76_dfs_state dfs_state, prev_state;
 	int err, rdd_idx = mt7996_get_rdd_idx(phy, false);
-
-	WRITE_ONCE(phy->radar_required,
-		   cfg80211_chandef_dfs_required(phy->mt76->hw->wiphy,
-						 &phy->mt76->chandef,
-						 NL80211_IFTYPE_AP) > 0);
 
 	if (READ_ONCE(phy->rdd_stopped)) {
 		WRITE_ONCE(phy->rdd_stopped, false);

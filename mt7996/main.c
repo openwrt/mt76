@@ -996,6 +996,8 @@ int mt7996_set_channel(struct mt76_phy *mphy)
 	if (ret)
 		goto out;
 
+	mt7996_dfs_set_radar_required(phy);
+
 	if (!mphy->offchannel && mphy->chanctx &&
 	    !mt7996_chandef_unavailable(mphy->hw->wiphy, &mphy->chandef)) {
 		ret = mt7996_mcu_rdd_resume_tx(phy);
