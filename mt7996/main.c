@@ -299,6 +299,7 @@ mt7996_key_iter(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		void *data)
 {
 	struct mt7996_key_iter_data *it = data;
+	int err;
 
 	if (sta != it->sta)
 		return;
@@ -306,7 +307,9 @@ mt7996_key_iter(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	if (key->link_id >= 0 && key->link_id != it->link_id)
 		return;
 
-	WARN_ON(mt7996_set_hw_key(hw, it->cmd, vif, sta, it->link_id, key));
+	err = mt7996_set_hw_key(hw, it->cmd, vif, sta, it->link_id, key);
+	WARN(err, "key %d not installed on link %u: %d\n", key->keyidx,
+	     it->link_id, err);
 }
 
 static bool
