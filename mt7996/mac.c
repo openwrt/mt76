@@ -3525,7 +3525,8 @@ int mt7996_dfs_init_radar_detector(struct mt7996_phy *phy)
 	if (dfs_state == MT_DFS_STATE_DISABLED)
 		goto stop;
 
-	if (prev_state <= MT_DFS_STATE_DISABLED) {
+	if (prev_state <= MT_DFS_STATE_DISABLED ||
+	    dfs_state == MT_DFS_STATE_CAC) {
 		err = mt7996_dfs_start_radar_detector(phy);
 		if (err < 0)
 			return err;
