@@ -2224,8 +2224,7 @@ enum mt76_dfs_state mt76_phy_dfs_state(struct mt76_phy *phy)
 	struct ieee80211_hw *hw = phy->hw;
 	struct mt76_dev *dev = phy->dev;
 
-	if (dev->region == NL80211_DFS_UNSET ||
-	    test_bit(MT76_SCANNING, &phy->state))
+	if (dev->region == NL80211_DFS_UNSET || phy->offchannel)
 		return MT_DFS_STATE_DISABLED;
 
 	if (!phy->radar_enabled) {

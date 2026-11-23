@@ -28,10 +28,6 @@ static void mt76_scan_phy_complete(struct mt76_phy *phy, bool abort)
 
 	clear_bit(MT76_SCANNING, &phy->state);
 
-	/* Re-program the operating channel even when the scan never left it:
-	 * any channel set during the scan ran with MT76_SCANNING held, which
-	 * left DFS radar detection disabled
-	 */
 	if (phy->main_chandef.chan &&
 	    !test_bit(MT76_MCU_RESET, &dev->phy.state)) {
 		bool offchannel = phy->offchannel;
