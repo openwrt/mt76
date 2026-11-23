@@ -1935,12 +1935,14 @@ mt7925_mcu_set_bss_pm(struct mt792x_dev *dev,
 }
 
 static void
-mt7925_mcu_sta_he_tlv(struct sk_buff *skb, struct ieee80211_link_sta *link_sta)
+mt7925_mcu_sta_he_tlv(struct sk_buff *skb, struct ieee80211_bss_conf *link_conf,
+		      struct ieee80211_link_sta *link_sta)
 {
 	if (!link_sta->he_cap.has_he)
 		return;
 
-	mt76_connac_mcu_sta_he_tlv_v2(skb, link_sta, true);
+	mt76_connac_mcu_sta_he_tlv_v2(skb, link_sta,
+				      mt76_connac_mcu_he_ldpc(link_conf));
 }
 
 static void
@@ -1989,23 +1991,30 @@ mt7925_mcu_sta_eht_tlv(struct sk_buff *skb, struct ieee80211_link_sta *link_sta)
 }
 
 static void
-mt7925_mcu_sta_ht_tlv(struct sk_buff *skb, struct ieee80211_link_sta *link_sta)
+mt7925_mcu_sta_ht_tlv(struct sk_buff *skb, struct ieee80211_bss_conf *link_conf,
+		      struct ieee80211_link_sta *link_sta)
 {
+	u16 cap = link_sta->ht_cap.cap;
 	struct sta_rec_ht *ht;
 	struct tlv *tlv;
 
 	if (!link_sta->ht_cap.ht_supported)
 		return;
 
+	if (!mt76_connac_mcu_ht_ldpc(link_conf))
+		cap &= ~IEEE80211_HT_CAP_LDPC_CODING;
+
 	tlv = mt76_connac_mcu_add_tlv(skb, STA_REC_HT, sizeof(*ht));
 
 	ht = (struct sta_rec_ht *)tlv;
-	ht->ht_cap = cpu_to_le16(link_sta->ht_cap.cap);
+	ht->ht_cap = cpu_to_le16(cap);
 }
 
 static void
-mt7925_mcu_sta_vht_tlv(struct sk_buff *skb, struct ieee80211_link_sta *link_sta)
+mt7925_mcu_sta_vht_tlv(struct sk_buff *skb, struct ieee80211_bss_conf *link_conf,
+		       struct ieee80211_link_sta *link_sta)
 {
+	u32 cap = link_sta->vht_cap.cap;
 	struct sta_rec_vht *vht;
 	struct tlv *tlv;
 
@@ -2013,10 +2022,13 @@ mt7925_mcu_sta_vht_tlv(struct sk_buff *skb, struct ieee80211_link_sta *link_sta)
 	if (!link_sta->he_6ghz_capa.capa && !link_sta->vht_cap.vht_supported)
 		return;
 
+	if (!mt76_connac_mcu_vht_ldpc(link_conf))
+		cap &= ~IEEE80211_VHT_CAP_RXLDPC;
+
 	tlv = mt76_connac_mcu_add_tlv(skb, STA_REC_VHT, sizeof(*vht));
 
 	vht = (struct sta_rec_vht *)tlv;
-	vht->vht_cap = cpu_to_le32(link_sta->vht_cap.cap);
+	vht->vht_cap = cpu_to_le32(cap);
 	vht->vht_rx_mcs_map = link_sta->vht_cap.vht_mcs.rx_mcs_map;
 	vht->vht_tx_mcs_map = link_sta->vht_cap.vht_mcs.tx_mcs_map;
 }
@@ -2324,6 +2336,7 @@ mt7925_mcu_sta_cmd(struct mt76_phy *phy,
 		   struct mt792x_link_sta *pending)
 {
 	struct mt792x_vif *mvif = (struct mt792x_vif *)info->vif->drv_priv;
+	struct ieee80211_bss_conf *link_conf;
 	struct mt76_dev *dev = phy->dev;
 	struct mt792x_bss_conf *mconf;
 	struct mt792x_link_sta *mlink;
@@ -2342,15 +2355,18 @@ mt7925_mcu_sta_cmd(struct mt76_phy *phy,
 				    CONN_STATE_DISCONNECT;
 
 	if (info->enable && info->link_sta) {
+		link_conf = mt792x_vif_to_bss_conf(info->vif,
+						   info->link_sta->link_id);
+
 		mt76_connac_mcu_sta_basic_tlv(dev, skb, info->link_conf,
 					      info->link_sta,
 					      conn_state, info->newly);
 		mt7925_mcu_sta_phy_tlv(skb, info->vif, info->link_sta);
-		mt7925_mcu_sta_ht_tlv(skb, info->link_sta);
-		mt7925_mcu_sta_vht_tlv(skb, info->link_sta);
+		mt7925_mcu_sta_ht_tlv(skb, link_conf, info->link_sta);
+		mt7925_mcu_sta_vht_tlv(skb, link_conf, info->link_sta);
 		mt76_connac_mcu_sta_uapsd(skb, info->vif, info->link_sta->sta);
 		mt7925_mcu_sta_amsdu_tlv(skb, info->vif, info->link_sta, mlink);
-		mt7925_mcu_sta_he_tlv(skb, info->link_sta);
+		mt7925_mcu_sta_he_tlv(skb, link_conf, info->link_sta);
 		mt7925_mcu_sta_he_6g_tlv(skb, info->link_sta);
 		mt7925_mcu_sta_eht_tlv(skb, info->link_sta);
 		mt7925_mcu_sta_rate_ctrl_tlv(skb, info->vif,
