@@ -2957,7 +2957,7 @@ mt7996_mcu_sta_eht_tlv(struct mt7996_dev *dev, struct sk_buff *skb,
 
 	eht = (struct sta_rec_eht *)tlv;
 	eht->tid_bitmap = mt7996_mcu_sta_eht_tid_bitmap(dev, link_sta->sta,
-							 link_sta->link_id);
+							link_sta->link_id);
 	eht->mac_cap = cpu_to_le16(*(u16 *)elem->mac_cap_info);
 	eht->phy_cap = cpu_to_le64(*(u64 *)elem->phy_cap_info);
 	eht->phy_cap_ext = cpu_to_le64(elem->phy_cap_info[8]);
