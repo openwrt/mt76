@@ -2334,8 +2334,9 @@ mt7996_mac_sta_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	case MT76_STA_EVENT_ASSOC:
 		msta->conn_state = CONN_STATE_CONNECT;
 		/* a hardware restart replays the association with no
-		 * sta_set_4addr, and the last CONNECT put the links other
-		 * than the setup link into power save again
+		 * sta_set_4addr, and the first STA_REC_RA after the last
+		 * CONNECT put the links other than the setup link into power
+		 * save again
 		 */
 		mt7996_mac_sta_links_ps_leave(dev, vif, sta,
 					      mt7996_mac_sta_links(dev, vif, sta));
