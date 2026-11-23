@@ -2587,6 +2587,10 @@ mt7996_mac_restart(struct mt7996_dev *dev)
 	if (ret)
 		goto out;
 
+	ret = mt7996_mcu_set_dup_wtbl(dev);
+	if (ret)
+		goto out;
+
 	mt7996_for_each_phy(dev, phy) {
 		if (!test_bit(MT76_STATE_RUNNING, &phy->mt76->state))
 			continue;
