@@ -9493,11 +9493,14 @@ int mt7996_mcu_rf_regval(struct mt7996_dev *dev, u32 regidx, u32 *val, bool set)
 		.len = cpu_to_le16(sizeof(req) - 4),
 
 		.idx = cpu_to_le16(u32_get_bits(regidx, GENMASK(31, 24))),
-		.ofs = cpu_to_le32(u32_get_bits(regidx, GENMASK(23, 0))),
+		.ofs = cpu_to_le32(u32_get_bits(regidx, GENMASK(11, 0))),
 		.data = set ? cpu_to_le32(*val) : 0,
 	};
 	struct sk_buff *skb;
 	int ret;
+
+	if (regidx & GENMASK(23, 12))
+		return -EINVAL;
 
 	if (set)
 		return mt76_mcu_send_msg(&dev->mt76, MCU_WM_UNI_CMD(REG_ACCESS),

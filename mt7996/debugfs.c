@@ -1154,7 +1154,7 @@ mt7996_twt_stats(struct seq_file *s, void *data)
 }
 
 /* The index of RF registers use the generic regidx, combined with two parts:
- * WF selection [31:24] and offset [23:0].
+ * WF selection [31:24] and offset [11:0].
  */
 static int
 mt7996_rf_regval_get(void *data, u64 *val)
