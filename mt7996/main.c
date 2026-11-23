@@ -2184,8 +2184,8 @@ mt7996_mac_sta_links_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 
 			msta_link->sta_rec_active = true;
 			msta_link->connected = true;
-			err = mt7996_mcu_add_rate_ctrl(dev, msta_link->sta, vif,
-						       link_id, false);
+			err = mt7996_mcu_add_rate_ctrl_fixed(dev, msta_link->sta,
+							     vif, link_id);
 			if (err)
 				return err;
 
