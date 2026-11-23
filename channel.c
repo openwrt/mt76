@@ -330,6 +330,53 @@ void mt76_put_vif_phy_link(struct mt76_phy *phy, struct ieee80211_vif *vif,
 	kfree_rcu(mlink, rcu_head);
 }
 
+/* the teardown commands of a link cannot reach the firmware while
+ * MT76_MCU_RESET is set, and the firmware keeps the BSS and the own MAC entry
+ * of the link across a recovery
+ */
+void mt76_release_vif_phy_link(struct mt76_phy *phy, struct ieee80211_vif *vif,
+			       struct mt76_vif_link *mlink)
+{
+	struct mt76_dev *dev = phy->dev;
+
+	if (IS_ERR_OR_NULL(mlink) || !mlink->offchannel)
+		return;
+
+	if (test_bit(MT76_MCU_RESET, &dev->phy.state) &&
+	    !WARN_ON_ONCE(phy->kept_link.mlink)) {
+		phy->kept_link.vif = vif;
+		phy->kept_link.mlink = mlink;
+		return;
+	}
+
+	mt76_put_vif_phy_link(phy, vif, mlink);
+}
+
+void mt76_put_kept_link(struct mt76_phy *phy)
+{
+	struct mt76_vif_link *mlink = phy->kept_link.mlink;
+	struct ieee80211_vif *vif = phy->kept_link.vif;
+
+	if (!mlink)
+		return;
+
+	phy->kept_link.vif = NULL;
+	phy->kept_link.mlink = NULL;
+	mt76_put_vif_phy_link(phy, vif, mlink);
+}
+
+void mt76_put_kept_links(struct mt76_dev *dev)
+{
+	int i;
+
+	lockdep_assert_held(&dev->mutex);
+
+	for (i = 0; i < ARRAY_SIZE(dev->phys); i++)
+		if (dev->phys[i])
+			mt76_put_kept_link(dev->phys[i]);
+}
+EXPORT_SYMBOL_GPL(mt76_put_kept_links);
+
 struct mt76_csa_active_data {
 	struct mt76_phy *phy;
 	bool active;
@@ -410,7 +457,7 @@ void mt76_roc_complete(struct mt76_phy *phy)
 		phy->offchannel = false;
 	}
 	rcu_assign_pointer(phy->roc_link, NULL);
-	mt76_put_vif_phy_link(phy, phy->roc_vif, mlink);
+	mt76_release_vif_phy_link(phy, phy->roc_vif, mlink);
 	phy->roc_vif = NULL;
 	if (!test_bit(MT76_RESTART, &dev->phy.state))
 		ieee80211_remain_on_channel_expired(phy->hw);

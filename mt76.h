@@ -942,6 +942,11 @@ struct mt76_phy {
 	struct ieee80211_vif *roc_vif;
 	struct mt76_vif_link __rcu *roc_link;
 
+	struct {
+		struct ieee80211_vif *vif;
+		struct mt76_vif_link *mlink;
+	} kept_link;
+
 	struct delayed_work scan_work;
 	struct {
 		struct ieee80211_channel *chan;
@@ -2032,6 +2037,10 @@ struct mt76_vif_link *mt76_get_vif_phy_link(struct mt76_phy *phy,
 					    struct ieee80211_vif *vif);
 void mt76_put_vif_phy_link(struct mt76_phy *phy, struct ieee80211_vif *vif,
 			   struct mt76_vif_link *mlink);
+void mt76_release_vif_phy_link(struct mt76_phy *phy, struct ieee80211_vif *vif,
+			       struct mt76_vif_link *mlink);
+void mt76_put_kept_link(struct mt76_phy *phy);
+void mt76_put_kept_links(struct mt76_dev *dev);
 bool mt76_phy_csa_active(struct mt76_phy *phy);
 void mt76_offchannel_notify(struct mt76_phy *phy, bool offchannel);
 

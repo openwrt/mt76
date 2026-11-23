@@ -2805,6 +2805,10 @@ mt7996_mac_full_reset(struct mt7996_dev *dev)
 	mt76_abort_scan(&dev->mt76);
 
 	mutex_lock(&dev->mt76.mutex);
+	/* the firmware load drops the BSS of a kept link, and MT76_MCU_RESET
+	 * keeps its teardown commands from the firmware
+	 */
+	mt76_put_kept_links(&dev->mt76);
 	for (i = 0; i < 10; i++) {
 		if (!mt7996_mac_restart(dev))
 			break;
@@ -3063,6 +3067,7 @@ void mt7996_mac_reset_work(struct work_struct *work)
 		clear_bit(MT76_RESET, &phy->mt76->state);
 
 	mt7996_mac_reset_napi_enable(dev);
+	mt76_put_kept_links(&dev->mt76);
 
 	ieee80211_iterate_active_interfaces_atomic(hw,
 						   IEEE80211_IFACE_ITER_RESUME_ALL,

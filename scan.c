@@ -43,7 +43,7 @@ static void mt76_scan_phy_complete(struct mt76_phy *phy, bool abort)
 		 */
 		phy->offchannel = false;
 	}
-	mt76_put_vif_phy_link(phy, dev->scan.vif, phy->scan.mlink);
+	mt76_release_vif_phy_link(phy, dev->scan.vif, phy->scan.mlink);
 	memset(&phy->scan, 0, sizeof(phy->scan));
 
 	clear_bit(phy->band_idx, &dev->scan.phy_mask);

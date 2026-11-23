@@ -2522,6 +2522,7 @@ void mt76_vif_cleanup(struct mt76_dev *dev, struct ieee80211_vif *vif)
 	struct mt76_vif_link *mlink = (struct mt76_vif_link *)vif->drv_priv;
 	struct mt76_vif_data *mvif = mlink->mvif;
 	struct mt76_phy *phy;
+	int i;
 
 	rcu_assign_pointer(mvif->link[0], NULL);
 	mt76_abort_scan(dev);
@@ -2529,6 +2530,14 @@ void mt76_vif_cleanup(struct mt76_dev *dev, struct ieee80211_vif *vif)
 	if (phy && phy->roc_vif == vif)
 		mt76_abort_roc(phy);
 	WARN_ON_ONCE(mt76_vif_roc_phy(dev, vif));
+
+	mutex_lock(&dev->mutex);
+	for (i = 0; i < ARRAY_SIZE(dev->phys); i++) {
+		phy = dev->phys[i];
+		if (phy && phy->kept_link.vif == vif)
+			mt76_put_kept_link(phy);
+	}
+	mutex_unlock(&dev->mutex);
 }
 EXPORT_SYMBOL_GPL(mt76_vif_cleanup);
 
