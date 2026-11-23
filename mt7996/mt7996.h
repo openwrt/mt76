@@ -573,6 +573,7 @@ struct mt7996_phy {
 	bool counter_reset;
 	bool rdd_tx_paused;
 	bool rdd_stopped;
+	bool radar_required;
 	bool offchan_bcn_stopped;
 	bool fw_offchannel;
 };
@@ -603,6 +604,7 @@ struct mt7996_dev {
 	/* monitor rx chain configured channel */
 	struct cfg80211_chan_def rdd2_chandef;
 	struct mt7996_phy *rdd2_phy;
+	bool rdd2_radar_required;
 
 	u16 chainmask;
 	u8 chainshift[__MT_MAX_BAND];
@@ -615,6 +617,7 @@ struct mt7996_dev {
 	struct work_struct reconf_work;
 	struct work_struct attlm_work;
 	struct work_struct cntdwn_work;
+	struct work_struct rdd_resume_work;
 	struct hrtimer cntdwn_timer;
 	wait_queue_head_t reset_wait;
 	struct {
@@ -1060,6 +1063,7 @@ int mt7996_mcu_set_thermal_protect(struct mt7996_phy *phy, bool enable);
 int mt7996_mcu_set_txpower_sku(struct mt7996_phy *phy);
 int mt7996_mcu_set_tx_power_ctrl(struct mt7996_phy *phy, u8 power_ctrl_id, u8 data);
 int mt7996_mcu_rdd_resume_tx(struct mt7996_phy *phy);
+void mt7996_mcu_rdd_resume_work(struct work_struct *work);
 int mt7996_mcu_rdd_cmd(struct mt7996_dev *dev, int cmd, u8 rdd_idx, u8 val);
 int mt7996_mcu_rdd_background_enable(struct mt7996_phy *phy,
 				     struct cfg80211_chan_def *chandef);

@@ -3893,6 +3893,9 @@ update_phy:
 	dev->rdd2_phy = chandef ? phy : NULL;
 	if (chandef)
 		dev->rdd2_chandef = *chandef;
+	WRITE_ONCE(dev->rdd2_radar_required,
+		   chandef && cfg80211_chandef_dfs_required(hw->wiphy, chandef,
+							    NL80211_IFTYPE_AP) > 0);
 out:
 	mutex_unlock(&dev->mt76.mutex);
 

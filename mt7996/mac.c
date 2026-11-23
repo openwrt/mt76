@@ -3527,6 +3527,11 @@ int mt7996_dfs_init_radar_detector(struct mt7996_phy *phy)
 	enum mt76_dfs_state dfs_state, prev_state;
 	int err, rdd_idx = mt7996_get_rdd_idx(phy, false);
 
+	WRITE_ONCE(phy->radar_required,
+		   cfg80211_chandef_dfs_required(phy->mt76->hw->wiphy,
+						 &phy->mt76->chandef,
+						 NL80211_IFTYPE_AP) > 0);
+
 	if (READ_ONCE(phy->rdd_stopped)) {
 		WRITE_ONCE(phy->rdd_stopped, false);
 		phy->mt76->dfs_state = MT_DFS_STATE_UNKNOWN;

@@ -626,6 +626,7 @@ mt7996_mcu_rx_radar_detected(struct mt7996_dev *dev, struct sk_buff *skb)
 {
 	struct mt76_phy *mphy = &dev->mt76.phy;
 	struct mt7996_mcu_rdd_report *r;
+	struct mt7996_phy *rdd2_phy;
 
 	if (skb->len < offsetofend(struct mt7996_mcu_rdd_report, rdd_idx))
 		return;
@@ -640,9 +641,10 @@ mt7996_mcu_rx_radar_detected(struct mt7996_dev *dev, struct sk_buff *skb)
 		mphy = dev->mt76.phys[MT_BAND1];
 		break;
 	case MT_RDD_IDX_BACKGROUND:
-		if (!dev->rdd2_phy)
-			goto err;
-		mphy = dev->rdd2_phy->mt76;
+		rdd2_phy = READ_ONCE(dev->rdd2_phy);
+		if (!rdd2_phy || !READ_ONCE(dev->rdd2_radar_required))
+			return;
+		mphy = rdd2_phy->mt76;
 		break;
 	default:
 		goto err;
@@ -660,7 +662,15 @@ mt7996_mcu_rx_radar_detected(struct mt7996_dev *dev, struct sk_buff *skb)
 		struct mt7996_phy *phy = mphy->priv;
 		struct ieee80211_chanctx_conf *conf;
 
+		/* the firmware stops the TX of the band at each match, also
+		 * at one of a detector that runs on after the band left DFS
+		 */
 		phy->rdd_tx_paused = true;
+		if (!READ_ONCE(phy->radar_required)) {
+			queue_work(system_highpri_wq, &dev->rdd_resume_work);
+			return;
+		}
+
 		WRITE_ONCE(phy->rdd_stopped, true);
 		if (ctx) {
 			conf = container_of((void *)ctx,
@@ -9315,6 +9325,22 @@ int mt7996_mcu_rdd_resume_tx(struct mt7996_phy *phy)
 		phy->rdd_tx_paused = false;
 
 	return ret;
+}
+
+void mt7996_mcu_rdd_resume_work(struct work_struct *work)
+{
+	struct mt7996_dev *dev = container_of(work, struct mt7996_dev,
+					      rdd_resume_work);
+	struct mt7996_phy *phy;
+
+	mutex_lock(&dev->mt76.mutex);
+	mt7996_for_each_phy(dev, phy) {
+		if (READ_ONCE(phy->radar_required) || phy->mt76->offchannel)
+			continue;
+
+		mt7996_mcu_rdd_resume_tx(phy);
+	}
+	mutex_unlock(&dev->mt76.mutex);
 }
 
 int mt7996_mcu_rdd_cmd(struct mt7996_dev *dev, int cmd, u8 rdd_idx, u8 val)
