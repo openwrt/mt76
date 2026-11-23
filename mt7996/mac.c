@@ -1105,42 +1105,12 @@ mt7996_tx_use_mgmt(struct mt7996_dev *dev, struct sk_buff *skb)
 	return false;
 }
 
-void mt7996_tx_link_addr_set(struct ieee80211_vif *vif,
-			     struct ieee80211_sta *sta,
-			     struct ieee80211_hdr *hdr, u8 link_id,
-			     u8 deflink_id)
-{
-	struct ieee80211_bss_conf *link_conf;
-
-	if (sta) {
-		struct ieee80211_link_sta *link_sta;
-
-		link_sta = rcu_dereference(sta->link[link_id]);
-		if (!link_sta)
-			link_sta = rcu_dereference(sta->link[deflink_id]);
-
-		if (link_sta) {
-			memcpy(hdr->addr1, link_sta->addr, ETH_ALEN);
-			if (ether_addr_equal(sta->addr, hdr->addr3))
-				memcpy(hdr->addr3, link_sta->addr, ETH_ALEN);
-		}
-	}
-
-	link_conf = rcu_dereference(vif->link_conf[link_id]);
-	if (link_conf) {
-		memcpy(hdr->addr2, link_conf->addr, ETH_ALEN);
-		if (ether_addr_equal(vif->addr, hdr->addr3))
-			memcpy(hdr->addr3, link_conf->addr, ETH_ALEN);
-	}
-}
-
 /* mt76_txq_schedule_pending_wcid() keeps a bufferable MMPDU other than a
- * Deauthentication, and the Null frame of an AP, on its AC queue, where the
- * firmware can pick an awake link without MT_TXD5_FL. A negotiated TTLM
- * leaves the link to the driver.
+ * Deauthentication on its AC queue, where the firmware can pick an awake
+ * link without MT_TXD5_FL. A negotiated TTLM leaves the link to the driver.
  */
-bool mt7996_tx_any_link(struct ieee80211_vif *vif, struct ieee80211_sta *sta,
-			struct sk_buff *skb)
+bool mt7996_tx_mgmt_any_link(struct ieee80211_vif *vif,
+			     struct ieee80211_sta *sta, struct sk_buff *skb)
 {
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
@@ -1153,9 +1123,8 @@ bool mt7996_tx_any_link(struct ieee80211_vif *vif, struct ieee80211_sta *sta,
 			   IEEE80211_TX_CTL_TX_OFFCHAN))
 		return false;
 
-	if (!ieee80211_is_any_nullfunc(hdr->frame_control) &&
-	    (!ieee80211_is_bufferable_mmpdu(skb) ||
-	     ieee80211_is_deauth(hdr->frame_control)))
+	if (!ieee80211_is_bufferable_mmpdu(skb) ||
+	    ieee80211_is_deauth(hdr->frame_control))
 		return false;
 
 	msta = (struct mt7996_sta *)sta->drv_priv;
@@ -1216,7 +1185,7 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 
 	fixed_link = link_id != IEEE80211_LINK_UNSPECIFIED && sta && sta->mlo;
 	any_link = link_id == IEEE80211_LINK_UNSPECIFIED &&
-		   mt7996_tx_any_link(vif, sta, tx_info->skb);
+		   mt7996_tx_mgmt_any_link(vif, sta, tx_info->skb);
 
 	if ((is_8023 || ieee80211_is_data_qos(hdr->frame_control)) && sta && sta->mlo &&
 	    link_id == IEEE80211_LINK_UNSPECIFIED && !any_link &&
@@ -1230,27 +1199,11 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	}
 
 	if (any_link && qid >= MT_TXQ_PSD) {
-		u8 deflink_id = msta->deflink_id;
-
-		/* ALTX disables the address translation: send the frame with
-		 * the addresses of the link that mt7996_tx() chose, which
-		 * takes link 0 while the default link is unset
+		/* ALTX disables the address translation: keep the link of
+		 * the header that mt7996_tx() wrote
 		 */
-		if (deflink_id >= IEEE80211_MLD_MAX_NUM_LINKS)
-			deflink_id = 0;
-
-		link_id = mt7996_sta_tx_enabled_link_get(msta, deflink_id,
+		link_id = mt7996_sta_tx_enabled_link_get(msta, msta->deflink_id,
 							 skb_get_queue_mapping(tx_info->skb));
-		if (ieee80211_is_any_nullfunc(hdr->frame_control)) {
-			dma_sync_single_for_cpu(mdev->dma_dev, tx_info->buf[1].addr,
-						tx_info->buf[1].len, DMA_TO_DEVICE);
-			mt7996_tx_link_addr_set(vif, sta, hdr, link_id,
-						deflink_id);
-			dma_sync_single_for_device(mdev->dma_dev,
-						   tx_info->buf[1].addr,
-						   tx_info->buf[1].len,
-						   DMA_TO_DEVICE);
-		}
 		fixed_link = true;
 		any_link = false;
 	}
