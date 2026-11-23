@@ -2894,6 +2894,7 @@ mt7996_mac_reset_l1_abort(struct mt7996_dev *dev)
 	__mt7996_npu_hw_init(dev);
 	mt7996_mac_reset_napi_enable(dev);
 	mutex_unlock(&dev->mt76.mutex);
+	wiphy_unlock(mt76_hw(dev)->wiphy);
 
 	dev->recovery.restart = true;
 	queue_work(dev->mt76.wq, &dev->reset_work);
@@ -2957,6 +2958,8 @@ void mt7996_mac_reset_work(struct work_struct *work)
 		cancel_delayed_work_sync(&phy->mt76->mac_work);
 	}
 
+	/* the beacon uploads read the link_conf of each interface */
+	wiphy_lock(hw->wiphy);
 	mutex_lock(&dev->mt76.mutex);
 
 	mt76_worker_disable(&dev->mt76.tx_worker);
@@ -3040,6 +3043,7 @@ void mt7996_mac_reset_work(struct work_struct *work)
 	mt7996_mac_airtime_reset(dev);
 
 	mutex_unlock(&dev->mt76.mutex);
+	wiphy_unlock(hw->wiphy);
 
 	mt7996_for_each_phy(dev, phy)
 		ieee80211_queue_delayed_work(hw, &phy->mt76->mac_work,
