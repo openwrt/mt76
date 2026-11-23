@@ -661,6 +661,7 @@ mt7996_mcu_rx_radar_detected(struct mt7996_dev *dev, struct sk_buff *skb)
 		struct ieee80211_chanctx_conf *conf;
 
 		phy->rdd_tx_paused = true;
+		WRITE_ONCE(phy->rdd_stopped, true);
 		if (ctx) {
 			conf = container_of((void *)ctx,
 					    struct ieee80211_chanctx_conf, drv_priv);

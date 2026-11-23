@@ -571,6 +571,7 @@ struct mt7996_phy {
 	bool has_aux_rx;
 	bool counter_reset;
 	bool rdd_tx_paused;
+	bool rdd_stopped;
 	bool offchan_bcn_stopped;
 	bool fw_offchannel;
 };
