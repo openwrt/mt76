@@ -194,23 +194,78 @@ mt7996_init_bitrate_mask(struct ieee80211_vif *vif, struct mt7996_vif_link *mlin
 	}
 }
 
+struct mt7996_group_cipher_data {
+	unsigned int link_id;
+	u8 cipher;
+};
+
+static void
+mt7996_group_cipher_iter(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+			 struct ieee80211_sta *sta,
+			 struct ieee80211_key_conf *key, void *data)
+{
+	struct mt7996_group_cipher_data *gc = data;
+
+	if (sta || key->keyidx > 3)
+		return;
+
+	if (key->link_id >= 0 && key->link_id != gc->link_id)
+		return;
+
+	gc->cipher = mt76_connac_mcu_get_cipher(key->cipher);
+}
+
+static void
+mt7996_vif_link_cipher_update(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+			      struct ieee80211_vif *vif,
+			      struct ieee80211_bss_conf *link_conf,
+			      unsigned int link_id,
+			      struct mt7996_vif_link *link,
+			      struct ieee80211_key_conf *key)
+{
+	struct mt7996_group_cipher_data gc = {
+		.link_id = link_id,
+	};
+	struct mt7996_phy *phy;
+
+	if (key->keyidx > 3)
+		return;
+
+	/* mac80211 clears the upload flag of a key before its DISABLE_KEY,
+	 * so the walk sees only the group keys that stay on the link
+	 */
+	if (cmd == SET_KEY)
+		gc.cipher = mt76_connac_mcu_get_cipher(key->cipher);
+	else
+		ieee80211_iter_keys(hw, vif, mt7996_group_cipher_iter, &gc);
+
+	if (gc.cipher == link->mt76.cipher)
+		return;
+
+	link->mt76.cipher = gc.cipher;
+	phy = mt7996_vif_link_phy(link);
+	if (phy)
+		mt7996_mcu_add_bss_info(phy, vif, link_conf, &link->mt76,
+					&link->msta_link, true);
+}
+
 static int
-mt7996_set_hw_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
-		  struct ieee80211_vif *vif, struct ieee80211_sta *sta,
-		  unsigned int link_id, struct ieee80211_key_conf *key)
+mt7996_vif_link_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+			struct ieee80211_vif *vif, struct ieee80211_sta *sta,
+			unsigned int link_id, struct mt7996_vif_link *link,
+			struct ieee80211_key_conf *key)
 {
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
 	struct ieee80211_bss_conf *link_conf;
 	struct mt7996_sta_link *msta_link;
-	struct mt7996_vif_link *link;
 	int idx = key->keyidx;
 	u8 *wcid_keyidx;
 	bool is_bigtk;
 	int err;
 
-	link = mt7996_vif_link(dev, vif, link_id);
-	if (!link)
-		return 0;
+	link_conf = link_conf_dereference_protected(vif, link_id);
+	if (!link_conf)
+		link_conf = &vif->bss_conf;
 
 	if (sta) {
 		struct mt7996_sta *msta;
@@ -223,6 +278,9 @@ mt7996_set_hw_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 		if (!msta_link->wcid.sta)
 			return -EOPNOTSUPP;
 	} else {
+		mt7996_vif_link_cipher_update(hw, cmd, vif, link_conf, link_id,
+					      link, key);
+		/* the link add or reuse installs a key that comes first */
 		if (!mt7996_vif_link_phy(link))
 			return 0;
 
@@ -243,20 +301,6 @@ mt7996_set_hw_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 		break;
 	default:
 		break;
-	}
-
-	link_conf = link_conf_dereference_protected(vif, link_id);
-	if (!link_conf)
-		link_conf = &vif->bss_conf;
-
-	if (cmd == SET_KEY && !sta && !link->mt76.cipher) {
-		struct mt7996_phy *phy = mt7996_vif_link_phy(link);
-
-		link->mt76.cipher =
-			mt76_connac_mcu_get_cipher(key->cipher);
-		if (phy)
-			mt7996_mcu_add_bss_info(phy, vif, link_conf,
-						&link->mt76, msta_link, true);
 	}
 
 	if (cmd != SET_KEY && idx == *wcid_keyidx)
@@ -287,9 +331,25 @@ mt7996_set_hw_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	return err;
 }
 
+static int
+mt7996_set_hw_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+		  struct ieee80211_vif *vif, struct ieee80211_sta *sta,
+		  unsigned int link_id, struct ieee80211_key_conf *key)
+{
+	struct mt7996_vif_link *link;
+
+	/* the link add installs a key that comes before its link */
+	link = mt7996_vif_link(mt7996_hw_dev(hw), vif, link_id);
+	if (!link)
+		return 0;
+
+	return mt7996_vif_link_set_key(hw, cmd, vif, sta, link_id, link, key);
+}
+
 struct mt7996_key_iter_data {
 	enum set_key_cmd cmd;
 	unsigned int link_id;
+	struct mt7996_vif_link *link;
 	struct ieee80211_sta *sta;
 };
 
@@ -307,9 +367,23 @@ mt7996_key_iter(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	if (key->link_id >= 0 && key->link_id != it->link_id)
 		return;
 
-	err = mt7996_set_hw_key(hw, it->cmd, vif, sta, it->link_id, key);
+	err = mt7996_vif_link_set_key(hw, it->cmd, vif, sta, it->link_id,
+				      it->link, key);
 	WARN(err, "key %d not installed on link %u: %d\n", key->keyidx,
 	     it->link_id, err);
+}
+
+static void
+mt7996_vif_link_keys_set(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+			 unsigned int link_id, struct mt7996_vif_link *link)
+{
+	struct mt7996_key_iter_data it = {
+		.cmd = SET_KEY,
+		.link_id = link_id,
+		.link = link,
+	};
+
+	ieee80211_iter_keys(hw, vif, mt7996_key_iter, &it);
 }
 
 static bool
@@ -458,6 +532,7 @@ static int mt7996_vif_link_reuse(struct mt7996_phy *phy,
 	if (ret)
 		return ret;
 
+	mt7996_vif_link_keys_set(phy->mt76->hw, vif, link_conf->link_id, link);
 	mt7996_vif_deflink_init(vif, link);
 
 	return 0;
@@ -473,10 +548,6 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	struct mt7996_phy *phy = mphy->priv;
 	struct mt7996_dev *dev = phy->dev;
 	u8 band_idx = phy->mt76->band_idx;
-	struct mt7996_key_iter_data it = {
-		.cmd = SET_KEY,
-		.link_id = link_conf->link_id,
-	};
 	int mld_idx, idx, ret;
 	bool moved = false;
 
@@ -571,7 +642,8 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	rcu_assign_pointer(dev->mt76.wcid[idx], &msta_link->wcid);
 
 	if (!mlink->wcid->offchannel)
-		ieee80211_iter_keys(mphy->hw, vif, mt7996_key_iter, &it);
+		mt7996_vif_link_keys_set(mphy->hw, vif, link_conf->link_id,
+					 link);
 
 	if (!mlink->wcid->offchannel) {
 		mt7996_vif_deflink_init(vif, link);
@@ -2374,8 +2446,12 @@ mt7996_mac_sta_links_set_keys(struct mt7996_dev *dev,
 		struct mt7996_key_iter_data it = {
 			.cmd = SET_KEY,
 			.link_id = link_id,
+			.link = mt7996_vif_link(dev, vif, link_id),
 			.sta = sta,
 		};
+
+		if (!it.link)
+			continue;
 
 		ieee80211_iter_keys(mt76_hw(dev), vif, mt7996_key_iter, &it);
 	}
