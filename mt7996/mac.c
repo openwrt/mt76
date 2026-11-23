@@ -1625,11 +1625,15 @@ mt7996_mac_tx_free(struct mt7996_dev *dev, void *data, int len)
 				goto next;
 			}
 
+			msta = (struct mt7996_sta *)sta->drv_priv;
 			link_sta = rcu_dereference(sta->link[wcid->link_id]);
+			/* the pair of PEER_MLD keeps the wcid of a removed link */
+			if (!link_sta &&
+			    msta->deflink_id < IEEE80211_MLD_MAX_NUM_LINKS)
+				link_sta = rcu_dereference(sta->link[msta->deflink_id]);
 			if (!link_sta)
 				goto next;
 
-			msta = (struct mt7996_sta *)sta->drv_priv;
 			valid_links = sta->valid_links ?: BIT(0);
 
 			/* For MLD STA, add all link's wcid to sta_poll_list */
