@@ -3170,15 +3170,19 @@ mt7925_mcu_bss_mbssid_tlv(struct sk_buff *skb, struct ieee80211_bss_conf *link_c
 
 static void
 mt7925_mcu_bss_he_tlv(struct sk_buff *skb, struct ieee80211_bss_conf *link_conf,
-		      struct mt792x_phy *phy)
+		      struct ieee80211_chanctx_conf *ctx, struct mt792x_phy *phy)
 {
 #define DEFAULT_HE_PE_DURATION		4
 #define DEFAULT_HE_DURATION_RTS_THRES	1023
+	struct cfg80211_chan_def *chandef = ctx ? &ctx->def :
+						  &link_conf->chanreq.oper;
 	const struct ieee80211_sta_he_cap *cap;
+	struct ieee80211_supported_band *sband;
 	struct bss_info_uni_he *he;
 	struct tlv *tlv;
 
-	cap = mt76_connac_get_he_phy_cap(phy->mt76, link_conf->vif);
+	sband = phy->mt76->hw->wiphy->bands[chandef->chan->band];
+	cap = ieee80211_get_he_iftype_cap(sband, link_conf->vif->type);
 	if (!cap)
 		return;
 
@@ -3275,7 +3279,7 @@ int mt7925_mcu_add_bss_info_sta(struct mt792x_phy *phy,
 	mt7925_mcu_bss_ifs_tlv(skb, link_conf);
 
 	if (link_conf->he_support) {
-		mt7925_mcu_bss_he_tlv(skb, link_conf, phy);
+		mt7925_mcu_bss_he_tlv(skb, link_conf, ctx, phy);
 		mt7925_mcu_bss_color_tlv(skb, link_conf, enable);
 	}
 
