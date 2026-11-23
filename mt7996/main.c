@@ -1627,7 +1627,7 @@ mt7996_mac_sta_init_link(struct mt7996_dev *dev,
 	if (!phy)
 		return -EINVAL;
 
-	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7996_WTBL_STA);
+	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, mt7996_wtbl_sta_limit(dev));
 	if (idx < 0)
 		return -ENOSPC;
 
@@ -4087,7 +4087,8 @@ mt7996_net_fill_forward_path(struct ieee80211_hw *hw,
 	if (!msta_link)
 		return -EIO;
 
-	if (!msta_link->wcid.sta || msta_link->wcid.idx > MT7996_WTBL_STA)
+	if (!msta_link->wcid.sta ||
+	    msta_link->wcid.idx >= mt7996_wtbl_sta_limit(dev))
 		return -EIO;
 
 	wed = mt7996_sta_wed(dev, msta_link);

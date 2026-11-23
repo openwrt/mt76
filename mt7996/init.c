@@ -1284,7 +1284,8 @@ static int mt7996_variant_fem_init(struct mt7996_dev *dev)
 
 int mt7996_global_wcid_init(struct mt7996_dev *dev)
 {
-	int idx = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7996_WTBL_STA);
+	int idx = mt76_wcid_alloc(dev->mt76.wcid_mask,
+				  mt7996_wtbl_sta_limit(dev));
 
 	if (idx)
 		return -ENOSPC;
