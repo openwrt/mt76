@@ -2018,8 +2018,18 @@ mt76_connac_mcu_bss_deact_err(struct mt76_dev *mdev, int err, bool enable)
 }
 
 struct sk_buff *
+mt76_connac_mcu_alloc_sta_req_gfp(struct mt76_dev *dev,
+				  struct mt76_vif_link *mvif,
+				  struct mt76_wcid *wcid, int len, gfp_t gfp);
+
+static inline struct sk_buff *
 __mt76_connac_mcu_alloc_sta_req(struct mt76_dev *dev, struct mt76_vif_link *mvif,
-				struct mt76_wcid *wcid, int len);
+				struct mt76_wcid *wcid, int len)
+{
+	return mt76_connac_mcu_alloc_sta_req_gfp(dev, mvif, wcid, len,
+						 GFP_ATOMIC);
+}
+
 static inline struct sk_buff *
 mt76_connac_mcu_alloc_sta_req(struct mt76_dev *dev, struct mt76_vif_link *mvif,
 			      struct mt76_wcid *wcid)

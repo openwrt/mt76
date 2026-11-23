@@ -316,8 +316,9 @@ mt76_connac_mcu_add_nested_tlv(struct sk_buff *skb, int tag, int len,
 EXPORT_SYMBOL_GPL(mt76_connac_mcu_add_nested_tlv);
 
 struct sk_buff *
-__mt76_connac_mcu_alloc_sta_req(struct mt76_dev *dev, struct mt76_vif_link *mvif,
-				struct mt76_wcid *wcid, int len)
+mt76_connac_mcu_alloc_sta_req_gfp(struct mt76_dev *dev,
+				  struct mt76_vif_link *mvif,
+				  struct mt76_wcid *wcid, int len, gfp_t gfp)
 {
 	struct sta_req_hdr hdr = {
 		.bss_idx = mvif->idx,
@@ -331,7 +332,7 @@ __mt76_connac_mcu_alloc_sta_req(struct mt76_dev *dev, struct mt76_vif_link *mvif
 
 	mt76_connac_mcu_get_wlan_idx(dev, wcid, &hdr.wlan_idx_lo,
 				     &hdr.wlan_idx_hi);
-	skb = __mt76_mcu_msg_alloc(dev, NULL, len, len, GFP_ATOMIC);
+	skb = __mt76_mcu_msg_alloc(dev, NULL, len, len, gfp);
 	if (!skb)
 		return ERR_PTR(-ENOMEM);
 
@@ -339,7 +340,7 @@ __mt76_connac_mcu_alloc_sta_req(struct mt76_dev *dev, struct mt76_vif_link *mvif
 
 	return skb;
 }
-EXPORT_SYMBOL_GPL(__mt76_connac_mcu_alloc_sta_req);
+EXPORT_SYMBOL_GPL(mt76_connac_mcu_alloc_sta_req_gfp);
 
 struct wtbl_req_hdr *
 mt76_connac_mcu_alloc_wtbl_req(struct mt76_dev *dev, struct mt76_wcid *wcid,

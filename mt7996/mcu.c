@@ -5290,8 +5290,9 @@ int mt7996_mcu_add_key(struct mt76_dev *dev, struct mt7996_vif_link *link,
 	struct sk_buff *skb;
 	int ret;
 
-	skb = __mt76_connac_mcu_alloc_sta_req(dev, (struct mt76_vif_link *)link,
-					      wcid, MT7996_STA_UPDATE_MAX_SIZE);
+	skb = mt76_connac_mcu_alloc_sta_req_gfp(dev, &link->mt76, wcid,
+						MT7996_STA_UPDATE_MAX_SIZE,
+						GFP_KERNEL);
 	if (IS_ERR(skb))
 		return PTR_ERR(skb);
 
