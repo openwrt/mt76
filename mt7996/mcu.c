@@ -513,7 +513,7 @@ int mt7996_mcu_set_qos_map(struct mt7996_dev *dev, struct mt76_vif_link *mlink)
 
 	if (mt7996_has_wa(dev))
 		return mt76_mcu_send_msg(&dev->mt76, MCU_WA_EXT_CMD(SET_QOS_MAP),
-					 &req.data, sizeof(req.data), false);
+					 &req.data, sizeof(req.data), true);
 
 	return mt76_mcu_send_msg(&dev->mt76, MCU_WA_UNI_CMD(SDO), &req,
 				 sizeof(req), false);
@@ -8151,7 +8151,7 @@ mt7996_mcu_background_chain_ctrl(struct mt7996_phy *phy,
 	req.band = chandef ? chandef->chan->band == NL80211_BAND_5GHZ : 1;
 
 	return mt76_mcu_send_msg(&dev->mt76, MCU_WM_UNI_CMD(OFFCH_SCAN_CTRL),
-				 &req, sizeof(req), false);
+				 &req, sizeof(req), true);
 }
 
 int mt7996_mcu_rdd_background_enable(struct mt7996_phy *phy,
@@ -8857,7 +8857,7 @@ int mt7996_mcu_set_thermal_throttling(struct mt7996_phy *phy, u8 state)
 		state /= 2;
 
 		ret = mt76_mcu_send_msg(&phy->dev->mt76, MCU_WM_UNI_CMD(THERMAL),
-					&req, sizeof(req), false);
+					&req, sizeof(req), true);
 		if (ret)
 			return ret;
 	}
@@ -8889,7 +8889,7 @@ int mt7996_mcu_set_thermal_protect(struct mt7996_phy *phy, bool enable)
 	req.tag = cpu_to_le16(UNI_CMD_THERMAL_PROTECT_DISABLE);
 
 	ret = mt76_mcu_send_msg(&phy->dev->mt76, MCU_WM_UNI_CMD(THERMAL),
-				&req, sizeof(req) - sizeof(req.enable), false);
+				&req, sizeof(req) - sizeof(req.enable), true);
 	if (ret || !enable)
 		return ret;
 
@@ -8902,7 +8902,7 @@ int mt7996_mcu_set_thermal_protect(struct mt7996_phy *phy, bool enable)
 	req.len = cpu_to_le16(sizeof(req) - 4);
 
 	return mt76_mcu_send_msg(&phy->dev->mt76, MCU_WM_UNI_CMD(THERMAL),
-				 &req, sizeof(req), false);
+				 &req, sizeof(req), true);
 }
 
 int mt7996_mcu_set_ser(struct mt7996_dev *dev, u8 action, u8 val, u8 band)
@@ -9474,7 +9474,7 @@ int mt7996_mcu_set_fixed_rate_table(struct mt7996_phy *phy, u8 table_idx,
 	}
 
 	return mt76_mcu_send_msg(&dev->mt76, MCU_WM_UNI_CMD(FIXED_RATE_TABLE),
-				 &req, sizeof(req), false);
+				 &req, sizeof(req), true);
 }
 
 int mt7996_mcu_rf_regval(struct mt7996_dev *dev, u32 regidx, u32 *val, bool set)
@@ -9771,7 +9771,7 @@ int mt7996_mcu_set_tx_power_ctrl(struct mt7996_phy *phy, u8 power_ctrl_id, u8 da
 	}
 
 	return mt76_mcu_send_msg(&dev->mt76, MCU_WM_UNI_CMD(TXPOWER),
-				 &req, sizeof(req), false);
+				 &req, sizeof(req), true);
 }
 
 int mt7996_mcu_set_txpower_sku(struct mt7996_phy *phy)
