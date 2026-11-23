@@ -159,7 +159,7 @@ mt7915_mcu_cmd_lost(struct mt76_dev *mdev, int cmd)
 {
 	struct mt7915_dev *dev = container_of(mdev, struct mt7915_dev, mt76);
 
-	if (cmd & MT7915_MCU_CMD_BCN_TEMPLATE)
+	if (cmd & (MT7915_MCU_CMD_BCN_TEMPLATE | MT7915_MCU_CMD_L1_TRIGGER))
 		return;
 
 	spin_lock_bh(&dev->mt76.lock);
@@ -4086,6 +4086,8 @@ int mt7915_mcu_set_ser(struct mt7915_dev *dev, u8 action, u8 set, u8 band)
 	/* action 0 writes the SER statistics to the firmware log */
 	if (!action)
 		cmd |= MT76_MCU_CMD_READ;
+	else if (action == SER_RECOVER && set == SER_SET_RECOVER_L1)
+		cmd |= MT7915_MCU_CMD_L1_TRIGGER;
 
 	return mt76_mcu_send_msg(&dev->mt76, cmd, &req, sizeof(req), false);
 }

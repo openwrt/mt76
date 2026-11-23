@@ -605,25 +605,37 @@ static int mt7915_mmio_wed_reset(struct mtk_wed_device *wed)
 	struct mt76_dev *mdev = container_of(wed, struct mt76_dev, mmio.wed);
 	struct mt7915_dev *dev = container_of(mdev, struct mt7915_dev, mt76);
 	struct mt76_phy *mphy = &dev->mphy;
-	int ret;
+	int ret = 0;
 
 	ASSERT_RTNL();
 
-	if (test_and_set_bit(MT76_STATE_WED_RESET, &mphy->state))
-		return -EBUSY;
+	rtnl_unlock();
+	mutex_lock(&mdev->mutex);
 
-	ret = mt7915_mcu_set_ser(dev, SER_RECOVER, SER_SET_RECOVER_L1,
-				 mphy->band_idx);
+	if (test_and_set_bit(MT76_STATE_WED_RESET, &mphy->state)) {
+		mutex_unlock(&mdev->mutex);
+		rtnl_lock();
+		return -EBUSY;
+	}
+
+	/* a reset that is still pending runs the WED handshake */
+	if (!test_bit(MT76_MCU_RESET, &mphy->state))
+		ret = mt7915_mcu_set_ser(dev, SER_RECOVER, SER_SET_RECOVER_L1,
+					 mphy->band_idx);
+	if (ret == -ESHUTDOWN)
+		ret = 0;
+
+	mutex_unlock(&mdev->mutex);
+
 	if (ret)
 		goto out;
 
-	rtnl_unlock();
 	if (!wait_for_completion_timeout(&mdev->mmio.wed_reset, 20 * HZ)) {
 		dev_err(mdev->dev, "wed reset timeout\n");
 		ret = -ETIMEDOUT;
 	}
-	rtnl_lock();
 out:
+	rtnl_lock();
 	clear_bit(MT76_STATE_WED_RESET, &mphy->state);
 
 	return ret;
