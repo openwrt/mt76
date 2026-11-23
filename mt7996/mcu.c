@@ -3730,9 +3730,9 @@ error_unlock:
 	return err;
 }
 
-int mt7996_mcu_add_rate_ctrl_fixed(struct mt7996_dev *dev,
-				   struct mt7996_sta *msta,
-				   struct ieee80211_vif *vif, u8 link_id)
+static int
+mt7996_mcu_add_rate_ctrl_fixed(struct mt7996_dev *dev, struct mt7996_sta *msta,
+			       struct ieee80211_vif *vif, u8 link_id)
 {
 	struct ieee80211_link_sta *link_sta;
 	struct cfg80211_bitrate_mask mask;
@@ -4967,13 +4967,6 @@ int mt7996_mcu_add_sta(struct mt7996_dev *dev,
 						     sta);
 			mt7996_mcu_sta_eht_mld_tlv(dev, skb, sta);
 		}
-
-		/* the first STA_REC_RA after a new BASIC enables the station
-		 * again, which ends a PS pause set between two commands
-		 */
-		if (conn_state == CONN_STATE_CONNECT)
-			mt7996_mcu_sta_rate_ctrl_tlv(skb, dev, link_conf->vif,
-						     link_conf, link_sta, link);
 	}
 
 out:
