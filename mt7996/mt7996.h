@@ -631,6 +631,8 @@ struct mt7996_dev {
 		u32 seq;
 	} airtime;
 
+	atomic_t tx_nokey_drops;
+
 	/* protects coredump data */
 	struct mutex dump_mutex;
 #ifdef CONFIG_DEV_COREDUMP

@@ -1207,6 +1207,7 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	struct mt7996_sta *msta = sta ? (struct mt7996_sta *)sta->drv_priv : NULL;
 	struct mt76_vif_link *mlink = NULL;
 	struct mt76_txwi_cache *t;
+	struct mt76_wcid *tx_wcid;
 	int id, i, pid, nbuf = tx_info->nbuf - 1;
 	bool is_8023 = info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP;
 	__le32 *ptr = (__le32 *)txwi_ptr;
@@ -1293,6 +1294,19 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	if (mt7996_tx_group_stopped(mvif, wcid))
 		return MT76_TX_DROPPED;
 
+	if (tid >= 0)
+		tx_wcid = mt7996_sta_tx_tid_wcid(msta, wcid, tid);
+	else
+		tx_wcid = mt7996_get_tx_wcid(wcid);
+
+	/* on an entry without a key the hardware sends such a frame in the
+	 * clear, with the Protected bit set
+	 */
+	if (key && READ_ONCE(tx_wcid->hw_key_idx) == (u8)-1) {
+		atomic_inc(&dev->tx_nokey_drops);
+		return MT76_TX_DROPPED;
+	}
+
 	t = (struct mt76_txwi_cache *)(txwi + mdev->drv->txwi_size);
 	t->skb = tx_info->skb;
 
@@ -1335,10 +1349,7 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 					   tx_info->buf[1].len, DMA_TO_DEVICE);
 	}
 
-	if (tid >= 0)
-		wcid = mt7996_sta_tx_tid_wcid(msta, wcid, tid);
-	else
-		wcid = mt7996_get_tx_wcid(wcid);
+	wcid = tx_wcid;
 
 	/* mt76_tx_status_skb_add() clears info->control.flags */
 	host_txd = !is_8023 ||

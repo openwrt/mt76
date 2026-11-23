@@ -1228,6 +1228,8 @@ int mt7996_init_debugfs(struct mt7996_dev *dev)
 	debugfs_create_file("xmit-queues", 0400, dir, dev,
 			    &mt7996_xmit_queues_fops);
 	debugfs_create_file("tx_stats", 0400, dir, dev, &mt7996_tx_stats_fops);
+	debugfs_create_atomic_t("tx_nokey_drops", 0400, dir,
+				&dev->tx_nokey_drops);
 	debugfs_create_file("sys_recovery", 0600, dir, dev,
 			    &mt7996_sys_recovery_ops);
 	debugfs_create_file("fw_debug_wm", 0600, dir, dev, &fops_fw_debug_wm);
