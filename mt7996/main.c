@@ -2104,6 +2104,12 @@ mt7996_mac_sta_link_connect(struct mt7996_dev *dev,
 		dev_warn(dev->mt76.dev,
 			 "wcid %d: STA_REC refused at connect, check failed: %d\n",
 			 msta_link->wcid.idx, err);
+		/* the record can be in use or free, and only a firmware load
+		 * makes its state known
+		 */
+		spin_lock_bh(&dev->mt76.lock);
+		mt7996_mac_full_reset_queue(dev);
+		spin_unlock_bh(&dev->mt76.lock);
 	} else if (link_sta->sta->mlo) {
 		dev_warn(dev->mt76.dev,
 			 "wcid %d: STA_REC refused at connect, not in use\n",
