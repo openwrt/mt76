@@ -755,6 +755,32 @@ static void mt7996_remove_interface(struct ieee80211_hw *hw,
 	}
 }
 
+static bool mt7996_chan_unavailable(struct ieee80211_channel *chan)
+{
+	return chan && (chan->flags & IEEE80211_CHAN_RADAR) &&
+	       chan->dfs_state == NL80211_DFS_UNAVAILABLE;
+}
+
+static bool
+mt7996_chandef_unavailable(struct wiphy *wiphy,
+			   const struct cfg80211_chan_def *chandef)
+{
+	int center[] = { chandef->center_freq1, chandef->center_freq2 };
+	int width = cfg80211_chandef_get_width(chandef);
+	int i, freq;
+
+	for (i = 0; i < ARRAY_SIZE(center) && center[i]; i++) {
+		for (freq = center[i] - width / 2 + 10;
+		     freq < center[i] + width / 2; freq += 20) {
+			if (mt7996_chan_unavailable(ieee80211_get_channel(wiphy,
+									  freq)))
+				return true;
+		}
+	}
+
+	return false;
+}
+
 int mt7996_set_channel(struct mt76_phy *mphy)
 {
 	struct mt7996_phy *phy = mphy->priv;
@@ -778,6 +804,15 @@ int mt7996_set_channel(struct mt76_phy *mphy)
 	ret = mt7996_mcu_set_txpower_sku(phy);
 	if (ret)
 		goto out;
+
+	if (!mphy->offchannel && mphy->chanctx &&
+	    !mt7996_chandef_unavailable(mphy->hw->wiphy, &mphy->chandef)) {
+		ret = mt7996_mcu_rdd_resume_tx(phy);
+		if (ret)
+			dev_warn_once(phy->dev->mt76.dev,
+				      "failed to resume TX after radar: %d\n",
+				      ret);
+	}
 
 	ret = mt7996_dfs_init_radar_detector(phy);
 	mt7996_mac_cca_stats_reset(phy);
