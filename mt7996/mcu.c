@@ -456,16 +456,19 @@ int mt7996_mcu_wa_cmd(struct mt7996_dev *dev, int cmd, u32 a1, u32 a2, u32 a3)
 			cpu_to_le32(a3),
 		},
 	};
+	int read = 0;
+
+	if (cmd == MCU_WA_PARAM_CMD(QUERY))
+		read = MT76_MCU_CMD_READ;
 
 	if (mt7996_has_wa(dev))
-		return mt76_mcu_send_msg(&dev->mt76, cmd, &req.args,
+		return mt76_mcu_send_msg(&dev->mt76, cmd | read, &req.args,
 					 sizeof(req.args), false);
 
-	req.tag = cpu_to_le16(cmd == MCU_WA_PARAM_CMD(QUERY) ? UNI_CMD_SDO_QUERY :
-							       UNI_CMD_SDO_SET);
+	req.tag = cpu_to_le16(read ? UNI_CMD_SDO_QUERY : UNI_CMD_SDO_SET);
 	req.len = cpu_to_le16(sizeof(req) - 4);
 
-	return mt76_mcu_send_msg(&dev->mt76, MCU_WA_UNI_CMD(SDO), &req,
+	return mt76_mcu_send_msg(&dev->mt76, MCU_WA_UNI_CMD(SDO) | read, &req,
 				 sizeof(req), false);
 }
 
@@ -8517,8 +8520,8 @@ int mt7996_mcu_get_eeprom(struct mt7996_dev *dev, u32 offset, u8 *buf, u32 buf_l
 	}
 
 	req.info.addr = cpu_to_le32(addr);
-	ret = mt76_mcu_send_and_get_msg(&dev->mt76, cmd, &req, sizeof(req),
-					true, &skb);
+	ret = mt76_mcu_send_and_get_msg(&dev->mt76, cmd | MT76_MCU_CMD_READ,
+					&req, sizeof(req), true, &skb);
 	if (ret)
 		return ret;
 
@@ -8609,7 +8612,9 @@ int mt7996_mcu_get_efuse_free_block(struct mt7996_dev *dev, u8 *block_num)
 	struct sk_buff *skb;
 	int ret;
 
-	ret = mt76_mcu_send_and_get_msg(&dev->mt76, MCU_WM_UNI_CMD_QUERY(EFUSE_CTRL), &req,
+	ret = mt76_mcu_send_and_get_msg(&dev->mt76,
+					MCU_WM_UNI_CMD_QUERY(EFUSE_CTRL) |
+					MT76_MCU_CMD_READ, &req,
 					sizeof(req), true, &skb);
 	if (ret)
 		return ret;
@@ -8641,7 +8646,8 @@ int mt7996_mcu_get_chip_config(struct mt7996_dev *dev, u32 *cap)
 	int ret;
 
 	ret = mt76_mcu_send_and_get_msg(&dev->mt76,
-					MCU_WM_UNI_CMD_QUERY(CHIP_CONFIG), &req,
+					MCU_WM_UNI_CMD_QUERY(CHIP_CONFIG) |
+					MT76_MCU_CMD_READ, &req,
 					sizeof(req), true, &skb);
 	if (ret)
 		return ret;
@@ -8720,7 +8726,9 @@ int mt7996_mcu_get_chan_mib_info(struct mt7996_phy *phy, bool chan_switch)
 		req.data[i].offs = cpu_to_le32(offs[i]);
 	}
 
-	ret = mt76_mcu_send_and_get_msg(&dev->mt76, MCU_WM_UNI_CMD_QUERY(GET_MIB_INFO),
+	ret = mt76_mcu_send_and_get_msg(&dev->mt76,
+					MCU_WM_UNI_CMD_QUERY(GET_MIB_INFO) |
+					MT76_MCU_CMD_READ,
 					&req, sizeof(req), true, &skb);
 	if (ret)
 		return ret;
@@ -8795,7 +8803,9 @@ int mt7996_mcu_get_temperature(struct mt7996_phy *phy)
 	int ret;
 	u32 temp;
 
-	ret = mt76_mcu_send_and_get_msg(&phy->dev->mt76, MCU_WM_UNI_CMD(THERMAL),
+	ret = mt76_mcu_send_and_get_msg(&phy->dev->mt76,
+					MCU_WM_UNI_CMD(THERMAL) |
+					MT76_MCU_CMD_READ,
 					&req, sizeof(req), true, &skb);
 	if (ret)
 		return ret;
@@ -9483,7 +9493,8 @@ int mt7996_mcu_rf_regval(struct mt7996_dev *dev, u32 regidx, u32 *val, bool set)
 					 &req, sizeof(req), true);
 
 	ret = mt76_mcu_send_and_get_msg(&dev->mt76,
-					MCU_WM_UNI_CMD_QUERY(REG_ACCESS),
+					MCU_WM_UNI_CMD_QUERY(REG_ACCESS) |
+					MT76_MCU_CMD_READ,
 					&req, sizeof(req), true, &skb);
 	if (ret)
 		return ret;
@@ -9581,7 +9592,9 @@ int mt7996_mcu_get_all_sta_info(struct mt7996_phy *phy, u16 tag)
 		.len = cpu_to_le16(sizeof(req) - 4),
 	};
 
-	return mt76_mcu_send_msg(&dev->mt76, MCU_WM_UNI_CMD(ALL_STA_INFO),
+	return mt76_mcu_send_msg(&dev->mt76,
+				 MCU_WM_UNI_CMD(ALL_STA_INFO) |
+				 MT76_MCU_CMD_READ,
 				 &req, sizeof(req), false);
 }
 
@@ -9645,7 +9658,8 @@ int mt7996_mcu_get_per_sta_rssi(struct mt7996_dev *dev, u16 *sta_list,
 		req.sta_list[i] = cpu_to_le16(sta_list[i]);
 
 	ret = mt76_mcu_send_and_get_msg(&dev->mt76,
-					MCU_WM_UNI_CMD(PER_STA_INFO),
+					MCU_WM_UNI_CMD(PER_STA_INFO) |
+					MT76_MCU_CMD_READ,
 					&req, sizeof(req), true, &skb);
 	if (ret)
 		return ret;
