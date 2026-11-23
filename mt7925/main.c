@@ -376,6 +376,16 @@ static int mt7925_start(struct ieee80211_hw *hw)
 	return err;
 }
 
+static void mt7925_mac_link_bss_unwind(struct mt792x_dev *dev,
+				       struct mt792x_bss_conf *mconf,
+				       struct mt792x_link_sta *mlink)
+{
+	rcu_assign_pointer(dev->mt76.wcid[mlink->wcid.idx], NULL);
+	mt76_wcid_cleanup(&dev->mt76, &mlink->wcid);
+	dev->mt76.vif_mask &= ~BIT_ULL(mconf->mt76.idx);
+	mconf->vif->phy->omac_mask &= ~BIT_ULL(mconf->mt76.omac_idx);
+}
+
 static int mt7925_mac_link_bss_add(struct mt792x_dev *dev,
 				   struct ieee80211_bss_conf *link_conf,
 				   struct mt792x_link_sta *mlink)
@@ -449,12 +459,8 @@ static int mt7925_mac_link_bss_add(struct mt792x_dev *dev,
 	ret = mt76_connac_mcu_uni_add_dev(&dev->mphy, link_conf, &mconf->mt76,
 					  &mlink->wcid, true);
 	if (ret) {
-		if (mconf != &mvif->bss_conf) {
-			rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
-			mt76_wcid_cleanup(&dev->mt76, &mlink->wcid);
-			dev->mt76.vif_mask &= ~BIT_ULL(mconf->mt76.idx);
-			mvif->phy->omac_mask &= ~BIT_ULL(mconf->mt76.omac_idx);
-		}
+		if (mconf != &mvif->bss_conf)
+			mt7925_mac_link_bss_unwind(dev, mconf, mlink);
 		mt7925_p2p_bmc_remove(dev, mconf);
 		goto out;
 	}
@@ -496,8 +502,15 @@ mt7925_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	mvif->mlo_pm_state = MT792x_MLO_LINK_DISASSOC;
 
 	ret = mt7925_mac_link_bss_add(dev, &vif->bss_conf, &mvif->sta.deflink);
-	if (ret < 0)
+	if (ret < 0) {
+		struct mt76_wcid *wcid = &mvif->sta.deflink.wcid;
+
+		/* mac80211 calls no remove_interface after a failed add */
+		if (rcu_access_pointer(dev->mt76.wcid[wcid->idx]) == wcid)
+			mt7925_mac_link_bss_unwind(dev, &mvif->bss_conf,
+						   &mvif->sta.deflink);
 		goto out;
+	}
 
 	vif->driver_flags |= IEEE80211_VIF_BEACON_FILTER;
 	if (phy->chip_cap & MT792x_CHIP_CAP_RSSI_NOTIFY_EVT_EN)
