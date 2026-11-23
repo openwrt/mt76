@@ -153,6 +153,21 @@ mt7915_mcu_set_sta_ht_mcs(struct ieee80211_sta *sta, u8 *ht_mcs,
 		ht_mcs[nss] = sta->deflink.ht_cap.mcs.rx_mask[nss] & mask[nss];
 }
 
+/* only the firmware load gives a known state again */
+static void
+mt7915_mcu_cmd_lost(struct mt76_dev *mdev, int cmd)
+{
+	struct mt7915_dev *dev = container_of(mdev, struct mt7915_dev, mt76);
+
+	if (cmd & MT7915_MCU_CMD_BCN_TEMPLATE)
+		return;
+
+	spin_lock_bh(&dev->mt76.lock);
+	if (dev->recovery.hw_init_done && !dev->recovery.restart)
+		mt7915_mac_full_reset_queue(dev);
+	spin_unlock_bh(&dev->mt76.lock);
+}
+
 static int
 mt7915_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 			  struct sk_buff *skb, int seq)
@@ -167,12 +182,8 @@ mt7915_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 
 		spin_lock_bh(&dev->mt76.lock);
 		if (dev->recovery.hw_init_done &&
-		    !test_and_set_bit(MT76_MCU_RESET, &dev->mphy.state)) {
-			dev->recovery.restart = true;
-			wake_up(&dev->mt76.mcu.wait);
-			queue_work(dev->mt76.wq, &dev->reset_work);
-			wake_up(&dev->reset_wait);
-		}
+		    !test_and_set_bit(MT76_MCU_RESET, &dev->mphy.state))
+			mt7915_mac_full_reset_queue(dev);
 		spin_unlock_bh(&dev->mt76.lock);
 
 		return -ETIMEDOUT;
@@ -2381,7 +2392,8 @@ int mt7915_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 out:
 	return mt76_mcu_skb_send_msg(&phy->dev->mt76, rskb,
-				     MCU_EXT_CMD(BSS_INFO_UPDATE), true);
+				     MCU_EXT_CMD(BSS_INFO_UPDATE) |
+				     MT7915_MCU_CMD_BCN_TEMPLATE, true);
 }
 
 static int mt7915_driver_own(struct mt7915_dev *dev, u8 band)
@@ -2829,6 +2841,7 @@ int mt7915_mcu_init(struct mt7915_dev *dev)
 		.mcu_skb_prepare_msg = mt76_connac2_mcu_fill_message,
 		.mcu_skb_send_msg = mt7915_mcu_send_message,
 		.mcu_parse_response = mt7915_mcu_parse_response,
+		.mcu_cmd_lost = mt7915_mcu_cmd_lost,
 	};
 
 	dev->mt76.mcu_ops = &mt7915_mcu_ops;

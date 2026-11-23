@@ -1257,11 +1257,12 @@ mt7915_wait_reset_state(struct mt7915_dev *dev, u32 state)
 	bool ret;
 
 	ret = wait_event_timeout(dev->reset_wait,
-				 (READ_ONCE(dev->recovery.state) & state),
+				 (READ_ONCE(dev->recovery.state) & state) ||
+				 dev->recovery.restart,
 				 MT7915_RESET_TIMEOUT);
 
 	WARN(!ret, "Timeout waiting for MCU reset state %x\n", state);
-	return ret;
+	return ret && !dev->recovery.restart;
 }
 
 static void
@@ -1559,6 +1560,57 @@ mt7915_mac_reset_sta_ps(struct mt7915_dev *dev)
 	rcu_read_unlock();
 }
 
+static void
+mt7915_mac_reset_napi_enable(struct mt7915_dev *dev)
+{
+	int i;
+
+	mt76_for_each_q_rx(&dev->mt76, i) {
+		napi_enable(&dev->mt76.napi[i]);
+	}
+
+	local_bh_disable();
+	mt76_for_each_q_rx(&dev->mt76, i) {
+		napi_schedule(&dev->mt76.napi[i]);
+	}
+	local_bh_enable();
+
+	tasklet_schedule(&dev->mt76.irq_tasklet);
+
+	mt76_worker_enable(&dev->mt76.tx_worker);
+
+	napi_enable(&dev->mt76.tx_napi);
+	local_bh_disable();
+	napi_schedule(&dev->mt76.tx_napi);
+	local_bh_enable();
+}
+
+/* the firmware has no timeout of its own in an L1 state, and
+ * mt7915_mac_restart() disables NAPI and the TX worker again
+ */
+static void
+mt7915_mac_reset_l1_abort(struct mt7915_dev *dev)
+{
+	mt7915_mac_reset_napi_enable(dev);
+	mutex_unlock(&dev->mt76.mutex);
+
+	spin_lock_bh(&dev->mt76.lock);
+	mt7915_mac_full_reset_queue(dev);
+	spin_unlock_bh(&dev->mt76.lock);
+}
+
+/* MT76_MCU_RESET keeps every command from the firmware until the reload */
+void mt7915_mac_full_reset_queue(struct mt7915_dev *dev)
+{
+	lockdep_assert_held(&dev->mt76.lock);
+
+	set_bit(MT76_MCU_RESET, &dev->mphy.state);
+	dev->recovery.restart = true;
+	wake_up(&dev->mt76.mcu.wait);
+	queue_work(dev->mt76.wq, &dev->reset_work);
+	wake_up(&dev->reset_wait);
+}
+
 /* system error recovery */
 void mt7915_mac_reset_work(struct work_struct *work)
 {
@@ -1625,19 +1677,21 @@ void mt7915_mac_reset_work(struct work_struct *work)
 		mtk_wed_device_stop(&dev->mt76.mmio.wed);
 
 	mt76_wr(dev, MT_MCU_INT_EVENT, MT_MCU_INT_EVENT_DMA_STOPPED);
+	if (!mt7915_wait_reset_state(dev, MT_MCU_CMD_RESET_DONE))
+		goto abort;
 
-	if (mt7915_wait_reset_state(dev, MT_MCU_CMD_RESET_DONE)) {
-		mt7915_dma_reset(dev, false);
+	mt7915_dma_reset(dev, false);
 
-		mt76_connac2_tx_token_put(&dev->mt76);
-		idr_init(&dev->mt76.token);
+	mt76_connac2_tx_token_put(&dev->mt76);
+	idr_init(&dev->mt76.token);
 
-		mt76_wr(dev, MT_MCU_INT_EVENT, MT_MCU_INT_EVENT_DMA_INIT);
-		mt7915_wait_reset_state(dev, MT_MCU_CMD_RECOVERY_DONE);
-	}
+	mt76_wr(dev, MT_MCU_INT_EVENT, MT_MCU_INT_EVENT_DMA_INIT);
+	if (!mt7915_wait_reset_state(dev, MT_MCU_CMD_RECOVERY_DONE))
+		goto abort;
 
 	mt76_wr(dev, MT_MCU_INT_EVENT, MT_MCU_INT_EVENT_RESET_DONE);
-	mt7915_wait_reset_state(dev, MT_MCU_CMD_NORMAL_STATE);
+	if (!mt7915_wait_reset_state(dev, MT_MCU_CMD_NORMAL_STATE))
+		goto abort;
 
 	mt7915_mac_reset_sta_ps(dev);
 
@@ -1649,24 +1703,7 @@ void mt7915_mac_reset_work(struct work_struct *work)
 	if (phy2)
 		clear_bit(MT76_RESET, &phy2->mt76->state);
 
-	mt76_for_each_q_rx(&dev->mt76, i) {
-		napi_enable(&dev->mt76.napi[i]);
-	}
-
-	local_bh_disable();
-	mt76_for_each_q_rx(&dev->mt76, i) {
-		napi_schedule(&dev->mt76.napi[i]);
-	}
-	local_bh_enable();
-
-	tasklet_schedule(&dev->mt76.irq_tasklet);
-
-	mt76_worker_enable(&dev->mt76.tx_worker);
-
-	napi_enable(&dev->mt76.tx_napi);
-	local_bh_disable();
-	napi_schedule(&dev->mt76.tx_napi);
-	local_bh_enable();
+	mt7915_mac_reset_napi_enable(dev);
 
 	ieee80211_wake_queues(mt76_hw(dev));
 	if (ext_phy)
@@ -1683,6 +1720,10 @@ void mt7915_mac_reset_work(struct work_struct *work)
 		ieee80211_queue_delayed_work(ext_phy->hw,
 					     &phy2->mt76->mac_work,
 					     MT7915_WATCHDOG_TIME);
+	return;
+
+abort:
+	mt7915_mac_reset_l1_abort(dev);
 }
 
 /* firmware coredump */
