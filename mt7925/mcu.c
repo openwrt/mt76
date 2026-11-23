@@ -2475,11 +2475,9 @@ int mt7925_get_txpwr_info(struct mt792x_dev *dev, u8 band_idx, struct mt7925_txp
 	return 0;
 }
 
-int mt7925_mcu_set_sniffer(struct mt792x_dev *dev, struct ieee80211_vif *vif,
-			   bool enable)
+int mt7925_mcu_set_band_sniffer(struct mt792x_dev *dev, u8 band_idx,
+				bool enable)
 {
-	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
-	struct ieee80211_chanctx_conf *ctx = mvif->bss_conf.mt76.ctx;
 	struct {
 		struct {
 			u8 band_idx;
@@ -2493,7 +2491,7 @@ int mt7925_mcu_set_sniffer(struct mt792x_dev *dev, struct ieee80211_vif *vif,
 		} __packed enable;
 	} __packed req = {
 		.hdr = {
-			.band_idx = 0,
+			.band_idx = band_idx,
 		},
 		.enable = {
 			.tag = cpu_to_le16(UNI_SNIFFER_ENABLE),
@@ -2502,17 +2500,27 @@ int mt7925_mcu_set_sniffer(struct mt792x_dev *dev, struct ieee80211_vif *vif,
 		},
 	};
 
+	return mt76_mcu_send_msg(&dev->mt76, MCU_UNI_CMD(SNIFFER), &req, sizeof(req),
+				 true);
+}
+
+int mt7925_mcu_set_sniffer(struct mt792x_dev *dev, struct ieee80211_vif *vif,
+			   bool enable)
+{
+	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
+	struct ieee80211_chanctx_conf *ctx = mvif->bss_conf.mt76.ctx;
+	u8 band_idx = 0;
+
 	if (is_mt7927(&dev->mt76)) {
 		struct ieee80211_channel *chan;
 
 		chan = ctx ? ctx->def.chan : mvif->phy->mt76->chandef.chan;
 
 		if (chan)
-			req.hdr.band_idx = mt7927_band_idx(chan->band);
+			band_idx = mt7927_band_idx(chan->band);
 	}
 
-	return mt76_mcu_send_msg(&dev->mt76, MCU_UNI_CMD(SNIFFER), &req, sizeof(req),
-				 true);
+	return mt7925_mcu_set_band_sniffer(dev, band_idx, enable);
 }
 
 int mt7925_mcu_config_sniffer(struct mt792x_vif *vif,

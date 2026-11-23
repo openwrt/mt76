@@ -616,6 +616,17 @@ void mt7925_monitor_rearm(struct mt792x_dev *dev)
 		mt7925_monitor_hdr_trans_update(dev);
 }
 
+static void mt7927_monitor_band_stop(struct mt792x_dev *dev, u8 band_idx)
+{
+	struct mt792x_vif *mvif;
+
+	list_for_each_entry(mvif, &dev->monitor_list, monitor_list)
+		if (mvif->bss_conf.mt76.band_idx == band_idx)
+			return;
+
+	mt7925_mcu_set_band_sniffer(dev, band_idx, false);
+}
+
 static void
 mt7925_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
@@ -640,6 +651,8 @@ mt7925_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 		mt7925_monitor_rearm(dev);
 	} else {
 		list_del(&mvif->monitor_list);
+		if (is_mt7927(&dev->mt76))
+			mt7927_monitor_band_stop(dev, mconf->mt76.band_idx);
 		if (!--dev->monitor_vifs) {
 			mt7925_sniffer_interface_iter(dev, NULL, vif);
 			ieee80211_iterate_active_interfaces_mtx(hw,
