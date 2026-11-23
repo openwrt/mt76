@@ -1365,18 +1365,18 @@ static void mt7915_sta_wed_set_4addr(struct ieee80211_hw *hw,
 	struct mt76_wcid wcid;
 	int i, idx, prev_idx;
 
+	lockdep_assert_held(&dev->mt76.mutex);
+
 	if (is_mt7915(&dev->mt76))
 		return;
 
-	mutex_lock(&dev->mt76.mutex);
-
 	prev_idx = msta->wcid.idx;
 	if (prev_idx >= min && prev_idx < max)
-		goto out;
+		return;
 
 	idx = __mt76_wcid_alloc(dev->mt76.wcid_mask, min, max);
 	if (idx < 0)
-		goto out;
+		return;
 
 	/* the new entry gets the state, the keys and the rate control of the
 	 * old one before the TX moves to it
@@ -1420,9 +1420,6 @@ static void mt7915_sta_wed_set_4addr(struct ieee80211_hw *hw,
 	}
 	if (rx_ba)
 		ieee80211_stop_rx_ba_session(vif, rx_ba, sta->addr);
-
-out:
-	mutex_unlock(&dev->mt76.mutex);
 }
 
 static void mt7915_sta_set_4addr(struct ieee80211_hw *hw,
@@ -1433,6 +1430,8 @@ static void mt7915_sta_set_4addr(struct ieee80211_hw *hw,
 	struct mt7915_dev *dev = mt7915_hw_dev(hw);
 	struct mt7915_sta *msta = (struct mt7915_sta *)sta->drv_priv;
 
+	mutex_lock(&dev->mt76.mutex);
+
 	if (enabled)
 		set_bit(MT_WCID_FLAG_4ADDR, &msta->wcid.flags);
 	else
@@ -1441,10 +1440,10 @@ static void mt7915_sta_set_4addr(struct ieee80211_hw *hw,
 	if (mtk_wed_device_active(&dev->mt76.mmio.wed) && enabled)
 		mt7915_sta_wed_set_4addr(hw, vif, sta);
 
-	if (!msta->wcid.sta)
-		return;
+	if (msta->wcid.sta)
+		mt76_connac_mcu_wtbl_update_hdr_trans(&dev->mt76, vif, sta);
 
-	mt76_connac_mcu_wtbl_update_hdr_trans(&dev->mt76, vif, sta);
+	mutex_unlock(&dev->mt76.mutex);
 }
 
 static void mt7915_sta_set_decap_offload(struct ieee80211_hw *hw,
@@ -1455,15 +1454,17 @@ static void mt7915_sta_set_decap_offload(struct ieee80211_hw *hw,
 	struct mt7915_dev *dev = mt7915_hw_dev(hw);
 	struct mt7915_sta *msta = (struct mt7915_sta *)sta->drv_priv;
 
+	mutex_lock(&dev->mt76.mutex);
+
 	if (enabled)
 		set_bit(MT_WCID_FLAG_HDR_TRANS, &msta->wcid.flags);
 	else
 		clear_bit(MT_WCID_FLAG_HDR_TRANS, &msta->wcid.flags);
 
-	if (!msta->wcid.sta)
-		return;
+	if (msta->wcid.sta)
+		mt76_connac_mcu_wtbl_update_hdr_trans(&dev->mt76, vif, sta);
 
-	mt76_connac_mcu_wtbl_update_hdr_trans(&dev->mt76, vif, sta);
+	mutex_unlock(&dev->mt76.mutex);
 }
 
 static void mt7915_sta_set_airtime_weight(struct ieee80211_hw *hw,
@@ -1473,12 +1474,15 @@ static void mt7915_sta_set_airtime_weight(struct ieee80211_hw *hw,
 	struct mt7915_dev *dev = mt7915_hw_dev(hw);
 	struct mt7915_sta *msta = (struct mt7915_sta *)sta->drv_priv;
 
-	msta->airtime_weight = weight;
-	if (is_mt7915(&dev->mt76))
-		return;
+	mutex_lock(&dev->mt76.mutex);
 
+	msta->airtime_weight = weight;
 	/* mt7915_mac_sta_add() creates the firmware entry of the station */
-	mt7915_mcu_set_vow_drr_ctrl(dev, msta, VOW_DRR_CTRL_STA_ALL, weight);
+	if (!is_mt7915(&dev->mt76))
+		mt7915_mcu_set_vow_drr_ctrl(dev, msta, VOW_DRR_CTRL_STA_ALL,
+					    weight);
+
+	mutex_unlock(&dev->mt76.mutex);
 }
 
 static int mt7915_sta_set_txpwr(struct ieee80211_hw *hw,

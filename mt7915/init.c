@@ -383,6 +383,8 @@ mt7915_regd_notifier(struct wiphy *wiphy,
 	struct mt76_phy *mphy = hw->priv;
 	struct mt7915_phy *phy = mphy->priv;
 
+	mutex_lock(&dev->mt76.mutex);
+
 	memcpy(dev->mt76.alpha2, request->alpha2, sizeof(dev->mt76.alpha2));
 	dev->mt76.region = request->dfs_region;
 
@@ -393,6 +395,8 @@ mt7915_regd_notifier(struct wiphy *wiphy,
 
 	mphy->dfs_state = MT_DFS_STATE_UNKNOWN;
 	mt7915_dfs_init_radar_detector(phy);
+
+	mutex_unlock(&dev->mt76.mutex);
 }
 
 static void
