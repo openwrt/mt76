@@ -178,7 +178,8 @@ int mt7615_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 			return -EMSGSIZE;
 		skb_pull(skb, sizeof(*rxd));
 		event = (struct mt76_connac_mcu_uni_event *)skb->data;
-		ret = mt76_connac_mcu_status_err(le32_to_cpu(event->status));
+		ret = mt76_connac_mcu_status_err(mdev, cmd, seq,
+						 le32_to_cpu(event->status));
 	} else if (cmd == MCU_CE_QUERY(REG_READ)) {
 		struct mt76_connac_mcu_reg_event *event;
 

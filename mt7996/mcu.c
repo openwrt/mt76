@@ -224,6 +224,7 @@ mt7996_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 	struct mt7996_mcu_uni_event *event;
 	int mcu_cmd = FIELD_GET(__MCU_CMD_FIELD_ID, cmd);
 	int ret = 0;
+	u32 status;
 
 	if (!skb) {
 		dev_err(mdev->dev, "Message %08x (seq %d) timeout\n",
@@ -258,11 +259,16 @@ mt7996_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 
 		skb_pull(skb, sizeof(*rxd));
 		event = (struct mt7996_mcu_uni_event *)skb->data;
+		status = le32_to_cpu(event->status);
 		/* skip invalid event */
-		if (mcu_cmd != le16_to_cpu(event->cid))
+		if (mcu_cmd != le16_to_cpu(event->cid)) {
 			ret = -EAGAIN;
-		else if (le32_to_cpu(event->status))
+		} else if (status) {
+			dev_warn_ratelimited(mdev->dev,
+					     "Message %08x (seq %d) cid %04x failed: firmware status 0x%x\n",
+					     cmd, seq, mcu_cmd, status);
 			ret = -EREMOTEIO;
+		}
 	} else {
 		skb_pull(skb, sizeof(struct mt7996_mcu_rxd));
 	}

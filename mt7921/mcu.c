@@ -66,7 +66,8 @@ int mt7921_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 		if (mcu_cmd != event->cid)
 			ret = -EAGAIN;
 		else
-			ret = mt76_connac_mcu_status_err(le32_to_cpu(event->status));
+			ret = mt76_connac_mcu_status_err(mdev, cmd, seq,
+							 le32_to_cpu(event->status));
 	} else if (cmd == MCU_CE_QUERY(REG_READ)) {
 		struct mt76_connac_mcu_reg_event *event;
 

@@ -81,7 +81,8 @@ int mt7925_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 		if (mcu_cmd != event->cid)
 			ret = -EAGAIN;
 		else
-			ret = mt76_connac_mcu_status_err(le32_to_cpu(event->status));
+			ret = mt76_connac_mcu_status_err(mdev, cmd, seq,
+							 le32_to_cpu(event->status));
 	} else {
 		skb_pull(skb, sizeof(*rxd));
 	}
