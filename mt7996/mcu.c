@@ -1484,6 +1484,21 @@ enum hrtimer_restart mt7996_mcu_mld_attlm_cntdwn_end(struct hrtimer *timer)
 	return HRTIMER_NORESTART;
 }
 
+/* the links on which the firmware pauses the MLD stations with reason 10 */
+static u16
+mt7996_mcu_mld_attlm_paused_links(struct mt7996_dev *dev,
+				  struct mt7996_vif *mvif)
+{
+	u16 links = 0;
+
+	spin_lock_bh(&dev->mt76.lock);
+	if (mvif->attlm_disc_off)
+		links = mvif->attlm_disc_off | mvif->attlm_links;
+	spin_unlock_bh(&dev->mt76.lock);
+
+	return links;
+}
+
 static void mt7996_mcu_mld_attlm_stop_end(struct mt7996_vif *mvif)
 {
 	u16 hold = mvif->attlm_stop_links & mvif->attlm_cntdwn_links;
@@ -1534,6 +1549,7 @@ mt7996_mcu_mld_attlm_step(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		mvif->attlm_hold_links &= ~mvif->attlm_links;
 		mvif->attlm_disc_sync |= mvif->attlm_disc_links;
 		mvif->attlm_disc_off = mvif->attlm_disc_links;
+		mvif->attlm_eht_pause = true;
 		mt7996_mcu_mld_attlm_cntdwn_arm(mvif);
 	}
 	if (cmd == NL80211_CMD_ADV_TTLM_ENDED) {
@@ -1626,20 +1642,25 @@ mt7996_mcu_mld_attlm_timeout(struct mt7996_dev *dev, const u8 *mld_addr,
 struct mt7996_mld_attlm_end_data {
 	struct mt7996_dev *dev;
 	struct ieee80211_vif *vif;
+	unsigned long eht_links;
+	bool ttlm;
 };
 
 static void
-mt7996_mcu_mld_attlm_end_sta_iter(void *priv, struct ieee80211_sta *sta)
+mt7996_mcu_mld_attlm_eht_sta_iter(void *priv, struct ieee80211_sta *sta)
 {
 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
 	struct mt7996_mld_attlm_end_data *data = priv;
 
 	if (msta->vif != (struct mt7996_vif *)data->vif->drv_priv ||
-	    !sta->mlo || !msta->neg_ttlm.valid)
+	    !sta->mlo)
 		return;
 
-	mt7996_mcu_peer_mld_ttlm_req(data->dev, data->vif, sta,
-				     &msta->neg_ttlm);
+	mt7996_mcu_sta_eht_update(data->dev, data->vif, sta, data->eht_links);
+
+	if (data->ttlm && msta->neg_ttlm.valid)
+		mt7996_mcu_peer_mld_ttlm_req(data->dev, data->vif, sta,
+					     &msta->neg_ttlm);
 }
 
 static void
@@ -1765,7 +1786,7 @@ void mt7996_mcu_mld_attlm_work(struct work_struct *work)
 	for_each_active_interface(vif, hw) {
 		struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
 		u16 bcn_links, disc_links;
-		bool resend;
+		bool resend, eht_pause;
 
 		if (vif->type != NL80211_IFTYPE_AP || !ieee80211_vif_is_mld(vif))
 			continue;
@@ -1776,16 +1797,28 @@ void mt7996_mcu_mld_attlm_work(struct work_struct *work)
 		spin_lock_bh(&dev->mt76.lock);
 		resend = mvif->attlm_ttlm_resend;
 		mvif->attlm_ttlm_resend = false;
+		eht_pause = mvif->attlm_eht_pause;
+		mvif->attlm_eht_pause = false;
 		bcn_links = mvif->attlm_bcn_links & vif->valid_links;
 		mvif->attlm_bcn_links = 0;
 		disc_links = mvif->attlm_disc_sync & vif->valid_links;
 		mvif->attlm_disc_sync = 0;
 		spin_unlock_bh(&dev->mt76.lock);
 
+		/* a STA_REC_EHT can take the state from before an event of
+		 * the firmware and reach the firmware after its pause change
+		 */
 		data.vif = vif;
+		data.ttlm = resend;
+		data.eht_links = 0;
 		if (resend)
+			data.eht_links = vif->valid_links;
+		else if (eht_pause)
+			data.eht_links = mt7996_mcu_mld_attlm_paused_links(dev,
+									   mvif);
+		if (data.ttlm || data.eht_links)
 			ieee80211_iterate_stations_mtx(hw,
-					mt7996_mcu_mld_attlm_end_sta_iter,
+					mt7996_mcu_mld_attlm_eht_sta_iter,
 					&data);
 		mt7996_mcu_mld_attlm_beacons(dev, vif, bcn_links, disc_links);
 		mutex_unlock(&dev->mt76.mutex);
@@ -2882,8 +2915,24 @@ mt7996_mcu_sta_he_6g_tlv(struct sk_buff *skb,
 	he_6g->capa = link_sta->he_6ghz_capa.capa;
 }
 
+/* the firmware pauses the MLD pair on a link whose record maps no TID, and
+ * any other map ends pause reason 10 of the advertised mapping there
+ */
+static u8
+mt7996_mcu_sta_eht_tid_bitmap(struct mt7996_dev *dev,
+			      struct ieee80211_sta *sta, unsigned int link_id)
+{
+	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+
+	if (sta->mlo &&
+	    (mt7996_mcu_mld_attlm_paused_links(dev, msta->vif) & BIT(link_id)))
+		return 0;
+
+	return 0xff;
+}
+
 static void
-mt7996_mcu_sta_eht_tlv(struct sk_buff *skb,
+mt7996_mcu_sta_eht_tlv(struct mt7996_dev *dev, struct sk_buff *skb,
 		       struct ieee80211_link_sta *link_sta)
 {
 	struct mt7996_sta *msta = (struct mt7996_sta *)link_sta->sta->drv_priv;
@@ -2903,7 +2952,8 @@ mt7996_mcu_sta_eht_tlv(struct sk_buff *skb,
 	tlv = mt76_connac_mcu_add_tlv(skb, STA_REC_EHT, sizeof(*eht));
 
 	eht = (struct sta_rec_eht *)tlv;
-	eht->tid_bitmap = 0xff;
+	eht->tid_bitmap = mt7996_mcu_sta_eht_tid_bitmap(dev, link_sta->sta,
+							 link_sta->link_id);
 	eht->mac_cap = cpu_to_le16(*(u16 *)elem->mac_cap_info);
 	eht->phy_cap = cpu_to_le64(*(u64 *)elem->phy_cap_info);
 	eht->phy_cap_ext = cpu_to_le64(elem->phy_cap_info[8]);
@@ -4908,7 +4958,7 @@ int mt7996_mcu_add_sta(struct mt7996_dev *dev,
 		/* starec he 6g*/
 		mt7996_mcu_sta_he_6g_tlv(skb, link_sta);
 		/* starec eht */
-		mt7996_mcu_sta_eht_tlv(skb, link_sta);
+		mt7996_mcu_sta_eht_tlv(dev, skb, link_sta);
 		/* starec muru */
 		mt7996_mcu_sta_muru_tlv(dev, skb, link_conf, link_sta);
 
@@ -4935,6 +4985,39 @@ out:
 	mt7996_mcu_sta_init_vow(dev, &link->mt76, wcid, weight);
 
 	return 0;
+}
+
+void mt7996_mcu_sta_eht_update(struct mt7996_dev *dev,
+			       struct ieee80211_vif *vif,
+			       struct ieee80211_sta *sta, unsigned long links)
+{
+	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	unsigned int link_id;
+
+	links &= sta->valid_links;
+	for_each_set_bit(link_id, &links, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct ieee80211_link_sta *link_sta;
+		struct mt7996_sta_link *msta_link;
+		struct mt7996_vif_link *link;
+		struct sk_buff *skb;
+
+		link_sta = link_sta_dereference_protected(sta, link_id);
+		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
+		link = mt7996_vif_link(dev, vif, link_id);
+		if (!link_sta || !link_sta->eht_cap.has_eht || !msta_link ||
+		    !msta_link->connected || !link)
+			continue;
+
+		skb = __mt76_connac_mcu_alloc_sta_req(&dev->mt76, &link->mt76,
+						      &msta_link->wcid,
+						      MT7996_STA_UPDATE_MAX_SIZE);
+		if (IS_ERR(skb))
+			continue;
+
+		mt7996_mcu_sta_eht_tlv(dev, skb, link_sta);
+		mt76_mcu_skb_send_msg(&dev->mt76, skb,
+				      MCU_WMWA_UNI_CMD(STA_REC_UPDATE), true);
+	}
 }
 
 int mt7996_mcu_teardown_mld_sta(struct mt7996_dev *dev,

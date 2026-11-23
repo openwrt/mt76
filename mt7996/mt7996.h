@@ -404,6 +404,7 @@ struct mt7996_vif {
 	u8 attlm_ref_omac;
 	bool attlm_end_check;
 	bool attlm_ttlm_resend;
+	bool attlm_eht_pause;
 	bool attlm_cancelled;
 	/* the firmware copies the index of the newest request into each
 	 * event, and the events of a request come before its response is read
@@ -959,6 +960,9 @@ int mt7996_mcu_add_sta(struct mt7996_dev *dev,
 		       struct mt7996_vif_link *link,
 		       struct mt7996_sta_link *msta_link,
 		       int conn_state, bool newly);
+void mt7996_mcu_sta_eht_update(struct mt7996_dev *dev,
+			       struct ieee80211_vif *vif,
+			       struct ieee80211_sta *sta, unsigned long links);
 int mt7996_mcu_peer_mld_ttlm_req(struct mt7996_dev *dev,
 				 struct ieee80211_vif *vif,
 				 struct ieee80211_sta *sta,
