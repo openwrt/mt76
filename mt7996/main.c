@@ -1533,8 +1533,11 @@ mt7996_mac_sta_add(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 {
 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
-	unsigned long links = sta->valid_links ? sta->valid_links : BIT(0);
+	unsigned long links = BIT(0);
 	int err;
+
+	if (sta->valid_links)
+		links = sta->valid_links & vif->active_links;
 
 	mutex_lock(&dev->mt76.mutex);
 
