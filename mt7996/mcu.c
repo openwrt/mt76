@@ -9294,27 +9294,16 @@ int mt7996_mcu_set_radio_en(struct mt7996_phy *phy, bool enable)
 
 int mt7996_mcu_rdd_resume_tx(struct mt7996_phy *phy)
 {
-	struct {
-		u8 band_idx;
-		u8 _rsv[3];
-
-		__le16 tag;
-		__le16 len;
-		u8 mac_enable;
-		u8 _rsv2[3];
-	} __packed req = {
-		.band_idx = phy->mt76->band_idx,
-		.tag = cpu_to_le16(UNI_BAND_CONFIG_MAC_ENABLE_CTRL),
-		.len = cpu_to_le16(sizeof(req) - 4),
-		.mac_enable = 2,
-	};
-	int ret;
+	int ret, rdd_idx;
 
 	if (!phy->rdd_tx_paused)
 		return 0;
 
-	ret = mt76_mcu_send_msg(&phy->dev->mt76, MCU_WM_UNI_CMD(BAND_CONFIG),
-				&req, sizeof(req), true);
+	rdd_idx = mt7996_get_rdd_idx(phy, false);
+	if (rdd_idx < 0)
+		return -EINVAL;
+
+	ret = mt7996_mcu_rdd_cmd(phy->dev, RDD_START_TXQ, rdd_idx, 0);
 	if (!ret)
 		phy->rdd_tx_paused = false;
 
