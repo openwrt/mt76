@@ -3152,7 +3152,7 @@ mt7915_mcu_background_chain_ctrl(struct mt7915_phy *phy,
 	req.band = chandef ? chandef->chan->band == NL80211_BAND_5GHZ : 1;
 
 	return mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD(OFFCH_SCAN_CTRL),
-				 &req, sizeof(req), false);
+				 &req, sizeof(req), true);
 }
 
 int mt7915_mcu_rdd_background_enable(struct mt7915_phy *phy,
@@ -4148,7 +4148,7 @@ int mt7915_mcu_set_vow_drr_ctrl(struct mt7915_dev *dev, struct mt7915_sta *msta,
 	}
 
 	return mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD(SET_DRR_CTRL),
-				 &req, sizeof(req), false);
+				 &req, sizeof(req), true);
 }
 
 int mt7915_mcu_set_vow_feature_ctrl(struct mt7915_dev *dev)
@@ -4208,7 +4208,7 @@ int mt7915_mcu_set_vow_band(struct mt7915_dev *dev, struct mt7915_vif *mvif)
 	};
 
 	return mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD(AT_PROC_MODULE),
-				 &req, sizeof(req), false);
+				 &req, sizeof(req), true);
 }
 
 int mt7915_mcu_set_txbf(struct mt7915_dev *dev, u8 action)
