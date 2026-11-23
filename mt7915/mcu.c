@@ -3122,33 +3122,35 @@ static int mt7915_mcu_set_pre_cal(struct mt7915_dev *dev, u8 idx,
 
 int mt7915_mcu_apply_group_cal(struct mt7915_dev *dev)
 {
-	u8 idx = 0, *cal = dev->cal, *eep = dev->mt76.eeprom.data;
-	u32 total = mt7915_get_cal_group_size(dev);
+	u8 idx, units, *cal = dev->cal, *eep = dev->mt76.eeprom.data;
+	u32 size = mt7915_get_cal_group_size(dev);
 	u32 offs = is_mt7915(&dev->mt76) ? MT_EE_DO_PRE_CAL : MT_EE_DO_PRE_CAL_V2;
+	u32 trailer = size % MT_EE_CAL_UNIT;
+	int ret;
 
 	if (!(eep[offs] & MT_EE_WIFI_CAL_GROUP))
 		return 0;
+
+	units = size / MT_EE_CAL_UNIT;
+	if (is_mt7981(&dev->mt76))
+		units = MT_EE_CAL_GROUP_FW_UNITS_7981;
 
 	/*
 	 * Items: Rx DCOC, RSSI DCOC, Tx TSSI DCOC, Tx LPFG
 	 * Tx FDIQ, Tx DCIQ, Rx FDIQ, Rx FIIQ, ADCDCOC
 	 */
-	while (total > 0) {
-		int ret, len;
-
-		len = min_t(u32, total, MT_EE_CAL_UNIT);
-
-		ret = mt7915_mcu_set_pre_cal(dev, idx, cal, len,
+	for (idx = 0; idx < units; idx++) {
+		ret = mt7915_mcu_set_pre_cal(dev, idx,
+					     cal + idx * MT_EE_CAL_UNIT,
+					     MT_EE_CAL_UNIT,
 					     MCU_EXT_CMD(GROUP_PRE_CAL_INFO));
 		if (ret)
 			return ret;
-
-		total -= len;
-		cal += len;
-		idx++;
 	}
 
-	return 0;
+	/* the trailer follows all units of the flash layout */
+	return mt7915_mcu_set_pre_cal(dev, idx, cal + size - trailer, trailer,
+				      MCU_EXT_CMD(GROUP_PRE_CAL_INFO));
 }
 
 static int mt7915_find_freq_idx(const u16 *freqs, int n_freqs, u16 cur)
