@@ -1412,13 +1412,22 @@ static ssize_t mt7996_link_sta_fixed_rate_set(struct file *file,
 #define LONG_PREAMBLE 1
 	struct ieee80211_link_sta *link_sta = file->private_data;
 	struct mt7996_sta *msta = (struct mt7996_sta *)link_sta->sta->drv_priv;
-	struct mt7996_phy *link_phy = mt7996_vif_link_phy(&msta->vif->deflink);
 	struct mt7996_sta_link *msta_link;
+	struct mt7996_phy *link_phy = NULL;
+	struct mt76_vif_link *mlink;
 	struct ra_rate phy = {};
 	struct mt7996_dev *dev;
 	char buf[100];
 	int ret;
 	u16 gi, ltf;
+
+	rcu_read_lock();
+	mlink = rcu_dereference(msta->vif->mt76.link[link_sta->link_id]);
+	if (mlink)
+		link_phy = mt7996_vif_link_phy(container_of(mlink,
+							    struct mt7996_vif_link,
+							    mt76));
+	rcu_read_unlock();
 
 	if (!link_phy)
 		return -EINVAL;
