@@ -1061,33 +1061,45 @@ mt7915_mcu_sta_muru_tlv(struct mt7915_dev *dev, struct sk_buff *skb,
 }
 
 static void
-mt7915_mcu_sta_ht_tlv(struct sk_buff *skb, struct ieee80211_sta *sta)
+mt7915_mcu_sta_ht_tlv(struct sk_buff *skb, struct ieee80211_vif *vif,
+		      struct ieee80211_sta *sta)
 {
+	struct mt7915_vif *mvif = (struct mt7915_vif *)vif->drv_priv;
+	u16 cap = sta->deflink.ht_cap.cap;
 	struct sta_rec_ht *ht;
 	struct tlv *tlv;
 
 	if (!sta->deflink.ht_cap.ht_supported)
 		return;
 
+	if (!mvif->cap.ht_ldpc)
+		cap &= ~IEEE80211_HT_CAP_LDPC_CODING;
+
 	tlv = mt76_connac_mcu_add_tlv(skb, STA_REC_HT, sizeof(*ht));
 
 	ht = (struct sta_rec_ht *)tlv;
-	ht->ht_cap = cpu_to_le16(sta->deflink.ht_cap.cap);
+	ht->ht_cap = cpu_to_le16(cap);
 }
 
 static void
-mt7915_mcu_sta_vht_tlv(struct sk_buff *skb, struct ieee80211_sta *sta)
+mt7915_mcu_sta_vht_tlv(struct sk_buff *skb, struct ieee80211_vif *vif,
+		       struct ieee80211_sta *sta)
 {
+	struct mt7915_vif *mvif = (struct mt7915_vif *)vif->drv_priv;
+	u32 cap = sta->deflink.vht_cap.cap;
 	struct sta_rec_vht *vht;
 	struct tlv *tlv;
 
 	if (!sta->deflink.vht_cap.vht_supported)
 		return;
 
+	if (!mvif->cap.vht_ldpc)
+		cap &= ~IEEE80211_VHT_CAP_RXLDPC;
+
 	tlv = mt76_connac_mcu_add_tlv(skb, STA_REC_VHT, sizeof(*vht));
 
 	vht = (struct sta_rec_vht *)tlv;
-	vht->vht_cap = cpu_to_le32(sta->deflink.vht_cap.cap);
+	vht->vht_cap = cpu_to_le32(cap);
 	vht->vht_rx_mcs_map = sta->deflink.vht_cap.vht_mcs.rx_mcs_map;
 	vht->vht_tx_mcs_map = sta->deflink.vht_cap.vht_mcs.tx_mcs_map;
 }
@@ -1836,9 +1848,9 @@ int __mt7915_mcu_add_sta(struct mt7915_dev *dev, struct ieee80211_vif *vif,
 		/* starec bfer */
 		mt7915_mcu_sta_bfer_tlv(dev, skb, vif, sta);
 		/* starec ht */
-		mt7915_mcu_sta_ht_tlv(skb, sta);
+		mt7915_mcu_sta_ht_tlv(skb, vif, sta);
 		/* starec vht */
-		mt7915_mcu_sta_vht_tlv(skb, sta);
+		mt7915_mcu_sta_vht_tlv(skb, vif, sta);
 		/* starec uapsd */
 		mt76_connac_mcu_sta_uapsd(skb, vif, sta);
 	}
