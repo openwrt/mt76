@@ -385,6 +385,8 @@ void mt7925_mac_add_txs(struct mt792x_dev *dev, void *data);
 void mt7928_mac_add_txs_msg(struct mt792x_dev *dev, void *evt);
 void mt7925_set_runtime_pm(struct mt792x_dev *dev);
 void mt7925_monitor_rearm(struct mt792x_dev *dev);
+void mt7927_monitor_band_set(struct mt792x_dev *dev, struct mt792x_vif *mvif,
+			     u8 band_idx);
 void mt7925_mcu_set_suspend_iter(void *priv, u8 *mac,
 				 struct ieee80211_vif *vif);
 void mt7925_connac_mcu_set_suspend_iter(void *priv, u8 *mac,

@@ -259,6 +259,7 @@ struct mt792x_vif {
 	struct timer_list csa_timer;
 
 	struct list_head monitor_list;
+	u8 sniffer_band; /* MT7927 band of the monitor's sniffer, 0xff if none */
 
 	struct mt792x_nan nan;
 

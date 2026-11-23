@@ -568,6 +568,7 @@ mt7925_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 	if (vif->type == NL80211_IFTYPE_MONITOR) {
 		dev->monitor_vifs++;
+		mvif->sniffer_band = 0xff;
 		list_add_tail(&mvif->monitor_list, &dev->monitor_list);
 		mt7925_sniffer_interface_iter(dev, NULL, vif);
 		mt7925_mcu_config_sniffer(mvif, NULL);
@@ -621,10 +622,22 @@ static void mt7927_monitor_band_stop(struct mt792x_dev *dev, u8 band_idx)
 	struct mt792x_vif *mvif;
 
 	list_for_each_entry(mvif, &dev->monitor_list, monitor_list)
-		if (mvif->bss_conf.mt76.band_idx == band_idx)
+		if (mvif->sniffer_band == band_idx)
 			return;
 
 	mt7925_mcu_set_band_sniffer(dev, band_idx, false);
+}
+
+void mt7927_monitor_band_set(struct mt792x_dev *dev, struct mt792x_vif *mvif,
+			     u8 band_idx)
+{
+	u8 old_band = mvif->sniffer_band;
+
+	lockdep_assert_held(&dev->mt76.mutex);
+
+	mvif->sniffer_band = band_idx;
+	if (old_band != band_idx && old_band != 0xff)
+		mt7927_monitor_band_stop(dev, old_band);
 }
 
 static void
@@ -652,7 +665,7 @@ mt7925_remove_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	} else {
 		list_del(&mvif->monitor_list);
 		if (is_mt7927(&dev->mt76))
-			mt7927_monitor_band_stop(dev, mconf->mt76.band_idx);
+			mt7927_monitor_band_set(dev, mvif, 0xff);
 		if (!--dev->monitor_vifs) {
 			mt7925_sniffer_interface_iter(dev, NULL, vif);
 			ieee80211_iterate_active_interfaces_mtx(hw,
@@ -2918,6 +2931,8 @@ static int mt7925_assign_vif_chanctx(struct ieee80211_hw *hw,
 		if (is_mt7927(&dev->mt76)) {
 			band_idx = mt7927_band_idx(ctx->def.chan->band);
 
+			if (vif->type == NL80211_IFTYPE_MONITOR)
+				mt7927_monitor_band_set(dev, mvif, band_idx);
 			mt7927_reconfig_band(dev, vif, link_conf, mconf, band_idx);
 		}
 	}

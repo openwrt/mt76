@@ -2518,6 +2518,9 @@ int mt7925_mcu_set_sniffer(struct mt792x_dev *dev, struct ieee80211_vif *vif,
 
 		if (chan)
 			band_idx = mt7927_band_idx(chan->band);
+
+		if (enable && vif->type == NL80211_IFTYPE_MONITOR)
+			mt7927_monitor_band_set(dev, mvif, band_idx);
 	}
 
 	return mt7925_mcu_set_band_sniffer(dev, band_idx, enable);
