@@ -1364,6 +1364,9 @@ void mt76_wcid_key_setup(struct mt76_dev *dev, struct mt76_wcid *wcid,
 
 	/* robust management frame */
 	mt76_key_rx_pn_get(key, -1, wcid->rx_key_pn[i]);
+
+	memset(&wcid->rx_mgmt_pn, 0, sizeof(wcid->rx_mgmt_pn));
+	wcid->rx_mgmt_pn.enabled = dev->drv->drv_flags & MT_DRV_RX_MGMT_PN_GAPS;
 }
 EXPORT_SYMBOL(mt76_wcid_key_setup);
 
@@ -1464,9 +1467,102 @@ mt76_rx_group_pn(struct mt76_rx_status *status, int security_idx)
 	return group_pn->pn[status->key_id][security_idx];
 }
 
+static void
+mt76_rx_pn_gap_add(struct mt76_rx_pn_gap *gaps, int pos, u64 start, u64 end)
+{
+	if (start >= end)
+		return;
+
+	memmove(&gaps[0], &gaps[1], pos * sizeof(*gaps));
+	gaps[pos].start = start;
+	gaps[pos].end = end;
+}
+
+/* The gaps are sorted by PN, with the empty ones first. An insert into a
+ * full list drops the lowest gap.
+ */
+static bool
+mt76_rx_pn_gap_take(struct mt76_rx_pn_gap *gaps, int n, u64 pn)
+{
+	int i;
+
+	for (i = 0; i < n; i++) {
+		u64 start = gaps[i].start;
+
+		if (pn < start || pn >= gaps[i].end)
+			continue;
+
+		gaps[i].start = pn + 1;
+		if (gaps[i].start < gaps[i].end) {
+			if (i)
+				mt76_rx_pn_gap_add(gaps, i - 1, start, pn);
+		} else if (start < pn) {
+			gaps[i].start = start;
+			gaps[i].end = pn;
+		} else {
+			memmove(&gaps[1], &gaps[0], i * sizeof(*gaps));
+			memset(&gaps[0], 0, sizeof(*gaps));
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
+/* IEEE 802.11-2024, 12.5.2.4.4 f) discards a robust Management frame with a
+ * PN at or below the counter. A device can deliver such a frame on a path
+ * that is not ordered with the other frames of its band, so it can arrive
+ * after a later frame, or ahead of earlier ones. Accept each PN once if the
+ * counter skipped it: a misrouted frame in one of the last skipped gaps, a
+ * frame of the ordered path in the gap of the last misrouted frame, until a
+ * frame of the ordered path above it arrives.
+ */
+static bool
+mt76_rx_mgmt_pn_gap_take(struct mt76_rx_mgmt_pn *mgmt_pn,
+			 struct mt76_rx_status *status)
+{
+	struct mt76_rx_pn_gap *skipped = mgmt_pn->skipped;
+	int n = ARRAY_SIZE(mgmt_pn->skipped);
+	u64 pn = get_unaligned_be48(status->iv);
+
+	if (!(status->flag & RX_FLAG_IV_STRIPPED))
+		return false;
+
+	if (status->misrouted) {
+		if (!mt76_rx_pn_gap_take(skipped, n, pn))
+			return false;
+
+		mt76_rx_pn_gap_take(&mgmt_pn->overtaken, 1, pn);
+		return true;
+	}
+
+	if (!mt76_rx_pn_gap_take(&mgmt_pn->overtaken, 1, pn))
+		return false;
+
+	mt76_rx_pn_gap_take(skipped, n, pn);
+	return true;
+}
+
+static void
+mt76_rx_mgmt_pn_advance(struct mt76_rx_mgmt_pn *mgmt_pn,
+			struct mt76_rx_status *status, const u8 *rx_pn)
+{
+	u64 start = get_unaligned_be48(rx_pn) + 1;
+	u64 end = get_unaligned_be48(status->iv);
+	int n = ARRAY_SIZE(mgmt_pn->skipped);
+
+	mt76_rx_pn_gap_add(mgmt_pn->skipped, n - 1, start, end);
+
+	memset(&mgmt_pn->overtaken, 0, sizeof(mgmt_pn->overtaken));
+	if (status->misrouted)
+		mt76_rx_pn_gap_add(&mgmt_pn->overtaken, 0, start, end);
+}
+
 void mt76_check_ccmp_pn(struct sk_buff *skb)
 {
 	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
+	struct mt76_rx_mgmt_pn *mgmt_pn = NULL;
 	struct mt76_wcid *wcid = status->wcid;
 	struct ieee80211_hdr *hdr;
 	int security_idx;
@@ -1516,22 +1612,33 @@ void mt76_check_ccmp_pn(struct sk_buff *skb)
 
 skip_hdr_check:
 	/* the links of an MLD peer share one PN space per pairwise key */
-	if (status->group)
+	if (status->group) {
 		rx_pn = mt76_rx_group_pn(status, security_idx);
-	else
-		rx_pn = mt76_wcid_primary(wcid)->rx_key_pn[security_idx];
+	} else {
+		struct mt76_wcid *pn_wcid = mt76_wcid_primary(wcid);
+
+		rx_pn = pn_wcid->rx_key_pn[security_idx];
+		if (security_idx == IEEE80211_NUM_TIDS &&
+		    pn_wcid->rx_mgmt_pn.enabled)
+			mgmt_pn = &pn_wcid->rx_mgmt_pn;
+	}
 	if (!rx_pn)
 		return;
 
 	BUILD_BUG_ON(sizeof(status->iv) != sizeof(wcid->rx_key_pn[0]));
 	BUILD_BUG_ON(sizeof(status->iv) != sizeof(wcid->rx_group_pn->pn[0][0]));
 	ret = memcmp(status->iv, rx_pn, sizeof(status->iv));
-	if (ret <= 0) {
+	if (ret <= 0 &&
+	    !(mgmt_pn && mt76_rx_mgmt_pn_gap_take(mgmt_pn, status))) {
 		status->flag |= RX_FLAG_ONLY_MONITOR;
 		return;
 	}
 
-	memcpy(rx_pn, status->iv, sizeof(status->iv));
+	if (ret > 0) {
+		if (mgmt_pn)
+			mt76_rx_mgmt_pn_advance(mgmt_pn, status, rx_pn);
+		memcpy(rx_pn, status->iv, sizeof(status->iv));
+	}
 
 	if (status->flag & RX_FLAG_IV_STRIPPED)
 		status->flag |= RX_FLAG_PN_VALIDATED;

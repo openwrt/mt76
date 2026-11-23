@@ -398,6 +398,20 @@ struct mt76_rx_group_pn {
 	u8 pn[4][IEEE80211_NUM_TIDS][6];
 };
 
+#define MT76_RX_MGMT_PN_GAPS	4
+
+/* the PNs from start up to, but not including, end */
+struct mt76_rx_pn_gap {
+	u64 start;
+	u64 end;
+};
+
+struct mt76_rx_mgmt_pn {
+	struct mt76_rx_pn_gap skipped[MT76_RX_MGMT_PN_GAPS];
+	struct mt76_rx_pn_gap overtaken;
+	bool enabled;
+};
+
 struct mt76_wcid {
 	struct mt76_rx_tid __rcu *aggr[IEEE80211_NUM_TIDS];
 
@@ -426,6 +440,7 @@ struct mt76_wcid {
 
 	u8 rx_check_pn;
 	u8 rx_key_pn[IEEE80211_NUM_TIDS + 1][6];
+	struct mt76_rx_mgmt_pn rx_mgmt_pn;
 	struct mt76_rx_group_pn *rx_group_pn;
 	u16 cipher;
 	u16 tx_inflight_limit;
@@ -567,6 +582,7 @@ struct mt76_hw_cap {
 #define MT_DRV_HW_PS_BUFFERING		BIT(7)
 #define MT_DRV_KEEP_REPLAYED_STA	BIT(8)
 #define MT_DRV_TX_INFLIGHT_LIMIT	BIT(9)
+#define MT_DRV_RX_MGMT_PN_GAPS		BIT(10)
 
 /* tx_prepare_skb returns it for a frame that the driver does not send. The
  * queue frees the frame as for an error, and the TX burst goes on.
@@ -807,7 +823,7 @@ struct mt76_rx_status {
 	};
 
 	u8 amsdu:1, first_amsdu:1, last_amsdu:1, skip_pn_check:1, group:1,
-	   key_id:2;
+	   key_id:2, misrouted:1;
 	u8 rate_idx;
 	u8 nss:5, band:3;
 	u8 chains;
