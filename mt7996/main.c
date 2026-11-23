@@ -3278,22 +3278,16 @@ out:
 	rcu_read_unlock();
 }
 
-static void mt7996_link_rate_ctrl_update(void *data,
-					 struct mt7996_sta_link *msta_link)
+static void mt7996_link_rate_ctrl_update(struct mt7996_dev *dev,
+					 struct mt7996_sta_link *msta_link,
+					 u32 changed)
 {
 	struct mt7996_sta *msta = msta_link->sta;
-	struct mt7996_phy *phy = mt7996_vif_link_phy(&msta->vif->deflink);
 	u8 link_id = msta_link->wcid.link_id;
-	struct mt7996_dev *dev;
-	u32 *changed = data;
 
-	if (!phy)
-		return;
-
-	dev = phy->dev;
 	spin_lock_bh(&dev->mt76.sta_poll_lock);
 
-	msta_link->changed |= *changed;
+	msta_link->changed |= changed;
 	if (list_empty(&msta_link->rc_list) &&
 	    rcu_access_pointer(msta->link[link_id]) == msta_link)
 		list_add_tail(&msta_link->rc_list, &dev->sta_rc_list);
@@ -3308,34 +3302,38 @@ static void mt7996_link_sta_rc_update(struct ieee80211_hw *hw,
 {
 	struct ieee80211_sta *sta = link_sta->sta;
 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	struct mt7996_dev *dev = mt7996_hw_dev(hw);
 	struct mt7996_sta_link *msta_link;
 
 	rcu_read_lock();
 
 	msta_link = mt7996_sta_link(msta, link_sta->link_id);
 	if (msta_link) {
-		struct mt7996_dev *dev = mt7996_hw_dev(hw);
-
-		mt7996_link_rate_ctrl_update(&changed, msta_link);
+		mt7996_link_rate_ctrl_update(dev, msta_link, changed);
 		ieee80211_queue_work(hw, &dev->rc_work);
 	}
 
 	rcu_read_unlock();
 }
 
+struct mt7996_rate_ctrl_iter_data {
+	struct mt7996_dev *dev;
+	struct mt7996_vif *mvif;
+};
+
 static void mt7996_sta_rate_ctrl_update(void *data, struct ieee80211_sta *sta)
 {
 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	struct mt7996_rate_ctrl_iter_data *it = data;
 	struct mt7996_sta_link *msta_link;
-	struct mt7996_vif *mvif = data;
-	u32 changed = IEEE80211_RC_SUPP_RATES_CHANGED;
 
-	if (msta->vif != mvif)
+	if (msta->vif != it->mvif)
 		return;
 
 	msta_link = mt7996_sta_link(msta, msta->deflink_id);
 	if (msta_link)
-		mt7996_link_rate_ctrl_update(&changed, msta_link);
+		mt7996_link_rate_ctrl_update(it->dev, msta_link,
+					     IEEE80211_RC_SUPP_RATES_CHANGED);
 }
 
 static int
@@ -3344,6 +3342,10 @@ mt7996_set_bitrate_mask(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 {
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+	struct mt7996_rate_ctrl_iter_data it = {
+		.dev = dev,
+		.mvif = mvif,
+	};
 
 	mvif->deflink.bitrate_mask = *mask;
 
@@ -3355,8 +3357,7 @@ mt7996_set_bitrate_mask(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	 * - multiple rates: if it's not in range format i.e 0-{7,8,9} for VHT
 	 * then multiple MCS setting (MCS 4,5,6) is not supported.
 	 */
-	ieee80211_iterate_stations_atomic(hw, mt7996_sta_rate_ctrl_update,
-					  mvif);
+	ieee80211_iterate_stations_atomic(hw, mt7996_sta_rate_ctrl_update, &it);
 	ieee80211_queue_work(hw, &dev->rc_work);
 
 	return 0;
