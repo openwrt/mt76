@@ -2056,8 +2056,8 @@ void mt76_connac_mcu_wtbl_ht_tlv(struct mt76_dev *dev, struct sk_buff *skb,
 				 void *wtbl_tlv, bool ht_ldpc, bool vht_ldpc);
 void mt76_connac_mcu_wtbl_ba_tlv(struct mt76_dev *dev, struct sk_buff *skb,
 				 struct ieee80211_ampdu_params *params,
-				 bool enable, bool tx, void *sta_wtbl,
-				 void *wtbl_tlv);
+				 bool enable, bool tx, u8 band_idx,
+				 void *sta_wtbl, void *wtbl_tlv);
 void mt76_connac_mcu_sta_ba_tlv(struct sk_buff *skb,
 				struct ieee80211_ampdu_params *params,
 				bool enable, bool tx);

@@ -1148,8 +1148,8 @@ EXPORT_SYMBOL_GPL(mt76_connac_mcu_sta_cmd);
 
 void mt76_connac_mcu_wtbl_ba_tlv(struct mt76_dev *dev, struct sk_buff *skb,
 				 struct ieee80211_ampdu_params *params,
-				 bool enable, bool tx, void *sta_wtbl,
-				 void *wtbl_tlv)
+				 bool enable, bool tx, u8 band_idx,
+				 void *sta_wtbl, void *wtbl_tlv)
 {
 	struct wtbl_ba *ba;
 	struct tlv *tlv;
@@ -1171,6 +1171,7 @@ void mt76_connac_mcu_wtbl_ba_tlv(struct mt76_dev *dev, struct sk_buff *skb,
 		ba->rst_ba_tid = params->tid;
 		ba->rst_ba_sel = RST_BA_MAC_TID_MATCH;
 		ba->rst_ba_sb = 1;
+		ba->band_idx = band_idx;
 	}
 
 	if (!is_connac_v1(dev)) {
@@ -1357,8 +1358,8 @@ int mt76_connac_mcu_sta_ba(struct mt76_dev *dev, struct mt76_vif_link *mvif,
 	if (IS_ERR(wtbl_hdr))
 		return PTR_ERR(wtbl_hdr);
 
-	mt76_connac_mcu_wtbl_ba_tlv(dev, skb, params, enable, tx, sta_wtbl,
-				    wtbl_hdr);
+	mt76_connac_mcu_wtbl_ba_tlv(dev, skb, params, enable, tx,
+				    mvif->band_idx, sta_wtbl, wtbl_hdr);
 
 	ret = mt76_connac_mcu_sta_wed_update(dev, skb);
 	if (ret) {

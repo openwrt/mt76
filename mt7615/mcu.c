@@ -796,7 +796,7 @@ mt7615_mcu_wtbl_tx_ba(struct mt7615_dev *dev,
 		return PTR_ERR(wtbl_hdr);
 
 	mt76_connac_mcu_wtbl_ba_tlv(&dev->mt76, skb, params, enable, true,
-				    NULL, wtbl_hdr);
+				    0, NULL, wtbl_hdr);
 
 	err = mt76_mcu_skb_send_msg(&dev->mt76, skb,
 				    MCU_EXT_CMD(WTBL_UPDATE), true);
@@ -844,7 +844,7 @@ mt7615_mcu_wtbl_rx_ba(struct mt7615_dev *dev,
 		return PTR_ERR(wtbl_hdr);
 
 	mt76_connac_mcu_wtbl_ba_tlv(&dev->mt76, skb, params, enable, false,
-				    NULL, wtbl_hdr);
+				    0, NULL, wtbl_hdr);
 
 	return mt76_mcu_skb_send_msg(&dev->mt76, skb,
 				     MCU_EXT_CMD(WTBL_UPDATE), true);
@@ -967,7 +967,7 @@ mt7615_mcu_sta_ba(struct mt7615_dev *dev,
 		return PTR_ERR(wtbl_hdr);
 
 	mt76_connac_mcu_wtbl_ba_tlv(&dev->mt76, skb, params, enable, tx,
-				    sta_wtbl, wtbl_hdr);
+				    0, sta_wtbl, wtbl_hdr);
 
 	return mt76_mcu_skb_send_msg(&dev->mt76, skb,
 				     MCU_EXT_CMD(STA_REC_UPDATE), true);
@@ -1201,7 +1201,7 @@ mt7615_mcu_uni_rx_ba(struct mt7615_dev *dev,
 		return PTR_ERR(wtbl_hdr);
 
 	mt76_connac_mcu_wtbl_ba_tlv(&dev->mt76, skb, params, enable, false,
-				    sta_wtbl, wtbl_hdr);
+				    0, sta_wtbl, wtbl_hdr);
 
 	return mt76_mcu_skb_send_msg(&dev->mt76, skb,
 				     MCU_UNI_CMD(STA_REC_UPDATE), true);
