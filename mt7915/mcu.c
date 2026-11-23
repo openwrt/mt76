@@ -1060,6 +1060,21 @@ mt7915_mcu_sta_muru_tlv(struct mt7915_dev *dev, struct sk_buff *skb,
 		HE_MAC(CAP3_RX_CTRL_FRAME_TO_MULTIBSS, elem->mac_cap_info[3]);
 }
 
+static enum mcu_mmps_mode
+mt7915_mcu_get_mmps_mode(enum ieee80211_smps_mode smps)
+{
+	switch (smps) {
+	case IEEE80211_SMPS_OFF:
+		return MCU_MMPS_DISABLE;
+	case IEEE80211_SMPS_STATIC:
+		return MCU_MMPS_STATIC;
+	case IEEE80211_SMPS_DYNAMIC:
+		return MCU_MMPS_DYNAMIC;
+	default:
+		return MCU_MMPS_DISABLE;
+	}
+}
+
 static void
 mt7915_mcu_sta_ht_tlv(struct sk_buff *skb, struct ieee80211_vif *vif,
 		      struct ieee80211_sta *sta)
@@ -1074,6 +1089,9 @@ mt7915_mcu_sta_ht_tlv(struct sk_buff *skb, struct ieee80211_vif *vif,
 
 	if (!mvif->cap.ht_ldpc)
 		cap &= ~IEEE80211_HT_CAP_LDPC_CODING;
+	u16p_replace_bits(&cap,
+			  mt7915_mcu_get_mmps_mode(sta->deflink.smps_mode),
+			  IEEE80211_HT_CAP_SM_PS);
 
 	tlv = mt76_connac_mcu_add_tlv(skb, STA_REC_HT, sizeof(*ht));
 
@@ -1456,21 +1474,6 @@ mt7915_mcu_sta_bfee_tlv(struct mt7915_dev *dev, struct sk_buff *skb,
 
 	/* reply with identity matrix to avoid 2x2 BF negative gain */
 	bfee->fb_identity_matrix = (nrow == 1 && tx_ant == 2);
-}
-
-static enum mcu_mmps_mode
-mt7915_mcu_get_mmps_mode(enum ieee80211_smps_mode smps)
-{
-	switch (smps) {
-	case IEEE80211_SMPS_OFF:
-		return MCU_MMPS_DISABLE;
-	case IEEE80211_SMPS_STATIC:
-		return MCU_MMPS_STATIC;
-	case IEEE80211_SMPS_DYNAMIC:
-		return MCU_MMPS_DYNAMIC;
-	default:
-		return MCU_MMPS_DISABLE;
-	}
 }
 
 int mt7915_mcu_set_fixed_rate_ctrl(struct mt7915_dev *dev,
