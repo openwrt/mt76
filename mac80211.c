@@ -2609,7 +2609,7 @@ mt76_offchannel_send_nullfunc(struct mt76_offchannel_cb_data *data,
 	struct mt76_wcid *wcid;
 	struct sk_buff *skb;
 
-	skb = ieee80211_nullfunc_get(phy->hw, vif, link_id, true);
+	skb = ieee80211_nullfunc_get(phy->hw, vif, -1, true);
 	if (!skb)
 		return;
 
@@ -2619,10 +2619,6 @@ mt76_offchannel_send_nullfunc(struct mt76_offchannel_cb_data *data,
 
 	skb->priority = 7;
 	skb_set_queue_mapping(skb, IEEE80211_AC_VO);
-
-	/* mac80211 finds the AP station by its MLD address, not by a link BSSID */
-	if (link_id >= 0)
-		ether_addr_copy(hdr->addr1, vif->cfg.ap_addr);
 
 	if (!ieee80211_tx_prepare_skb(phy->hw, vif, skb,
 				      phy->main_chandef.chan->band,
@@ -2635,8 +2631,6 @@ mt76_offchannel_send_nullfunc(struct mt76_offchannel_cb_data *data,
 		wcid = ((struct mt76_vif_link *)vif->drv_priv)->wcid;
 
 	if (link_id >= 0) {
-		ether_addr_copy(hdr->addr1, hdr->addr3);
-
 		info = IEEE80211_SKB_CB(skb);
 		info->control.flags &= ~IEEE80211_TX_CTRL_MLO_LINK;
 		info->control.flags |=
