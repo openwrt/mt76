@@ -1508,9 +1508,9 @@ u8 mt7996_sta_seclink_get(struct mt7996_dev *dev, struct mt7996_sta *msta)
  * 35.3.6.3), so the TX of the station leaves that link before it. A station
  * without another link keeps its TX link.
  *
- * The firmware keeps the primary and secondary link of its last MLD setup,
- * which only a joining link sends, and the MLD_ID of a TXD must name one of
- * them (see mt7996_get_tx_wcid()), so the TX stays on the surviving one.
+ * The TXD of an MLD peer names a wcid of the PEER_MLD_INFO pair, whatever its
+ * TX link. seclink_id and deflink_id choose the TX link of each TID parity,
+ * so they move to a link that stays.
  */
 void mt7996_sta_tx_links_release(struct mt7996_dev *dev,
 				 struct ieee80211_sta *sta, u16 links)
@@ -1634,7 +1634,7 @@ void mt7996_mac_sta_remove_link(struct mt7996_dev *dev,
 	if (msta_link->wcid.link_valid) {
 		mt7996_sta_deflink_release(dev, sta, link_id);
 		msta_link->wcid.link_valid = false;
-		/* the firmware keeps the link pair of its last MLD setup */
+		/* odd TIDs leave on the default link until another link joins */
 		if (msta->seclink_id == link_id)
 			msta->seclink_id = msta->deflink_id;
 	}

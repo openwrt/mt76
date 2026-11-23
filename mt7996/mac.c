@@ -813,12 +813,18 @@ mt7996_sta_tx_primary_get(struct mt7996_sta *msta)
 	return msta->peer_mld_links ? msta->fw_mld_link_id : msta->deflink_id;
 }
 
+static u8
+mt7996_sta_tx_secondary_get(struct mt7996_sta *msta)
+{
+	return msta->peer_mld_links ? msta->fw_sec_link_id : msta->seclink_id;
+}
+
 /* The WLAN_IDX in the TXD and TXP must belong to the primary or secondary
- * link of the last MLD setup of an MLD station: for a station in powersave
- * the firmware pauses the queues of those two alone. While the PEER_MLD
- * description is valid, the primary is the link of fw_mld_idx, also after the
- * default link moved away from it. Completion events carry the same index, so
- * the wcid used for status tracking and accounting must match it
+ * link of PEER_MLD_INFO: the firmware pauses the queues of those two alone,
+ * and no later MLD setup changes them. Both stay the pair while the PEER_MLD
+ * description is valid, also after mac80211 removed the link of one of them.
+ * Completion events carry the same index, so the wcid used for status
+ * tracking and accounting must match it
  */
 struct mt76_wcid *mt7996_get_tx_wcid(struct mt76_wcid *wcid)
 {
@@ -835,10 +841,33 @@ struct mt76_wcid *mt7996_get_tx_wcid(struct mt76_wcid *wcid)
 		return wcid;
 
 	primary = mt7996_sta_tx_primary_get(msta);
-	if (wcid->link_id == msta->seclink_id || wcid->link_id == primary)
+	if (wcid->link_id == mt7996_sta_tx_secondary_get(msta) ||
+	    wcid->link_id == primary)
 		return wcid;
 
 	msta_link = mt7996_sta_link(msta, primary);
+	if (msta_link)
+		return &msta_link->wcid;
+
+	return wcid;
+}
+
+/* the firmware applies a negotiated TTLM to the queue of the TID parity
+ * (see mt7996_ttlm_queue_tid)
+ */
+static struct mt76_wcid *
+mt7996_sta_tx_tid_wcid(struct mt7996_sta *msta, struct mt76_wcid *wcid,
+		       u8 tid)
+{
+	struct mt7996_sta_link *msta_link;
+	u8 link_id;
+
+	if (tid % 2)
+		link_id = mt7996_sta_tx_secondary_get(msta);
+	else
+		link_id = mt7996_sta_tx_primary_get(msta);
+
+	msta_link = mt7996_sta_link(msta, link_id);
 	if (msta_link)
 		return &msta_link->wcid;
 
@@ -869,7 +898,7 @@ mt7996_sta_tx_pair_links(struct mt7996_sta *msta)
 {
 	return mt7996_sta_tx_usable_links(msta,
 					  BIT(mt7996_sta_tx_primary_get(msta)) |
-					  BIT(msta->seclink_id));
+					  BIT(mt7996_sta_tx_secondary_get(msta)));
 }
 
 /* Under a negotiated TTLM the firmware pauses, on the band of each link and
@@ -887,12 +916,13 @@ static const u8 mt7996_ttlm_queue_tid[3][IEEE80211_NUM_ACS] = {
 static bool
 mt7996_sta_tx_queue_open(struct mt7996_sta *msta, u8 link_id, u8 ac)
 {
+	u8 secondary = mt7996_sta_tx_secondary_get(msta);
 	u8 primary = mt7996_sta_tx_primary_get(msta);
 	u8 queue = 0;
 
-	if (msta->seclink_id == primary)
+	if (secondary == primary)
 		queue = 2;
-	else if (link_id == msta->seclink_id)
+	else if (link_id == secondary)
 		queue = 1;
 
 	return READ_ONCE(msta->neg_ttlm.downlink[mt7996_ttlm_queue_tid[queue][ac]]) &
@@ -907,6 +937,7 @@ mt7996_sta_tx_queue_open(struct mt7996_sta *msta, u8 link_id, u8 ac)
  */
 u8 mt7996_sta_tx_enabled_link_get(struct mt7996_sta *msta, u8 link_id, u8 ac)
 {
+	u8 secondary = mt7996_sta_tx_secondary_get(msta);
 	u8 primary = mt7996_sta_tx_primary_get(msta);
 	unsigned long links;
 	unsigned int i;
@@ -920,9 +951,9 @@ u8 mt7996_sta_tx_enabled_link_get(struct mt7996_sta *msta, u8 link_id, u8 ac)
 	if ((pair & BIT(primary)) && mt7996_sta_tx_queue_open(msta, primary, ac))
 		return primary;
 
-	if ((pair & BIT(msta->seclink_id)) &&
-	    mt7996_sta_tx_queue_open(msta, msta->seclink_id, ac))
-		return msta->seclink_id;
+	if ((pair & BIT(secondary)) &&
+	    mt7996_sta_tx_queue_open(msta, secondary, ac))
+		return secondary;
 
 	links = mt7996_sta_tx_usable_links(msta,
 					   GENMASK(IEEE80211_MLD_MAX_NUM_LINKS - 1, 0) &
@@ -1181,6 +1212,7 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	__le32 *ptr = (__le32 *)txwi_ptr;
 	u8 *txwi = (u8 *)txwi_ptr;
 	bool host_txd, link_null, any_link;
+	int tid = -1;
 	u8 link_id;
 
 	if (unlikely(tx_info->skb->len <= ETH_HLEN))
@@ -1195,11 +1227,7 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	if ((is_8023 || ieee80211_is_data_qos(hdr->frame_control)) && sta && sta->mlo &&
 	    !link_null &&
 	    likely(tx_info->skb->protocol != cpu_to_be16(ETH_P_PAE))) {
-		u8 tid = tx_info->skb->priority & IEEE80211_QOS_CTL_TID_MASK;
-
-		/* the firmware applies a negotiated TTLM to the queue of
-		 * this parity (see mt7996_ttlm_queue_tid)
-		 */
+		tid = tx_info->skb->priority & IEEE80211_QOS_CTL_TID_MASK;
 		link_id = (tid % 2) ? msta->seclink_id : msta->deflink_id;
 	} else if (is_8023) {
 		/* mac80211 does not set the MLO link of an 802.3 frame */
@@ -1307,7 +1335,10 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 					   tx_info->buf[1].len, DMA_TO_DEVICE);
 	}
 
-	wcid = mt7996_get_tx_wcid(wcid);
+	if (tid >= 0)
+		wcid = mt7996_sta_tx_tid_wcid(msta, wcid, tid);
+	else
+		wcid = mt7996_get_tx_wcid(wcid);
 
 	/* mt76_tx_status_skb_add() clears info->control.flags */
 	host_txd = !is_8023 ||

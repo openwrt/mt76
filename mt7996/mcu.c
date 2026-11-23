@@ -4623,7 +4623,9 @@ mt7996_mcu_sta_mld_setup_tlv(struct mt7996_dev *dev, struct sk_buff *skb,
 		mld_setup->setup_wcid = cpu_to_le16(msta->fw_mld_idx);
 	mld_setup->primary_id = mld_setup->setup_wcid;
 
-	if (!(links & BIT(seclink_id)))
+	if (msta->peer_mld_links)
+		seclink_id = msta->fw_sec_link_id;
+	else if (!(links & BIT(seclink_id)))
 		seclink_id = msta->deflink_id;
 	msta_link = mt7996_sta_link_protected(dev, msta, seclink_id);
 	mld_setup->seconed_id = cpu_to_le16(msta_link->wcid.idx);
@@ -4785,6 +4787,7 @@ int mt7996_mcu_set_peer_mld(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		msta->peer_mld_links = links;
 		msta->fw_mld_idx = fw_mld_idx;
 		msta->fw_mld_link_id = msta->deflink_id;
+		msta->fw_sec_link_id = seclink_id;
 	}
 
 	return ret;

@@ -326,6 +326,7 @@ struct mt7996_sta {
 	u8 deflink_id;
 	u8 seclink_id;
 	u8 fw_mld_link_id;
+	u8 fw_sec_link_id;
 	u8 conn_state;
 	u16 peer_mld_links;
 	u16 fw_mld_idx;
