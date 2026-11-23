@@ -441,8 +441,8 @@ mt76_phy_init(struct mt76_phy *phy, struct ieee80211_hw *hw)
 	INIT_LIST_HEAD(&phy->tx_list);
 	for (i = 0; i < ARRAY_SIZE(phy->rx_amsdu); i++)
 		spin_lock_init(&phy->rx_amsdu[i].lock);
-	INIT_DELAYED_WORK(&phy->roc_work, mt76_roc_complete_work);
-	INIT_DELAYED_WORK(&phy->scan_work, mt76_scan_work);
+	wiphy_delayed_work_init(&phy->roc_work, mt76_roc_complete_work);
+	wiphy_delayed_work_init(&phy->scan_work, mt76_scan_work);
 
 	if ((void *)phy != hw->priv)
 		return 0;

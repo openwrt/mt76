@@ -2802,7 +2802,9 @@ mt7996_mac_full_reset(struct mt7996_dev *dev)
 	mt7996_for_each_phy(dev, phy)
 		cancel_delayed_work_sync(&phy->mt76->mac_work);
 
+	wiphy_lock(hw->wiphy);
 	mt76_abort_scan(&dev->mt76);
+	wiphy_unlock(hw->wiphy);
 
 	mutex_lock(&dev->mt76.mutex);
 	/* the firmware load drops the BSS of a kept link, and MT76_MCU_RESET
@@ -2988,6 +2990,9 @@ void mt7996_mac_reset_work(struct work_struct *work)
 	set_bit(MT76_RESET, &dev->mphy.state);
 	set_bit(MT76_MCU_RESET, &dev->mphy.state);
 	wake_up(&dev->mt76.mcu.wait);
+
+	/* the beacon uploads read the link_conf of each interface */
+	wiphy_lock(hw->wiphy);
 	mt76_abort_scan(&dev->mt76);
 
 	cancel_work_sync(&dev->wed_rro.work);
@@ -2997,8 +3002,6 @@ void mt7996_mac_reset_work(struct work_struct *work)
 		cancel_delayed_work_sync(&phy->mt76->mac_work);
 	}
 
-	/* the beacon uploads read the link_conf of each interface */
-	wiphy_lock(hw->wiphy);
 	mutex_lock(&dev->mt76.mutex);
 
 	mt76_worker_disable(&dev->mt76.tx_worker);

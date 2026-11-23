@@ -63,26 +63,20 @@ void mt76_abort_scan(struct mt76_dev *dev)
 	struct mt76_phy *phy;
 	int i;
 
+	lockdep_assert_wiphy(dev->hw->wiphy);
+
+	mutex_lock(&dev->mutex);
 	for (i = 0; i < ARRAY_SIZE(dev->phys); i++) {
 		phy = dev->phys[i];
-		if (!phy)
+		if (!phy || !mt76_phy_scanning(phy))
 			continue;
 
 		spin_lock_bh(&dev->scan_lock);
 		phy->scan.beacon_wait = false;
 		spin_unlock_bh(&dev->scan_lock);
 
-		disable_delayed_work_sync(&phy->scan_work);
-	}
-
-	mutex_lock(&dev->mutex);
-	for (i = 0; i < ARRAY_SIZE(dev->phys); i++) {
-		phy = dev->phys[i];
-		if (!phy)
-			continue;
-
+		wiphy_delayed_work_cancel(phy->hw->wiphy, &phy->scan_work);
 		mt76_scan_phy_complete(phy, true);
-		enable_delayed_work(&phy->scan_work);
 	}
 	mutex_unlock(&dev->mutex);
 }
@@ -153,7 +147,7 @@ void mt76_scan_rx_beacon(struct mt76_phy *phy, struct ieee80211_channel *chan)
 		goto out;
 
 	phy->scan.beacon_received = true;
-	ieee80211_queue_delayed_work(phy->hw, &phy->scan_work, 0);
+	wiphy_delayed_work_queue(phy->hw->wiphy, &phy->scan_work, 0);
 
 out:
 	spin_unlock(&dev->scan_lock);
@@ -171,7 +165,7 @@ static int mt76_scan_next_chan_idx(struct mt76_phy *phy)
 	return -1;
 }
 
-void mt76_scan_work(struct work_struct *work)
+void mt76_scan_work(struct wiphy *wiphy, struct wiphy_work *work)
 {
 	struct mt76_phy *phy = container_of(work, struct mt76_phy,
 					    scan_work.work);
@@ -243,7 +237,7 @@ out:
 			         msecs_to_jiffies(req->duration +
 						  (req->duration >> 5)));
 
-	ieee80211_queue_delayed_work(phy->hw, &phy->scan_work, duration);
+	wiphy_delayed_work_queue(phy->hw->wiphy, &phy->scan_work, duration);
 }
 
 int mt76_hw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
@@ -299,7 +293,7 @@ int mt76_hw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	for_each_set_bit(i, &phy_mask, ARRAY_SIZE(dev->phys)) {
 		phy = dev->phys[i];
 		set_bit(MT76_SCANNING, &phy->state);
-		ieee80211_queue_delayed_work(phy->hw, &phy->scan_work, 0);
+		wiphy_delayed_work_queue(phy->hw->wiphy, &phy->scan_work, 0);
 	}
 
 	goto out;

@@ -938,7 +938,7 @@ struct mt76_phy {
 	bool offchannel;
 	bool radar_enabled;
 
-	struct delayed_work roc_work;
+	struct wiphy_delayed_work roc_work;
 	struct ieee80211_vif *roc_vif;
 	struct mt76_vif_link __rcu *roc_link;
 
@@ -947,7 +947,7 @@ struct mt76_phy {
 		struct mt76_vif_link *mlink;
 	} kept_link;
 
-	struct delayed_work scan_work;
+	struct wiphy_delayed_work scan_work;
 	struct {
 		struct ieee80211_channel *chan;
 		struct mt76_vif_link *mlink;
@@ -2026,9 +2026,9 @@ mt76_offchannel_chandef(struct mt76_phy *phy, struct ieee80211_channel *chan,
 }
 int mt76_set_channel(struct mt76_phy *phy, struct cfg80211_chan_def *chandef,
 		     bool offchannel);
-void mt76_scan_work(struct work_struct *work);
+void mt76_scan_work(struct wiphy *wiphy, struct wiphy_work *work);
 void mt76_abort_scan(struct mt76_dev *dev);
-void mt76_roc_complete_work(struct work_struct *work);
+void mt76_roc_complete_work(struct wiphy *wiphy, struct wiphy_work *work);
 void mt76_roc_complete(struct mt76_phy *phy);
 void mt76_abort_roc(struct mt76_phy *phy);
 struct mt76_phy *mt76_vif_roc_phy(struct mt76_dev *dev,

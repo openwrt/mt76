@@ -463,7 +463,7 @@ void mt76_roc_complete(struct mt76_phy *phy)
 		ieee80211_remain_on_channel_expired(phy->hw);
 }
 
-void mt76_roc_complete_work(struct work_struct *work)
+void mt76_roc_complete_work(struct wiphy *wiphy, struct wiphy_work *work)
 {
 	struct mt76_phy *phy = container_of(work, struct mt76_phy, roc_work.work);
 	struct mt76_dev *dev = phy->dev;
@@ -477,7 +477,7 @@ void mt76_abort_roc(struct mt76_phy *phy)
 {
 	struct mt76_dev *dev = phy->dev;
 
-	cancel_delayed_work_sync(&phy->roc_work);
+	wiphy_delayed_work_cancel(phy->hw->wiphy, &phy->roc_work);
 
 	mutex_lock(&dev->mutex);
 	mt76_roc_complete(phy);
@@ -538,8 +538,8 @@ int mt76_remain_on_channel(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		goto out;
 	}
 	ieee80211_ready_on_channel(hw);
-	ieee80211_queue_delayed_work(phy->hw, &phy->roc_work,
-				     msecs_to_jiffies(duration));
+	wiphy_delayed_work_queue(phy->hw->wiphy, &phy->roc_work,
+				 msecs_to_jiffies(duration));
 
 	goto out;
 
