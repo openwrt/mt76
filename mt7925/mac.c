@@ -686,7 +686,7 @@ mt7925_mac_write_txwi_8023(__le32 *txwi, struct sk_buff *skb,
 	if (wcid->sta) {
 		struct ieee80211_sta *sta;
 
-		sta = container_of((void *)wcid, struct ieee80211_sta, drv_priv);
+		sta = wcid_to_sta(wcid);
 		wmm = sta->wme;
 	}
 
