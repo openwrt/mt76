@@ -5584,10 +5584,12 @@ mt7996_mcu_set_obss_spr_bitmap(struct mt7996_phy *phy,
 		__le16 tag;
 		__le16 len;
 
-		__le32 color_l[2];
-		__le32 color_h[2];
-		__le32 bssid_l[2];
-		__le32 bssid_h[2];
+		struct {
+			__le32 color_l;
+			__le32 color_h;
+			__le32 bssid_l;
+			__le32 bssid_h;
+		} __packed spr_bitmap[__MT_MAX_BAND];
 	} __packed req = {
 		.band_idx = phy->mt76->band_idx,
 		.tag = cpu_to_le16(UNI_CMD_SR_SET_SRG_BITMAP),
@@ -5596,16 +5598,16 @@ mt7996_mcu_set_obss_spr_bitmap(struct mt7996_phy *phy,
 	u32 bitmap;
 
 	memcpy(&bitmap, he_obss_pd->bss_color_bitmap, sizeof(bitmap));
-	req.color_l[req.band_idx] = cpu_to_le32(bitmap);
+	req.spr_bitmap[req.band_idx].color_l = cpu_to_le32(bitmap);
 
 	memcpy(&bitmap, he_obss_pd->bss_color_bitmap + 4, sizeof(bitmap));
-	req.color_h[req.band_idx] = cpu_to_le32(bitmap);
+	req.spr_bitmap[req.band_idx].color_h = cpu_to_le32(bitmap);
 
 	memcpy(&bitmap, he_obss_pd->partial_bssid_bitmap, sizeof(bitmap));
-	req.bssid_l[req.band_idx] = cpu_to_le32(bitmap);
+	req.spr_bitmap[req.band_idx].bssid_l = cpu_to_le32(bitmap);
 
 	memcpy(&bitmap, he_obss_pd->partial_bssid_bitmap + 4, sizeof(bitmap));
-	req.bssid_h[req.band_idx] = cpu_to_le32(bitmap);
+	req.spr_bitmap[req.band_idx].bssid_h = cpu_to_le32(bitmap);
 
 	return mt76_mcu_send_msg(&dev->mt76, MCU_WM_UNI_CMD(SR), &req,
 				 sizeof(req), true);
