@@ -3171,7 +3171,9 @@ static void mt7996_sta_statistics(struct ieee80211_hw *hw,
 {
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	u32 tx_failed = 0, tx_retries = 0;
 	struct mt7996_sta_link *msta_link;
+	unsigned int link_id;
 
 	rcu_read_lock();
 
@@ -3182,10 +3184,21 @@ static void mt7996_sta_statistics(struct ieee80211_hw *hw,
 	if (mt7996_wcid_txrate_get(&msta_link->wcid, &sinfo->txrate))
 		sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_BITRATE);
 
-	sinfo->tx_failed = msta_link->wcid.stats.tx_failed;
+	/* a TX free names the wcid of the TXD, one of the PEER_MLD pair */
+	for (link_id = 0; link_id < ARRAY_SIZE(msta->link); link_id++) {
+		struct mt7996_sta_link *iter = mt7996_sta_link(msta, link_id);
+
+		if (!iter)
+			continue;
+
+		tx_failed += iter->wcid.stats.tx_failed;
+		tx_retries += iter->wcid.stats.tx_retries;
+	}
+
+	sinfo->tx_failed = tx_failed;
 	sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_FAILED);
 
-	sinfo->tx_retries = msta_link->wcid.stats.tx_retries;
+	sinfo->tx_retries = tx_retries;
 	sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_RETRIES);
 
 	sinfo->ack_signal = (s8)msta_link->ack_signal;
@@ -3667,15 +3680,16 @@ static void mt7996_ethtool_worker(void *wi_data, struct ieee80211_sta *sta)
 	struct mt76_ethtool_worker_info *wi = wi_data;
 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
 	struct mt7996_sta_link *msta_link;
+	unsigned int link_id;
 
 	if (msta->vif->deflink.mt76.idx != wi->idx)
 		return;
 
-	msta_link = mt7996_sta_link(msta, msta->deflink_id);
-	if (!msta_link)
-		return;
-
-	mt76_ethtool_worker(wi, &msta_link->wcid.stats, true);
+	for (link_id = 0; link_id < ARRAY_SIZE(msta->link); link_id++) {
+		msta_link = mt7996_sta_link(msta, link_id);
+		if (msta_link)
+			mt76_ethtool_worker(wi, &msta_link->wcid.stats, true);
+	}
 }
 
 static
