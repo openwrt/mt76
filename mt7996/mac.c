@@ -1134,21 +1134,6 @@ void mt7996_tx_link_addr_set(struct ieee80211_vif *vif,
 	}
 }
 
-static bool
-mt7996_tx_is_link_null(struct ieee80211_sta *sta, struct sk_buff *skb)
-{
-	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-
-	if (info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP)
-		return false;
-
-	if (!sta || !sta->mlo)
-		return false;
-
-	return ieee80211_is_any_nullfunc(hdr->frame_control);
-}
-
 /* mt76_txq_schedule_pending_wcid() keeps a bufferable MMPDU other than a
  * Deauthentication, and the Null frame of an AP, on its AC queue, where the
  * firmware can pick an awake link without MT_TXD5_FL. A negotiated TTLM
@@ -1212,7 +1197,7 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	bool is_8023 = info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP;
 	__le32 *ptr = (__le32 *)txwi_ptr;
 	u8 *txwi = (u8 *)txwi_ptr;
-	bool host_txd, link_null, any_link;
+	bool host_txd, fixed_link, any_link;
 	int tid = -1;
 	u8 link_id;
 
@@ -1222,29 +1207,28 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	if (!wcid)
 		wcid = &dev->mt76.global_wcid;
 
-	/* this frame stays on one link, unless it can leave on any link */
-	link_null = mt7996_tx_is_link_null(sta, tx_info->skb);
+	/* mac80211 does not set the MLO link of an 802.3 frame */
+	if (is_8023)
+		link_id = IEEE80211_LINK_UNSPECIFIED;
+	else
+		link_id = u32_get_bits(info->control.flags,
+				       IEEE80211_TX_CTRL_MLO_LINK);
+
+	fixed_link = link_id != IEEE80211_LINK_UNSPECIFIED && sta && sta->mlo;
+	any_link = link_id == IEEE80211_LINK_UNSPECIFIED &&
+		   mt7996_tx_any_link(vif, sta, tx_info->skb);
 
 	if ((is_8023 || ieee80211_is_data_qos(hdr->frame_control)) && sta && sta->mlo &&
-	    !link_null &&
+	    link_id == IEEE80211_LINK_UNSPECIFIED && !any_link &&
 	    likely(tx_info->skb->protocol != cpu_to_be16(ETH_P_PAE))) {
 		tid = tx_info->skb->priority & IEEE80211_QOS_CTL_TID_MASK;
 		link_id = (tid % 2) ? msta->seclink_id : msta->deflink_id;
-	} else if (is_8023) {
-		/* mac80211 does not set the MLO link of an 802.3 frame */
-		link_id = IEEE80211_LINK_UNSPECIFIED;
-	} else {
-		link_id = u32_get_bits(info->control.flags,
-				       IEEE80211_TX_CTRL_MLO_LINK);
-		if (link_id == IEEE80211_LINK_UNSPECIFIED && msta &&
-		    tx_info->skb->protocol == cpu_to_be16(ETH_P_PAE))
-			link_id = mt7996_sta_tx_enabled_link_get(msta,
-					wcid->link_id,
-					skb_get_queue_mapping(tx_info->skb));
+	} else if (link_id == IEEE80211_LINK_UNSPECIFIED && msta && !is_8023 &&
+		   tx_info->skb->protocol == cpu_to_be16(ETH_P_PAE)) {
+		link_id = mt7996_sta_tx_enabled_link_get(msta, wcid->link_id,
+							 skb_get_queue_mapping(tx_info->skb));
 	}
 
-	any_link = link_id == IEEE80211_LINK_UNSPECIFIED &&
-		   mt7996_tx_any_link(vif, sta, tx_info->skb);
 	if (any_link && qid >= MT_TXQ_PSD) {
 		u8 deflink_id = msta->deflink_id;
 
@@ -1267,6 +1251,7 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 						   tx_info->buf[1].len,
 						   DMA_TO_DEVICE);
 		}
+		fixed_link = true;
 		any_link = false;
 	}
 
@@ -1364,7 +1349,7 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 		mt7996_mac_write_txwi(dev, txwi_ptr, tx_info->skb, wcid, key,
 				      pid, qid, 0, link_id);
 
-	if (link_null)
+	if (fixed_link)
 		ptr[5] |= cpu_to_le32(MT_TXD5_FL);
 	if (any_link)
 		ptr[5] &= ~cpu_to_le32(MT_TXD5_FL);
