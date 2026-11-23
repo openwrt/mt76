@@ -1893,6 +1893,19 @@ __mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			struct mt7996_vif_link *link, bool enabled,
 			u16 strip_links);
 
+/* a link whose TX the removal stopped, or is due to stop, stays off until it
+ * goes. The other links leave its Reduced Neighbor Report entries out, and
+ * its profile, since the firmware after a full reset holds no timer for it.
+ */
+static u16
+mt7996_mcu_beacon_reconf_stopped(struct mt7996_dev *dev,
+				 struct mt7996_vif *mvif)
+{
+	lockdep_assert_held(&dev->mt76.lock);
+
+	return mvif->reconf_done_links | mvif->reconf_stop_links;
+}
+
 struct mt7996_mld_reconf_sta_data {
 	struct mt7996_dev *dev;
 	struct mt7996_vif *mvif;
@@ -1928,8 +1941,8 @@ mt7996_mcu_mld_reconf_tx_stop(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		.links = links,
 	};
 	struct ieee80211_hw *hw = mt76_hw(dev);
+	u16 stopped, attlm_stopped;
 	unsigned int link_id;
-	u16 attlm_stopped;
 
 	mutex_lock(&dev->mt76.mutex);
 	/* a full reset drops the links until the restart adds them again */
@@ -1940,6 +1953,7 @@ mt7996_mcu_mld_reconf_tx_stop(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 
 	spin_lock_bh(&dev->mt76.lock);
 	mvif->reconf_done_links |= links;
+	stopped = mt7996_mcu_beacon_reconf_stopped(dev, mvif);
 	attlm_stopped = mvif->attlm_stop_links;
 	spin_unlock_bh(&dev->mt76.lock);
 
@@ -1957,7 +1971,7 @@ mt7996_mcu_mld_reconf_tx_stop(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		struct ieee80211_bss_conf *link_conf;
 		struct mt7996_vif_link *link;
 
-		if ((links | attlm_stopped) & BIT(link_id))
+		if ((stopped | attlm_stopped) & BIT(link_id))
 			continue;
 
 		link_conf = link_conf_dereference_protected(vif, link_id);
@@ -1965,7 +1979,7 @@ mt7996_mcu_mld_reconf_tx_stop(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		if (link_conf && link && link_conf->enable_beacon &&
 		    !link_conf->nontransmitted)
 			__mt7996_mcu_add_beacon(hw, vif, link_conf, link, true,
-						links);
+						stopped);
 	}
 	mt7996_mcu_mld_reconf_stop_link(dev, vif, links);
 	mutex_unlock(&dev->mt76.mutex);
@@ -6946,13 +6960,8 @@ int mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	if (enabled)
 		mt7996_mcu_beacon_cntdwn_record(hw, vif, link_conf);
 
-	/* a link whose TX the removal stopped, or is due to stop, stays off
-	 * until it goes. The other links leave its Reduced Neighbor Report
-	 * entries out, and its profile, since the firmware after a full reset
-	 * holds no timer for it.
-	 */
 	spin_lock_bh(&dev->mt76.lock);
-	stopped = mvif->reconf_done_links | mvif->reconf_stop_links;
+	stopped = mt7996_mcu_beacon_reconf_stopped(dev, mvif);
 	attlm_stopped = mvif->attlm_stop_links;
 	spin_unlock_bh(&dev->mt76.lock);
 
