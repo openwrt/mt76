@@ -2105,12 +2105,12 @@ mt7996_mac_sta_rec_finish(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	if (!link)
 		return -ENOLINK;
 
-	err = mt7996_mcu_sta_rec_check(dev, link, msta_link);
-	if (err)
-		return err == -ENOENT ? 0 : err;
-
 	if (sta->mlo) {
 		struct mt7996_vif_link *off_link = link;
+
+		err = mt7996_mcu_sta_rec_check(dev, link, msta_link);
+		if (err)
+			return err == -ENOENT ? 0 : err;
 
 		/* the BSS of a removed link can have left its MLD group, and
 		 * an MLD_OFF that names such a BSS skips the hardware reset
