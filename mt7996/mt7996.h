@@ -1181,13 +1181,11 @@ void mt7996_mac_cca_stats_reset(struct mt7996_phy *phy);
 void mt7996_mac_enable_nf(struct mt7996_dev *dev, u8 band);
 struct mt76_wcid *mt7996_get_tx_wcid(struct mt76_wcid *wcid);
 u8 mt7996_sta_tx_enabled_link_get(struct mt7996_sta *msta, u8 link_id, u8 ac);
-bool mt7996_tx_mgmt_any_link(struct ieee80211_vif *vif,
-			     struct ieee80211_sta *sta, struct sk_buff *skb);
 void mt7996_mac_write_txwi(struct mt7996_dev *dev, __le32 *txwi,
 			   struct sk_buff *skb, struct mt76_wcid *wcid,
 			   struct ieee80211_key_conf *key, int pid,
 			   enum mt76_txq_id qid, u32 changed,
-			   unsigned int link_id);
+			   unsigned int link_id, bool fixed_link);
 void mt7996_mac_update_beacons(struct mt7996_phy *phy);
 void mt7996_mac_set_coverage_class(struct mt7996_phy *phy);
 void mt7996_mac_work(struct work_struct *work);

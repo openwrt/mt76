@@ -701,7 +701,7 @@ static void
 mt7996_mac_write_txwi_80211(struct mt7996_dev *dev, __le32 *txwi,
 			    struct sk_buff *skb,
 			    struct ieee80211_key_conf *key,
-			    struct mt76_wcid *wcid)
+			    struct mt76_wcid *wcid, bool fixed_link)
 {
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
 	struct ieee80211_mgmt *mgmt = (struct ieee80211_mgmt *)skb->data;
@@ -792,9 +792,7 @@ mt7996_mac_write_txwi_80211(struct mt7996_dev *dev, __le32 *txwi,
 		txwi[3] &= ~cpu_to_le32(MT_TXD3_HW_AMSDU);
 	}
 
-	if (vif && ieee80211_vif_is_mld(vif) &&
-	    (multicast || unlikely(skb->protocol == cpu_to_be16(ETH_P_PAE)) ||
-	     (ieee80211_is_mgmt(fc) && wcid->sta)))
+	if (fixed_link || (multicast && vif && ieee80211_vif_is_mld(vif)))
 		txwi[5] |= cpu_to_le32(MT_TXD5_FL);
 
 	if (ieee80211_is_nullfunc(fc) && ieee80211_has_a4(fc) &&
@@ -969,7 +967,7 @@ void mt7996_mac_write_txwi(struct mt7996_dev *dev, __le32 *txwi,
 			   struct sk_buff *skb, struct mt76_wcid *wcid,
 			   struct ieee80211_key_conf *key, int pid,
 			   enum mt76_txq_id qid, u32 changed,
-			   unsigned int link_id)
+			   unsigned int link_id, bool fixed_link)
 {
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
@@ -1060,7 +1058,8 @@ void mt7996_mac_write_txwi(struct mt7996_dev *dev, __le32 *txwi,
 	if (is_8023)
 		mt7996_mac_write_txwi_8023(dev, txwi, skb, wcid);
 	else
-		mt7996_mac_write_txwi_80211(dev, txwi, skb, key, wcid);
+		mt7996_mac_write_txwi_80211(dev, txwi, skb, key, wcid,
+					    fixed_link);
 
 	if (txwi[1] & cpu_to_le32(MT_TXD1_FIXED_RATE)) {
 		bool mcast = ieee80211_is_data(hdr->frame_control) &&
@@ -1105,30 +1104,57 @@ mt7996_tx_use_mgmt(struct mt7996_dev *dev, struct sk_buff *skb)
 	return false;
 }
 
-/* mt76_txq_schedule_pending_wcid() keeps a bufferable MMPDU other than a
- * Deauthentication on its AC queue, where the firmware can pick an awake
- * link without MT_TXD5_FL. A negotiated TTLM leaves the link to the driver.
+/* The hardware address translation does not suit EAPOL frames: they take the
+ * link addresses in A1 and A2 and keep the MLD addresses in A3 and A4.
  */
-bool mt7996_tx_mgmt_any_link(struct ieee80211_vif *vif,
-			     struct ieee80211_sta *sta, struct sk_buff *skb)
+static bool
+mt7996_tx_link_addr_set(struct mt76_dev *mdev, struct mt76_tx_info *tx_info,
+			struct ieee80211_vif *vif, struct ieee80211_sta *sta,
+			u8 link_id, bool eapol)
 {
-	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	struct mt7996_sta *msta;
+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)tx_info->skb->data;
+	struct ieee80211_link_sta *link_sta = NULL;
+	struct ieee80211_bss_conf *link_conf;
 
-	if (!vif || vif->type != NL80211_IFTYPE_AP || !sta || !sta->mlo)
+	if (link_id >= IEEE80211_MLD_MAX_NUM_LINKS)
 		return false;
 
-	if (info->flags & (IEEE80211_TX_CTL_HW_80211_ENCAP |
-			   IEEE80211_TX_CTL_TX_OFFCHAN))
+	link_conf = rcu_dereference(vif->link_conf[link_id]);
+	if (sta)
+		link_sta = rcu_dereference(sta->link[link_id]);
+	if (eapol && (!link_conf || !link_sta))
 		return false;
 
-	if (!ieee80211_is_bufferable_mmpdu(skb) ||
-	    ieee80211_is_deauth(hdr->frame_control))
-		return false;
+	dma_sync_single_for_cpu(mdev->dma_dev, tx_info->buf[1].addr,
+				tx_info->buf[1].len, DMA_TO_DEVICE);
 
-	msta = (struct mt7996_sta *)sta->drv_priv;
-	return !READ_ONCE(msta->neg_ttlm.valid);
+	if (link_sta) {
+		memcpy(hdr->addr1, link_sta->addr, ETH_ALEN);
+		if (!eapol && ether_addr_equal(sta->addr, hdr->addr3))
+			memcpy(hdr->addr3, link_sta->addr, ETH_ALEN);
+	}
+
+	if (link_conf) {
+		memcpy(hdr->addr2, link_conf->addr, ETH_ALEN);
+		if (!eapol && ether_addr_equal(vif->addr, hdr->addr3))
+			memcpy(hdr->addr3, link_conf->addr, ETH_ALEN);
+	}
+
+	if (eapol) {
+		if (ieee80211_has_a4(hdr->frame_control)) {
+			memcpy(hdr->addr3, sta->addr, ETH_ALEN);
+			memcpy(hdr->addr4, vif->addr, ETH_ALEN);
+		} else if (ieee80211_has_tods(hdr->frame_control)) {
+			memcpy(hdr->addr3, sta->addr, ETH_ALEN);
+		} else if (ieee80211_has_fromds(hdr->frame_control)) {
+			memcpy(hdr->addr3, vif->addr, ETH_ALEN);
+		}
+	}
+
+	dma_sync_single_for_device(mdev->dma_dev, tx_info->buf[1].addr,
+				   tx_info->buf[1].len, DMA_TO_DEVICE);
+
+	return true;
 }
 
 /* The firmware stops the group frames of the BSS of an advertised TTLM
@@ -1166,7 +1192,10 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	bool is_8023 = info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP;
 	__le32 *ptr = (__le32 *)txwi_ptr;
 	u8 *txwi = (u8 *)txwi_ptr;
-	bool host_txd, fixed_link, any_link;
+	bool pae = tx_info->skb->protocol == cpu_to_be16(ETH_P_PAE);
+	bool host_txd, fixed_link = false, link_addr = false;
+	bool mld_peer = sta && sta->mlo;
+	bool eapol = mld_peer && pae && !is_8023;
 	int tid = -1;
 	u8 link_id;
 
@@ -1183,33 +1212,34 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 		link_id = u32_get_bits(info->control.flags,
 				       IEEE80211_TX_CTRL_MLO_LINK);
 
-	fixed_link = link_id != IEEE80211_LINK_UNSPECIFIED && sta && sta->mlo;
-	any_link = link_id == IEEE80211_LINK_UNSPECIFIED &&
-		   mt7996_tx_mgmt_any_link(vif, sta, tx_info->skb);
-
-	if ((is_8023 || ieee80211_is_data_qos(hdr->frame_control)) && sta && sta->mlo &&
-	    link_id == IEEE80211_LINK_UNSPECIFIED && !any_link &&
-	    likely(tx_info->skb->protocol != cpu_to_be16(ETH_P_PAE))) {
+	if (link_id != IEEE80211_LINK_UNSPECIFIED) {
+		fixed_link = mld_peer;
+	} else if (mld_peer && likely(!pae) &&
+		   (is_8023 || (ieee80211_is_data_qos(hdr->frame_control) &&
+				ieee80211_is_data_present(hdr->frame_control)))) {
 		tid = tx_info->skb->priority & IEEE80211_QOS_CTL_TID_MASK;
 		link_id = (tid % 2) ? msta->seclink_id : msta->deflink_id;
-	} else if (link_id == IEEE80211_LINK_UNSPECIFIED && msta && !is_8023 &&
-		   tx_info->skb->protocol == cpu_to_be16(ETH_P_PAE)) {
+	} else if (msta && pae && !is_8023) {
 		link_id = mt7996_sta_tx_enabled_link_get(msta, wcid->link_id,
 							 skb_get_queue_mapping(tx_info->skb));
-	}
-
-	if (any_link && qid >= MT_TXQ_PSD) {
-		/* ALTX disables the address translation: keep the link of
-		 * the header that mt7996_tx() wrote
+		fixed_link = mld_peer;
+	} else if (mld_peer && !is_8023) {
+		/* the link that mt7996_tx() took for a frame without data
+		 * under a negotiated TTLM, or for the ALTX queue, which
+		 * disables the address translation
 		 */
-		link_id = mt7996_sta_tx_enabled_link_get(msta, msta->deflink_id,
-							 skb_get_queue_mapping(tx_info->skb));
-		fixed_link = true;
-		any_link = false;
+		fixed_link = qid >= MT_TXQ_PSD ||
+			     (READ_ONCE(msta->neg_ttlm.valid) &&
+			      !ieee80211_is_data_present(hdr->frame_control));
 	}
 
-	/* non-MLD frames and frames for any MLO link are LINK_UNSPECIFIED;
-	 * use the wcid's own link
+	if (vif && ieee80211_vif_is_mld(vif) && !is_8023 && !wcid->offchannel)
+		link_addr = eapol || qid >= MT_TXQ_PSD ||
+			    (!mld_peer &&
+			     !ieee80211_is_data_present(hdr->frame_control));
+
+	/* a frame without a link takes the link of the wcid that it was
+	 * queued under
 	 */
 	if (link_id == IEEE80211_LINK_UNSPECIFIED &&
 	    wcid != &dev->mt76.global_wcid)
@@ -1252,40 +1282,10 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	if (id < 0)
 		return id;
 
-	/* Since the rules of HW MLD address translation are not fully
-	 * compatible with 802.11 EAPOL frame, we do the translation by
-	 * software
-	 */
-	if (sta && tx_info->skb->protocol == cpu_to_be16(ETH_P_PAE) && sta->mlo) {
-		struct ieee80211_hdr *hdr = (void *)tx_info->skb->data;
-		struct ieee80211_bss_conf *link_conf;
-		struct ieee80211_link_sta *link_sta;
-
-		link_conf = rcu_dereference(vif->link_conf[wcid->link_id]);
-		if (!link_conf)
-			goto error_release_token;
-
-		link_sta = rcu_dereference(sta->link[wcid->link_id]);
-		if (!link_sta)
-			goto error_release_token;
-
-		dma_sync_single_for_cpu(mdev->dma_dev, tx_info->buf[1].addr,
-					tx_info->buf[1].len, DMA_TO_DEVICE);
-
-		memcpy(hdr->addr1, link_sta->addr, ETH_ALEN);
-		memcpy(hdr->addr2, link_conf->addr, ETH_ALEN);
-		if (ieee80211_has_a4(hdr->frame_control)) {
-			memcpy(hdr->addr3, sta->addr, ETH_ALEN);
-			memcpy(hdr->addr4, vif->addr, ETH_ALEN);
-		} else if (ieee80211_has_tods(hdr->frame_control)) {
-			memcpy(hdr->addr3, sta->addr, ETH_ALEN);
-		} else if (ieee80211_has_fromds(hdr->frame_control)) {
-			memcpy(hdr->addr3, vif->addr, ETH_ALEN);
-		}
-
-		dma_sync_single_for_device(mdev->dma_dev, tx_info->buf[1].addr,
-					   tx_info->buf[1].len, DMA_TO_DEVICE);
-	}
+	if (link_addr &&
+	    !mt7996_tx_link_addr_set(mdev, tx_info, vif, sta, link_id, eapol) &&
+	    eapol)
+		goto error_release_token;
 
 	wcid = tx_wcid;
 
@@ -1300,12 +1300,7 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	host_txd |= pid >= MT_PACKET_ID_FIRST;
 	if (host_txd)
 		mt7996_mac_write_txwi(dev, txwi_ptr, tx_info->skb, wcid, key,
-				      pid, qid, 0, link_id);
-
-	if (fixed_link)
-		ptr[5] |= cpu_to_le32(MT_TXD5_FL);
-	if (any_link)
-		ptr[5] &= ~cpu_to_le32(MT_TXD5_FL);
+				      pid, qid, 0, link_id, fixed_link);
 
 	/* MT7996 and MT7992 require driver to provide the MAC TXP for AddBA
 	 * req

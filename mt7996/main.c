@@ -2814,7 +2814,6 @@ static void mt7996_tx(struct ieee80211_hw *hw,
 		      struct ieee80211_tx_control *control,
 		      struct sk_buff *skb)
 {
-	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
 	struct ieee80211_sta *sta = control->sta;
 	struct mt7996_sta *msta = sta ? (void *)sta->drv_priv : NULL;
@@ -2843,39 +2842,9 @@ static void mt7996_tx(struct ieee80211_hw *hw,
 	 */
 	if (link_id == IEEE80211_LINK_UNSPECIFIED) {
 		link_id = deflink_id;
-		/* mt7996_get_tx_wcid() can move a station wcid off this link */
 		if (msta)
 			link_id = mt7996_sta_tx_enabled_link_get(msta, link_id,
 								 skb_get_queue_mapping(skb));
-		if (msta && !mt7996_tx_mgmt_any_link(vif, sta, skb))
-			u32p_replace_bits(&info->control.flags, link_id,
-					  IEEE80211_TX_CTRL_MLO_LINK);
-	}
-
-	if (vif && ieee80211_vif_is_mld(vif) &&
-	    !(info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP)) {
-		struct ieee80211_bss_conf *link_conf;
-
-		if (msta) {
-			struct ieee80211_link_sta *link_sta;
-
-			link_sta = rcu_dereference(sta->link[link_id]);
-			if (!link_sta)
-				link_sta = rcu_dereference(sta->link[deflink_id]);
-
-			if (link_sta) {
-				memcpy(hdr->addr1, link_sta->addr, ETH_ALEN);
-				if (ether_addr_equal(sta->addr, hdr->addr3))
-					memcpy(hdr->addr3, link_sta->addr, ETH_ALEN);
-			}
-		}
-
-		link_conf = rcu_dereference(vif->link_conf[link_id]);
-		if (link_conf) {
-			memcpy(hdr->addr2, link_conf->addr, ETH_ALEN);
-			if (ether_addr_equal(vif->addr, hdr->addr3))
-				memcpy(hdr->addr3, link_conf->addr, ETH_ALEN);
-		}
 	}
 
 	if (mvif) {
@@ -2909,7 +2878,11 @@ static void mt7996_tx(struct ieee80211_hw *hw,
 		if (msta_link)
 			wcid = &msta_link->wcid;
 	}
-	mt76_tx(mphy, control->sta, mt7996_get_tx_wcid(wcid), skb);
+	/* the wcid names the link of the frame to mt7996_tx_prepare_skb(),
+	 * which moves the TXD to the PEER_MLD pair; a pair link can be one
+	 * that mac80211 removed
+	 */
+	mt76_tx(mphy, control->sta, wcid, skb);
 unlock:
 	rcu_read_unlock();
 }

@@ -6864,7 +6864,7 @@ mt7996_mcu_beacon_cont(struct mt7996_dev *dev,
 
 	buf = (u8 *)bcn + sizeof(*bcn);
 	mt7996_mac_write_txwi(dev, (__le32 *)buf, skb, wcid, NULL, 0, 0,
-			      BSS_CHANGED_BEACON, link_conf->link_id);
+			      BSS_CHANGED_BEACON, link_conf->link_id, false);
 
 	memcpy(buf + MT_TXD_SIZE, skb->data, skb->len);
 }
@@ -7336,7 +7336,7 @@ int mt7996_mcu_beacon_inband_discov(struct mt7996_dev *dev,
 	buf = (u8 *)tlv + sizeof(*discov);
 
 	mt7996_mac_write_txwi(dev, (__le32 *)buf, skb, wcid, NULL, 0, 0,
-			      changed, link_conf->link_id);
+			      changed, link_conf->link_id, false);
 
 	memcpy(buf + MT_TXD_SIZE, skb->data, skb->len);
 
