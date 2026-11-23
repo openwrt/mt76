@@ -2234,6 +2234,23 @@ mt7996_mac_sta_link_ps_leave(struct mt7996_dev *dev,
 }
 
 static void
+mt7996_mac_sta_links_ps_leave(struct mt7996_dev *dev, struct ieee80211_vif *vif,
+			      struct ieee80211_sta *sta, unsigned long links)
+{
+	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	unsigned int link_id;
+
+	for_each_set_bit(link_id, &links, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct mt7996_sta_link *msta_link;
+		struct mt7996_vif_link *link;
+
+		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
+		link = mt7996_vif_link(dev, vif, link_id);
+		mt7996_mac_sta_link_ps_leave(dev, link, msta_link);
+	}
+}
+
+static void
 mt7996_mac_sta_clear_connected(struct mt7996_dev *dev, struct mt7996_sta *msta)
 {
 	unsigned int link_id;
@@ -2303,6 +2320,12 @@ mt7996_mac_sta_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	switch (ev) {
 	case MT76_STA_EVENT_ASSOC:
 		msta->conn_state = CONN_STATE_CONNECT;
+		/* a hardware restart replays the association with no
+		 * sta_set_4addr, and the last CONNECT put the links other
+		 * than the setup link into power save again
+		 */
+		mt7996_mac_sta_links_ps_leave(dev, vif, sta,
+					      mt7996_mac_sta_links(dev, vif, sta));
 		/* the firmware of a hardware restart lost the mapping */
 		if (sta->mlo && msta->neg_ttlm.valid)
 			mt7996_mcu_peer_mld_ttlm_req(dev, vif, sta,
@@ -2504,14 +2527,7 @@ mt7996_mac_sta_links_sync(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	}
 
 	joined = new_links | resumed;
-	for_each_set_bit(link_id, &joined, IEEE80211_MLD_MAX_NUM_LINKS) {
-		struct mt7996_sta_link *msta_link;
-		struct mt7996_vif_link *link;
-
-		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
-		link = mt7996_vif_link(dev, vif, link_id);
-		mt7996_mac_sta_link_ps_leave(dev, link, msta_link);
-	}
+	mt7996_mac_sta_links_ps_leave(dev, vif, sta, joined);
 
 	/* a link list without a removed link stalls the remaining links */
 	updated = sta->mlo && joined ? links & ~updated : 0;
