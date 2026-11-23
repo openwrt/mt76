@@ -1979,8 +1979,8 @@ mt7925_mcu_sta_eht_tlv(struct sk_buff *skb, struct ieee80211_link_sta *link_sta)
 
 	eht = (struct sta_rec_eht *)tlv;
 	eht->tid_bitmap = 0xff;
-	eht->mac_cap = cpu_to_le16(*(u16 *)elem->mac_cap_info);
-	eht->phy_cap = cpu_to_le64(*(u64 *)elem->phy_cap_info);
+	eht->mac_cap = cpu_to_le16(get_unaligned_le16(elem->mac_cap_info));
+	eht->phy_cap = cpu_to_le64(get_unaligned_le64(elem->phy_cap_info));
 	eht->phy_cap_ext = cpu_to_le64(elem->phy_cap_info[8]);
 
 	if (link_sta->bandwidth == IEEE80211_STA_RX_BW_20)
