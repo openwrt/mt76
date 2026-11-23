@@ -9338,9 +9338,13 @@ int mt7996_mcu_rdd_resume_tx(struct mt7996_phy *phy)
 	if (rdd_idx < 0)
 		return -EINVAL;
 
+	/* clear before the send: a match reported during the round trip
+	 * stops the TX again and must keep its mark
+	 */
+	phy->rdd_tx_paused = false;
 	ret = mt7996_mcu_rdd_cmd(phy->dev, RDD_START_TXQ, rdd_idx, 0);
-	if (!ret)
-		phy->rdd_tx_paused = false;
+	if (ret)
+		phy->rdd_tx_paused = true;
 
 	return ret;
 }
