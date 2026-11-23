@@ -3913,11 +3913,15 @@ mt7996_twt_teardown_request(struct ieee80211_hw *hw,
 {
 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
 	struct mt7996_sta_link *msta_link = &msta->deflink;
-	struct mt7996_vif_link *link = &msta->vif->deflink;
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
+	struct mt7996_vif_link *link;
+	struct ieee80211_vif *vif;
 
+	vif = container_of((void *)msta->vif, struct ieee80211_vif, drv_priv);
 	mutex_lock(&dev->mt76.mutex);
-	mt7996_mac_twt_teardown_flow(dev, link, msta_link, flowid);
+	link = mt7996_vif_link(dev, vif, msta_link->wcid.link_id);
+	if (link && mt7996_vif_link_phy(link))
+		mt7996_mac_twt_teardown_flow(dev, link, msta_link, flowid);
 	mutex_unlock(&dev->mt76.mutex);
 }
 

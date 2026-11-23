@@ -3698,6 +3698,8 @@ void mt7996_mac_add_twt_setup(struct ieee80211_hw *hw,
 	enum ieee80211_twt_setup_cmd sta_setup_cmd;
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
 	struct mt7996_twt_flow *flow;
+	struct mt7996_vif_link *link;
+	struct ieee80211_vif *vif;
 	u8 flowid, table_id, exp;
 
 	/* the firmware does not support iTWT agreements with MLD peers, and
@@ -3709,7 +3711,12 @@ void mt7996_mac_add_twt_setup(struct ieee80211_hw *hw,
 	if (mt7996_mac_check_twt_req(twt))
 		goto out;
 
+	vif = container_of((void *)msta->vif, struct ieee80211_vif, drv_priv);
 	mutex_lock(&dev->mt76.mutex);
+
+	link = mt7996_vif_link(dev, vif, msta_link->wcid.link_id);
+	if (!link || !mt7996_vif_link_phy(link))
+		goto unlock;
 
 	if (dev->twt.n_agrt == MT7996_MAX_TWT_AGRT)
 		goto unlock;
@@ -3756,7 +3763,7 @@ void mt7996_mac_add_twt_setup(struct ieee80211_hw *hw,
 
 		flow->sched = true;
 		flow->start_tsf = mt7996_mac_twt_sched_list_add(dev, flow);
-		curr_tsf = __mt7996_get_tsf(hw, &msta->vif->deflink);
+		curr_tsf = __mt7996_get_tsf(hw, link);
 		div64_u64_rem(curr_tsf - flow->start_tsf, interval, &rem);
 		flow_tsf = curr_tsf + interval - rem;
 		twt_agrt->twt = cpu_to_le64(flow_tsf);
@@ -3768,8 +3775,7 @@ void mt7996_mac_add_twt_setup(struct ieee80211_hw *hw,
 	/* the firmware gates the air time from the add on */
 	WRITE_ONCE(msta_link->twt.flowid_mask,
 		   msta_link->twt.flowid_mask | BIT(flowid));
-	if (mt7996_mcu_twt_agrt_update(dev, &msta->vif->deflink, flow,
-				       MCU_TWT_AGRT_ADD)) {
+	if (mt7996_mcu_twt_agrt_update(dev, link, flow, MCU_TWT_AGRT_ADD)) {
 		WRITE_ONCE(msta_link->twt.flowid_mask,
 			   msta_link->twt.flowid_mask & ~BIT(flowid));
 		list_del(&flow->list);
