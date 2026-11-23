@@ -355,6 +355,13 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 		status->flag |= RX_FLAG_MMIC_STRIPPED | RX_FLAG_MIC_STRIPPED;
 	}
 
+	/* the hardware reads the PN of a protected Action frame as category
+	 * and action, and WM forwards a match with a beamforming report
+	 */
+	status->misrouted = q == MT_RXQ_MCU &&
+			    (rxd2 & MT_RXD2_NORMAL_BF_REPORT) &&
+			    (status->flag & RX_FLAG_DECRYPTED);
+
 	remove_pad = FIELD_GET(MT_RXD2_NORMAL_HDR_OFFSET, rxd2);
 
 	if (rxd2 & MT_RXD2_NORMAL_MAX_LEN_ERROR)

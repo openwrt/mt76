@@ -923,7 +923,8 @@ struct mt7915_dev *mt7915_mmio_probe(struct device *pdev,
 		.drv_flags = MT_DRV_TXWI_NO_FREE | MT_DRV_HW_MGMT_TXQ |
 			     MT_DRV_AMSDU_OFFLOAD |
 			     MT_DRV_HW_PS_BUFFERING |
-			     MT_DRV_TX_INFLIGHT_LIMIT,
+			     MT_DRV_TX_INFLIGHT_LIMIT |
+			     MT_DRV_RX_MGMT_PN_GAPS,
 		.survey_flags = SURVEY_INFO_TIME_TX |
 				SURVEY_INFO_TIME_RX |
 				SURVEY_INFO_TIME_BSS_RX,
