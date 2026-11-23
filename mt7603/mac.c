@@ -894,10 +894,6 @@ mt7603_mac_get_key_info(struct ieee80211_key_conf *key, u8 *key_data)
 	memcpy(key_data, key->key, key->keylen);
 
 	switch (key->cipher) {
-	case WLAN_CIPHER_SUITE_WEP40:
-		return MT_CIPHER_WEP40;
-	case WLAN_CIPHER_SUITE_WEP104:
-		return MT_CIPHER_WEP104;
 	case WLAN_CIPHER_SUITE_TKIP:
 		/* Rx/Tx MIC keys are swapped */
 		memcpy(key_data + 16, key->key + 24, 8);
@@ -916,18 +912,12 @@ int mt7603_wtbl_set_key(struct mt7603_dev *dev, int wcid,
 	enum mt76_cipher_type cipher;
 	u32 addr = mt7603_wtbl3_addr(wcid);
 	u8 key_data[32];
-	int key_len = sizeof(key_data);
 
 	cipher = mt7603_mac_get_key_info(key, key_data);
 	if (cipher == MT_CIPHER_NONE && key)
 		return -EOPNOTSUPP;
 
-	if (key && (cipher == MT_CIPHER_WEP40 || cipher == MT_CIPHER_WEP104)) {
-		addr += key->keyidx * 16;
-		key_len = 16;
-	}
-
-	mt76_wr_copy(dev, addr, key_data, key_len);
+	mt76_wr_copy(dev, addr, key_data, sizeof(key_data));
 
 	addr = mt7603_wtbl1_addr(wcid);
 	mt76_rmw_field(dev, addr + 2 * 4, MT_WTBL1_W2_KEY_TYPE, cipher);
