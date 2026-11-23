@@ -384,6 +384,7 @@ static void mt7925_mac_link_bss_unwind(struct mt792x_dev *dev,
 	mt76_wcid_cleanup(&dev->mt76, &mlink->wcid);
 	dev->mt76.vif_mask &= ~BIT_ULL(mconf->mt76.idx);
 	mconf->vif->phy->omac_mask &= ~BIT_ULL(mconf->mt76.omac_idx);
+	mt7925_p2p_bmc_remove(dev, mconf);
 }
 
 static int mt7925_mac_link_bss_add(struct mt792x_dev *dev,
@@ -461,7 +462,6 @@ static int mt7925_mac_link_bss_add(struct mt792x_dev *dev,
 	if (ret) {
 		if (mconf != &mvif->bss_conf)
 			mt7925_mac_link_bss_unwind(dev, mconf, mlink);
-		mt7925_p2p_bmc_remove(dev, mconf);
 		goto out;
 	}
 
