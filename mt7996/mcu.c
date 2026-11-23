@@ -176,7 +176,24 @@ mt7996_mcu_set_sta_he_mcs(struct ieee80211_link_sta *link_sta,
 		mcs_map |= mcs << (nss * 2);
 	}
 
+	mcs_map |= GENMASK(15, 2 * max_nss);
+
 	*he_mcs = cpu_to_le16(mcs_map);
+}
+
+static void
+mt7996_mcu_set_sta_eht_mcs(struct ieee80211_link_sta *link_sta,
+			   u8 *eht_mcs, const u8 *mcs_map, int len)
+{
+	int i;
+
+	for (i = 0; i < len; i++) {
+		u8 nss = u8_get_bits(mcs_map[i], IEEE80211_EHT_MCS_NSS_RX);
+
+		nss = min(nss, link_sta->rx_nss);
+		eht_mcs[i] = u8_replace_bits(mcs_map[i], nss,
+					     IEEE80211_EHT_MCS_NSS_RX);
+	}
 }
 
 static void
@@ -2896,14 +2913,21 @@ mt7996_mcu_sta_eht_tlv(struct sk_buff *skb,
 	      IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_40MHZ_80MHZ_IN_5G |
 	      IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_160MHZ_IN_5G |
 	      IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_80PLUS80_MHZ_IN_5G)) == 0) {
-		memcpy(eht->mcs_map_bw20, &mcs_map->only_20mhz,
-		       sizeof(eht->mcs_map_bw20));
+		mt7996_mcu_set_sta_eht_mcs(link_sta, eht->mcs_map_bw20,
+					   (const u8 *)&mcs_map->only_20mhz,
+					   sizeof(eht->mcs_map_bw20));
 		return;
 	}
 
-	memcpy(eht->mcs_map_bw80, &mcs_map->bw._80, sizeof(eht->mcs_map_bw80));
-	memcpy(eht->mcs_map_bw160, &mcs_map->bw._160, sizeof(eht->mcs_map_bw160));
-	memcpy(eht->mcs_map_bw320, &mcs_map->bw._320, sizeof(eht->mcs_map_bw320));
+	mt7996_mcu_set_sta_eht_mcs(link_sta, eht->mcs_map_bw80,
+				   (const u8 *)&mcs_map->bw._80,
+				   sizeof(eht->mcs_map_bw80));
+	mt7996_mcu_set_sta_eht_mcs(link_sta, eht->mcs_map_bw160,
+				   (const u8 *)&mcs_map->bw._160,
+				   sizeof(eht->mcs_map_bw160));
+	mt7996_mcu_set_sta_eht_mcs(link_sta, eht->mcs_map_bw320,
+				   (const u8 *)&mcs_map->bw._320,
+				   sizeof(eht->mcs_map_bw320));
 }
 
 static void
