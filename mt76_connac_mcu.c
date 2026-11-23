@@ -675,7 +675,8 @@ mt76_connac_mcu_sta_amsdu_tlv(struct sk_buff *skb, struct ieee80211_sta *sta,
 #define HE_PHY(p, c)	u8_get_bits(c, IEEE80211_HE_PHY_##p)
 #define HE_MAC(m, c)	u8_get_bits(c, IEEE80211_HE_MAC_##m)
 static void
-mt76_connac_mcu_sta_he_tlv(struct sk_buff *skb, struct ieee80211_sta *sta)
+mt76_connac_mcu_sta_he_tlv(struct sk_buff *skb, struct ieee80211_sta *sta,
+			   bool ldpc)
 {
 	struct ieee80211_sta_he_cap *he_cap = &sta->deflink.he_cap;
 	struct ieee80211_he_cap_elem *elem = &he_cap->he_cap_elem;
@@ -707,7 +708,7 @@ mt76_connac_mcu_sta_he_tlv(struct sk_buff *skb, struct ieee80211_sta *sta)
 	     IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_RU_MAPPING_IN_5G))
 		cap |= STA_REC_HE_CAP_BW20_RU242_SUPPORT;
 
-	if (elem->phy_cap_info[1] &
+	if (ldpc && elem->phy_cap_info[1] &
 	    IEEE80211_HE_PHY_CAP1_LDPC_CODING_IN_PAYLOAD)
 		cap |= STA_REC_HE_CAP_LDPC;
 
@@ -809,7 +810,7 @@ mt76_connac_mcu_sta_he_tlv(struct sk_buff *skb, struct ieee80211_sta *sta)
 
 void
 mt76_connac_mcu_sta_he_tlv_v2(struct sk_buff *skb,
-			      struct ieee80211_link_sta *link_sta)
+			      struct ieee80211_link_sta *link_sta, bool ldpc)
 {
 	struct ieee80211_sta_he_cap *he_cap = &link_sta->he_cap;
 	struct ieee80211_he_cap_elem *elem = &he_cap->he_cap_elem;
@@ -821,6 +822,9 @@ mt76_connac_mcu_sta_he_tlv_v2(struct sk_buff *skb,
 	he = (struct sta_rec_he_v2 *)tlv;
 	memcpy(he->he_phy_cap, elem->phy_cap_info, sizeof(he->he_phy_cap));
 	memcpy(he->he_mac_cap, elem->mac_cap_info, sizeof(he->he_mac_cap));
+
+	if (!ldpc)
+		he->he_phy_cap[1] &= ~IEEE80211_HE_PHY_CAP1_LDPC_CODING_IN_PAYLOAD;
 
 	switch (link_sta->bandwidth) {
 	case IEEE80211_STA_RX_BW_160:
@@ -917,22 +921,30 @@ void mt76_connac_mcu_sta_tlv(struct mt76_phy *mphy, struct sk_buff *skb,
 
 	/* starec ht */
 	if (sta->deflink.ht_cap.ht_supported) {
+		u16 cap = sta->deflink.ht_cap.cap;
 		struct sta_rec_ht *ht;
+
+		if (!mt76_connac_mcu_ht_ldpc(&vif->bss_conf))
+			cap &= ~IEEE80211_HT_CAP_LDPC_CODING;
 
 		tlv = mt76_connac_mcu_add_tlv(skb, STA_REC_HT, sizeof(*ht));
 		ht = (struct sta_rec_ht *)tlv;
-		ht->ht_cap = cpu_to_le16(sta->deflink.ht_cap.cap);
+		ht->ht_cap = cpu_to_le16(cap);
 	}
 
 	/* starec vht */
 	if (sta->deflink.vht_cap.vht_supported) {
+		u32 cap = sta->deflink.vht_cap.cap;
 		struct sta_rec_vht *vht;
 		int len;
+
+		if (!mt76_connac_mcu_vht_ldpc(&vif->bss_conf))
+			cap &= ~IEEE80211_VHT_CAP_RXLDPC;
 
 		len = is_connac2(dev) ? sizeof(*vht) : sizeof(*vht) - 4;
 		tlv = mt76_connac_mcu_add_tlv(skb, STA_REC_VHT, len);
 		vht = (struct sta_rec_vht *)tlv;
-		vht->vht_cap = cpu_to_le32(sta->deflink.vht_cap.cap);
+		vht->vht_cap = cpu_to_le32(cap);
 		vht->vht_rx_mcs_map = sta->deflink.vht_cap.vht_mcs.rx_mcs_map;
 		vht->vht_tx_mcs_map = sta->deflink.vht_cap.vht_mcs.tx_mcs_map;
 	}
@@ -948,8 +960,10 @@ void mt76_connac_mcu_sta_tlv(struct mt76_phy *mphy, struct sk_buff *skb,
 
 	/* starec he */
 	if (sta->deflink.he_cap.has_he) {
-		mt76_connac_mcu_sta_he_tlv(skb, sta);
-		mt76_connac_mcu_sta_he_tlv_v2(skb, &sta->deflink);
+		bool ldpc = mt76_connac_mcu_he_ldpc(&vif->bss_conf);
+
+		mt76_connac_mcu_sta_he_tlv(skb, sta, ldpc);
+		mt76_connac_mcu_sta_he_tlv_v2(skb, &sta->deflink, ldpc);
 		if (band == NL80211_BAND_6GHZ &&
 		    sta_state == MT76_STA_INFO_STATE_ASSOC) {
 			struct sta_rec_he_6g_capa *he_6g_capa;
@@ -1141,7 +1155,8 @@ int mt76_connac_mcu_sta_cmd(struct mt76_phy *phy,
 		if (info->sta)
 			mt76_connac_mcu_wtbl_ht_tlv(dev, skb, info->sta,
 						    sta_wtbl, wtbl_hdr,
-						    true, true);
+						    mt76_connac_mcu_ht_ldpc(info->link_conf),
+						    mt76_connac_mcu_vht_ldpc(info->link_conf));
 	}
 
 	return mt76_mcu_skb_send_msg(dev, skb, info->cmd, true);

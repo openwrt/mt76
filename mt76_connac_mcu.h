@@ -2050,6 +2050,24 @@ mt76_connac_mcu_add_tlv(struct sk_buff *skb, int tag, int len)
 	return mt76_connac_mcu_add_nested_tlv(skb, tag, len, skb->data, NULL);
 }
 
+static inline bool
+mt76_connac_mcu_ht_ldpc(struct ieee80211_bss_conf *link_conf)
+{
+	return link_conf->vif->type != NL80211_IFTYPE_AP || link_conf->ht_ldpc;
+}
+
+static inline bool
+mt76_connac_mcu_vht_ldpc(struct ieee80211_bss_conf *link_conf)
+{
+	return link_conf->vif->type != NL80211_IFTYPE_AP || link_conf->vht_ldpc;
+}
+
+static inline bool
+mt76_connac_mcu_he_ldpc(struct ieee80211_bss_conf *link_conf)
+{
+	return link_conf->vif->type != NL80211_IFTYPE_AP || link_conf->he_ldpc;
+}
+
 int mt76_connac_mcu_set_channel_domain(struct mt76_phy *phy);
 int mt76_connac_mcu_set_vif_ps(struct mt76_dev *dev, struct ieee80211_vif *vif);
 void mt76_connac_mcu_sta_basic_tlv(struct mt76_dev *dev, struct sk_buff *skb,
@@ -2068,7 +2086,8 @@ int mt76_connac_mcu_sta_update_hdr_trans(struct mt76_dev *dev,
 					 struct ieee80211_vif *vif,
 					 struct mt76_wcid *wcid, int cmd);
 void mt76_connac_mcu_sta_he_tlv_v2(struct sk_buff *skb,
-				   struct ieee80211_link_sta *link_sta);
+				   struct ieee80211_link_sta *link_sta,
+				   bool ldpc);
 u8 mt76_connac_get_phy_mode_v2(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 			       enum nl80211_band band,
 			       struct ieee80211_link_sta *link_sta);
