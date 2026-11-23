@@ -2082,11 +2082,6 @@ mt7996_mac_sta_link_connect(struct mt7996_dev *dev,
 
 	err = mt7996_mcu_add_sta(dev, link_conf, link_sta, link, msta_link,
 				 CONN_STATE_CONNECT, true);
-	/* an L1 SER drops the answer, and the CONNECT may have run */
-	if (err == -ETIMEDOUT) {
-		msta_link->sta_rec_active = true;
-		goto reserve;
-	}
 	if (err != -EREMOTEIO)
 		return err;
 
@@ -2115,16 +2110,14 @@ mt7996_mac_sta_link_connect(struct mt7996_dev *dev,
 			 "wcid %d: STA_REC refused at connect, not in use\n",
 			 msta_link->wcid.idx);
 	}
-	err = -EREMOTEIO;
 
-reserve:
 	/* the MLD setup of a refused CONNECT can leave a group slot that
 	 * names the wcid, and no command frees a slot alone
 	 */
 	if (link_sta->sta->mlo)
 		msta_link->sta_rec_reserved = true;
 
-	return err;
+	return -EREMOTEIO;
 }
 
 static int
