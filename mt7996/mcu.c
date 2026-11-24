@@ -6460,6 +6460,34 @@ mt7996_mcu_beacon_reconf_retry(struct mt7996_dev *dev,
 	return true;
 }
 
+static void
+mt7996_mcu_beacon_reconf_link_tbtts(struct mt7996_dev *dev,
+				    struct ieee80211_vif *vif, u64 *tbtt)
+{
+	unsigned long valid = vif->valid_links;
+	struct ieee80211_hw *hw = mt76_hw(dev);
+	unsigned int link_id;
+
+	for_each_set_bit(link_id, &valid, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct ieee80211_bss_conf *link_conf;
+		struct mt7996_vif_link *link;
+		u64 tsf, boottime, next;
+		u32 bi_us;
+
+		link_conf = link_conf_dereference_protected(vif, link_id);
+		link = mt7996_vif_link(dev, vif, link_id);
+		if (!link_conf || !link || !link_conf->beacon_int ||
+		    !mt7996_vif_link_phy(link))
+			continue;
+
+		bi_us = link_conf->beacon_int * 1024;
+		tsf = __mt7996_get_tsf(hw, link);
+		boottime = ktime_get_boottime_ns();
+		next = (div_u64(tsf, bi_us) + 1) * bi_us;
+		tbtt[link_id] = mt7996_tsf_to_boottime(next, tsf, boottime);
+	}
+}
+
 /* one timer stops the TX of all links that a template starts, at the
  * removal TBTT of the first one, so each link reports that time
  */
@@ -6470,12 +6498,16 @@ mt7996_mcu_beacon_reconf_report(struct mt7996_dev *dev,
 				struct mt7996_vif_link *ref, u64 tbtt_tsf,
 				u64 tbtt)
 {
+	u64 link_tbtt[IEEE80211_MLD_MAX_NUM_LINKS] = {};
 	struct cfg80211_ap_removal_timer_event event = {
 		.tbtt_boottime = tbtt,
+		.link_tbtt_boottime = link_tbtt,
 	};
 	struct ieee80211_hw *hw = mt76_hw(dev);
 	unsigned long started = links;
 	unsigned int link_id;
+
+	mt7996_mcu_beacon_reconf_link_tbtts(dev, vif, link_tbtt);
 
 	for_each_set_bit(link_id, &started, IEEE80211_MLD_MAX_NUM_LINKS) {
 		struct ieee80211_bss_conf *link_conf;
