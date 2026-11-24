@@ -1513,6 +1513,24 @@ mt7915_mac_full_reset(struct mt7915_dev *dev)
 }
 
 static void
+mt7915_mac_reset_sta_ps(struct mt7915_dev *dev)
+{
+	int i;
+
+	rcu_read_lock();
+	for (i = 0; i < ARRAY_SIZE(dev->mt76.wcid); i++) {
+		struct mt76_wcid *wcid = mt76_wcid_ptr(dev, i);
+
+		if (!wcid_to_sta(wcid) ||
+		    !test_bit(MT_WCID_FLAG_PS, &wcid->flags))
+			continue;
+
+		mt76_sta_ps_transition(&dev->mt76, wcid, false);
+	}
+	rcu_read_unlock();
+}
+
+static void
 mt7915_mac_reset_napi_enable(struct mt7915_dev *dev)
 {
 	int i;
@@ -1641,6 +1659,8 @@ void mt7915_mac_reset_work(struct work_struct *work)
 	mt76_wr(dev, MT_MCU_INT_EVENT, MT_MCU_INT_EVENT_RESET_DONE);
 	if (!mt7915_wait_reset_state(dev, MT_MCU_CMD_NORMAL_STATE))
 		goto abort;
+
+	mt7915_mac_reset_sta_ps(dev);
 
 	/* enable DMA Tx/Rx and interrupt */
 	mt7915_dma_start(dev, false, false);

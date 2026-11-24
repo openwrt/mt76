@@ -776,6 +776,7 @@ int mt7915_mac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	msta->wcid.idx = idx;
 	msta->wcid.phy_idx = ext_phy;
 	msta->jiffies = jiffies;
+	clear_bit(MT_WCID_FLAG_PS, &msta->wcid.flags);
 
 	if (sta->tdls)
 		set_bit(MT_WCID_FLAG_TDLS_PEER, &msta->wcid.flags);
