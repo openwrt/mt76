@@ -96,7 +96,7 @@ mt7915_coredump_get_mem_layout(struct mt7915_dev *dev, u32 *num)
 	case 0x7986:
 		*num = ARRAY_SIZE(mt798x_mem_regions);
 		return &mt798x_mem_regions[0];
-	case 0x7916:
+	case 0x7906:
 		*num = ARRAY_SIZE(mt7916_mem_regions);
 		return &mt7916_mem_regions[0];
 	default:
