@@ -6,6 +6,11 @@
 
 #include "../mt76_connac_mcu.h"
 
+/* host flag: an L1 SER frees every template and the L1 work uploads it again */
+#define MT7915_MCU_CMD_BCN_TEMPLATE	BIT(21)
+/* host flag: the pending reset that refuses an L1 trigger takes its place */
+#define MT7915_MCU_CMD_L1_TRIGGER	BIT(22)
+
 enum {
 	MCU_ATE_SET_TRX = 0x1,
 	MCU_ATE_SET_FREQ_OFFSET = 0xa,
