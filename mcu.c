@@ -91,6 +91,12 @@ int mt76_mcu_skb_send_and_get_msg(struct mt76_dev *dev, struct sk_buff *skb,
 		goto out;
 	}
 
+	if (test_bit(MT76_MCU_RESET, &dev->phy.state)) {
+		orig_skb = skb;
+		ret = -ESHUTDOWN;
+		goto out;
+	}
+
 	if (dev->mcu_ops->mcu_skb_prepare_msg) {
 		orig_skb = skb;
 		ret = dev->mcu_ops->mcu_skb_prepare_msg(dev, skb, cmd, &seq);
