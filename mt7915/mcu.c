@@ -255,6 +255,9 @@ int mt7915_mcu_wa_cmd(struct mt7915_dev *dev, int cmd, u32 a1, u32 a2, u32 a3)
 		},
 	};
 
+	if (cmd == MCU_WA_PARAM_CMD(QUERY))
+		cmd |= MT76_MCU_CMD_READ;
+
 	return mt76_mcu_send_msg(&dev->mt76, cmd, &req, sizeof(req), false);
 }
 
@@ -2332,7 +2335,8 @@ int mt7915_mcu_muru_debug_get(struct mt7915_phy *phy)
 		.band_idx = phy->mt76->band_idx,
 	};
 
-	ret = mt76_mcu_send_and_get_msg(&dev->mt76, MCU_EXT_CMD(MURU_CTRL),
+	ret = mt76_mcu_send_and_get_msg(&dev->mt76, MCU_EXT_CMD(MURU_CTRL) |
+					MT76_MCU_CMD_READ,
 					&req, sizeof(req), true, &skb);
 	if (ret)
 		return ret;
@@ -3032,7 +3036,8 @@ int mt7915_mcu_get_eeprom(struct mt7915_dev *dev, u32 offset, u8 *read_buf)
 	int ret;
 
 	ret = mt76_mcu_send_and_get_msg(&dev->mt76,
-					MCU_EXT_QUERY(EFUSE_ACCESS),
+					MCU_EXT_QUERY(EFUSE_ACCESS) |
+					MT76_MCU_CMD_READ,
 					&req, sizeof(req), true, &skb);
 	if (ret)
 		return ret;
@@ -3077,7 +3082,8 @@ int mt7915_mcu_get_eeprom_free_block(struct mt7915_dev *dev, u8 *block_num)
 	int ret;
 
 	ret = mt76_mcu_send_and_get_msg(&dev->mt76,
-					MCU_EXT_QUERY(EFUSE_FREE_BLOCK),
+					MCU_EXT_QUERY(EFUSE_FREE_BLOCK) |
+					MT76_MCU_CMD_READ,
 					&req, sizeof(req), true, &skb);
 	if (ret)
 		return ret;
@@ -3333,7 +3339,8 @@ int mt7915_mcu_get_chan_mib_info(struct mt7915_phy *phy, bool chan_switch)
 		req[i].offs = cpu_to_le32(offs[i]);
 	}
 
-	ret = mt76_mcu_send_and_get_msg(&dev->mt76, MCU_EXT_CMD(GET_MIB_INFO),
+	ret = mt76_mcu_send_and_get_msg(&dev->mt76, MCU_EXT_CMD(GET_MIB_INFO) |
+					MT76_MCU_CMD_READ,
 					req, len * sizeof(req[0]), true, &skb);
 	if (ret)
 		return ret;
@@ -3387,8 +3394,8 @@ int mt7915_mcu_get_temperature(struct mt7915_phy *phy)
 		.band_idx = phy->mt76->band_idx,
 	};
 
-	return mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD(THERMAL_CTRL), &req,
-				 sizeof(req), true);
+	return mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD(THERMAL_CTRL) |
+				 MT76_MCU_CMD_READ, &req, sizeof(req), true);
 }
 
 int mt7915_mcu_set_thermal_throttling(struct mt7915_phy *phy, u8 state)
@@ -3681,7 +3688,8 @@ int mt7915_mcu_get_txpower_sku(struct mt7915_phy *phy, s8 *txpower, int len,
 	int ret, i;
 
 	ret = mt76_mcu_send_and_get_msg(&dev->mt76,
-					MCU_EXT_CMD(TX_POWER_FEATURE_CTRL),
+					MCU_EXT_CMD(TX_POWER_FEATURE_CTRL) |
+					MT76_MCU_CMD_READ,
 					&req, sizeof(req), true, &skb);
 	if (ret)
 		return ret;
@@ -3773,9 +3781,13 @@ int mt7915_mcu_set_ser(struct mt7915_dev *dev, u8 action, u8 set, u8 band)
 		.set = set,
 		.band = band,
 	};
+	int cmd = MCU_EXT_CMD(SET_SER_TRIGGER);
 
-	return mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD(SET_SER_TRIGGER),
-				 &req, sizeof(req), false);
+	/* action 0 writes the SER statistics to the firmware log */
+	if (!action)
+		cmd |= MT76_MCU_CMD_READ;
+
+	return mt76_mcu_send_msg(&dev->mt76, cmd, &req, sizeof(req), false);
 }
 
 int mt7915_mcu_set_vow_drr_ctrl(struct mt7915_dev *dev, struct mt7915_sta *msta,
@@ -4156,7 +4168,8 @@ int mt7915_mcu_get_rx_rate(struct mt7915_phy *phy, struct ieee80211_vif *vif,
 	int ret;
 	bool cck = false;
 
-	ret = mt76_mcu_send_and_get_msg(&dev->mt76, MCU_EXT_CMD(PHY_STAT_INFO),
+	ret = mt76_mcu_send_and_get_msg(&dev->mt76, MCU_EXT_CMD(PHY_STAT_INFO) |
+					MT76_MCU_CMD_READ,
 					&req, sizeof(req), true, &skb);
 	if (ret)
 		return ret;
@@ -4413,7 +4426,8 @@ int mt7915_mcu_wed_wa_tx_stats(struct mt7915_dev *dev, u16 wlan_idx)
 		len = sizeof(req);
 	}
 
-	ret = mt76_mcu_send_and_get_msg(&dev->mt76, MCU_WA_PARAM_CMD(QUERY),
+	ret = mt76_mcu_send_and_get_msg(&dev->mt76, MCU_WA_PARAM_CMD(QUERY) |
+					MT76_MCU_CMD_READ,
 					&req, len, true, &skb);
 	if (ret)
 		return ret;
@@ -4470,7 +4484,9 @@ int mt7915_mcu_rf_regval(struct mt7915_dev *dev, u32 regidx, u32 *val, bool set)
 		return mt76_mcu_send_msg(&dev->mt76, MCU_EXT_CMD(RF_REG_ACCESS),
 					 &req, sizeof(req), false);
 
-	ret = mt76_mcu_send_and_get_msg(&dev->mt76, MCU_EXT_QUERY(RF_REG_ACCESS),
+	ret = mt76_mcu_send_and_get_msg(&dev->mt76,
+					MCU_EXT_QUERY(RF_REG_ACCESS) |
+					MT76_MCU_CMD_READ,
 					&req, sizeof(req), true, &skb);
 	if (ret)
 		return ret;
