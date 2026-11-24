@@ -430,7 +430,7 @@ mt7915_mcu_rx_ps_sync(struct mt7915_dev *dev, struct sk_buff *skb)
 	struct mt7915_mcu_ps_notify_v2 *p2 = (void *)skb->data;
 	struct mt7915_mcu_ps_notify *p = (void *)skb->data;
 	struct mt76_wcid *wcid;
-	u16 wcid_idx;
+	u16 wcid_idx, path;
 	bool v2, ps;
 
 	/* the mt7986 and mt7981 firmware send the longer v2 layout */
@@ -443,14 +443,22 @@ mt7915_mcu_rx_ps_sync(struct mt7915_dev *dev, struct sk_buff *skb)
 		wcid_idx = le16_to_cpu(p2->wtbl_lower) |
 			   (le16_to_cpu(p2->wtbl_higher) << 8);
 		ps = p2->ps_bit;
+		path = le16_to_cpu(p2->path);
 	} else {
 		wcid_idx = p->wtbl_lower | (p->wtbl_higher << 8);
 		ps = p->ps_bit;
+		path = p->path;
 	}
 
 	wcid = mt76_wcid_ptr(dev, wcid_idx);
 	if (!wcid || !wcid_to_sta(wcid))
 		return;
+
+	if (path == MT7915_PS_SYNC_TWT || path == MT7915_PS_SYNC_TWT_MANY) {
+		if (ps)
+			mt76_sta_ps_transition(&dev->mt76, wcid, false);
+		return;
+	}
 
 	mt76_sta_ps_transition(&dev->mt76, wcid, ps);
 }
