@@ -30,6 +30,11 @@ struct mt7996_mcu_uni_event {
 	__le32 status; /* 0: success, others: fail */
 } __packed;
 
+/* host flag: an L1 SER frees every template and the L1 work uploads it again */
+#define MT7996_MCU_CMD_BCN_TEMPLATE		BIT(22)
+/* host flag: the pending reset that refuses an L1 trigger takes its place */
+#define MT7996_MCU_CMD_L1_TRIGGER		BIT(23)
+
 struct mt7996_mcu_thermal_ctrl {
 	u8 ctrl_id;
 	u8 band_idx;

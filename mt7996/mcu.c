@@ -215,6 +215,21 @@ mt7996_mcu_set_sta_ht_mcs(struct ieee80211_link_sta *link_sta,
 		ht_mcs[nss] = link_sta->ht_cap.mcs.rx_mask[nss] & mask[nss];
 }
 
+/* only the firmware load gives a known state again */
+static void
+mt7996_mcu_cmd_lost(struct mt76_dev *mdev, int cmd)
+{
+	struct mt7996_dev *dev = container_of(mdev, struct mt7996_dev, mt76);
+
+	if (cmd & (MT7996_MCU_CMD_BCN_TEMPLATE | MT7996_MCU_CMD_L1_TRIGGER))
+		return;
+
+	spin_lock_bh(&dev->mt76.lock);
+	if (dev->recovery.hw_init_done && !dev->recovery.restart)
+		mt7996_mac_full_reset_queue(dev);
+	spin_unlock_bh(&dev->mt76.lock);
+}
+
 static int
 mt7996_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 			  struct sk_buff *skb, int seq)
@@ -230,12 +245,10 @@ mt7996_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 		dev_err(mdev->dev, "Message %08x (seq %d) timeout\n",
 			cmd, seq);
 
-		if (!test_and_set_bit(MT76_MCU_RESET, &dev->mphy.state)) {
-			dev->recovery.restart = true;
-			wake_up(&dev->mt76.mcu.wait);
-			queue_work(dev->mt76.wq, &dev->reset_work);
-			wake_up(&dev->reset_wait);
-		}
+		spin_lock_bh(&dev->mt76.lock);
+		if (!test_and_set_bit(MT76_MCU_RESET, &dev->mphy.state))
+			mt7996_mac_full_reset_queue(dev);
+		spin_unlock_bh(&dev->mt76.lock);
 
 		return -ETIMEDOUT;
 	}
@@ -3727,7 +3740,8 @@ int mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 out:
 	dev_kfree_skb(skb);
 	ret = mt76_mcu_skb_send_msg(&dev->mt76, rskb,
-				    MCU_WMWA_UNI_CMD(BSS_INFO_UPDATE), true);
+				    MCU_WMWA_UNI_CMD(BSS_INFO_UPDATE) |
+				    MT7996_MCU_CMD_BCN_TEMPLATE, true);
 	link->csa_bcn_uploaded = !ret && enabled && link_conf->csa_active;
 
 	return ret;
@@ -4327,6 +4341,7 @@ int mt7996_mcu_init(struct mt7996_dev *dev)
 		.headroom = sizeof(struct mt76_connac2_mcu_txd), /* reuse */
 		.mcu_skb_send_msg = mt7996_mcu_send_message,
 		.mcu_parse_response = mt7996_mcu_parse_response,
+		.mcu_cmd_lost = mt7996_mcu_cmd_lost,
 	};
 
 	dev->mt76.mcu_ops = &mt7996_mcu_ops;
@@ -5397,6 +5412,7 @@ int mt7996_mcu_set_ser(struct mt7996_dev *dev, u8 action, u8 val, u8 band)
 		.tag = cpu_to_le16(action),
 		.len = cpu_to_le16(sizeof(req) - 4),
 	};
+	int cmd = MCU_WM_UNI_CMD(SER);
 
 	switch (action) {
 	case UNI_CMD_SER_SET:
@@ -5405,13 +5421,14 @@ int mt7996_mcu_set_ser(struct mt7996_dev *dev, u8 action, u8 val, u8 band)
 	case UNI_CMD_SER_TRIGGER:
 		req.trigger.method = val;
 		req.trigger.band = band;
+		if (val == UNI_CMD_SER_SET_RECOVER_FROM_ETH)
+			cmd |= MT7996_MCU_CMD_L1_TRIGGER;
 		break;
 	default:
 		return -EINVAL;
 	}
 
-	return mt76_mcu_send_msg(&dev->mt76, MCU_WM_UNI_CMD(SER),
-				 &req, sizeof(req), false);
+	return mt76_mcu_send_msg(&dev->mt76, cmd, &req, sizeof(req), false);
 }
 
 int mt7996_mcu_set_txbf(struct mt7996_dev *dev, u8 action)

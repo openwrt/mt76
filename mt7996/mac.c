@@ -2634,6 +2634,18 @@ mt7996_mac_full_reset(struct mt7996_dev *dev)
 	ieee80211_restart_hw(mt76_hw(dev));
 }
 
+/* MT76_MCU_RESET keeps every command from the firmware until the reload */
+void mt7996_mac_full_reset_queue(struct mt7996_dev *dev)
+{
+	lockdep_assert_held(&dev->mt76.lock);
+
+	set_bit(MT76_MCU_RESET, &dev->mphy.state);
+	dev->recovery.restart = true;
+	wake_up(&dev->mt76.mcu.wait);
+	queue_work(dev->mt76.wq, &dev->reset_work);
+	wake_up(&dev->reset_wait);
+}
+
 void mt7996_mac_reset_work(struct work_struct *work)
 {
 	unsigned long bcn_restored = 0;
