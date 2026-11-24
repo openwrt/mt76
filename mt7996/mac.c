@@ -2623,7 +2623,8 @@ mt7996_mac_full_reset(struct mt7996_dev *dev)
 
 		msta_link = container_of(flow, struct mt7996_sta_link,
 					 twt.flow[flow->id]);
-		msta_link->twt.flowid_mask &= ~BIT(flow->id);
+		WRITE_ONCE(msta_link->twt.flowid_mask,
+			   msta_link->twt.flowid_mask & ~BIT(flow->id));
 		list_del_init(&flow->list);
 	}
 	dev->twt.table_mask = 0;
@@ -3432,15 +3433,18 @@ void mt7996_mac_add_twt_setup(struct ieee80211_hw *hw,
 	}
 	flow->tsf = le64_to_cpu(twt_agrt->twt);
 
+	WRITE_ONCE(msta_link->twt.flowid_mask,
+		   msta_link->twt.flowid_mask | BIT(flowid));
 	if (mt7996_mcu_twt_agrt_update(dev, &msta->vif->deflink, flow,
 				       MCU_TWT_AGRT_ADD)) {
+		WRITE_ONCE(msta_link->twt.flowid_mask,
+			   msta_link->twt.flowid_mask & ~BIT(flowid));
 		list_del(&flow->list);
 		goto unlock;
 	}
 
 	setup_cmd = TWT_SETUP_CMD_ACCEPT;
 	dev->twt.table_mask |= BIT(table_id);
-	msta_link->twt.flowid_mask |= BIT(flowid);
 	dev->twt.n_agrt++;
 
 unlock:
@@ -3472,7 +3476,8 @@ void mt7996_mac_twt_teardown_flow(struct mt7996_dev *dev,
 		return;
 
 	list_del_init(&flow->list);
-	msta_link->twt.flowid_mask &= ~BIT(flowid);
+	WRITE_ONCE(msta_link->twt.flowid_mask,
+		   msta_link->twt.flowid_mask & ~BIT(flowid));
 	dev->twt.table_mask &= ~BIT(flow->table_id);
 	dev->twt.n_agrt--;
 }

@@ -2050,7 +2050,7 @@ mt7996_mac_sta_remove(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 		if (msta_link->twt.flowid_mask & BIT(i))
 			list_del_init(&msta_link->twt.flow[i].list);
 	}
-	msta_link->twt.flowid_mask = 0;
+	WRITE_ONCE(msta_link->twt.flowid_mask, 0);
 
 	for (i = 0; i < ARRAY_SIZE(msta->link); i++)
 		mt7996_mac_sta_remove_link(dev, sta, i, true);
