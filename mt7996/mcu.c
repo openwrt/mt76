@@ -249,7 +249,7 @@ mt7996_mcu_cmd_lost(struct mt76_dev *mdev, int cmd)
 {
 	struct mt7996_dev *dev = container_of(mdev, struct mt7996_dev, mt76);
 
-	if (cmd & MT7996_MCU_CMD_BCN_TEMPLATE)
+	if (cmd & (MT7996_MCU_CMD_BCN_TEMPLATE | MT7996_MCU_CMD_L1_TRIGGER))
 		return;
 
 	spin_lock_bh(&dev->mt76.lock);
@@ -8928,6 +8928,7 @@ int mt7996_mcu_set_ser(struct mt7996_dev *dev, u8 action, u8 val, u8 band)
 		.tag = cpu_to_le16(action),
 		.len = cpu_to_le16(sizeof(req) - 4),
 	};
+	int cmd = MCU_WM_UNI_CMD(SER);
 
 	switch (action) {
 	case UNI_CMD_SER_SET:
@@ -8936,13 +8937,14 @@ int mt7996_mcu_set_ser(struct mt7996_dev *dev, u8 action, u8 val, u8 band)
 	case UNI_CMD_SER_TRIGGER:
 		req.trigger.method = val;
 		req.trigger.band = band;
+		if (val == UNI_CMD_SER_SET_RECOVER_FROM_ETH)
+			cmd |= MT7996_MCU_CMD_L1_TRIGGER;
 		break;
 	default:
 		return -EINVAL;
 	}
 
-	return mt76_mcu_send_msg(&dev->mt76, MCU_WM_UNI_CMD(SER),
-				 &req, sizeof(req), false);
+	return mt76_mcu_send_msg(&dev->mt76, cmd, &req, sizeof(req), false);
 }
 
 int mt7996_mcu_set_txbf(struct mt7996_dev *dev, u8 action)
