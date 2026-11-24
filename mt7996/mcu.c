@@ -1019,9 +1019,19 @@ mt7996_mcu_rx_ps_sync(struct mt7996_dev *dev, struct sk_buff *skb)
 			int bitmap_len = tag_len - sizeof(*tlv);
 			int i;
 
-			for (i = 0; i < bitmap_len * 8; i++)
-				mt7996_mcu_ps_transition(dev, i,
-					!!(bitmap[i / 8] & BIT(i % 8)));
+			for (i = 0; i < bitmap_len * 8; i++) {
+				struct ieee80211_sta *sta;
+				struct mt76_wcid *wcid;
+				bool ps;
+
+				wcid = mt76_wcid_ptr(dev, i);
+				sta = wcid_to_sta(wcid);
+				if (!sta || !sta->mlo)
+					continue;
+
+				ps = bitmap[i / 8] & BIT(i % 8);
+				mt76_sta_ps_transition(&dev->mt76, wcid, ps);
+			}
 			break;
 		}
 		}
