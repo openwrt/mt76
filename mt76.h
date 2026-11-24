@@ -294,6 +294,7 @@ struct mt76_mcu_ops {
 				int cmd, int *seq);
 	int (*mcu_parse_response)(struct mt76_dev *dev, int cmd,
 				  struct sk_buff *skb, int seq);
+	void (*mcu_cmd_lost)(struct mt76_dev *dev, int cmd);
 	u32 (*mcu_rr)(struct mt76_dev *dev, u32 offset);
 	void (*mcu_wr)(struct mt76_dev *dev, u32 offset, u32 val);
 	int (*mcu_wr_rp)(struct mt76_dev *dev, u32 base,

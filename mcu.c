@@ -78,6 +78,7 @@ int mt76_mcu_skb_send_and_get_msg(struct mt76_dev *dev, struct sk_buff *skb,
 	unsigned int retry = 0;
 	struct sk_buff *orig_skb = NULL;
 	unsigned long expires;
+	bool lost = false;
 	int ret, seq;
 
 	cmd &= ~MT76_MCU_CMD_READ;
@@ -125,6 +126,7 @@ retry:
 
 	do {
 		skb = mt76_mcu_get_response(dev, expires);
+		lost = !skb;
 		if (!skb && read &&
 		    !test_bit(MT76_MCU_RESET, &dev->phy.state) &&
 		    orig_skb && retry++ < dev->mcu_ops->max_retry) {
@@ -143,6 +145,10 @@ retry:
 
 
 out:
+	if (!read && (lost || ret == -ESHUTDOWN) &&
+	    dev->mcu_ops->mcu_cmd_lost)
+		dev->mcu_ops->mcu_cmd_lost(dev, cmd);
+
 	dev_kfree_skb(orig_skb);
 	mutex_unlock(&dev->mcu.mutex);
 
