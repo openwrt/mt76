@@ -1525,7 +1525,7 @@ mt7915_mac_reset_sta_ps(struct mt7915_dev *dev)
 		    !test_bit(MT_WCID_FLAG_PS, &wcid->flags))
 			continue;
 
-		mt76_sta_ps_transition(&dev->mt76, wcid, false);
+		mt7915_mac_sta_ps_transition(dev, wcid, false);
 	}
 	rcu_read_unlock();
 }
@@ -2075,6 +2075,10 @@ void mt7915_mac_sta_rc_work(struct work_struct *work)
 	while (!list_empty(&list)) {
 		msta = list_first_entry(&list, struct mt7915_sta, rc_list);
 		list_del_init(&msta->rc_list);
+
+		if (test_bit(MT_WCID_FLAG_PS, &msta->wcid.flags))
+			continue;
+
 		changed = msta->changed;
 		msta->changed = 0;
 		spin_unlock_bh(&dev->mt76.sta_poll_lock);
@@ -2096,6 +2100,27 @@ void mt7915_mac_sta_rc_work(struct work_struct *work)
 	spin_unlock_bh(&dev->mt76.sta_poll_lock);
 
 	mutex_unlock(&dev->mt76.mutex);
+}
+
+void mt7915_mac_sta_ps_transition(struct mt7915_dev *dev,
+				  struct mt76_wcid *wcid, bool ps)
+{
+	struct mt7915_sta *msta = container_of(wcid, struct mt7915_sta, wcid);
+	bool held;
+
+	mt76_sta_ps_transition(&dev->mt76, wcid, ps);
+	if (ps)
+		return;
+
+	spin_lock_bh(&dev->mt76.sta_poll_lock);
+	held = msta->changed && list_empty(&msta->rc_list);
+	if (held)
+		list_add_tail(&msta->rc_list, &dev->sta_rc_list);
+	spin_unlock_bh(&dev->mt76.sta_poll_lock);
+
+	if (held)
+		ieee80211_queue_work(mt76_phy_hw(&dev->mt76, wcid->phy_idx),
+				     &dev->rc_work);
 }
 
 void mt7915_mac_work(struct work_struct *work)

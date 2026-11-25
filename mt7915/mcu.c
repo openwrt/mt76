@@ -456,11 +456,11 @@ mt7915_mcu_rx_ps_sync(struct mt7915_dev *dev, struct sk_buff *skb)
 
 	if (path == MT7915_PS_SYNC_TWT || path == MT7915_PS_SYNC_TWT_MANY) {
 		if (ps)
-			mt76_sta_ps_transition(&dev->mt76, wcid, false);
+			mt7915_mac_sta_ps_transition(dev, wcid, false);
 		return;
 	}
 
-	mt76_sta_ps_transition(&dev->mt76, wcid, ps);
+	mt7915_mac_sta_ps_transition(dev, wcid, ps);
 }
 
 static void
