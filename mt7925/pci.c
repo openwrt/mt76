@@ -974,6 +974,17 @@ static int mt7925_pci_restore(struct device *device)
 	return _mt7925_pci_resume(device, true);
 }
 
+static void mt7925_coredump(struct device *dev)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct mt76_dev *mdev = pci_get_drvdata(pdev);
+	struct mt792x_dev *dev_792x = container_of(mdev, struct mt792x_dev, mt76);
+
+	mt792x_mutex_acquire(dev_792x);
+	mt7925_mcu_chip_config(dev_792x, "assert");
+	mt792x_mutex_release(dev_792x);
+}
+
 static const struct dev_pm_ops mt7925_pm_ops = {
 	.suspend = pm_sleep_ptr(mt7925_pci_suspend),
 	.resume  = pm_sleep_ptr(mt7925_pci_resume),
@@ -990,6 +1001,7 @@ static struct pci_driver mt7925_pci_driver = {
 	.remove		= mt7925_pci_remove,
 	.shutdown       = mt7925_pci_shutdown,
 	.driver.pm	= pm_sleep_ptr(&mt7925_pm_ops),
+	.driver.coredump = mt7925_coredump,
 };
 
 module_pci_driver(mt7925_pci_driver);

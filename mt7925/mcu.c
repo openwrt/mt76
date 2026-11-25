@@ -1272,6 +1272,7 @@ int mt7925_mcu_chip_config(struct mt792x_dev *dev, const char *cmd)
 	return mt76_mcu_send_msg(&dev->mt76, MCU_UNI_CMD(CHIP_CONFIG),
 				 &req, sizeof(req), false);
 }
+EXPORT_SYMBOL_GPL(mt7925_mcu_chip_config);
 
 int mt7925_mcu_set_deep_sleep(struct mt792x_dev *dev, bool enable)
 {
