@@ -6307,6 +6307,9 @@ int mt7996_mcu_set_dup_wtbl(struct mt7996_dev *dev)
 		.num = cpu_to_le16(DUP_WTBL_NUM),
 	};
 
+	if (is_mt7990(&dev->mt76))
+		return 0;
+
 	return mt76_mcu_send_msg(&dev->mt76, MCU_WM_UNI_CMD(CHIP_CONFIG), &req,
 				 sizeof(req), true);
 }
