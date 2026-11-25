@@ -991,10 +991,20 @@ mt7996_get_txpower(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		   unsigned int link_id, int *dbm)
 {
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
-	struct mt7996_phy *phy = mt7996_vif_link_phy(&mvif->deflink);
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
+	struct mt7996_phy *phy = NULL;
+	struct mt76_vif_link *mlink;
 	struct wireless_dev *wdev;
 	int n_chains, delta, i;
+
+	rcu_read_lock();
+	mlink = link_id ? rcu_dereference(mvif->mt76.link[link_id]) :
+			  &mvif->deflink.mt76;
+	if (mlink)
+		phy = mt7996_vif_link_phy(container_of(mlink,
+						       struct mt7996_vif_link,
+						       mt76));
+	rcu_read_unlock();
 
 	if (!phy) {
 		wdev = ieee80211_vif_to_wdev(vif);
