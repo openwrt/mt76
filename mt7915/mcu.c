@@ -1230,8 +1230,10 @@ mt7915_mcu_sta_bfer_vht(struct ieee80211_sta *sta, struct mt7915_phy *phy,
 		bf->ncol = min_t(u8, nss_mcs, bf->nrow);
 		bf->ibf_ncol = bf->ncol;
 
-		if (sta->deflink.bandwidth == IEEE80211_STA_RX_BW_160)
+		if (sta->deflink.bandwidth == IEEE80211_STA_RX_BW_160) {
 			bf->nrow = 1;
+			bf->ncol = min_t(u8, bf->ncol, bf->nrow);
+		}
 	} else {
 		bf->nrow = tx_ant;
 		bf->ncol = min_t(u8, nss_mcs, bf->nrow);
@@ -1299,6 +1301,7 @@ mt7915_mcu_sta_bfer_he(struct ieee80211_sta *sta,
 		     pe->phy_cap_info[4]);
 
 	bf->nrow_gt_bw80 = min_t(int, snd_dim, sts);
+	bf->ncol_gt_bw80 = min_t(u8, bf->ncol_gt_bw80, bf->nrow_gt_bw80);
 }
 
 static void
