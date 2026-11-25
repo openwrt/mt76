@@ -246,7 +246,8 @@ mt7996_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 			cmd, seq);
 
 		spin_lock_bh(&dev->mt76.lock);
-		if (!test_and_set_bit(MT76_MCU_RESET, &dev->mphy.state))
+		if (dev->recovery.hw_init_done &&
+		    !test_and_set_bit(MT76_MCU_RESET, &dev->mphy.state))
 			mt7996_mac_full_reset_queue(dev);
 		spin_unlock_bh(&dev->mt76.lock);
 
