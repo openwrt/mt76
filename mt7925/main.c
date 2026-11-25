@@ -804,11 +804,11 @@ static int mt7925_set_link_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	else
 		goto out;
 
-	if (sta)
-		mt76_wcid_key_link_setup(wcid, cmd == SET_KEY ? key : NULL);
-	else
+	if (!sta)
 		mt76_wcid_key_setup(&dev->mt76, wcid,
 				    cmd == SET_KEY ? key : NULL);
+	else if (cmd == SET_KEY)
+		mt76_wcid_key_link_setup(wcid, key);
 
 	err = mt7925_mcu_add_key(&dev->mt76, vif, &mlink->bip,
 				 key, MCU_UNI_CMD(STA_REC_UPDATE),
