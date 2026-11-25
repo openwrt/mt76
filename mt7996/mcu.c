@@ -6291,7 +6291,6 @@ int mt7996_mcu_cp_support(struct mt7996_dev *dev, u8 mode)
 
 int mt7996_mcu_set_dup_wtbl(struct mt7996_dev *dev)
 {
-#define DUP_WTBL_NUM	80
 	struct {
 		u8 _rsv[4];
 
@@ -6303,8 +6302,8 @@ int mt7996_mcu_set_dup_wtbl(struct mt7996_dev *dev)
 	} __packed req = {
 		.tag = cpu_to_le16(UNI_CHIP_CONFIG_DUP_WTBL),
 		.len = cpu_to_le16(sizeof(req) - 4),
-		.base = cpu_to_le16(MT7996_WTBL_STA - DUP_WTBL_NUM + 1),
-		.num = cpu_to_le16(DUP_WTBL_NUM),
+		.base = cpu_to_le16(mt7996_dup_wtbl_base(dev)),
+		.num = cpu_to_le16(MT7996_DUP_WTBL_NUM),
 	};
 
 	if (is_mt7990(&dev->mt76))
