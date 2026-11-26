@@ -557,6 +557,7 @@ struct mt76_hw_cap {
 #define MT_DRV_IGNORE_TXS_FAILED	BIT(6)
 #define MT_DRV_HW_PS_BUFFERING		BIT(7)
 #define MT_DRV_KEEP_REPLAYED_STA	BIT(8)
+#define MT_DRV_TX_NO_REREAD		BIT(9)
 
 struct mt76_driver_ops {
 	u32 drv_flags;
