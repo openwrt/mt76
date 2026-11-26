@@ -86,6 +86,7 @@ struct mt7603_sta {
 struct mt7603_vif {
 	struct mt7603_sta sta; /* must be first */
 
+	struct mt76_rx_group_pn rx_group_pn;
 	u8 idx;
 };
 
