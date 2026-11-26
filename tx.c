@@ -716,6 +716,19 @@ void mt76_txq_schedule(struct mt76_phy *phy, enum mt76_txq_id qid)
 }
 EXPORT_SYMBOL_GPL(mt76_txq_schedule);
 
+static bool
+mt76_tx_ps_bufferable(struct sk_buff *skb)
+{
+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+	struct ieee80211_vif *vif = info->control.vif;
+
+	if (ieee80211_is_any_nullfunc(hdr->frame_control))
+		return vif && vif->type == NL80211_IFTYPE_AP;
+
+	return ieee80211_is_bufferable_mmpdu(skb);
+}
+
 static int
 mt76_txq_schedule_pending_wcid(struct mt76_phy *phy, struct mt76_wcid *wcid,
 			       struct sk_buff_head *head)
@@ -736,7 +749,7 @@ mt76_txq_schedule_pending_wcid(struct mt76_phy *phy, struct mt76_wcid *wcid,
 		    !(info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP) &&
 		    !ieee80211_is_data_present(hdr->frame_control) &&
 		    (!(wcid->tx_info & MT_WCID_TX_INFO_SET) ||
-		     !ieee80211_is_bufferable_mmpdu(skb) ||
+		     !mt76_tx_ps_bufferable(skb) ||
 		     ieee80211_is_deauth(hdr->frame_control) ||
 		     head == &wcid->tx_offchannel))
 			qid = MT_TXQ_PSD;
