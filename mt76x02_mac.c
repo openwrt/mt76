@@ -940,6 +940,7 @@ void mt76x02_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue_entry *e)
 {
 	struct mt76x02_dev *dev = container_of(mdev, struct mt76x02_dev, mt76);
 	struct mt76x02_txwi *txwi;
+	struct mt76_tx_cb *cb;
 	u8 *txwi_ptr;
 
 	if (!e->txwi) {
@@ -947,10 +948,15 @@ void mt76x02_tx_complete_skb(struct mt76_dev *mdev, struct mt76_queue_entry *e)
 		return;
 	}
 
-	mt76x02_mac_poll_tx_status(dev, false);
-
 	txwi_ptr = mt76_get_txwi_ptr(mdev, e->txwi);
 	txwi = (struct mt76x02_txwi *)txwi_ptr;
+
+	/* only a frame still waiting for its TX status needs it now */
+	cb = mt76_tx_skb_cb(e->skb);
+	if (mt76_is_skb_pktid(txwi->pktid) &&
+	    !(cb->flags & MT_TX_CB_TXS_DONE))
+		mt76x02_mac_poll_tx_status(dev, false);
+
 	trace_mac_txdone(mdev, txwi->wcid, txwi->pktid);
 
 	mt76_tx_complete_skb(mdev, e->wcid, e->skb);
