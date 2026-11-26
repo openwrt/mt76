@@ -154,8 +154,6 @@ static int mt76x02_poll_tx(struct napi_struct *napi, int budget)
 					       mt76.tx_napi);
 	int i;
 
-	mt76x02_mac_poll_tx_status(dev, false);
-
 	mt76_queue_tx_cleanup(dev, dev->mt76.q_mcu[MT_MCUQ_WM], false);
 	for (i = MT_TXQ_PSD; i >= 0; i--)
 		mt76_queue_tx_cleanup(dev, dev->mphy.q_tx[i], false);
