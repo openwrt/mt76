@@ -516,9 +516,9 @@ struct mt7996_dev {
 		u32 state;
 		u32 wa_reset_count;
 		u32 wm_reset_count;
-		bool hw_full_reset:1;
-		bool hw_init_done:1;
-		bool restart:1;
+		bool hw_full_reset;
+		bool hw_init_done;
+		bool restart;
 	} recovery;
 
 	/* protects coredump data */
