@@ -1294,33 +1294,58 @@ out:
 }
 EXPORT_SYMBOL_GPL(mt76_get_survey);
 
+static void
+mt76_key_rx_pn_get(struct ieee80211_key_conf *key, int tid, u8 *pn)
+{
+	struct ieee80211_key_seq seq;
+
+	ieee80211_get_key_rx_seq(key, tid, &seq);
+	if (key->cipher == WLAN_CIPHER_SUITE_GCMP ||
+	    key->cipher == WLAN_CIPHER_SUITE_GCMP_256)
+		memcpy(pn, seq.gcmp.pn, sizeof(seq.gcmp.pn));
+	else
+		memcpy(pn, seq.ccmp.pn, sizeof(seq.ccmp.pn));
+}
+
+static void
+mt76_wcid_group_key_setup(struct mt76_wcid *wcid,
+			  struct ieee80211_key_conf *key)
+{
+	struct mt76_rx_group_pn *group_pn = wcid->rx_group_pn;
+	int i;
+
+	if (!group_pn || key->keyidx >= ARRAY_SIZE(group_pn->pn))
+		return;
+
+	if (!mt76_key_has_rx_pn(key)) {
+		group_pn->key_mask &= ~BIT(key->keyidx);
+		return;
+	}
+
+	for (i = 0; i < IEEE80211_NUM_TIDS; i++)
+		mt76_key_rx_pn_get(key, i, group_pn->pn[key->keyidx][i]);
+
+	group_pn->key_mask |= BIT(key->keyidx);
+}
+
 void mt76_wcid_key_setup(struct mt76_dev *dev, struct mt76_wcid *wcid,
 			 struct ieee80211_key_conf *key)
 {
-	struct ieee80211_key_seq seq;
-	u8 *pn;
 	int i;
+
+	if (key && !(key->flags & IEEE80211_KEY_FLAG_PAIRWISE))
+		mt76_wcid_group_key_setup(wcid, key);
 
 	mt76_wcid_key_link_setup(wcid, key);
 	if (!key || !mt76_key_has_rx_pn(key))
 		return;
 
-	if (key->cipher == WLAN_CIPHER_SUITE_GCMP ||
-	    key->cipher == WLAN_CIPHER_SUITE_GCMP_256)
-		pn = seq.gcmp.pn;
-	else
-		pn = seq.ccmp.pn;
-
 	/* data frame */
-	for (i = 0; i < IEEE80211_NUM_TIDS; i++) {
-		ieee80211_get_key_rx_seq(key, i, &seq);
-		memcpy(wcid->rx_key_pn[i], pn, sizeof(wcid->rx_key_pn[i]));
-	}
+	for (i = 0; i < IEEE80211_NUM_TIDS; i++)
+		mt76_key_rx_pn_get(key, i, wcid->rx_key_pn[i]);
 
 	/* robust management frame */
-	ieee80211_get_key_rx_seq(key, -1, &seq);
-	memcpy(wcid->rx_key_pn[i], pn, sizeof(wcid->rx_key_pn[i]));
-
+	mt76_key_rx_pn_get(key, -1, wcid->rx_key_pn[i]);
 }
 EXPORT_SYMBOL(mt76_wcid_key_setup);
 
@@ -1410,13 +1435,25 @@ mt76_rx_convert(struct mt76_dev *dev, struct sk_buff *skb,
 	*hw = mt76_phy_hw(dev, mstat.phy_idx);
 }
 
+static u8 *
+mt76_rx_group_pn(struct mt76_rx_status *status, int security_idx)
+{
+	struct mt76_rx_group_pn *group_pn = status->wcid->rx_group_pn;
+
+	if (!group_pn || !(group_pn->key_mask & BIT(status->key_id)))
+		return NULL;
+
+	return group_pn->pn[status->key_id][security_idx];
+}
+
 void mt76_check_ccmp_pn(struct sk_buff *skb)
 {
 	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
 	struct mt76_wcid *wcid = status->wcid;
 	struct ieee80211_hdr *hdr;
-	struct mt76_wcid *pn_wcid;
 	int security_idx;
+	bool group;
+	u8 *rx_pn;
 	int ret;
 
 	if (!(status->flag & RX_FLAG_DECRYPTED))
@@ -1428,12 +1465,10 @@ void mt76_check_ccmp_pn(struct sk_buff *skb)
 	if (status->skip_pn_check)
 		return;
 
-	if (!wcid || !wcid->rx_check_pn)
+	if (!wcid)
 		return;
 
-	/* the links of an MLD peer share one PN space per key */
-	pn_wcid = mt76_wcid_primary(wcid);
-
+	group = status->group && wcid->rx_group_pn;
 	security_idx = status->qos_ctl & IEEE80211_QOS_CTL_TID_MASK;
 	if (status->flag & RX_FLAG_8023)
 		goto skip_hdr_check;
@@ -1449,6 +1484,10 @@ void mt76_check_ccmp_pn(struct sk_buff *skb)
 			return;
 	}
 
+	/* group state has no counter for Management frames */
+	if (ieee80211_is_mgmt(hdr->frame_control))
+		group = false;
+
 	/* IEEE 802.11-2020, 12.5.3.4.4 "PN and replay detection" c):
 	 *
 	 * the recipient shall maintain a single replay counter for received
@@ -1460,15 +1499,25 @@ void mt76_check_ccmp_pn(struct sk_buff *skb)
 		security_idx = IEEE80211_NUM_TIDS;
 
 skip_hdr_check:
+	/* the links of an MLD peer share one PN space per pairwise key */
+	if (group)
+		rx_pn = mt76_rx_group_pn(status, security_idx);
+	else if (wcid->rx_check_pn)
+		rx_pn = mt76_wcid_primary(wcid)->rx_key_pn[security_idx];
+	else
+		return;
+	if (!rx_pn)
+		return;
+
 	BUILD_BUG_ON(sizeof(status->iv) != sizeof(wcid->rx_key_pn[0]));
-	ret = memcmp(status->iv, pn_wcid->rx_key_pn[security_idx],
-		     sizeof(status->iv));
+	BUILD_BUG_ON(sizeof(status->iv) != sizeof(wcid->rx_group_pn->pn[0][0]));
+	ret = memcmp(status->iv, rx_pn, sizeof(status->iv));
 	if (ret <= 0) {
 		status->flag |= RX_FLAG_ONLY_MONITOR;
 		return;
 	}
 
-	memcpy(pn_wcid->rx_key_pn[security_idx], status->iv, sizeof(status->iv));
+	memcpy(rx_pn, status->iv, sizeof(status->iv));
 
 	if (status->flag & RX_FLAG_IV_STRIPPED)
 		status->flag |= RX_FLAG_PN_VALIDATED;

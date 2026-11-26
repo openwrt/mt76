@@ -392,6 +392,11 @@ DECLARE_EWMA(signal, 10, 8);
 #define MT_WCID_TX_INFO_TXPWR_ADJ	GENMASK(25, 18)
 #define MT_WCID_TX_INFO_SET		BIT(31)
 
+struct mt76_rx_group_pn {
+	u8 key_mask;
+	u8 pn[4][IEEE80211_NUM_TIDS][6];
+};
+
 struct mt76_wcid {
 	struct mt76_rx_tid __rcu *aggr[IEEE80211_NUM_TIDS];
 
@@ -419,6 +424,7 @@ struct mt76_wcid {
 
 	u8 rx_check_pn;
 	u8 rx_key_pn[IEEE80211_NUM_TIDS + 1][6];
+	struct mt76_rx_group_pn *rx_group_pn;
 	u16 cipher;
 
 	u32 tx_info;
@@ -791,7 +797,8 @@ struct mt76_rx_status {
 		} eht;
 	};
 
-	u8 amsdu:1, first_amsdu:1, last_amsdu:1, skip_pn_check:1;
+	u8 amsdu:1, first_amsdu:1, last_amsdu:1, skip_pn_check:1, group:1,
+	   key_id:2;
 	u8 rate_idx;
 	u8 nss:5, band:3;
 	u8 chains;
@@ -869,6 +876,7 @@ struct mt76_vif_link {
 	struct ieee80211_chanctx_conf *ctx;
 	struct mt76_wcid *wcid;
 	struct mt76_vif_data *mvif;
+	struct mt76_rx_group_pn rx_group_pn;
 	struct rcu_head rcu_head;
 };
 
@@ -1665,6 +1673,22 @@ mt76_wcid_key_link_setup(struct mt76_wcid *wcid,
 		return;
 
 	wcid->rx_check_pn = key && mt76_key_has_rx_pn(key);
+}
+
+static inline void
+mt76_wcid_rx_group_pn_set(struct mt76_wcid *wcid, struct ieee80211_vif *vif,
+			  struct mt76_rx_group_pn *group_pn)
+{
+	wcid->rx_group_pn = vif->type == NL80211_IFTYPE_STATION ? group_pn : NULL;
+}
+
+static inline struct mt76_wcid *
+mt76_rx_group_wcid(struct mt76_wcid *wcid)
+{
+	if (!wcid || wcid->sta || !wcid->rx_group_pn)
+		return NULL;
+
+	return wcid;
 }
 
 void mt76_wcid_key_setup(struct mt76_dev *dev, struct mt76_wcid *wcid,
