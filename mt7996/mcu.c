@@ -123,6 +123,17 @@ mt7996_mcu_get_sta_nss(u16 mcs_map)
 	return nss ? nss - 1 : 0;
 }
 
+static const struct ieee80211_sta_he_cap *
+mt7996_mcu_get_he_phy_cap(struct mt7996_phy *phy, struct ieee80211_vif *vif)
+{
+	struct ieee80211_supported_band *sband;
+	struct mt76_phy *mphy = phy->mt76;
+
+	sband = mphy->hw->wiphy->bands[mphy->chandef.chan->band];
+
+	return ieee80211_get_he_iftype_cap(sband, vif->type);
+}
+
 static void
 mt7996_mcu_set_sta_he_mcs(struct ieee80211_link_sta *link_sta,
 			  struct mt7996_vif_link *link,
@@ -1180,7 +1191,7 @@ mt7996_mcu_bss_he_tlv(struct sk_buff *skb, struct ieee80211_vif *vif,
 	struct bss_info_uni_he *he;
 	struct tlv *tlv;
 
-	cap = mt76_connac_get_he_phy_cap(phy->mt76, vif);
+	cap = mt7996_mcu_get_he_phy_cap(phy, vif);
 	if (!cap)
 		return;
 
@@ -2130,7 +2141,7 @@ mt7996_mcu_sta_bfer_he(struct ieee80211_link_sta *link_sta,
 	const struct ieee80211_sta_he_cap *vc;
 	u8 snd_dim, sts;
 
-	vc = mt76_connac_get_he_phy_cap(phy->mt76, vif);
+	vc = mt7996_mcu_get_he_phy_cap(phy, vif);
 	if (!vc)
 		return;
 
