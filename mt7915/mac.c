@@ -61,7 +61,7 @@ static struct mt76_wcid *mt7915_rx_get_wcid(struct mt7915_dev *dev,
 		return wcid;
 
 	if (!wcid->sta)
-		return NULL;
+		return mt76_rx_group_wcid(wcid);
 
 	sta = container_of(wcid, struct mt7915_sta, wcid);
 	if (!sta->vif)
@@ -314,6 +314,8 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 		status->flag |= RX_FLAG_ONLY_MONITOR;
 
 	unicast = FIELD_GET(MT_RXD3_NORMAL_ADDR_TYPE, rxd3) == MT_RXD3_NORMAL_U2M;
+	status->group = !unicast;
+	status->key_id = FIELD_GET(MT_RXD1_NORMAL_KEY_ID, rxd1);
 	idx = FIELD_GET(MT_RXD1_NORMAL_WLAN_IDX, rxd1);
 	status->wcid = mt7915_rx_get_wcid(dev, idx, unicast);
 
