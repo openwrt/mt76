@@ -250,6 +250,7 @@ struct mt792x_vif {
 
 	struct mt792x_phy *phy;
 	bool roc_join_held; /* join ROC kept until the STA is authorized */
+	bool gtk_rekey_offload;
 	u16 valid_links;
 	u8 deflink_id;
 	enum mt792x_mlo_pm_state mlo_pm_state;
@@ -622,6 +623,9 @@ void mt792x_unassign_vif_chanctx(struct ieee80211_hw *hw,
 				 struct ieee80211_bss_conf *link_conf,
 				 struct ieee80211_chanctx_conf *ctx);
 void mt792x_set_wakeup(struct ieee80211_hw *hw, bool enabled);
+void mt792x_rx_group_pn_reset_iter(void *priv, u8 *mac,
+				   struct ieee80211_vif *vif);
+void mt792x_rx_group_pn_forget(struct ieee80211_vif *vif);
 void mt792x_get_et_strings(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			   u32 sset, u8 *data);
 int mt792x_get_et_sset_count(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
