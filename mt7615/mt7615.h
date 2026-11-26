@@ -142,6 +142,7 @@ struct mt7615_vif {
 	struct mt76_vif_link mt76; /* must be first */
 	struct mt7615_sta sta;
 	bool sta_added;
+	bool gtk_rekey_offload;
 };
 
 struct mib_stats {
