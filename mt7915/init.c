@@ -1306,6 +1306,13 @@ static void mt7915_stop_hardware(struct mt7915_dev *dev)
 		mt7986_wmac_disable(dev);
 }
 
+static void mt7915_set_hw_init_done(struct mt7915_dev *dev, bool done)
+{
+	spin_lock_bh(&dev->mt76.lock);
+	dev->recovery.hw_init_done = done;
+	spin_unlock_bh(&dev->mt76.lock);
+}
+
 int mt7915_register_device(struct mt7915_dev *dev)
 {
 	struct mt7915_phy *phy2;
@@ -1357,7 +1364,7 @@ int mt7915_register_device(struct mt7915_dev *dev)
 
 	ieee80211_queue_work(mt76_hw(dev), &dev->init_work);
 
-	dev->recovery.hw_init_done = true;
+	mt7915_set_hw_init_done(dev, true);
 
 	ret = mt7915_init_debugfs(&dev->phy);
 	if (ret)
@@ -1370,6 +1377,10 @@ int mt7915_register_device(struct mt7915_dev *dev)
 	return 0;
 
 unreg_ext_phy:
+	mt7915_set_hw_init_done(dev, false);
+	cancel_work_sync(&dev->init_work);
+	cancel_work_sync(&dev->dump_work);
+	cancel_work_sync(&dev->reset_work);
 	if (phy2) {
 		mt7915_unregister_ext_phy(dev);
 		phy2 = NULL;
@@ -1388,6 +1399,7 @@ free_phy2:
 
 void mt7915_unregister_device(struct mt7915_dev *dev)
 {
+	mt7915_set_hw_init_done(dev, false);
 	cancel_work_sync(&dev->dump_work);
 	cancel_work_sync(&dev->reset_work);
 	cancel_work_sync(&dev->rc_work);
