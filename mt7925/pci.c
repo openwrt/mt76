@@ -981,7 +981,7 @@ static void mt7925_coredump(struct device *dev)
 	struct mt792x_dev *dev_792x = container_of(mdev, struct mt792x_dev, mt76);
 
 	mt792x_mutex_acquire(dev_792x);
-	mt7925_mcu_chip_config(dev_792x, "assert");
+	mt792x_mcu_chip_config(dev_792x, "assert");
 	mt792x_mutex_release(dev_792x);
 }
 
