@@ -164,7 +164,7 @@ static u32 mt7615_rmw(struct mt76_dev *mdev, u32 offset, u32 mask, u32 val)
 }
 
 int mt7615_mmio_probe(struct device *pdev, void __iomem *mem_base,
-		      int irq, const u32 *map)
+		      int irq, const u32 *map, bool is_mt7663_pci)
 {
 	static const struct mt76_driver_ops drv_ops = {
 		/* txwi_size = txd size + txp size */
@@ -203,6 +203,7 @@ int mt7615_mmio_probe(struct device *pdev, void __iomem *mem_base,
 	tasklet_setup(&mdev->irq_tasklet, mt7615_irq_tasklet);
 
 	dev->reg_map = map;
+	dev->is_mt7663_pci = is_mt7663_pci;
 	dev->ops = ops;
 	mdev->rev = (mt76_rr(dev, MT_HW_CHIPID) << 16) |
 		    (mt76_rr(dev, MT_HW_REV) & 0xff);
