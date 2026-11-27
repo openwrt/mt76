@@ -148,6 +148,17 @@ static void mt76x02_tx_worker(struct mt76_worker *w)
 	mt76_txq_schedule_all(&dev->mphy);
 }
 
+static void mt76x02_clean_tx_queue(struct mt76x02_dev *dev,
+				   struct mt76_queue *q)
+{
+	/* An idle queue has nothing to clean up: skip the read of its DMA
+	 * index over the bus. A queue that drains to empty is still cleaned
+	 * up, which wakes the waiters on tx_wait.
+	 */
+	if (q && READ_ONCE(q->queued))
+		mt76_queue_tx_cleanup(dev, q, false);
+}
+
 static int mt76x02_poll_tx(struct napi_struct *napi, int budget)
 {
 	struct mt76x02_dev *dev = container_of(napi, struct mt76x02_dev,
@@ -156,16 +167,16 @@ static int mt76x02_poll_tx(struct napi_struct *napi, int budget)
 
 	mt76x02_mac_poll_tx_status(dev, false);
 
-	mt76_queue_tx_cleanup(dev, dev->mt76.q_mcu[MT_MCUQ_WM], false);
+	mt76x02_clean_tx_queue(dev, dev->mt76.q_mcu[MT_MCUQ_WM]);
 	for (i = MT_TXQ_PSD; i >= 0; i--)
-		mt76_queue_tx_cleanup(dev, dev->mphy.q_tx[i], false);
+		mt76x02_clean_tx_queue(dev, dev->mphy.q_tx[i]);
 
 	if (napi_complete_done(napi, 0))
 		mt76x02_irq_enable(dev, MT_INT_TX_DONE_ALL);
 
-	mt76_queue_tx_cleanup(dev, dev->mt76.q_mcu[MT_MCUQ_WM], false);
+	mt76x02_clean_tx_queue(dev, dev->mt76.q_mcu[MT_MCUQ_WM]);
 	for (i = MT_TXQ_PSD; i >= 0; i--)
-		mt76_queue_tx_cleanup(dev, dev->mphy.q_tx[i], false);
+		mt76x02_clean_tx_queue(dev, dev->mphy.q_tx[i]);
 
 	mt76_worker_schedule(&dev->mt76.tx_worker);
 
