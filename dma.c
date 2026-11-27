@@ -444,7 +444,8 @@ mt76_dma_tx_cleanup(struct mt76_dev *dev, struct mt76_queue *q, bool flush)
 				mt76_put_txwi(dev, entry.txwi);
 		}
 
-		if (!flush && q->tail == last)
+		if (!flush && q->tail == last &&
+		    !(dev->drv->drv_flags & MT_DRV_TX_NO_REREAD))
 			last = mt76_dma_read_dma_idx(q, -1);
 	}
 	spin_unlock_bh(&q->cleanup_lock);
