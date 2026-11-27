@@ -290,6 +290,11 @@ static int mt7925_chip_reset(void *data, u64 val)
 
 DEFINE_DEBUGFS_ATTRIBUTE(fops_reset, NULL, mt7925_chip_reset, "%lld\n");
 
+DEFINE_DEBUGFS_ATTRIBUTE(fops_perf_ind_trig, NULL, mt792x_perf_ind_trig, "%lld\n");
+
+DEFINE_DEBUGFS_ATTRIBUTE(fops_perf_ind_enable, mt792x_perf_ind_enable_get,
+			 mt792x_perf_ind_enable_set, "%lld\n");
+
 int mt7925_init_debugfs(struct mt792x_dev *dev)
 {
 	struct dentry *dir;
@@ -316,6 +321,14 @@ int mt7925_init_debugfs(struct mt792x_dev *dev)
 	debugfs_create_devm_seqfile(dev->mt76.dev, "runtime_pm_stats", dir,
 				    mt792x_pm_stats);
 	debugfs_create_file("deep-sleep", 0600, dir, dev, &fops_ds);
+
+	/* PERF_IND is supported on MT7928 PCIe version */
+	if (mt76_is_mmio(&dev->mt76) && is_mt7928(&dev->mt76)) {
+		debugfs_create_file("perf_ind_enable", 0600, dir, dev,
+				    &fops_perf_ind_enable);
+		debugfs_create_file("perf_ind_trig", 0200, dir, dev,
+				    &fops_perf_ind_trig);
+	}
 
 	return 0;
 }

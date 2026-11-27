@@ -368,6 +368,178 @@ int mt792x_get_stats(struct ieee80211_hw *hw,
 }
 EXPORT_SYMBOL_GPL(mt792x_get_stats);
 
+static int mt792x_mcu_set_perf_ind(struct mt792x_dev *dev, u32 valid_period,
+				   const u64 *tx_bytes, const u64 *rx_bytes)
+{
+	struct mt76_connac_perf_ind req = {};
+
+	mt76_connac_perf_ind_v1_fill(&req, valid_period, tx_bytes, rx_bytes);
+
+	return mt76_mcu_send_msg(&dev->mt76, MCU_CE_CMD(PERF_IND),
+				 &req, sizeof(req), false);
+}
+
+static int mt792x_mcu_perf_ind(struct mt792x_dev *dev, u32 valid_period,
+			       const u64 *tx_bytes, const u64 *rx_bytes)
+{
+	if (is_connac3(&dev->mt76))
+		return mt76_connac_mcu_uni_set_perf_ind(&dev->mt76, valid_period,
+							tx_bytes, rx_bytes);
+
+	return mt792x_mcu_set_perf_ind(dev, valid_period, tx_bytes, rx_bytes);
+}
+
+static bool mt792x_perf_vif_active(struct ieee80211_vif *vif)
+{
+	return vif->cfg.assoc;
+}
+
+struct mt792x_perf_iter_data {
+	u64 tx_delta[MT792x_MAX_INTERFACES];
+	u64 rx_delta[MT792x_MAX_INTERFACES];
+	bool connected;
+};
+
+static void mt792x_perf_collect_iter(void *priv, u8 *mac,
+				     struct ieee80211_vif *vif)
+{
+	struct mt792x_perf_iter_data *data = priv;
+	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
+	struct mt792x_bss_conf *mconf = &mvif->bss_conf;
+	u8 idx = mconf->mt76.idx;
+	u64 tx, rx, last_tx, last_rx;
+
+	if (!mt792x_perf_vif_active(vif) || idx >= MT792x_MAX_INTERFACES)
+		return;
+
+	data->connected = true;
+
+	tx = atomic64_read(&mconf->perf_tx_bytes);
+	if (!tx) {
+		data->tx_delta[idx] = 0;
+	} else {
+		last_tx = mconf->perf_last_tx_bytes;
+		data->tx_delta[idx] = tx <= last_tx ? 0 : tx - last_tx;
+		mconf->perf_last_tx_bytes = tx;
+	}
+
+	rx = atomic64_read(&mconf->perf_rx_bytes);
+	if (!rx) {
+		data->rx_delta[idx] = 0;
+	} else {
+		last_rx = mconf->perf_last_rx_bytes;
+		data->rx_delta[idx] = rx <= last_rx ? 0 : rx - last_rx;
+		mconf->perf_last_rx_bytes = rx;
+	}
+}
+
+static void mt792x_perf_active_iter(void *priv, u8 *mac,
+				    struct ieee80211_vif *vif)
+{
+	bool *active = priv;
+
+	if (mt792x_perf_vif_active(vif))
+		*active = true;
+}
+
+static bool mt792x_perf_any_connected(struct mt792x_dev *dev)
+{
+	bool active = false;
+
+	/* Callers can hold dev->mt76.mutex, which mt7925 interface iterators
+	 * take while iflist_mtx is held.
+	 */
+	ieee80211_iterate_active_interfaces_atomic(dev->mphy.hw,
+						   IEEE80211_IFACE_ITER_NORMAL,
+						   mt792x_perf_active_iter,
+						   &active);
+	return active;
+}
+
+void mt792x_perf_ind_update(struct mt792x_dev *dev, struct ieee80211_vif *vif,
+			    unsigned long delay)
+{
+	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
+
+	/* Reset snapshots so a future re-association starts clean */
+	if (!mt792x_perf_vif_active(vif)) {
+		atomic64_set(&mvif->bss_conf.perf_tx_bytes, 0);
+		atomic64_set(&mvif->bss_conf.perf_rx_bytes, 0);
+		mvif->bss_conf.perf_last_tx_bytes = 0;
+		mvif->bss_conf.perf_last_rx_bytes = 0;
+	}
+
+	if (!mt76_is_mmio(&dev->mt76))
+		return;
+
+	if (mt792x_perf_any_connected(dev))
+		queue_delayed_work(dev->mt76.wq, &dev->perf.work, delay);
+	else
+		cancel_delayed_work(&dev->perf.work);
+}
+EXPORT_SYMBOL_GPL(mt792x_perf_ind_update);
+
+static void mt792x_perf_work(struct work_struct *work)
+{
+	struct mt792x_dev *dev = container_of(work, struct mt792x_dev,
+					      perf.work.work);
+	struct mt792x_perf_iter_data data = {};
+
+	/* not enabled */
+	if (!dev->perf.enabled)
+		return;
+
+	/* skip while asleep */
+	if (!mt76_connac_pm_ref(&dev->mphy, &dev->pm))
+		goto reschedule;
+
+	ieee80211_iterate_active_interfaces(dev->mphy.hw,
+					    IEEE80211_IFACE_ITER_NORMAL,
+					    mt792x_perf_collect_iter, &data);
+
+	if (data.connected)
+		mt792x_mcu_perf_ind(dev, MT792x_PERF_UPDATE_PERIOD,
+				    data.tx_delta, data.rx_delta);
+
+	mt76_connac_pm_unref(&dev->mphy, &dev->pm);
+
+reschedule:
+	if (mt792x_perf_any_connected(dev))
+		queue_delayed_work(dev->mt76.wq, &dev->perf.work,
+				   MT792x_PERF_IND_TIME);
+}
+
+void mt792x_perf_ind_init(struct mt792x_dev *dev)
+{
+	INIT_DELAYED_WORK(&dev->perf.work, mt792x_perf_work);
+}
+EXPORT_SYMBOL_GPL(mt792x_perf_ind_init);
+
+void mt792x_perf_ind_resched(struct mt792x_dev *dev)
+{
+	if (mt792x_perf_any_connected(dev))
+		queue_delayed_work(dev->mt76.wq, &dev->perf.work,
+				   MT792x_PERF_IND_TIME);
+}
+EXPORT_SYMBOL_GPL(mt792x_perf_ind_resched);
+
+int mt792x_perf_ind_trigger(struct mt792x_dev *dev, u64 val)
+{
+	u64 bytes[MT792x_MAX_INTERFACES];
+	int i, ret;
+
+	for (i = 0; i < MT792x_MAX_INTERFACES; i++)
+		bytes[i] = val;
+
+	/* wake the chip and serialize against other MCU commands */
+	mt792x_mutex_acquire(dev);
+	ret = mt792x_mcu_perf_ind(dev, MT792x_PERF_UPDATE_PERIOD, bytes, bytes);
+	mt792x_mutex_release(dev);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mt792x_perf_ind_trigger);
+
 u64 mt792x_get_tsf(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 {
 	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;

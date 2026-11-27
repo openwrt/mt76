@@ -733,6 +733,10 @@ static void mt7921_bss_info_changed(struct ieee80211_hw *hw,
 		mt7921_mcu_set_beacon_filter(dev, vif, vif->cfg.assoc);
 		if (!vif->cfg.assoc)
 			mt792x_rx_group_pn_forget(vif);
+
+		/* PERF_IND is supported on MT7922 only within this family */
+		if (is_mt7922(&dev->mt76))
+			mt792x_perf_ind_update(dev, vif, MT792x_PERF_IND_TIME);
 	}
 
 	if (changed & BSS_CHANGED_ARP_FILTER) {

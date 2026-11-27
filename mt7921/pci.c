@@ -68,6 +68,8 @@ static void mt7921e_unregister_device(struct mt792x_dev *dev)
 		netif_napi_del(&dev->mt76.napi[i]);
 	}
 	skb_queue_purge(&dev->phy.scan_event_list);
+	if (is_mt7922(&dev->mt76))
+		cancel_delayed_work_sync(&dev->perf.work);
 	cancel_delayed_work_sync(&dev->coredump.work);
 	skb_queue_purge(&dev->coredump.msg_list);
 
@@ -455,6 +457,15 @@ static int mt7921_pci_probe(struct pci_dev *pdev,
 	if (ret)
 		goto err_free_irq;
 
+	/* PERF_IND is only supported on MT7922 in this family;
+	 * MT7921 opts out.
+	 * The periodic indication itself is started on association.
+	 */
+	if (is_mt7922(&dev->mt76)) {
+		dev->perf.enabled = true;
+		mt792x_perf_ind_init(dev);
+	}
+
 	if (of_property_read_bool(dev->mt76.dev->of_node, "wakeup-source"))
 		device_init_wakeup(dev->mt76.dev, true);
 
@@ -494,6 +505,8 @@ static int mt7921_pci_suspend(struct device *device)
 
 	pm->suspended = true;
 	flush_work(&dev->reset_work);
+	if (is_mt7922(&dev->mt76))
+		cancel_delayed_work_sync(&dev->perf.work);
 	cancel_delayed_work_sync(&pm->ps_work);
 	cancel_work_sync(&pm->wake_work);
 
@@ -617,6 +630,10 @@ static int mt7921_pci_resume(struct device *device)
 
 	mt7921_mcu_regd_update(dev, mdev->alpha2, dev->country_ie_env);
 	err = mt7921_mcu_radio_led_ctrl(dev, EXT_CMD_RADIO_ON_LED);
+
+	/* re-arm the periodic performance indication if any bss is connected */
+	if (is_mt7922(&dev->mt76))
+		mt792x_perf_ind_resched(dev);
 failed:
 	pm->suspended = false;
 

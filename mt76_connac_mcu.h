@@ -1357,6 +1357,7 @@ enum {
 	MCU_UNI_CMD_PP = 0x38,
 	MCU_UNI_CMD_FIXED_RATE_TABLE = 0x40,
 	MCU_UNI_CMD_RSSI_MONITOR = 0x41,
+	MCU_UNI_CMD_PERF_IND = 0x44,
 	MCU_UNI_CMD_TESTMODE_CTRL = 0x46,
 	MCU_UNI_CMD_NAN	= 0x56,
 	MCU_UNI_CMD_RRO = 0x57,
@@ -1407,6 +1408,7 @@ enum {
 	MCU_CE_CMD_SET_RATE_TX_POWER = 0x5d,
 	MCU_CE_CMD_SCHED_SCAN_ENABLE = 0x61,
 	MCU_CE_CMD_SCHED_SCAN_REQ = 0x62,
+	MCU_CE_CMD_PERF_IND = 0x7e,
 	MCU_CE_CMD_GET_NIC_CAPAB = 0x8a,
 	MCU_CE_CMD_RSSI_MONITOR = 0xa1,
 	MCU_CE_CMD_SET_MU_EDCA_PARMS = 0xb0,
@@ -1472,6 +1474,10 @@ enum UNI_ALL_STA_INFO_TAG {
 
 enum {
 	UNI_CHIP_CONFIG_CHIP_CFG = 2,
+};
+
+enum {
+	UNI_PERF_IND_PARM = 0,
 };
 
 enum {
@@ -1886,6 +1892,51 @@ struct mt76_connac_config {
 	u8 data[320];
 } __packed;
 
+struct mt76_connac_perf_ind {
+	/* DW0 - common info*/
+	u8 cmd_ver;
+	u8 mask; /* per-field valid bitmap */
+	__le16 cmd_len;
+
+	/* DW1 - valid period of the stats */
+	__le32 valid_period;
+
+	/* DW2~15 - stats */
+	__le32 cur_tx_bytes[4];
+	__le32 cur_rx_bytes[4];
+	__le16 cur_rx_rate[4];
+	u8 cur_rx_rcpi0[4];
+	u8 cur_rx_rcpi1[4];
+	u8 cur_rx_nss[4];
+	u8 cur_rx_nss2[4];
+
+	/* DW16-77 padding */
+	__le32 pad[62];
+} __packed;
+
+struct mt76_connac_uni_perf_ind {
+	u8 rsv[4];
+	__le16 tag;
+	__le16 len;
+	struct mt76_connac_perf_ind perf;
+} __packed;
+
+static inline void
+mt76_connac_perf_ind_v1_fill(struct mt76_connac_perf_ind *perf, u32 valid_period,
+			     const u64 *tx_bytes, const u64 *rx_bytes)
+{
+	int i;
+
+	perf->mask = BIT(0) | BIT(1);
+	perf->cmd_len = cpu_to_le16(sizeof(*perf));
+	perf->valid_period = cpu_to_le32(valid_period);
+
+	for (i = 0; i < ARRAY_SIZE(perf->cur_tx_bytes); i++) {
+		perf->cur_tx_bytes[i] = cpu_to_le32(tx_bytes[i]);
+		perf->cur_rx_bytes[i] = cpu_to_le32(rx_bytes[i]);
+	}
+}
+
 struct mt76_connac_mcu_uni_event {
 	u8 cid;
 	u8 pad[3];
@@ -2086,6 +2137,8 @@ int mt76_connac_mcu_sta_cmd(struct mt76_phy *phy,
 void mt76_connac_mcu_beacon_loss_iter(void *priv, u8 *mac,
 				      struct ieee80211_vif *vif);
 int mt76_connac_mcu_set_rts_thresh(struct mt76_dev *dev, u32 val, u8 band);
+int mt76_connac_mcu_uni_set_perf_ind(struct mt76_dev *dev, u32 valid_period,
+				     const u64 *tx_bytes, const u64 *rx_bytes);
 int mt76_connac_mcu_set_mac_enable(struct mt76_dev *dev, int band, bool enable,
 				   bool hdr_trans);
 int mt76_connac_mcu_init_download(struct mt76_dev *dev, u32 addr, u32 len,

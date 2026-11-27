@@ -262,6 +262,11 @@ mt7921s_sched_quota_read(struct seq_file *s, void *data)
 	return 0;
 }
 
+DEFINE_DEBUGFS_ATTRIBUTE(fops_perf_ind_trig, NULL, mt792x_perf_ind_trig, "%lld\n");
+
+DEFINE_DEBUGFS_ATTRIBUTE(fops_perf_ind_enable, mt792x_perf_ind_enable_get,
+			 mt792x_perf_ind_enable_set, "%lld\n");
+
 int mt7921_init_debugfs(struct mt792x_dev *dev)
 {
 	struct dentry *dir;
@@ -291,5 +296,14 @@ int mt7921_init_debugfs(struct mt792x_dev *dev)
 	if (mt76_is_sdio(&dev->mt76))
 		debugfs_create_devm_seqfile(dev->mt76.dev, "sched-quota", dir,
 					    mt7921s_sched_quota_read);
+
+	/* PERF_IND is supported on MT7922 PCIe version */
+	if (mt76_is_mmio(&dev->mt76) && is_mt7922(&dev->mt76)) {
+		debugfs_create_file("perf_ind_enable", 0600, dir, dev,
+				    &fops_perf_ind_enable);
+		debugfs_create_file("perf_ind_trig", 0200, dir, dev,
+				    &fops_perf_ind_trig);
+	}
+
 	return 0;
 }

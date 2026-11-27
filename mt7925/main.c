@@ -2479,6 +2479,10 @@ static void mt7925_vif_cfg_changed(struct ieee80211_hw *hw,
 
 		if (ieee80211_vif_is_mld(vif))
 			mvif->mlo_pm_state = MT792x_MLO_LINK_ASSOC;
+
+		/* PERF_IND is supported on MT7928 only within this family */
+		if (is_mt7928(&dev->mt76))
+			mt792x_perf_ind_update(dev, vif, MT792x_PERF_IND_TIME);
 	}
 
 	if (changed & BSS_CHANGED_ARP_FILTER) {

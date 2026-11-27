@@ -120,6 +120,8 @@ static void mt7925e_unregister_device(struct mt792x_dev *dev)
 	mt76_unregister_device(&dev->mt76);
 	set_bit(MT76_REMOVED, &dev->mphy.state);
 	cancel_work_sync(&dev->reset_work);
+	if (is_mt7928(&dev->mt76))
+		cancel_delayed_work_sync(&dev->perf.work);
 	mt792x_reset_vif_work_cancel(dev);
 	mt76_for_each_q_rx(&dev->mt76, i)
 		napi_disable(&dev->mt76.napi[i]);
@@ -779,6 +781,15 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
 	if (ret)
 		goto err_free_dma;
 
+	/* PERF_IND is only supported on MT7928 in this family;
+	 * MT7925 and MT7927 opt out.
+	 * The periodic indication itself is started on association.
+	 */
+	if (is_mt7928(&dev->mt76)) {
+		dev->perf.enabled = true;
+		mt792x_perf_ind_init(dev);
+	}
+
 	return 0;
 
 err_free_dma:
@@ -815,6 +826,8 @@ static int mt7925_pci_suspend(struct device *device)
 	pm->suspended = true;
 	dev->hif_resumed = false;
 	flush_work(&dev->reset_work);
+	if (is_mt7928(&dev->mt76))
+		cancel_delayed_work_sync(&dev->perf.work);
 	cancel_delayed_work_sync(&pm->ps_work);
 	cancel_delayed_work_sync(&dev->mlo_pm_work);
 	cancel_work_sync(&pm->wake_work);
@@ -950,6 +963,10 @@ static int _mt7925_pci_resume(struct device *device, bool restore)
 		mt7925_mcu_set_deep_sleep(dev, false);
 
 	mt7925_mcu_regd_update(dev, mdev->alpha2, dev->country_ie_env);
+
+	/* re-arm the periodic performance indication if any bss is connected */
+	if (is_mt7928(&dev->mt76))
+		mt792x_perf_ind_resched(dev);
 failed:
 	pm->suspended = false;
 

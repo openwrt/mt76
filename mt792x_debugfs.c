@@ -166,3 +166,37 @@ int mt792x_pm_idle_timeout_get(void *data, u64 *val)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mt792x_pm_idle_timeout_get);
+
+/* send one perf_ind carrying the written value in every tx/rx byte field */
+int mt792x_perf_ind_trig(void *data, u64 val)
+{
+	struct mt76_dev *mdev = data;
+	struct mt792x_dev *dev = container_of(mdev, struct mt792x_dev, mt76);
+
+	return mt792x_perf_ind_trigger(dev, val);
+}
+EXPORT_SYMBOL_GPL(mt792x_perf_ind_trig);
+
+int mt792x_perf_ind_enable_get(void *data, u64 *val)
+{
+	struct mt76_dev *mdev = data;
+	struct mt792x_dev *dev = container_of(mdev, struct mt792x_dev, mt76);
+
+	*val = dev->perf.enabled;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt792x_perf_ind_enable_get);
+
+int mt792x_perf_ind_enable_set(void *data, u64 val)
+{
+	struct mt76_dev *mdev = data;
+	struct mt792x_dev *dev = container_of(mdev, struct mt792x_dev, mt76);
+
+	dev->perf.enabled = !!val;
+	if (dev->perf.enabled)
+		mt792x_perf_ind_resched(dev);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt792x_perf_ind_enable_set);

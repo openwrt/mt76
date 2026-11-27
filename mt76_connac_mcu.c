@@ -272,6 +272,21 @@ int mt76_connac_mcu_set_rts_thresh(struct mt76_dev *dev, u32 val, u8 band)
 }
 EXPORT_SYMBOL_GPL(mt76_connac_mcu_set_rts_thresh);
 
+int mt76_connac_mcu_uni_set_perf_ind(struct mt76_dev *dev, u32 valid_period,
+				     const u64 *tx_bytes, const u64 *rx_bytes)
+{
+	struct mt76_connac_uni_perf_ind req = {
+		.tag = cpu_to_le16(UNI_PERF_IND_PARM),
+		.len = cpu_to_le16(sizeof(req) - sizeof(req.rsv)),
+	};
+
+	mt76_connac_perf_ind_v1_fill(&req.perf, valid_period, tx_bytes, rx_bytes);
+
+	return mt76_mcu_send_msg(dev, MCU_UNI_CMD(PERF_IND), &req,
+				 sizeof(req), false);
+}
+EXPORT_SYMBOL_GPL(mt76_connac_mcu_uni_set_perf_ind);
+
 void mt76_connac_mcu_beacon_loss_iter(void *priv, u8 *mac,
 				      struct ieee80211_vif *vif)
 {
